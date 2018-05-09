@@ -1,7 +1,7 @@
 import os
 import h5py
 import ruamel.yaml as yaml
-import numpy as np
+
 
 def recursive_find_h5s(root_dir=os.getcwd(),
                        ext='.h5',

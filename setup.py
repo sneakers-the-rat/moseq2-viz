@@ -9,5 +9,5 @@ setup(
     install_requires=['tqdm', 'matplotlib', 'click', 'ruamel.yaml',
                       'seaborn', 'opencv-python'],
     python_requires='>=3.6',
-    entry_points={'console_scripts': ['moseq2-pca = moseq2_pca.cli:cli']}
+    entry_points={'console_scripts': ['moseq2-viz = moseq2_viz.cli:cli']}
 )

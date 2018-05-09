@@ -1,8 +1,9 @@
 from collections import defaultdict, OrderedDict
 from copy import deepcopy
-from moseq2_viz.util import recursive_find_h5s
+from moseq2_viz.util import recursively_load_dict_contents_from_group
 import numpy as np
-import os
+import h5py
+import ruamel.yaml as yaml
 
 
 def sort_results(data, averaging=False, **kwargs):
@@ -81,21 +82,20 @@ def relabel_by_usage(labels):
 
 
 # return tuples with uuid and syllable indices
-def get_syllable_slices(syllable, labels, label_uuids, trim_nans=True,
-                        data_dir=os.getcwd(), pca_file=os.path.join(os.getcwd(), '_pca/pca_scores.h5')):
+def get_syllable_slices(syllable, labels, label_uuids, index_file, trim_nans=True):
 
-    h5s, dicts, yamls = recursive_find_h5s(data_dir)
-    h5_uuids = [d['uuid'] for d in dicts]
+    with open(index_file, 'r') as f:
+        index = yaml.Loader(f.read(), Loader=yaml.RoundTripLoader)
+
+    h5s, h5_uuids = zip(*index['files'])
 
     # grab the original indices from the pca file as well...
 
     if trim_nans:
-        with h5py.File(pca_file, 'r') as f:
-            score_idx = recursively_load_dict_contents_from_group(f,'scores_idx')
+        with h5py.File(index['pca_path'], 'r') as f:
+            score_idx = recursively_load_dict_contents_from_group(f, 'scores_idx')
 
-
-    label_to_h5_idx = [h5_uuids.index(uuid) for uuid in label_uuids]
-    sorted_h5s = [h5s[i] for i in label_to_h5_idx]
+    sorted_h5s = [h5s[h5_uuids.index(uuid)] for uuid in label_uuids]
     syllable_slices = []
 
     for label_arr, label_uuid, h5 in zip(labels, label_uuids, sorted_h5s):
@@ -117,6 +117,6 @@ def get_syllable_slices(syllable, labels, label_uuids, trim_nans=True,
 
         for i, j in breakpoints:
 
-            syllable_slices.append([(match_idx[i],match_idx[j]), label_uuid, h5])
+            syllable_slices.append([(match_idx[i], match_idx[j]), label_uuid, h5])
 
     return syllable_slices

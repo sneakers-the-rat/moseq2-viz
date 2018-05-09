@@ -12,8 +12,8 @@ def cli():
 
 @cli.command(name='generate-index')
 @click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
-@click.option('--pca-file', '-p', type=click.Path(exists=True), default=os.path.join(os.getcwd(), '_pca/pca.h5'), help='Path to PCA results')
-@click.option('--output-file', '-o', type=click.Path, default=os.path.join(os.getcwd(), 'moseq2-index.yaml'), help="Location for storing index")
+@click.option('--pca-file', '-p', type=click.Path(exists=True), default=os.path.join(os.getcwd(), '_pca/pca_scores.h5'), help='Path to PCA results')
+@click.option('--output-file', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'moseq2-index.yaml'), help="Location for storing index")
 def generate_index(input_dir, pca_file, output_file):
 
     # gather than h5s and the pca scores file

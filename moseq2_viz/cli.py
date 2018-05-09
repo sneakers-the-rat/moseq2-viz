@@ -57,6 +57,8 @@ def generate_index(input_dir, pca_file, output_file):
 def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort,
                       output_dir, filename_format):
 
+    # need to handle h5 intelligently here...
+
     if model_fit.endswith('.p') or model_fit.endswith('.pz'):
         model_fit = joblib.load(model_fit)
         labels = model_fit['labels'][0]
@@ -67,6 +69,9 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
 
         labels = label_array
         label_uuids = model_fit['keys']
+    elif model_fit.endswith('.h5'):
+        # load in h5, use index found using another function
+        pass
 
     if sort:
         labels = relabel_by_usage(labels)
@@ -84,4 +89,12 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
         crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
         write_fun = partial(write_frames_preview, depth_min=5)
         pool.starmap(write_fun, [(os.path.join(output_dir, filename_format.format(i)), crowd_matrix)
-                                 for i, crowd_matrix in enumerate(crowd_matrices)])
+                                 for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
+
+
+# TODO: usages...group comparisons...changepoints...
+
+
+# function for finding model index in h5 file, then we can pass to other functions and index simply...
+
+# map metadata onto groups

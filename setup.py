@@ -7,7 +7,7 @@ setup(
     version='0.02a',
     platforms=['mac', 'unix'],
     install_requires=['tqdm', 'matplotlib', 'click', 'ruamel.yaml',
-                      'seaborn'],
+                      'seaborn', 'opencv-python'],
     python_requires='>=3.6',
     entry_points={'console_scripts': ['moseq2-pca = moseq2_pca.cli:cli']}
 )

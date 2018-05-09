@@ -1,8 +1,16 @@
 from moseq2_viz.util import recursive_find_h5s
+from moseq2_viz.model.util import sort_results, relabel_by_usage, get_syllable_slices
+from moseq2_viz.viz import make_crowd_matrix
+from moseq2_viz.io.video import write_frames_preview
+from functools import partial
 import click
 import os
 import ruamel.yaml as yaml
 import h5py
+import multiprocessing as mp
+import numpy as np
+import joblib
+import tqdm
 
 
 @click.group()
@@ -35,3 +43,45 @@ def generate_index(input_dir, pca_file, output_file):
 
     with open(output_file, 'w') as f:
         yaml.dump(output_dict, f, Dumper=yaml.RoundTripDumper)
+
+
+@cli.command(name='make-crowd-movies')
+@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
+@click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
+@click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
+@click.option('--max-examples', '-m', type=int, default=40, help="Number of examples to show")
+@click.option('--threads', '-t', type=int, default=-1, help="Number of threads to use for rendering crowd movies")
+@click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
+@click.option('--output-dir', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'crowd_movies'), help="Path to store files")
+@click.option('--filename-format', type=str, default='syllable_{:d}.mp4', help="Python 3 string format for filenames")
+def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort,
+                      output_dir, filename_format):
+
+    if model_fit.endswith('.p') or model_fit.endswith('.pz'):
+        model_fit = joblib.load(model_fit)
+        labels = model_fit['labels'][0]
+        label_array = np.empty((len(labels),), dtype='object')
+
+        for i, label in enumerate(labels):
+            label_array[i] = np.squeeze(label)
+
+        labels = label_array
+        label_uuids = model_fit['keys']
+
+    if sort:
+        labels = relabel_by_usage(labels)
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    with mp.Pool() as pool:
+        slice_fun = partial(get_syllable_slices,
+                            labels=labels,
+                            label_uuids=label_uuids,
+                            index_file=index_file)
+        slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
+        matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=None)
+        crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
+        write_fun = partial(write_frames_preview, depth_min=5)
+        pool.starmap(write_fun, [(os.path.join(output_dir, filename_format.format(i)), crowd_matrix)
+                                 for i, crowd_matrix in enumerate(crowd_matrices)])

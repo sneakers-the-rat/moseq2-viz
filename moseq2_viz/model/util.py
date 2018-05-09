@@ -85,7 +85,7 @@ def relabel_by_usage(labels):
 def get_syllable_slices(syllable, labels, label_uuids, index_file, trim_nans=True):
 
     with open(index_file, 'r') as f:
-        index = yaml.Loader(f.read(), Loader=yaml.RoundTripLoader)
+        index = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
 
     h5s, h5_uuids = zip(*index['files'])
 
@@ -107,13 +107,13 @@ def get_syllable_slices(syllable, labels, label_uuids, index_file, trim_nans=Tru
 
             label_arr = label_arr[~np.isnan(idx)]
 
-        match_idx = np.argwhere(label_arr == syllable)
-        breakpoints = np.argwhere(np.diff(match_idx) > 1)
+        match_idx = np.where(label_arr == syllable)[0]
+        breakpoints = np.where(np.diff(match_idx, axis=0) > 1)[0]
+
         if len(breakpoints) < 1:
             continue
 
         breakpoints = zip(np.r_[0, breakpoints+1], np.r_[breakpoints, len(breakpoints)-1])
-
         for i, j in breakpoints:
             syllable_slices.append([(match_idx[i], match_idx[j]), label_uuid, h5])
 

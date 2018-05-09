@@ -16,6 +16,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(424, 512),
         use_slices = slices
 
     durs = np.array([i[1]-i[0] for i, j, k in use_slices])
+
     max_dur = durs.max()
     crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[0], raw_size[1]), dtype=dtype)
     count = 0

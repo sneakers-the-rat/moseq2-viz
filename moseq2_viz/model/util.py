@@ -101,7 +101,6 @@ def get_syllable_slices(syllable, labels, label_uuids, index_file, trim_nans=Tru
     for label_arr, label_uuid, h5 in zip(labels, label_uuids, sorted_h5s):
 
         if trim_nans:
-
             idx = score_idx[label_uuid]
             if len(idx) > len(label_arr):
                 idx = idx[:len(label_arr)]
@@ -116,7 +115,6 @@ def get_syllable_slices(syllable, labels, label_uuids, index_file, trim_nans=Tru
         breakpoints = zip(np.r_[0, breakpoints+1], np.r_[breakpoints, len(breakpoints)-1])
 
         for i, j in breakpoints:
-
             syllable_slices.append([(match_idx[i], match_idx[j]), label_uuid, h5])
 
     return syllable_slices

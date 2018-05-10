@@ -56,6 +56,7 @@ def generate_index(input_dir, pca_file, output_file):
 @click.option('--filename-format', type=str, default='syllable_{:d}.mp4', help="Python 3 string format for filenames")
 @click.option('--min-height', type=int, default=5, help="Minimum height for scaling videos")
 @click.option('--max-height', type=int, default=80, help="Minimum height for scaling videos")
+@click.option('--raw-size', type=(int, int), default=(512, 424), help="Size of original videos")
 def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort,
                       output_dir, filename_format, min_height, max_height):
 
@@ -83,6 +84,9 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
 
     vid_parameters = check_video_parameters(index_file)
 
+    if vid_parameters['resolution'] is not None:
+        raw_size = vid_parameters['resolution']
+
     with mp.Pool() as pool:
         slice_fun = partial(get_syllable_slices,
                             labels=labels,
@@ -90,7 +94,7 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
                             index_file=index_file)
         slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
         matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=None,
-                             crop_size=vid_parameters['crop_size'])
+                             crop_size=vid_parameters['crop_size'], raw_size=raw_size)
         crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=min_height,
                             depth_max=max_height)

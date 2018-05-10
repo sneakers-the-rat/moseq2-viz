@@ -66,6 +66,9 @@ def check_video_parameters(index_file):
 
     check_parameters = ['crop_size', 'fps', 'max_height', 'min_height']
 
+    if 'resolution' in list(dicts[0]['parameters'].keys()):
+        check_parameters.append('resolution')
+
     for chk in check_parameters:
         tmp_list = [dct['parameters'][chk] for dct in dicts]
         if not all(x == tmp_list[0] for x in tmp_list):
@@ -75,7 +78,12 @@ def check_video_parameters(index_file):
         'crop_size': tuple(dicts[0]['parameters']['crop_size']),
         'fps': dicts[0]['parameters']['fps'],
         'max_height': dicts[0]['parameters']['max_height'],
-        'min_height': dicts[0]['parameters']['min_height']
+        'min_height': dicts[0]['parameters']['min_height'],
+        'resolution': None
     }
+
+    if 'resolution' in check_parameters:
+        vid_parameters['resolution'] = tuple(dicts[0]['parameters']['resolution'])
+
 
     return vid_parameters

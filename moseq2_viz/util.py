@@ -61,11 +61,10 @@ def check_video_parameters(index_file):
     dicts = []
 
     for yml in ymls:
-        print(yml)
         with open(yml, 'r') as f:
             dicts.append(yaml.load(f.read(), Loader=yaml.RoundTripLoader))
 
-    check_parameters = ['crop_size', 'fps']
+    check_parameters = ['crop_size', 'fps', 'max_height', 'min_height']
 
     for chk in check_parameters:
         tmp_list = [dct['parameters'][chk] for dct in dicts]
@@ -74,7 +73,9 @@ def check_video_parameters(index_file):
 
     vid_parameters = {
         'crop_size': tuple(dicts[0]['parameters']['crop_size']),
-        'fps': dicts[0]['parameters']['fps']
+        'fps': dicts[0]['parameters']['fps'],
+        'max_height': dicts[0]['parameters']['max_height'],
+        'min_height': dicts[0]['parameters']['min_height']
     }
 
     return vid_parameters

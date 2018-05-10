@@ -54,8 +54,10 @@ def generate_index(input_dir, pca_file, output_file):
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
 @click.option('--output-dir', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'crowd_movies'), help="Path to store files")
 @click.option('--filename-format', type=str, default='syllable_{:d}.mp4', help="Python 3 string format for filenames")
+@click.option('--min-height', type=int, default=5, help="Minimum height for scaling videos")
+@click.option('--max-height', type=int, default=80, help="Minimum height for scaling videos")
 def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort,
-                      output_dir, filename_format):
+                      output_dir, filename_format, min_height, max_height):
 
     # need to handle h5 intelligently here...
 
@@ -90,7 +92,8 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
         matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=None,
                              crop_size=vid_parameters['crop_size'])
         crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
-        write_fun = partial(write_frames_preview, depth_min=5, fps=vid_parameters['fps'])
+        write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=min_height,
+                            depth_max=max_height)
         pool.starmap(write_fun, [(os.path.join(output_dir, filename_format.format(i)), crowd_matrix)
                                  for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
 

@@ -21,7 +21,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(424, 512),
 
     max_dur = durs.max()
 
-    original_dtype = h5py.File(use_slices[0][2])['frames'].dtype
+    original_dtype = h5py.File(use_slices[0][2], 'r')['frames'].dtype
     crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype=original_dtype)
     count = 0
 

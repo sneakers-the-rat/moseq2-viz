@@ -58,7 +58,7 @@ def generate_index(input_dir, pca_file, output_file):
 @click.option('--max-height', type=int, default=80, help="Minimum height for scaling videos")
 @click.option('--raw-size', type=(int, int), default=(512, 424), help="Size of original videos")
 def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort,
-                      output_dir, filename_format, min_height, max_height):
+                      output_dir, filename_format, min_height, max_height, raw_size):
 
     # need to handle h5 intelligently here...
 

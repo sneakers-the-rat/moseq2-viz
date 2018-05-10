@@ -3,6 +3,7 @@ from moseq2_viz.model.util import sort_results, relabel_by_usage, get_syllable_s
 from moseq2_viz.viz import make_crowd_matrix
 from moseq2_viz.io.video import write_frames_preview
 from functools import partial
+from sys import platform
 import click
 import os
 import ruamel.yaml as yaml
@@ -12,6 +13,9 @@ import numpy as np
 import joblib
 import tqdm
 import warnings
+
+if platform == 'linux' or platform == 'linux2':
+    os.system('taskset -p 0xff {:d}'.format(os.getpid()))
 
 @click.group()
 def cli():

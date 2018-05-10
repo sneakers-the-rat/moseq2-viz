@@ -57,8 +57,9 @@ def generate_index(input_dir, pca_file, output_file):
 @click.option('--min-height', type=int, default=5, help="Minimum height for scaling videos")
 @click.option('--max-height', type=int, default=80, help="Minimum height for scaling videos")
 @click.option('--raw-size', type=(int, int), default=(512, 424), help="Size of original videos")
+@click.option('--scale', type=float, default=1, help="Scaling from pixel units to mm")
 def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort,
-                      output_dir, filename_format, min_height, max_height, raw_size):
+                      output_dir, filename_format, min_height, max_height, raw_size, scale):
 
     # need to handle h5 intelligently here...
 
@@ -94,7 +95,7 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
                             index_file=index_file)
         slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
         matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=None,
-                             crop_size=vid_parameters['crop_size'], raw_size=raw_size)
+                             crop_size=vid_parameters['crop_size'], raw_size=raw_size, scale=scale)
         crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=min_height,
                             depth_max=max_height)

@@ -4,7 +4,7 @@ import cv2
 
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
-                      crop_size=(80, 80), dur_clip=None, offset=(50, 50)):
+                      crop_size=(80, 80), dur_clip=None, offset=(50, 50), scale=1):
 
     durs = np.array([i[1]-i[0] for i, j, k in slices])
 
@@ -21,8 +21,9 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
 
     max_dur = durs.max()
 
-    original_dtype = h5py.File(use_slices[0][2], 'r')['frames'].dtype
-    crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype=original_dtype)
+    # original_dtype = h5py.File(use_slices[0][2], 'r')['frames'].dtype
+
+    crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype='uint8')
     count = 0
 
     xc0 = crop_size[1] // 2
@@ -47,7 +48,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         centroid_y = h5['scalars/centroid_y'][use_idx[0]:use_idx[1]] + offset[1]
 
         angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
-        frames = h5['frames'][use_idx[0]:use_idx[1]]
+        frames = (h5['frames'][use_idx[0]:use_idx[1]] / scale).astype('uint8')
 
         if 'flips' in h5['metadata'].keys():
             flips = h5['metadata/flips'][use_idx[0]:use_idx[1]]

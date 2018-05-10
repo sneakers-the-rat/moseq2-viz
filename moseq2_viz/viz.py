@@ -21,7 +21,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(424, 512),
         return None
 
     max_dur = durs.max()
-    crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[0], raw_size[1]), dtype=dtype)
+    crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype=dtype)
     count = 0
 
     xc0 = crop_size[1] // 2
@@ -79,7 +79,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(424, 512),
                                        rot_mat, crop_size).astype(frames.dtype)
 
             if i > pad and i < pad + cur_len:
-                cv2.circle(new_frame, (40, 40), 3, (255, 255, 255), -1)
+                cv2.circle(new_frame, (xc0, yc0), 3, (255, 255, 255), -1)
 
             new_frame_nz = new_frame > 0
             old_frame_nz = old_frame > 0

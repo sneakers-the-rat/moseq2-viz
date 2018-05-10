@@ -83,7 +83,7 @@ def check_video_parameters(index_file):
     }
 
     if 'resolution' in check_parameters:
-        vid_parameters['resolution'] = tuple(dicts[0]['parameters']['resolution'])+100
+        vid_parameters['resolution'] = tuple(dicts[0]['parameters']['resolution'])
 
 
     return vid_parameters

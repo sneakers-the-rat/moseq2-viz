@@ -4,8 +4,7 @@ import cv2
 
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(424, 512),
-                      crop_size=(80, 80), dtype='int8', dur_clip=None,
-                      offset=(100, 100)):
+                      crop_size=(80, 80), dur_clip=None, offset=(100, 100)):
 
     durs = np.array([i[1]-i[0] for i, j, k in slices])
 
@@ -21,7 +20,9 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(424, 512),
         return None
 
     max_dur = durs.max()
-    crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype=dtype)
+
+    original_dtype = h5py.File(use_slices[2])['frames'].dtype    
+    crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype=original_dtype)
     count = 0
 
     xc0 = crop_size[1] // 2

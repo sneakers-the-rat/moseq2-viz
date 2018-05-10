@@ -1,4 +1,4 @@
-from moseq2_viz.util import recursive_find_h5s
+from moseq2_viz.util import recursive_find_h5s, check_video_parameters
 from moseq2_viz.model.util import sort_results, relabel_by_usage, get_syllable_slices
 from moseq2_viz.viz import make_crowd_matrix
 from moseq2_viz.io.video import write_frames_preview
@@ -79,15 +79,18 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
+    vid_parameters = check_video_parameters(index_file)
+
     with mp.Pool() as pool:
         slice_fun = partial(get_syllable_slices,
                             labels=labels,
                             label_uuids=label_uuids,
                             index_file=index_file)
         slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
-        matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=None)
+        matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=None,
+                             crop_size=vid_parameters['crop_size'])
         crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
-        write_fun = partial(write_frames_preview, depth_min=5)
+        write_fun = partial(write_frames_preview, depth_min=5, fps=vid_parameters['fps'])
         pool.starmap(write_fun, [(os.path.join(output_dir, filename_format.format(i)), crowd_matrix)
                                  for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
 

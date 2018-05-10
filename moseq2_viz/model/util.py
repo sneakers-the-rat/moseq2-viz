@@ -4,6 +4,7 @@ from moseq2_viz.util import recursively_load_dict_contents_from_group
 import numpy as np
 import h5py
 import ruamel.yaml as yaml
+import os
 
 
 def sort_results(data, averaging=False, **kwargs):

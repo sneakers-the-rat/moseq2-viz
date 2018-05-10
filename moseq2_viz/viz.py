@@ -4,7 +4,7 @@ import cv2
 
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
-                      crop_size=(80, 80), dur_clip=None, offset=(50, 50), scale=1):
+                      crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1):
 
     durs = np.array([i[1]-i[0] for i, j, k in slices])
 

@@ -11,7 +11,7 @@ import multiprocessing as mp
 import numpy as np
 import joblib
 import tqdm
-
+import warnings
 
 @click.group()
 def cli():
@@ -93,10 +93,17 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
                             labels=labels,
                             label_uuids=label_uuids,
                             index_file=index_file)
-        slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
+            slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
+
         matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=None,
                              crop_size=vid_parameters['crop_size'], raw_size=raw_size, scale=scale)
-        crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
+            crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
+
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=min_height,
                             depth_max=max_height)
         pool.starmap(write_fun, [(os.path.join(output_dir, filename_format.format(i)), crowd_matrix)

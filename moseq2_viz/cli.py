@@ -49,6 +49,21 @@ def generate_index(input_dir, pca_file, output_file):
         yaml.dump(output_dict, f, Dumper=yaml.RoundTripDumper)
 
 
+@cli.command(name="add-group")
+@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
+@click.option('--key', '-k', type=str, default='SubjectName', help='Key to search for value')
+@click.option('--value', '-v', type=str, default='Mouse', help='Value to search for')
+@click.option('--group', '-g', type=str, default='Group1', help='Group name to map to')
+@click.option('--exact', '-e', type=bool, is_flag=True, help='Exact match only')
+@click.option('--lowercase', type=bool, is_flag=True, help='Lowercase text filter')
+def add_group(index_file, key, value, group, exact, lowercase):
+
+    
+
+
+
+
+
 @cli.command(name='make-crowd-movies')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))

@@ -1,4 +1,4 @@
-from moseq2_viz.util import recursive_find_h5s, check_video_parameters
+from moseq2_viz.util import recursive_find_h5s, check_video_parameters, parse_index
 from moseq2_viz.model.util import sort_results, relabel_by_usage, get_syllable_slices
 from moseq2_viz.viz import make_crowd_matrix
 from moseq2_viz.io.video import write_frames_preview
@@ -13,9 +13,11 @@ import numpy as np
 import joblib
 import tqdm
 import warnings
+import re
 
 if platform == 'linux' or platform == 'linux2':
     os.system('taskset -p 0xff {:d}'.format(os.getpid()))
+
 
 @click.group()
 def cli():
@@ -36,17 +38,48 @@ def generate_index(input_dir, pca_file, output_file):
         pca_uuids = list(f['scores'].keys())
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)
-    file_uuids = [(h5, meta['uuid']) for h5, meta in zip(h5s, dicts) if meta['uuid'] in pca_uuids]
+    file_uuids = [(os.path.relpath(h5), meta['uuid']) for h5, meta in zip(h5s, dicts) if meta['uuid'] in pca_uuids]
 
     output_dict = {
         'files': file_uuids,
-        'pca_path': pca_file
+        'pca_path': os.path.relpath(pca_file)
     }
 
     # write out index yaml
 
     with open(output_file, 'w') as f:
         yaml.dump(output_dict, f, Dumper=yaml.RoundTripDumper)
+
+
+@cli.command(name="add-group")
+@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
+@click.option('--key', '-k', type=str, default='SubjectName', help='Key to search for value')
+@click.option('--value', '-v', type=str, default='Mouse', help='Value to search for')
+@click.option('--group', '-g', type=str, default='Group1', help='Group name to map to')
+@click.option('--exact', '-e', type=bool, is_flag=True, help='Exact match only')
+@click.option('--lowercase', type=bool, is_flag=True, help='Lowercase text filter')
+def add_group(index_file, key, value, group, exact, lowercase):
+
+        index, h5s, h5_uuids, dicts, metadata = parse_index(index_file, get_metadata=True)
+
+        if lowercase:
+            hits = [re.search(value, meta[key].lower()) is not None for meta in metadata]
+        else:
+            hits = [re.search(value, meta[key]) is not None for meta in metadata]
+
+        if 'groups' in list(index.keys()):
+            group_dict = index['groups']
+        else:
+            group_dict = {}
+
+        for uuid, hit in zip(h5_uuids, hits):
+            if hit:
+                group_dict[uuid] = group
+
+        index['groups'] = group_dict
+
+        with open(index_file, 'w+') as f:
+            yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
 
 
 @cli.command(name='make-crowd-movies')

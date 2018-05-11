@@ -1,6 +1,7 @@
 import numpy as np
 import h5py
 import cv2
+import seaborn as sns
 
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
@@ -103,3 +104,9 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             break
 
     return crowd_matrix
+
+
+def usage_plot(usages, groups=None):
+
+    # use a Seaborn pointplot, groups map to hue
+    # make a useful x-axis to orient the user (which side is which)

@@ -149,6 +149,17 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
 
 
 # TODO: usages...group comparisons...changepoints...
+@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
+@click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
+@click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
+@click.option('--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
+def plot_usages(index_file, model_filt, max_syllable, group):
+
+    # if the user passes multiple groups, sort and plot against each other
+
+
+
+
 
 
 # function for finding model index in h5 file, then we can pass to other functions and index simply...

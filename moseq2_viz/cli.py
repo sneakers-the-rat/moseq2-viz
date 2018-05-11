@@ -156,7 +156,7 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
 def plot_usages(index_file, model_filt, max_syllable, group):
 
     # if the user passes multiple groups, sort and plot against each other
-
+    # relabel by usage across the whole dataset, gather usages per session per group
 
 
 

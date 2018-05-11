@@ -95,8 +95,9 @@ def add_group(index_file, key, value, group, exact, lowercase):
 @click.option('--max-height', type=int, default=80, help="Minimum height for scaling videos")
 @click.option('--raw-size', type=(int, int), default=(512, 424), help="Size of original videos")
 @click.option('--scale', type=float, default=1, help="Scaling from pixel units to mm")
+@click.option('--cmap', type=str, default='jet', help="Name of valid Matplotlib colormap for false-coloring images")
 def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort,
-                      output_dir, filename_format, min_height, max_height, raw_size, scale):
+                      output_dir, filename_format, min_height, max_height, raw_size, scale, cmap):
 
     # need to handle h5 intelligently here...
 
@@ -142,7 +143,7 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
             crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
 
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=min_height,
-                            depth_max=max_height)
+                            depth_max=max_height, cmap=map)
         pool.starmap(write_fun, [(os.path.join(output_dir, filename_format.format(i)), crowd_matrix)
                                  for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
 

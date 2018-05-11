@@ -103,7 +103,7 @@ def parse_index(index_file, get_metadata=False):
             dicts.append(yaml.load(f.read(), Loader=yaml.RoundTripLoader))
 
     if get_metadata:
-        metadata = [recursively_load_dict_contents_from_group(h5py.File(h5, 'r'),'/metadata/extraction') for h5 in h5s]
+        metadata = [recursively_load_dict_contents_from_group(h5py.File(h5, 'r'), '/metadata/extraction') for h5 in h5s]
     else:
         metadata = None
 

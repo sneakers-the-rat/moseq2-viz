@@ -143,7 +143,7 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
             crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
 
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=min_height,
-                            depth_max=max_height, cmap=map)
+                            depth_max=max_height, cmap=cmap)
         pool.starmap(write_fun, [(os.path.join(output_dir, filename_format.format(i)), crowd_matrix)
                                  for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
 

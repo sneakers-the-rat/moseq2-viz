@@ -1,6 +1,8 @@
-from moseq2_viz.util import recursive_find_h5s, check_video_parameters, parse_index
-from moseq2_viz.model.util import sort_results, relabel_by_usage, get_syllable_slices
-from moseq2_viz.viz import make_crowd_matrix
+from moseq2_viz.util import recursive_find_h5s, check_video_parameters,\
+    parse_index
+from moseq2_viz.model.util import sort_results, relabel_by_usage, get_syllable_slices,\
+    results_to_dataframe, parse_model_results
+from moseq2_viz.viz import make_crowd_matrix, usage_plot
 from moseq2_viz.io.video import write_frames_preview
 from functools import partial
 from sys import platform
@@ -149,19 +151,28 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
 
 
 # TODO: usages...group comparisons...changepoints...
+@cli.command(name='plot-usages')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
 @click.option('--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
-def plot_usages(index_file, model_filt, max_syllable, group):
+@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'usages'), help="Filename to store plot")
+def plot_usages(index_file, model_fit, max_syllable, group, output_file):
 
     # if the user passes multiple groups, sort and plot against each other
     # relabel by usage across the whole dataset, gather usages per session per group
 
     # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
 
+    model_data = parse_model_results(joblib.load(model_fit))
+    index, _, _, _, _ = parse_index(index_file)
+    df, _ = results_to_dataframe(model_data, index, max_syllable=max_syllable, sort=True)
+    plt, ax = usage_plot(df, groups=group)
+    plt.savefig('{}.png'.format(output_file))
+    plt.savefig('{}.pdf'.format(output_file))
+
+
 
 
 # function for finding model index in h5 file, then we can pass to other functions and index simply...
-
 # map metadata onto groups

@@ -107,6 +107,7 @@ def parse_index(index_file, get_metadata=False):
     with open(index_file, 'r') as f:
         index = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
 
+    yaml_dir = os.path.dirname(index_file)
     index = commented_map_to_dict(index)
 
     h5s, h5_uuids = zip(*index['files'])
@@ -115,11 +116,11 @@ def parse_index(index_file, get_metadata=False):
     dicts = []
 
     for yml in ymls:
-        with open(yml, 'r') as f:
+        with open(os.path.join(yaml_dir, yml), 'r') as f:
             dicts.append(yaml.load(f.read(), Loader=yaml.RoundTripLoader))
 
     if get_metadata:
-        metadata = [recursively_load_dict_contents_from_group(h5py.File(h5, 'r'),
+        metadata = [recursively_load_dict_contents_from_group(h5py.File(os.path.join(yaml_dir, h5), 'r'),
                                                               '/metadata/extraction') for h5 in h5s]
     else:
         metadata = None

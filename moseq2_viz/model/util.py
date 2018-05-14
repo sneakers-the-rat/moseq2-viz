@@ -4,7 +4,7 @@ from moseq2_viz.util import recursively_load_dict_contents_from_group
 import numpy as np
 import h5py
 import ruamel.yaml as yaml
-import os
+import pandas as pd
 
 
 def sort_results(data, averaging=False, **kwargs):
@@ -42,21 +42,63 @@ def sort_results(data, averaging=False, **kwargs):
     return new_matrix, param_dict
 
 
-def get_syllable_statistics(data, fill_value=-5):
+def parse_model_results(model_obj, restart_idx=0):
+
+    # reformat labels into something useful
+
+    output_dict = model_obj
+
+    if type(output_dict['labels']) is list and type(output_dict['labels'][0]) is list:
+            output_dict['labels'] = np.array([np.squeeze(tmp) for
+                                              tmp in output_dict['labels'][restart_idx]])
+
+    return output_dict
+
+
+def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
+
+    if type(data) is list and type(data[0]) is np.ndarray:
+        data = np.array([np.squeeze(tmp) for tmp in data], dtype='object')
 
     seq_array = np.empty_like(data)
     usages = defaultdict(int)
     durations = defaultdict(list)
 
-    for i, v in np.ndenumerate(data):
+    for s in range(max_syllable):
+        usages[s] = 0
+        durations[s] = []
 
-        v = np.insert(v, len(v), -10)
-        idx = np.where(v[1:] != v[:-1])[0]+1
-        seq_array[i] = v[idx][:-1]
+    if type(data) is np.ndarray and data.dtype == 'O':
+
+        seq_array = np.empty_like(data)
+
+        for i, v in np.ndenumerate(data):
+
+            v = np.insert(v, len(v), -10)
+            idx = np.where(v[1:] != v[:-1])[0]+1
+            seq_array[i] = v[idx][:-1]
+            to_rem = np.where(seq_array[i] > max_syllable)[0]
+
+            seq_array[i] = np.delete(seq_array[i], to_rem)
+            idx = np.delete(idx, to_rem)
+
+            durs = np.diff(idx)
+
+            for s, d in zip(seq_array[i], durs):
+                usages[s] += 1
+                durations[s].append(d)
+
+    elif type(data) is np.ndarray and data.dtype == 'int16':
+
+        data = np.insert(data, len(data), -10)
+        idx = np.where(data[1:] != data[:-1])[0]+1
+        seq_array = data[idx][:-1]
+        to_rem = np.where(seq_array > max_syllable)[0]
+        seq_array = np.delete(seq_array, to_rem)
+        idx = np.delete(idx, to_rem)
         durs = np.diff(idx)
 
-        for s, d in zip(seq_array[i], durs):
-
+        for s, d in zip(seq_array, durs):
             usages[s] += 1
             durations[s].append(d)
 
@@ -80,6 +122,39 @@ def relabel_by_usage(labels):
             sorted_labels[i][np.where(v == idx)] = j
 
     return sorted_labels
+
+
+def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max_syllable=40):
+
+    if sort:
+        model_dict['labels'] = relabel_by_usage(model_dict['labels'])
+
+    # by default the keys are the uuids
+
+    label_uuids = model_dict['train_list']
+
+    # durations = []
+
+    df_dict = {
+            'usage': [],
+            'group': [],
+            'syllable': []
+        }
+
+    groups = [index_dict['groups'][uuid] for uuid in label_uuids]
+
+    for i, label_arr in enumerate(model_dict['labels']):
+        tmp_usages, tmp_durations = get_syllable_statistics(label_arr, max_syllable=max_syllable)
+        total_usage = np.sum(list(tmp_usages.values()))
+
+        for k, v in tmp_usages.items():
+            df_dict['usage'].append(v / total_usage)
+            df_dict['syllable'].append(k)
+            df_dict['group'].append(groups[i])
+
+    df = pd.DataFrame.from_dict(data=df_dict)
+
+    return df, df_dict
 
 
 # return tuples with uuid and syllable indices

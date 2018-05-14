@@ -88,10 +88,26 @@ def check_video_parameters(index_file):
     return vid_parameters
 
 
+def commented_map_to_dict(cmap):
+
+    new_var = dict()
+
+    if type(cmap) is yaml.comments.CommentedMap:
+        for k, v in cmap.items():
+            if type(v) is yaml.comments.CommentedMap:
+                new_var[k] = commented_map_to_dict(v)
+            else:
+                new_var[k] = v
+
+    return new_var
+
+
 def parse_index(index_file, get_metadata=False):
 
     with open(index_file, 'r') as f:
         index = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
+
+    index = commented_map_to_dict(index)
 
     h5s, h5_uuids = zip(*index['files'])
     ymls = ['{}.yaml'.format(os.path.splitext(h5)[0]) for h5 in h5s]
@@ -103,7 +119,8 @@ def parse_index(index_file, get_metadata=False):
             dicts.append(yaml.load(f.read(), Loader=yaml.RoundTripLoader))
 
     if get_metadata:
-        metadata = [recursively_load_dict_contents_from_group(h5py.File(h5, 'r'), '/metadata/extraction') for h5 in h5s]
+        metadata = [recursively_load_dict_contents_from_group(h5py.File(h5, 'r'),
+                                                              '/metadata/extraction') for h5 in h5s]
     else:
         metadata = None
 

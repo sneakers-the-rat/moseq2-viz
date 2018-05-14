@@ -158,7 +158,7 @@ def plot_usages(index_file, model_filt, max_syllable, group):
     # if the user passes multiple groups, sort and plot against each other
     # relabel by usage across the whole dataset, gather usages per session per group
 
-
+    # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
 
 
 

@@ -150,7 +150,6 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
                                  for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
 
 
-# TODO: usages...group comparisons...changepoints...
 @cli.command(name='plot-usages')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
@@ -173,6 +172,6 @@ def plot_usages(index_file, model_fit, max_syllable, group, output_file):
 
 
 
-
+# TODO: usages...group comparisons...changepoints...
 # function for finding model index in h5 file, then we can pass to other functions and index simply...
 # map metadata onto groups

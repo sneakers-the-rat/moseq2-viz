@@ -141,7 +141,10 @@ def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max
             'syllable': []
         }
 
-    groups = [index_dict['groups'][uuid] for uuid in label_uuids]
+    if 'groups' in index_dict.keys():
+        groups = [index_dict['groups'][uuid] for uuid in label_uuids]
+    else:
+        groups = ['default' for uuid in label_uuids]
 
     for i, label_arr in enumerate(model_dict['labels']):
         tmp_usages, tmp_durations = get_syllable_statistics(label_arr, max_syllable=max_syllable)

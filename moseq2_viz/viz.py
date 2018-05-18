@@ -118,13 +118,18 @@ def usage_plot(usages, groups=None, headless=False, **kwargs):
     if len(groups) == 0:
         groups = None
 
+    if groups is None:
+        hue = None
+    else:
+        hue = 'group'
+
     fig, ax = plt.subplots(1, 1, figsize=(10, 5))
     sns.set_style('ticks')
 
     ax = sns.pointplot(data=usages,
                        x='syllable',
                        y='usage',
-                       hue='group',
+                       hue=hue,
                        hue_order=groups,
                        join=False,
                        **kwargs)

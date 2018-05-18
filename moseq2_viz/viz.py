@@ -1,6 +1,8 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import h5py
 import cv2
+import seaborn as sns
 
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
@@ -103,3 +105,34 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             break
 
     return crowd_matrix
+
+
+def usage_plot(usages, groups=None, headless=False, **kwargs):
+
+    # use a Seaborn pointplot, groups map to hue
+    # make a useful x-axis to orient the user (which side is which)
+
+    if headless:
+        plt.switch_backend('agg')
+
+    if len(groups) == 0:
+        groups = None
+
+    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+    sns.set_style('ticks')
+
+    ax = sns.pointplot(data=usages,
+                       x='syllable',
+                       y='usage',
+                       hue='group',
+                       hue_order=groups,
+                       join=False,
+                       **kwargs)
+
+    ax.set_xticks([])
+    plt.ylabel('P(syllable)')
+    plt.xlabel('Syllable (sorted by usage)')
+
+    sns.despine()
+
+    return plt, ax

@@ -47,20 +47,17 @@ def parse_model_results(model_obj, restart_idx=0):
     # reformat labels into something useful
 
     output_dict = model_obj
-
     if type(output_dict['labels']) is list and type(output_dict['labels'][0]) is list:
-            output_dict['labels'] = np.array([np.squeeze(tmp) for
-                                              tmp in output_dict['labels'][restart_idx]])
+        output_dict['labels'] = [np.squeeze(tmp) for tmp in output_dict['labels'][restart_idx]]
 
     return output_dict
 
 
 def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
 
-    if type(data) is list and type(data[0]) is np.ndarray:
-        data = np.array([np.squeeze(tmp) for tmp in data], dtype='object')
+    # if type(data) is list and type(data[0]) is np.ndarray:
+    #     data = np.array([np.squeeze(tmp) for tmp in data], dtype='object')
 
-    seq_array = np.empty_like(data)
     usages = defaultdict(int)
     durations = defaultdict(list)
 
@@ -68,23 +65,20 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
         usages[s] = 0
         durations[s] = []
 
-    if type(data) is np.ndarray and data.dtype == 'O':
+    if type(data) is list:
 
-        seq_array = np.empty_like(data)
-
-        for i, v in np.ndenumerate(data):
-
+        for v in data:
             v = np.insert(v, len(v), -10)
             idx = np.where(v[1:] != v[:-1])[0]+1
-            seq_array[i] = v[idx][:-1]
-            to_rem = np.where(seq_array[i] > max_syllable)[0]
+            seq_array = v[idx][:-1]
+            to_rem = np.where(seq_array > max_syllable)[0]
 
-            seq_array[i] = np.delete(seq_array[i], to_rem)
+            seq_array = np.delete(seq_array, to_rem)
             idx = np.delete(idx, to_rem)
 
             durs = np.diff(idx)
 
-            for s, d in zip(seq_array[i], durs):
+            for s, d in zip(seq_array, durs):
                 usages[s] += 1
                 durations[s].append(d)
 
@@ -117,7 +111,7 @@ def relabel_by_usage(labels):
     for w in sorted(usages, key=usages.get, reverse=True):
         sorting.append(w)
 
-    for i, v in np.ndenumerate(labels):
+    for i, v in enumerate(labels):
         for j, idx in enumerate(sorting):
             sorted_labels[i][np.where(v == idx)] = j
 

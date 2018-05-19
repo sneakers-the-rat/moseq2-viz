@@ -180,7 +180,7 @@ def plot_usages(index_file, model_fit, max_syllable, group, output_file):
 @click.option('--normalize', type=click.Choice(['bigram', 'rows', 'columns']), default='bigram', help="How to normalize transition probabilities")
 @click.option('--edge-threshold', type=float, default=.001, help="Threshold for edges to show")
 @click.option('--layout', type=str, default='spring', help="Default networkx layout algorithm")
-@click.option('--edge-scaling', type=float, default=1000, help="Scale factor from transition probabilities to edge width")
+@click.option('--edge-scaling', type=float, default=250, help="Scale factor from transition probabilities to edge width")
 @click.option('--width-per-group', type=float, default=8, help="Width (in inches) for figure canvas per group")
 def plot_transition_graph(index_file, model_fit, max_syllable, group, output_file,
                           normalize, edge_threshold, layout, edge_scaling, width_per_group):
@@ -188,14 +188,19 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
     model_data = parse_model_results(joblib.load(model_fit))
     index, _, _, _, _ = parse_index(index_file)
 
-    if group is None:
-        group = ['default']*len(model_data['labels'])
-
     label_uuids = model_data['train_list']
     label_group = []
 
-    for uuid in label_uuids:
-        label_group.append(index['groups'][uuid])
+    if 'groups' in index.keys() and len(group) > 0:
+        for uuid in label_uuids:
+            label_group.append(index['groups'][uuid])
+    elif 'groups' in index.keys() and (group is None or len(group) == 0):
+        for uuid in label_uuids:
+            label_group.append(index['groups'][uuid])
+        group = list(set(label_group))
+    else:
+        group = ['']*len(model_data['labels'])
+        label_group = group
 
     trans_mats = []
     for plt_group in group:

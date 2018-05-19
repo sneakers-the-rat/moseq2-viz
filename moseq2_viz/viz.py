@@ -184,7 +184,6 @@ def graph_transition_matrix(trans_mats, groups=None, edge_threshold=.0025, ancho
     if ngraphs == 1:
         ax = [ax]
 
-
     for i, tm in enumerate(trans_mats):
         ebunch = convert_transition_matrix_to_ebunch(
             tm, edge_threshold=edge_threshold, indices=ebunch_anchor)

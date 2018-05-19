@@ -125,24 +125,49 @@ def relabel_by_usage(labels):
 
 
 # per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
-def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothing=1.0):
+def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothing=1.0, combine=False):
 
-    all_mats = []
-
-    for v in labels:
-
+    if combine:
         init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
-        transitions, _ = get_transitions(v)
 
-        for (i, j) in zip(transitions, transitions[1:]):
-            init_matrix[i, j] += 1
+        for v in labels:
+
+            transitions, _ = get_transitions(v)
+
+            for (i, j) in zip(transitions, transitions[1:]):
+                if i < max_syllable and j < max_syllable:
+                    init_matrix[i, j] += 1
 
         if normalize == 'bigram':
             init_matrix /= init_matrix.sum()
         elif normalize == 'rows':
             init_matrix /= init_matrix.sum(axis=1) + smoothing
-        else:
+        elif normalize == 'columns':
             init_matrix /= init_matrix.sum(axis=0) + smoothing
+        else:
+            pass
+
+        all_mats = init_matrix
+    else:
+
+        all_mats = []
+        for v in labels:
+
+            init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
+            transitions, _ = get_transitions(v)
+
+            for (i, j) in zip(transitions, transitions[1:]):
+                if i < max_syllable and j < max_syllable:
+                    init_matrix[i, j] += 1
+
+        if normalize == 'bigram':
+            init_matrix /= init_matrix.sum()
+        elif normalize == 'rows':
+            init_matrix /= init_matrix.sum(axis=1) + smoothing
+        elif normalize == 'columns':
+            init_matrix /= init_matrix.sum(axis=0) + smoothing
+        else:
+            pass
 
         all_mats.append(init_matrix)
 

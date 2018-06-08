@@ -1,8 +1,8 @@
 from moseq2_viz.util import recursive_find_h5s, check_video_parameters,\
     parse_index
 from moseq2_viz.model.util import sort_results, relabel_by_usage, get_syllable_slices,\
-    results_to_dataframe, parse_model_results
-from moseq2_viz.viz import make_crowd_matrix, usage_plot
+    results_to_dataframe, parse_model_results, get_transition_matrix
+from moseq2_viz.viz import make_crowd_matrix, usage_plot, graph_transition_matrix
 from moseq2_viz.io.video import write_frames_preview
 from functools import partial
 from sys import platform
@@ -166,7 +166,50 @@ def plot_usages(index_file, model_fit, max_syllable, group, output_file):
     model_data = parse_model_results(joblib.load(model_fit))
     index, _, _, _, _ = parse_index(index_file)
     df, _ = results_to_dataframe(model_data, index, max_syllable=max_syllable, sort=True)
-    plt, ax = usage_plot(df, groups=group)
+    plt, ax, fig = usage_plot(df, groups=group, headless=True)
+    plt.savefig('{}.png'.format(output_file))
+    plt.savefig('{}.pdf'.format(output_file))
+
+
+@cli.command(name='plot-transition-graph')
+@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
+@click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
+@click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
+@click.option('--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
+@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'transitions'), help="Filename to store plot")
+@click.option('--normalize', type=click.Choice(['bigram', 'rows', 'columns']), default='bigram', help="How to normalize transition probabilities")
+@click.option('--edge-threshold', type=float, default=.001, help="Threshold for edges to show")
+@click.option('--layout', type=str, default='spring', help="Default networkx layout algorithm")
+@click.option('--edge-scaling', type=float, default=250, help="Scale factor from transition probabilities to edge width")
+@click.option('--width-per-group', type=float, default=8, help="Width (in inches) for figure canvas per group")
+def plot_transition_graph(index_file, model_fit, max_syllable, group, output_file,
+                          normalize, edge_threshold, layout, edge_scaling, width_per_group):
+
+    model_data = parse_model_results(joblib.load(model_fit))
+    index, _, _, _, _ = parse_index(index_file)
+
+    label_uuids = model_data['train_list']
+    label_group = []
+
+    if 'groups' in index.keys() and len(group) > 0:
+        for uuid in label_uuids:
+            label_group.append(index['groups'][uuid])
+    elif 'groups' in index.keys() and (group is None or len(group) == 0):
+        for uuid in label_uuids:
+            label_group.append(index['groups'][uuid])
+        group = list(set(label_group))
+    else:
+        group = ['']*len(model_data['labels'])
+        label_group = group
+
+    trans_mats = []
+    for plt_group in group:
+        use_labels = [lbl for lbl, grp in zip(model_data['labels'], label_group) if grp == plt_group]
+        trans_mats.append(get_transition_matrix(use_labels, normalize=normalize, combine=True, max_syllable=max_syllable))
+
+    plt, fig, ax = graph_transition_matrix(trans_mats, width_per_group=width_per_group,
+                                           edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
+                                           layout=layout, groups=group, headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
 

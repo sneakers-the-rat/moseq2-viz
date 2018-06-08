@@ -1,8 +1,10 @@
+from moseq2_viz.model.util import convert_ebunch_to_graph, convert_transition_matrix_to_ebunch
 import matplotlib.pyplot as plt
 import numpy as np
 import h5py
 import cv2
 import seaborn as sns
+import networkx as nx
 
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
@@ -118,13 +120,18 @@ def usage_plot(usages, groups=None, headless=False, **kwargs):
     if len(groups) == 0:
         groups = None
 
+    if groups is None:
+        hue = None
+    else:
+        hue = 'group'
+
     fig, ax = plt.subplots(1, 1, figsize=(10, 5))
     sns.set_style('ticks')
 
     ax = sns.pointplot(data=usages,
                        x='syllable',
                        y='usage',
-                       hue='group',
+                       hue=hue,
                        hue_order=groups,
                        join=False,
                        **kwargs)
@@ -135,4 +142,67 @@ def usage_plot(usages, groups=None, headless=False, **kwargs):
 
     sns.despine()
 
-    return plt, ax
+    return plt, ax, fig
+
+
+def graph_transition_matrix(trans_mats, groups=None, edge_threshold=.0025, anchor=0,
+                            layout='spring', edge_width_scale=100, node_size=400,
+                            width_per_group=8, height=8, headless=False, font_size=12,
+                            **kwargs):
+
+    if headless:
+        plt.switch_backend('agg')
+
+    if type(trans_mats) is np.ndarray and trans_mats.ndim == 2:
+        trans_mats = [trans_mats]
+    elif type(trans_mats) is list:
+        pass
+    else:
+        raise RuntimeError("Transition matrix must be a numpy array or list of arrays")
+
+    ngraphs = len(trans_mats)
+
+    if anchor > ngraphs:
+        print('Setting anchor to 0')
+        anchor = 0
+
+    ebunch_anchor = convert_transition_matrix_to_ebunch(
+        trans_mats[anchor], edge_threshold=edge_threshold)
+    graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
+    if layout == 'spring':
+        pos = nx.spring_layout(graph_anchor, **kwargs)
+    elif layout == 'circular':
+        pos = nx.circular_layout(graph_anchor, **kwargs)
+    elif layout == 'spectral':
+        pos = nx.spectral_layout(graph_anchor, **kwargs)
+    else:
+        raise RuntimeError('Did not understand layout type')
+
+    fig, ax = plt.subplots(1, ngraphs, figsize=(ngraphs*width_per_group,
+                                                height))
+
+    if ngraphs == 1:
+        ax = [ax]
+
+    for i, tm in enumerate(trans_mats):
+        ebunch = convert_transition_matrix_to_ebunch(
+            tm, edge_threshold=edge_threshold, indices=ebunch_anchor)
+        graph = convert_ebunch_to_graph(ebunch)
+
+        weight = [graph[u][v]['weight']*edge_width_scale for u, v in graph.edges()]
+
+        nx.draw_networkx_nodes(graph, pos, node_size=node_size, ax=ax[i])
+        nx.draw_networkx_edges(graph, pos, ebunch, width=weight, ax=ax[i])
+        if font_size > 0:
+            nx.draw_networkx_labels(graph, pos,
+                                    {k: k for k in pos.keys()},
+                                    font_size=font_size,
+                                    ax=ax[i])
+
+        ax[i].axis('off')
+        if groups is not None:
+            ax[i].set_title('{}'.format(groups[i]))
+
+    plt.show()
+
+    return plt, ax, fig

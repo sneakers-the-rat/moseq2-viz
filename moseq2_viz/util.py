@@ -1,7 +1,7 @@
 import os
 import h5py
 import ruamel.yaml as yaml
-
+import numpy as np
 
 def recursive_find_h5s(root_dir=os.getcwd(),
                        ext='.h5',
@@ -114,12 +114,17 @@ def parse_index(index_file, get_metadata=False):
     ymls = ['{}.yaml'.format(os.path.splitext(h5)[0]) for h5 in h5s]
 
     dicts = []
+    has_meta = []
 
     for yml in ymls:
         with open(os.path.join(yaml_dir, yml), 'r') as f:
-            dicts.append(yaml.load(f.read(), Loader=yaml.RoundTripLoader))
+            yml_dict = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
+            dicts.append(yml_dict)
+            has_meta.append('metadata' in list(yml_dict.keys()))
 
-    if get_metadata:
+    if get_metadata and all(has_meta):
+        metadata = [tmp['metadata'] for tmp in dicts]
+    elif get_metadata:
         metadata = [recursively_load_dict_contents_from_group(h5py.File(os.path.join(yaml_dir, h5), 'r'),
                                                               '/metadata/extraction') for h5 in h5s]
     else:

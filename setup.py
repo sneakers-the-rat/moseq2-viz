@@ -7,7 +7,7 @@ setup(
     version='0.02a',
     platforms=['mac', 'unix'],
     install_requires=['tqdm', 'matplotlib', 'click', 'ruamel.yaml',
-                      'seaborn', 'opencv-python', 'pandas'],
+                      'seaborn', 'opencv-python', 'pandas', 'networkx'],
     python_requires='>=3.6',
     entry_points={'console_scripts': ['moseq2-viz = moseq2_viz.cli:cli']}
 )

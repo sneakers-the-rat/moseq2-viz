@@ -5,6 +5,7 @@ import numpy as np
 import h5py
 import ruamel.yaml as yaml
 import pandas as pd
+import networkx as nx
 
 
 def sort_results(data, averaging=False, **kwargs):
@@ -53,6 +54,15 @@ def parse_model_results(model_obj, restart_idx=0):
     return output_dict
 
 
+def get_transitions(label_sequence):
+
+    arr = deepcopy(label_sequence)
+    arr = np.insert(arr, len(arr), -10)
+    locs = np.where(arr[1:] != arr[:-1])[0]+1
+    transitions = arr[locs][:-1]
+    return transitions, locs
+
+
 def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
 
     # if type(data) is list and type(data[0]) is np.ndarray:
@@ -68,15 +78,13 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
     if type(data) is list:
 
         for v in data:
-            v = np.insert(v, len(v), -10)
-            idx = np.where(v[1:] != v[:-1])[0]+1
-            seq_array = v[idx][:-1]
+            seq_array, locs = get_transitions(v)
             to_rem = np.where(seq_array > max_syllable)[0]
 
             seq_array = np.delete(seq_array, to_rem)
-            idx = np.delete(idx, to_rem)
+            locs = np.delete(locs, to_rem)
 
-            durs = np.diff(idx)
+            durs = np.diff(locs)
 
             for s, d in zip(seq_array, durs):
                 usages[s] += 1
@@ -84,13 +92,11 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
 
     elif type(data) is np.ndarray and data.dtype == 'int16':
 
-        data = np.insert(data, len(data), -10)
-        idx = np.where(data[1:] != data[:-1])[0]+1
-        seq_array = data[idx][:-1]
+        seq_array, locs = get_transitions(data)
         to_rem = np.where(seq_array > max_syllable)[0]
         seq_array = np.delete(seq_array, to_rem)
-        idx = np.delete(idx, to_rem)
-        durs = np.diff(idx)
+        locs = np.delete(locs, to_rem)
+        durs = np.diff(locs)
 
         for s, d in zip(seq_array, durs):
             usages[s] += 1
@@ -116,6 +122,75 @@ def relabel_by_usage(labels):
             sorted_labels[i][np.where(v == idx)] = j
 
     return sorted_labels
+
+
+# per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
+def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothing=1.0, combine=False):
+
+    if combine:
+        init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
+
+        for v in labels:
+
+            transitions, _ = get_transitions(v)
+
+            for (i, j) in zip(transitions, transitions[1:]):
+                if i < max_syllable and j < max_syllable:
+                    init_matrix[i, j] += 1
+
+        if normalize == 'bigram':
+            init_matrix /= init_matrix.sum()
+        elif normalize == 'rows':
+            init_matrix /= init_matrix.sum(axis=1) + smoothing
+        elif normalize == 'columns':
+            init_matrix /= init_matrix.sum(axis=0) + smoothing
+        else:
+            pass
+
+        all_mats = init_matrix
+    else:
+
+        all_mats = []
+        for v in labels:
+
+            init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
+            transitions, _ = get_transitions(v)
+
+            for (i, j) in zip(transitions, transitions[1:]):
+                if i < max_syllable and j < max_syllable:
+                    init_matrix[i, j] += 1
+
+        if normalize == 'bigram':
+            init_matrix /= init_matrix.sum()
+        elif normalize == 'rows':
+            init_matrix /= init_matrix.sum(axis=1) + smoothing
+        elif normalize == 'columns':
+            init_matrix /= init_matrix.sum(axis=0) + smoothing
+        else:
+            pass
+
+        all_mats.append(init_matrix)
+
+    return all_mats
+
+
+def convert_ebunch_to_graph(ebunch):
+
+    g = nx.Graph()
+    g.add_weighted_edges_from(ebunch)
+
+    return g
+
+
+def convert_transition_matrix_to_ebunch(transition_matrix, edge_threshold=1, indices=None):
+
+    if indices is None:
+        ebunch = [(i[0], i[1], v) for i, v in np.ndenumerate(transition_matrix)
+                  if v > edge_threshold]
+    else:
+        ebunch = [(i[0], i[1], transition_matrix[i[0], i[1]]) for i in indices]
+
+    return ebunch
 
 
 def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max_syllable=40):

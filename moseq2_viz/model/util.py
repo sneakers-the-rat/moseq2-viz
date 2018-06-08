@@ -252,10 +252,12 @@ def get_syllable_slices(syllable, labels, label_uuids, index_file, trim_nans=Tru
             idx = score_idx[label_uuid]
             if len(idx) > len(label_arr):
                 idx = idx[:len(label_arr)]
-
+            trim_idx = idx[~np.isnan(idx)]
             label_arr = label_arr[~np.isnan(idx)]
+        else:
+            trim_idx = np.arange(len(label_arr))
 
-        match_idx = np.where(label_arr == syllable)[0]
+        match_idx = trim_idx[np.where(label_arr == syllable)[0]]
         breakpoints = np.where(np.diff(match_idx, axis=0) > 1)[0]
 
         if len(breakpoints) < 1:

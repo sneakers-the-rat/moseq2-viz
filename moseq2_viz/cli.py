@@ -20,6 +20,7 @@ import re
 if platform == 'linux' or platform == 'linux2':
     os.system('taskset -p 0xff {:d}'.format(os.getpid()))
 
+#TODO: simple way to put extraction metadata into results dataframe for better sorting
 
 @click.group()
 def cli():
@@ -112,7 +113,11 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
             label_array[i] = np.squeeze(label)
 
         labels = label_array
-        label_uuids = model_fit['keys']
+
+        if 'train_list' in model_fit.keys():
+            label_uuids = model_fit['train_list']
+        else:
+            label_uuids = model_fit['keys']
     elif model_fit.endswith('.h5'):
         # load in h5, use index found using another function
         pass

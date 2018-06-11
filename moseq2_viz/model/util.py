@@ -6,6 +6,7 @@ import h5py
 import ruamel.yaml as yaml
 import pandas as pd
 import networkx as nx
+import warnings
 
 
 def sort_results(data, averaging=False, **kwargs):
@@ -250,12 +251,20 @@ def get_syllable_slices(syllable, labels, label_uuids, index_file, trim_nans=Tru
 
         if trim_nans:
             idx = score_idx[label_uuid]
+
             if len(idx) > len(label_arr):
                 idx = idx[:len(label_arr)]
+            elif len(idx) < len(label_arr):
+                warnings.warn('Index length {:d} and label array length {:d} in {}'
+                              .format(len(idx), len(label_arr), h5))
+                continue
 
+            trim_idx = idx[~np.isnan(idx)].astype('int32')
             label_arr = label_arr[~np.isnan(idx)]
+        else:
+            trim_idx = np.arange(len(label_arr))
 
-        match_idx = np.where(label_arr == syllable)[0]
+        match_idx = trim_idx[np.where(label_arr == syllable)[0]]
         breakpoints = np.where(np.diff(match_idx, axis=0) > 1)[0]
 
         if len(breakpoints) < 1:

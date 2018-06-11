@@ -13,7 +13,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
     durs = np.array([i[1]-i[0] for i, j, k in slices])
 
     if dur_clip is not None:
-        idx = np.where(durs > dur_clip)[0]
+        idx = np.where(durs < dur_clip)[0]
         use_slices = [_ for i, _ in enumerate(slices) if i in idx]
     else:
         use_slices = slices

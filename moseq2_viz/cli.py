@@ -17,10 +17,22 @@ import tqdm
 import warnings
 import re
 
+
 if platform == 'linux' or platform == 'linux2':
     os.system('taskset -p 0xff {:d}'.format(os.getpid()))
 
 #TODO: simple way to put extraction metadata into results dataframe for better sorting
+
+orig_init = click.core.Option.__init__
+
+
+def new_init(self, *args, **kwargs):
+    orig_init(self, *args, **kwargs)
+    self.show_default = True
+
+
+click.core.Option.__init__ = new_init
+
 
 @click.group()
 def cli():

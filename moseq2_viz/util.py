@@ -137,7 +137,7 @@ def parse_index(index_file, get_metadata=False):
                     original_json = backup_json
                 with open(original_json, 'r') as f:
                     metadata.append(json.load(f))
-            finally:
+            except:
                 if use_dict:
                     metadata.append(yml_dict)
                 else:

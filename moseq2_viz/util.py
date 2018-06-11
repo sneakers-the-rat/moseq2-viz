@@ -128,16 +128,15 @@ def parse_index(index_file, get_metadata=False):
     for use_dict, yml_dict, h5 in zip(has_meta, dicts, h5s):
         # check if original json still exists
         try:
-            original_json = os.path.join(os.path.dirname(yml_dict['input_file']),
+            original_json = os.path.join(os.path.dirname(yml_dict['parameters']['input_file']),
                                          'metadata.json')
             backup_json = os.path.join(os.path.dirname(h5), '..', 'metadata.json')
 
             if not os.path.exists(original_json):
                 original_json = backup_json
-
             with open(original_json, 'r') as f:
                 metadata.append(json.load(f))
-        except IOError or KeyError:
+        except:
             if use_dict:
                 metadata.append(yml_dict)
         finally:

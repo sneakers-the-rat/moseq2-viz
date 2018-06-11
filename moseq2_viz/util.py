@@ -1,5 +1,6 @@
 import os
 import h5py
+import json
 import ruamel.yaml as yaml
 
 
@@ -121,6 +122,24 @@ def parse_index(index_file, get_metadata=False):
             yml_dict = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
             dicts.append(yml_dict)
             has_meta.append('metadata' in list(yml_dict.keys()))
+
+    metadata = []
+
+    for use_dict, yml_dict, h5 in zip(has_meta, h5s, dicts):
+        # check if original json still exists
+        if 'input_file' in yml_dict.keys():
+            original_json = os.path.join(os.path.dirname(yml_dict['input_file']),
+                                         'metadata.json')
+            if os.path.exists(original_json):
+                with open(original_json, 'r') as f:
+                    metadata.append(json.load(f))
+        elif use_dict:
+            metadata.append(yml_dict)
+        else:
+            metadata.append(
+                recursively_load_dict_contents_from_group(
+                    h5py.File(os.path.join(yaml_dir, h5), 'r'),
+                    '/metadata/extraction'))
 
     if get_metadata and all(has_meta):
         metadata = [tmp['metadata'] for tmp in dicts]

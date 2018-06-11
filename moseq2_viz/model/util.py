@@ -252,7 +252,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index_file, trim_nans=Tru
             idx = score_idx[label_uuid]
             if len(idx) > len(label_arr):
                 idx = idx[:len(label_arr)]
-            trim_idx = idx[~np.isnan(idx)]
+            trim_idx = idx[~np.isnan(idx)].astype('int32')
             label_arr = label_arr[~np.isnan(idx)]
         else:
             trim_idx = np.arange(len(label_arr))

@@ -125,31 +125,26 @@ def parse_index(index_file, get_metadata=False):
 
     metadata = []
 
-    for use_dict, yml_dict, h5 in zip(has_meta, dicts, h5s):
-        # check if original json still exists
-        try:
-            original_json = os.path.join(os.path.dirname(yml_dict['parameters']['input_file']),
-                                         'metadata.json')
-            backup_json = os.path.join(os.path.dirname(h5), '..', 'metadata.json')
+    if get_metadata:
+        for use_dict, yml_dict, h5 in zip(has_meta, dicts, h5s):
+            # check if original json still exists
+            try:
+                original_json = os.path.join(os.path.dirname(yml_dict['parameters']['input_file']),
+                                             'metadata.json')
+                backup_json = os.path.join(os.path.dirname(h5), '..', 'metadata.json')
 
-            if not os.path.exists(original_json):
-                original_json = backup_json
-            with open(original_json, 'r') as f:
-                metadata.append(json.load(f))
-        except:
-            if use_dict:
-                metadata.append(yml_dict)
-        finally:
-            metadata.append(
-                recursively_load_dict_contents_from_group(
-                    h5py.File(os.path.join(yaml_dir, h5), 'r'),
-                    '/metadata/extraction'))
-
-    if get_metadata and all(has_meta):
-        metadata = [tmp['metadata'] for tmp in dicts]
-    elif get_metadata:
-        metadata = [recursively_load_dict_contents_from_group(h5py.File(os.path.join(yaml_dir, h5), 'r'),
-                                                              '/metadata/extraction') for h5 in h5s]
+                if not os.path.exists(original_json):
+                    original_json = backup_json
+                with open(original_json, 'r') as f:
+                    metadata.append(json.load(f))
+            finally:
+                if use_dict:
+                    metadata.append(yml_dict)
+                else:
+                    metadata.append(
+                        recursively_load_dict_contents_from_group(
+                            h5py.File(os.path.join(yaml_dir, h5), 'r'),
+                            '/metadata/extraction'))
     else:
         metadata = None
 

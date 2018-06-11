@@ -20,6 +20,7 @@ import re
 if platform == 'linux' or platform == 'linux2':
     os.system('taskset -p 0xff {:d}'.format(os.getpid()))
 
+#TODO: simple way to put extraction metadata into results dataframe for better sorting
 
 @click.group()
 def cli():

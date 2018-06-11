@@ -125,9 +125,9 @@ def parse_index(index_file, get_metadata=False):
 
     metadata = []
 
-    for use_dict, yml_dict, h5 in zip(has_meta, h5s, dicts):
+    for use_dict, yml_dict, h5 in zip(has_meta, dicts, h5s):
         # check if original json still exists
-        if 'input_file' in yml_dict.keys():
+        if use_dict and 'input_file' in yml_dict.keys():
             original_json = os.path.join(os.path.dirname(yml_dict['input_file']),
                                          'metadata.json')
             if os.path.exists(original_json):

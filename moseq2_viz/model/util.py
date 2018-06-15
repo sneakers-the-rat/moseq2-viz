@@ -7,6 +7,7 @@ import ruamel.yaml as yaml
 import pandas as pd
 import networkx as nx
 import warnings
+import tqdm
 
 
 def sort_results(data, averaging=False, **kwargs):
@@ -131,7 +132,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothin
     if combine:
         init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
 
-        for v in labels:
+        for v in tqdm.tqdm(labels):
 
             transitions, _ = get_transitions(v)
 

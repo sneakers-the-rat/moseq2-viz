@@ -28,7 +28,8 @@ def sort_results(data, averaging=False, **kwargs):
 
         for i, p in enumerate(param):
             if np.isnan(p):
-                idx[i] = -1
+                continue
+                #idx[i] = -1
             else:
                 idx[i] = int(np.where(param_list[i] == p)[0])
 

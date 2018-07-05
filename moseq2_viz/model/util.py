@@ -14,24 +14,24 @@ def sort_results(data, averaging=False, **kwargs):
 
     parameters = np.hstack(kwargs.values())
     param_sets = np.unique(parameters, axis=0)
-    param_dict = {k: np.unique(v) for k, v in kwargs.items()}
+    param_dict = {k: np.unique(v[np.isfinite(v)]) for k, v in kwargs.items()}
 
     param_list = list(param_dict.values())
+    param_list = [p[np.isfinite(p)] for p in param_list]
     new_shape = tuple([len(v) for v in param_list])
-
+    
     new_matrix = np.zeros(new_shape, dtype=data.dtype)
     new_count = np.zeros(new_shape, dtype=data.dtype)
 
     for param in param_sets:
         row_matches = np.where((parameters == param).all(axis=1))[0]
         idx = np.zeros((len(param),), dtype='int')
-
+        
+        if np.any(np.isnan(param)):
+            continue
+        
         for i, p in enumerate(param):
-            if np.isnan(p):
-                continue
-                #idx[i] = -1
-            else:
-                idx[i] = int(np.where(param_list[i] == p)[0])
+            idx[i] = int(np.where(param_list[i] == p)[0])
 
         for row in row_matches:
             if (averaging and idx[0] > 0 and idx[1] > 0) and ~np.isnan(data[row]):
@@ -39,6 +39,9 @@ def sort_results(data, averaging=False, **kwargs):
                     new_count[idx[0], idx[1]] += 1
             elif idx[0] > 0 and idx[1] > 0:
                 new_matrix[idx[0], idx[1]] = data[row]
+                new_count[idx[0], idx[1]] += 1
+
+    new_matrix[new_count==0] = np.nan
 
     if averaging:
         new_matrix /= new_count

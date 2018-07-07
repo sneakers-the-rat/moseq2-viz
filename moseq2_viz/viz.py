@@ -24,7 +24,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         return None
 
     max_dur = durs.max()
-    
+
     # original_dtype = h5py.File(use_slices[0][2], 'r')['frames'].dtype
 
     crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype='uint8')
@@ -40,7 +40,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
 
         # get the frames, combine in a way that's alpha-aware
 
-        h5 = h5py.File(fname)
+        h5 = h5py.File(fname, 'r')
         nframes = h5['frames'].shape[0]
         cur_len = idx[1] - idx[0]
         use_idx = (idx[0] - pad, idx[1] + pad + (max_dur - cur_len))

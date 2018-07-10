@@ -111,20 +111,16 @@ def add_group(index_file, key, value, group, exact, lowercase):
 @click.option('--raw-size', type=(int, int), default=(512, 424), help="Size of original videos")
 @click.option('--scale', type=float, default=1, help="Scaling from pixel units to mm")
 @click.option('--cmap', type=str, default='jet', help="Name of valid Matplotlib colormap for false-coloring images")
+@click.option('--dur-clip', default=300, help="Exclude syllables more than this number of frames (None for no limit)")
 def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort,
-                      output_dir, filename_format, min_height, max_height, raw_size, scale, cmap):
+                      output_dir, filename_format, min_height, max_height, raw_size, scale, cmap, dur_clip):
 
     # need to handle h5 intelligently here...
 
     if model_fit.endswith('.p') or model_fit.endswith('.pz'):
-        model_fit = joblib.load(model_fit)
-        labels = model_fit['labels'][0]
-        label_array = np.empty((len(labels),), dtype='object')
 
-        for i, label in enumerate(labels):
-            label_array[i] = np.squeeze(label)
-
-        labels = label_array
+        model_fit = parse_model_results(joblib.load(model_fit))
+        labels = model_fit['labels']
 
         if 'train_list' in model_fit.keys():
             label_uuids = model_fit['train_list']
@@ -154,7 +150,7 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
             warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
             slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
 
-        matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=None,
+        matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=dur_clip,
                              crop_size=vid_parameters['crop_size'], raw_size=raw_size, scale=scale)
 
         with warnings.catch_warnings():
@@ -197,16 +193,28 @@ def plot_usages(index_file, model_fit, max_syllable, group, output_file):
 @click.option('--normalize', type=click.Choice(['bigram', 'rows', 'columns']), default='bigram', help="How to normalize transition probabilities")
 @click.option('--edge-threshold', type=float, default=.001, help="Threshold for edges to show")
 @click.option('--layout', type=str, default='spring', help="Default networkx layout algorithm")
+@click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
 @click.option('--edge-scaling', type=float, default=250, help="Scale factor from transition probabilities to edge width")
 @click.option('--width-per-group', type=float, default=8, help="Width (in inches) for figure canvas per group")
 def plot_transition_graph(index_file, model_fit, max_syllable, group, output_file,
-                          normalize, edge_threshold, layout, edge_scaling, width_per_group):
+                          normalize, edge_threshold, layout, sort, edge_scaling, width_per_group):
 
     model_data = parse_model_results(joblib.load(model_fit))
     index, _, _, _, _ = parse_index(index_file)
 
-    label_uuids = model_data['train_list']
+    labels = model_data['labels']
+
+    if sort:
+        labels = relabel_by_usage(labels)
+
+    if 'train_list' in model_data.keys():
+        label_uuids = model_data['train_list']
+    else:
+        label_uuids = model_data['keys']
+
     label_group = []
+
+    print('Sorting labels...')
 
     if 'groups' in index.keys() and len(group) > 0:
         for uuid in label_uuids:
@@ -216,13 +224,17 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
             label_group.append(index['groups'][uuid])
         group = list(set(label_group))
     else:
-        group = ['']*len(model_data['labels'])
-        label_group = group
+        label_group = ['']*len(model_data['labels'])
+        group = list(set(label_group))
+
+    print('Computing transition matrices...')
 
     trans_mats = []
     for plt_group in group:
-        use_labels = [lbl for lbl, grp in zip(model_data['labels'], label_group) if grp == plt_group]
+        use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
         trans_mats.append(get_transition_matrix(use_labels, normalize=normalize, combine=True, max_syllable=max_syllable))
+
+    print('Creating plot...')
 
     plt, fig, ax = graph_transition_matrix(trans_mats, width_per_group=width_per_group,
                                            edge_threshold=edge_threshold, edge_width_scale=edge_scaling,

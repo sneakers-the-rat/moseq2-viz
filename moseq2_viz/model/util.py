@@ -19,17 +19,17 @@ def sort_results(data, averaging=False, **kwargs):
     param_list = list(param_dict.values())
     param_list = [p[np.isfinite(p)] for p in param_list]
     new_shape = tuple([len(v) for v in param_list])
-    
+
     new_matrix = np.zeros(new_shape, dtype=data.dtype)
     new_count = np.zeros(new_shape, dtype=data.dtype)
 
     for param in param_sets:
         row_matches = np.where((parameters == param).all(axis=1))[0]
         idx = np.zeros((len(param),), dtype='int')
-        
+
         if np.any(np.isnan(param)):
             continue
-        
+
         for i, p in enumerate(param):
             idx[i] = int(np.where(param_list[i] == p)[0])
 
@@ -41,12 +41,28 @@ def sort_results(data, averaging=False, **kwargs):
                 new_matrix[idx[0], idx[1]] = data[row]
                 new_count[idx[0], idx[1]] += 1
 
-    new_matrix[new_count==0] = np.nan
+    new_matrix[new_count == 0] = np.nan
 
     if averaging:
         new_matrix /= new_count
 
     return new_matrix, param_dict
+
+
+def parse_batch_modeling(filename):
+
+    with h5py.File(filename, 'r') as f:
+        results_dict = {
+            'heldouts': np.squeeze(f['metadata/heldout_ll'].value),
+            'parameters': recursively_load_dict_contents_from_group(f, 'metadata/parameters'),
+            'scans': recursively_load_dict_contents_from_group(f, 'scans'),
+            'labels': np.squeeze(f['labels'].value),
+            'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list'].value]
+        }
+        results_dict['scan_parameters'] = {k: results_dict['parameters'][k]
+                                           for k in results_dict['scans'].keys()}
+
+    return results_dict
 
 
 def parse_model_results(model_obj, restart_idx=0):
@@ -67,6 +83,10 @@ def get_transitions(label_sequence):
     locs = np.where(arr[1:] != arr[:-1])[0]+1
     transitions = arr[locs][:-1]
     return transitions, locs
+
+
+def get_syll_durations(data, fill_value=-5, max_syllable=100):
+    return get_syllable_statistics(data, fill_value=fill_value, max_syllable=max_syllable)[1]
 
 
 def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
@@ -136,7 +156,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothin
     if combine:
         init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
 
-        for v in tqdm.tqdm(labels):
+        for v in labels:
 
             transitions, _ = get_transitions(v)
 
@@ -157,7 +177,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothin
     else:
 
         all_mats = []
-        for v in labels:
+        for v in tqdm.tqdm(labels):
 
             init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
             transitions, _ = get_transitions(v)

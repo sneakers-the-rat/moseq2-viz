@@ -1,5 +1,5 @@
 from moseq2_viz.util import recursive_find_h5s, check_video_parameters,\
-    parse_index
+    parse_index, commented_map_to_dict, recursively_load_dict_contents_from_group
 from moseq2_viz.model.util import sort_results, relabel_by_usage, get_syllable_slices,\
     results_to_dataframe, parse_model_results, get_transition_matrix
 from moseq2_viz.viz import make_crowd_matrix, usage_plot, graph_transition_matrix
@@ -242,6 +242,30 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
 
+
+# recurse through directories, find h5 files with completed extractions, make a manifest
+# and copy the contents to a new directory
+@cli.command(name="copy-h5-metadata-to-yaml")
+@click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
+def copy_h5_metadata_to_yaml(input_dir):
+
+    h5s, dicts, yamls = recursive_find_h5s(input_dir)
+    to_load = [(tmp, yml, file) for tmp, yml, file in zip(
+        dicts, yamls, h5s) if tmp['complete'] and not tmp['skip']]
+
+    # load in all of the h5 files, grab the extraction metadata, reformat to make nice 'n pretty
+    # then stage the copy
+
+    for i, tup in tqdm.tqdm(enumerate(to_load), total=len(to_load), desc='Scanning data'):
+        with h5py.File(tup[2], 'r') as f:
+            tmp = recursively_load_dict_contents_from_group(f, '/metadata/extraction')
+            tup[0]['metadata'] = dict(tmp)
+
+        with open(tup[1], 'w+') as f:
+            yaml.dump(commented_map_to_dict(
+                tup[0]), f, Dumper=yaml.RoundTripDumper)
+
+    # now the key is the source h5 file and the value is the path to copy to
 
 
 # TODO: usages...group comparisons...changepoints...

@@ -2,6 +2,7 @@ import os
 import h5py
 import json
 import ruamel.yaml as yaml
+import numpy as np
 
 
 def recursive_find_h5s(root_dir=os.getcwd(),
@@ -93,10 +94,14 @@ def commented_map_to_dict(cmap):
 
     new_var = dict()
 
-    if type(cmap) is yaml.comments.CommentedMap:
+    if type(cmap) is yaml.comments.CommentedMap or type(cmap) is dict:
         for k, v in cmap.items():
-            if type(v) is yaml.comments.CommentedMap:
+            if type(v) is yaml.comments.CommentedMap or type(v) is dict:
                 new_var[k] = commented_map_to_dict(v)
+            elif type(v) is np.ndarray:
+                new_var[k] = v.tolist()
+            elif isinstance(v, np.generic):
+                new_var[k] = np.asscalar(v)
             else:
                 new_var[k] = v
 

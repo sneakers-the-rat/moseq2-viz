@@ -23,6 +23,13 @@ def sort_results(data, averaging=False, **kwargs):
     new_matrix = np.zeros(new_shape, dtype=data.dtype)
     new_count = np.zeros(new_shape, dtype=data.dtype)
 
+    dims = len(new_shape)
+
+    if dims > 2:
+        raise RuntimeError('No support for more than 2 dimensions')
+
+    # TODO: add support for one dimension
+
     for param in param_sets:
         row_matches = np.where((parameters == param).all(axis=1))[0]
         idx = np.zeros((len(param),), dtype='int')
@@ -219,7 +226,8 @@ def convert_transition_matrix_to_ebunch(transition_matrix, edge_threshold=1, ind
     return ebunch
 
 
-def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max_syllable=40):
+def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max_syllable=40,
+                         include_meta=['SessionName', 'SubjectName', 'StartTime']):
 
     if sort:
         model_dict['labels'] = relabel_by_usage(model_dict['labels'])
@@ -236,10 +244,11 @@ def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max
             'syllable': []
         }
 
-    if 'groups' in index_dict.keys():
-        groups = [index_dict['groups'][uuid] for uuid in label_uuids]
-    else:
-        groups = ['default' for uuid in label_uuids]
+    for key in include_meta:
+        df_dict['key'] = []
+
+    groups = [index_dict[uuid]['group'] for uuid in label_uuids]
+    metadata = [index_dict[uuid]['metadata'] for uuid in label_uuids]
 
     for i, label_arr in enumerate(model_dict['labels']):
         tmp_usages, tmp_durations = get_syllable_statistics(label_arr, max_syllable=max_syllable)
@@ -249,6 +258,9 @@ def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max
             df_dict['usage'].append(v / total_usage)
             df_dict['syllable'].append(k)
             df_dict['group'].append(groups[i])
+
+            for meta_key in include_meta:
+                df_dict[meta_key].append(metadata[i][meta_key])
 
     df = pd.DataFrame.from_dict(data=df_dict)
 

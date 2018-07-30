@@ -3,6 +3,7 @@ import h5py
 import json
 import ruamel.yaml as yaml
 import numpy as np
+import re
 
 
 def recursive_find_h5s(root_dir=os.getcwd(),
@@ -113,44 +114,36 @@ def parse_index(index_file, get_metadata=False):
     with open(index_file, 'r') as f:
         index = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
 
-    yaml_dir = os.path.dirname(index_file)
-    index = commented_map_to_dict(index)
+    # sort index by uuids
 
-    h5s, h5_uuids = zip(*index['files'])
-    ymls = ['{}.yaml'.format(os.path.splitext(h5)[0]) for h5 in h5s]
+    # yaml_dir = os.path.dirname(index_file)
 
-    dicts = []
-    has_meta = []
+    h5s = [idx['path'] for idx in index['files']]
+    h5_uuids = [idx['uuid'] for idx in index['files']]
+    groups = [idx['group'] for idx in index['files']]
+    metadata = [commented_map_to_dict(idx['metadata']) for idx in index['files']]
 
-    for yml in ymls:
-        with open(os.path.join(yaml_dir, yml), 'r') as f:
-            yml_dict = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
-            dicts.append(yml_dict)
-            has_meta.append('metadata' in list(yml_dict.keys()))
+    sorted_index = {}
 
-    metadata = []
+    for uuid, h5, group, h5_meta in zip(h5_uuids, h5s, groups, metadata):
+        sorted_index[uuid] = {
+            'path':  h5,
+            'group': group,
+            'metadata': h5_meta
+        }
 
-    if get_metadata:
-        for use_dict, yml_dict, h5 in zip(has_meta, dicts, h5s):
-            # check if original json still exists
-            try:
-                original_json = os.path.join(os.path.dirname(yml_dict['parameters']['input_file']),
-                                             'metadata.json')
-                backup_json = os.path.join(os.path.dirname(h5), '..', 'metadata.json')
+    # ymls = ['{}.yaml'.format(os.path.splitext(h5)[0]) for h5 in h5s]
 
-                if not os.path.exists(original_json):
-                    original_json = backup_json
-                with open(original_json, 'r') as f:
-                    metadata.append(json.load(f))
-            except:
-                if use_dict:
-                    metadata.append(yml_dict)
-                else:
-                    metadata.append(
-                        recursively_load_dict_contents_from_group(
-                            h5py.File(os.path.join(yaml_dir, h5), 'r'),
-                            '/metadata/extraction'))
-    else:
-        metadata = None
+    return index, sorted_index
 
-    return index, h5s, h5_uuids, dicts, metadata
+
+# https://gist.github.com/jaytaylor/3660565
+_underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
+_underscorer2 = re.compile('([a-z0-9])([A-Z])')
+
+
+def camel_to_snake(s):
+    """Converts CamelCase to snake_case
+    """
+    subbed = _underscorer1.sub(r'\1_\2', s)
+    return _underscorer2.sub(r'\1_\2', subbed).lower()

@@ -1,5 +1,6 @@
 from moseq2_viz.util import recursive_find_h5s, check_video_parameters,\
-    parse_index, commented_map_to_dict, recursively_load_dict_contents_from_group
+    parse_index, commented_map_to_dict, recursively_load_dict_contents_from_group,\
+    camel_to_snake
 from moseq2_viz.model.util import sort_results, relabel_by_usage, get_syllable_slices,\
     results_to_dataframe, parse_model_results, get_transition_matrix
 from moseq2_viz.viz import make_crowd_matrix, usage_plot, graph_transition_matrix
@@ -43,7 +44,8 @@ def cli():
 @click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
 @click.option('--pca-file', '-p', type=click.Path(exists=True), default=os.path.join(os.getcwd(), '_pca/pca_scores.h5'), help='Path to PCA results')
 @click.option('--output-file', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'moseq2-index.yaml'), help="Location for storing index")
-def generate_index(input_dir, pca_file, output_file):
+@click.option('--filter', '-f', type=(str, str), default=[('SubjectName', '\w+')], help='Regex filter for metadata', multiple=True)
+def generate_index(input_dir, pca_file, output_file, filter):
 
     # gather than h5s and the pca scores file
 
@@ -53,12 +55,28 @@ def generate_index(input_dir, pca_file, output_file):
         pca_uuids = list(f['scores'].keys())
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)
-    file_uuids = [(os.path.relpath(h5), meta['uuid']) for h5, meta in zip(h5s, dicts) if meta['uuid'] in pca_uuids]
+    file_with_uuids = [(os.path.relpath(h5), meta) for h5, meta in zip(h5s, dicts) if meta['uuid'] in pca_uuids]
 
     output_dict = {
-        'files': file_uuids,
+        'files': [],
         'pca_path': os.path.relpath(pca_file)
     }
+
+    for i, file_tup in enumerate(file_with_uuids):
+        output_dict['files'].append({
+            'path': file_tup[0],
+            'uuid': file_tup[1]['uuid'],
+            'group': 'default'
+        })
+
+        output_dict['files'][i]['metadata'] = {}
+
+        for k, v in file_tup[1]['metadata'].items():
+            for filt in filter:
+                if k == filt[0]:
+                    v = re.match(filt[1], v)[0]
+
+            output_dict['files'][i]['metadata'][k] = v
 
     # write out index yaml
 
@@ -75,26 +93,22 @@ def generate_index(input_dir, pca_file, output_file):
 @click.option('--lowercase', type=bool, is_flag=True, help='Lowercase text filter')
 def add_group(index_file, key, value, group, exact, lowercase):
 
-        index, h5s, h5_uuids, dicts, metadata = parse_index(index_file, get_metadata=True)
+    index = parse_index(index_file)[0]
+    h5_uuids = [f['uuid'] for f in index['files']]
+    metadata = [f['metadata'] for f in index['files']]
 
-        if lowercase:
-            hits = [re.search(value, meta[key].lower()) is not None for meta in metadata]
-        else:
-            hits = [re.search(value, meta[key]) is not None for meta in metadata]
+    if lowercase:
+        hits = [re.search(value, meta[key].lower()) is not None for meta in metadata]
+    else:
+        hits = [re.search(value, meta[key]) is not None for meta in metadata]
 
-        if 'groups' in list(index.keys()):
-            group_dict = index['groups']
-        else:
-            group_dict = {}
+    for uuid, hit in zip(h5_uuids, hits):
+        position = h5_uuids.index(uuid)
+        if hit:
+            index['files'][position]['group'] = group
 
-        for uuid, hit in zip(h5_uuids, hits):
-            if hit:
-                group_dict[uuid] = group
-
-        index['groups'] = group_dict
-
-        with open(index_file, 'w+') as f:
-            yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
+    with open(index_file, 'w+') as f:
+        yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
 
 
 @cli.command(name='make-crowd-movies')
@@ -177,8 +191,8 @@ def plot_usages(index_file, model_fit, max_syllable, group, output_file):
     # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
 
     model_data = parse_model_results(joblib.load(model_fit))
-    index, _, _, _, _ = parse_index(index_file)
-    df, _ = results_to_dataframe(model_data, index, max_syllable=max_syllable, sort=True)
+    index, sorted_index = parse_index(index_file)
+    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=True)
     plt, ax, fig = usage_plot(df, groups=group, headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
@@ -200,7 +214,7 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
                           normalize, edge_threshold, layout, sort, edge_scaling, width_per_group):
 
     model_data = parse_model_results(joblib.load(model_fit))
-    index, _, _, _, _ = parse_index(index_file)
+    index, sorted_index = parse_index(index_file)
 
     labels = model_data['labels']
 
@@ -216,12 +230,12 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 
     print('Sorting labels...')
 
-    if 'groups' in index.keys() and len(group) > 0:
+    if 'group' in index['files'][0].keys() and len(group) > 0:
         for uuid in label_uuids:
-            label_group.append(index['groups'][uuid])
-    elif 'groups' in index.keys() and (group is None or len(group) == 0):
+            label_group.append(sorted_index[uuid]['group'])
+    elif 'group' in index['files'][0].keys() and (group is None or len(group) == 0):
         for uuid in label_uuids:
-            label_group.append(index['groups'][uuid])
+            label_group.append(sorted_index[uuid]['group'])
         group = list(set(label_group))
     else:
         label_group = ['']*len(model_data['labels'])

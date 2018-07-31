@@ -10,7 +10,7 @@ import warnings
 import tqdm
 
 
-def sort_results(data, averaging=False, **kwargs):
+def sort_results(data, averaging=True, **kwargs):
 
     parameters = np.hstack(kwargs.values())
     param_sets = np.unique(parameters, axis=0)
@@ -26,7 +26,10 @@ def sort_results(data, averaging=False, **kwargs):
     dims = len(new_shape)
 
     if dims > 2:
-        raise RuntimeError('No support for more than 2 dimensions')
+        raise NotImplementedError('No support for more than 2 dimensions')
+
+    if average == False:
+        raise NotImplementedError('Only averaging restarts is supported')
 
     # TODO: add support for no averaging (just default_dict or list)
 

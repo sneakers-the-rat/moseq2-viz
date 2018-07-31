@@ -57,6 +57,9 @@ def generate_index(input_dir, pca_file, output_file, filter):
     h5s, dicts, yamls = recursive_find_h5s(input_dir)
     file_with_uuids = [(os.path.relpath(h5), meta) for h5, meta in zip(h5s, dicts) if meta['uuid'] in pca_uuids]
 
+    if 'metadata' not in file_with_uuids[0][1]:
+        raise RuntimeError('Metadata not present in yaml files, run copy-h5-metadata-to-yaml to update yaml files')
+
     output_dict = {
         'files': [],
         'pca_path': os.path.relpath(pca_file)
@@ -106,6 +109,27 @@ def add_group(index_file, key, value, group, exact, lowercase):
         position = h5_uuids.index(uuid)
         if hit:
             index['files'][position]['group'] = group
+
+    with open(index_file, 'w+') as f:
+        yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
+
+
+@cli.command(name="copy-groups")
+@click.argument('source', type=click.Path(exists=True, resolve_path=True))
+@click.argument('target', type=click.Path(exists=True, resolve_path=True))
+def copy_groups(source, target):
+
+    raise NotImplementedError
+
+    # source_dict = read_yaml(source)
+    # target_dict = read_yaml(target)
+    #
+    # if type(source_dict['files']) is list:
+    #     source_uuids = [dct['uuid'] for dct in source_dicts]
+    # elif 'uuids' in source_dict.keys():
+
+
+
 
     with open(index_file, 'w+') as f:
         yaml.dump(index, f, Dumper=yaml.RoundTripDumper)

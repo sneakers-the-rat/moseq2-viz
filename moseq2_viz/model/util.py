@@ -28,7 +28,7 @@ def sort_results(data, averaging=False, **kwargs):
     if dims > 2:
         raise RuntimeError('No support for more than 2 dimensions')
 
-    # TODO: add support for one dimension
+    # TODO: add support for no averaging (just default_dict or list)
 
     for param in param_sets:
         row_matches = np.where((parameters == param).all(axis=1))[0]
@@ -41,12 +41,14 @@ def sort_results(data, averaging=False, **kwargs):
             idx[i] = int(np.where(param_list[i] == p)[0])
 
         for row in row_matches:
-            if (averaging and idx[0] > 0 and idx[1] > 0) and ~np.isnan(data[row]):
-                    new_matrix[idx[0], idx[1]] += data[row]
+            if dims == 2:
+                if idx[0] > 0 and idx[1] > 0:
+                    new_matrix[idx[0], idx[1]] = data[row]
                     new_count[idx[0], idx[1]] += 1
-            elif idx[0] > 0 and idx[1] > 0:
-                new_matrix[idx[0], idx[1]] = data[row]
-                new_count[idx[0], idx[1]] += 1
+            elif dims == 1:
+                if idx > 0:
+                    new_matrix[idx] += data[row]
+                    new_count[idx] += 1
 
     new_matrix[new_count == 0] = np.nan
 

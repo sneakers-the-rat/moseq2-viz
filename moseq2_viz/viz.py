@@ -1,11 +1,108 @@
 from moseq2_viz.model.util import convert_ebunch_to_graph, convert_transition_matrix_to_ebunch
 from matplotlib import lines, gridspec
 import matplotlib.pyplot as plt
+import matplotlib.cbook as cb
 import numpy as np
 import h5py
 import cv2
 import seaborn as sns
 import networkx as nx
+from networkx.utils import is_string_like
+
+def graph_transition_matrix(trans_mats, groups=None, edge_threshold=.0025, anchor=0,
+                            layout='spring', edge_width_scale=100, node_size=400,
+                            width_per_group=8, height=8, headless=False, font_size=12,
+                            plot_differences=True, difference_threshold=.0005, difference_edge_width_scale=500,
+                             **kwargs):
+
+    if headless:
+        plt.switch_backend('agg')
+
+    if type(trans_mats) is np.ndarray and trans_mats.ndim == 2:
+        trans_mats = [trans_mats]
+    elif type(trans_mats) is list:
+        pass
+    else:
+        raise RuntimeError("Transition matrix must be a numpy array or list of arrays")
+
+    ngraphs = len(trans_mats)
+
+    if anchor > ngraphs:
+        print('Setting anchor to 0')
+        anchor = 0
+
+    ebunch_anchor = convert_transition_matrix_to_ebunch(
+        trans_mats[anchor], edge_threshold=edge_threshold)
+    graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
+    if layout == 'spring':
+        pos = nx.spring_layout(graph_anchor, **kwargs)
+    elif layout == 'circular':
+        pos = nx.circular_layout(graph_anchor, **kwargs)
+    elif layout == 'spectral':
+        pos = nx.spectral_layout(graph_anchor, **kwargs)
+    else:
+        raise RuntimeError('Did not understand layout type')
+
+    fig, ax = plt.subplots(ngraphs, ngraphs,
+                           figsize=(ngraphs*width_per_group, ngraphs*width_per_group))
+
+    if ngraphs == 1:
+        ax = [ax]
+
+    for i, tm in enumerate(trans_mats):
+        ebunch = convert_transition_matrix_to_ebunch(
+            tm, edge_threshold=edge_threshold, indices=ebunch_anchor)
+        graph = convert_ebunch_to_graph(ebunch)
+
+        weight = [graph[u][v]['weight']*edge_width_scale for u, v in graph.edges()]
+
+        nx.draw_networkx_nodes(graph, pos, node_size=node_size, ax=ax[i][i])
+        nx.draw_networkx_edges(graph, pos, graph.edges(), width=weight, ax=ax[i][i])
+        if font_size > 0:
+            nx.draw_networkx_labels(graph, pos,
+                                    {k: k for k in pos.keys()},
+                                    font_size=font_size,
+                                    ax=ax[i][i])
+
+        if groups is not None:
+            ax[i][i].set_title('{}'.format(groups[i]))
+
+    if plot_differences and groups is not None and ngraphs > 1:
+        for i, tm in enumerate(trans_mats):
+            for j, tm2 in enumerate(trans_mats[i+1:]):
+                df = tm2 - tm
+                ebunch = convert_transition_matrix_to_ebunch(
+                    df, edge_threshold=difference_threshold, indices=ebunch_anchor)
+                graph = convert_ebunch_to_graph(ebunch)
+                weight = [np.abs(graph[u][v]['weight'])*difference_edge_width_scale for u, v in graph.edges()]
+                nx.draw_networkx_nodes(graph, pos, node_size=node_size, ax=ax[i][j + i + 1])
+                colors = []
+
+                for u, v in graph.edges():
+                    if graph[u][v]['weight'] > 0:
+                        colors.append('r')
+                    else:
+                        colors.append('b')
+
+                nx.draw_networkx_edges(graph, pos, graph.edges(),
+                                       width=weight, edge_color=colors,
+                                       ax=ax[i][j + i + 1])
+
+                if font_size > 0:
+                    nx.draw_networkx_labels(graph, pos,
+                                            {k: k for k in pos.keys()},
+                                            font_size=font_size,
+                                            ax=ax[i][j + i + 1])
+
+                ax[i][j + 1].set_title('{} - {}'.format(groups[i], groups[j + i + 1]))
+
+    for i in range(len(ax)):
+        for j in range(len(ax[i])):
+            ax[i][j].axis('off')
+
+    plt.show()
+
+    return fig, ax
 
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
@@ -110,72 +207,6 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
     return crowd_matrix
 
 
-def usage_plot(usages, groups=None, headless=False, **kwargs):
-
-    # use a Seaborn pointplot, groups map to hue
-    # make a useful x-axis to orient the user (which side is which)
-
-    if headless:
-        plt.switch_backend('agg')
-
-    if len(groups) == 0:
-        groups = None
-
-    if groups is None:
-        hue = None
-    else:
-        hue = 'group'
-
-    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-    sns.set_style('ticks')
-
-    ax = sns.pointplot(data=usages,
-                       x='syllable',
-                       y='usage',
-                       hue=hue,
-                       hue_order=groups,
-                       join=False,
-                       **kwargs)
-
-    ax.set_xticks([])
-    plt.ylabel('P(syllable)')
-    plt.xlabel('Syllable (sorted by usage)')
-
-    sns.despine()
-
-    return fig, ax
-
-
-def scalar_plot(scalar_df, sort_vars=['group', 'SubjectName'], group_var='group',
-                show_scalars=['velocity_2d_mm', 'velocity_3d_mm',
-                              'height_ave_mm', 'width_mm', 'length_mm'],
-                headless=False,
-                **kwargs):
-
-    if headless:
-        plt.switch_backend('agg')
-
-    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8))
-
-    # sort scalars into a neat summary using group_vars
-
-    summary = {
-        'Mean': scalar_df.groupby(sort_vars)[show_scalars].mean(),
-        'STD': scalar_df.groupby(sort_vars)[show_scalars].std()
-    }
-
-    for i, (k, v) in enumerate(summary.items()):
-        summary[k].reset_index(level=summary[k].index.names, inplace=True)
-        summary[k] = summary[k].melt(id_vars=group_var, value_vars=show_scalars)
-        sns.swarmplot(data=summary[k], x='variable', y='value', hue=group_var, ax=ax[i], **kwargs)
-        ax[i].set_ylabel(k)
-        ax[i].set_xlabel('')
-
-    plt.tight_layout()
-
-    return fig, ax
-
-
 def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
                   sort_vars=['SubjectName', 'uuid'], group_var='group', sz=50,
                   headless=False, **kwargs):
@@ -236,64 +267,67 @@ def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
     return fig, ax
 
 
-def graph_transition_matrix(trans_mats, groups=None, edge_threshold=.0025, anchor=0,
-                            layout='spring', edge_width_scale=100, node_size=400,
-                            width_per_group=8, height=8, headless=False, font_size=12,
-                            **kwargs):
+def scalar_plot(scalar_df, sort_vars=['group', 'SubjectName'], group_var='group',
+                show_scalars=['velocity_2d_mm', 'velocity_3d_mm',
+                              'height_ave_mm', 'width_mm', 'length_mm'],
+                headless=False,
+                **kwargs):
 
     if headless:
         plt.switch_backend('agg')
 
-    if type(trans_mats) is np.ndarray and trans_mats.ndim == 2:
-        trans_mats = [trans_mats]
-    elif type(trans_mats) is list:
-        pass
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8))
+
+    # sort scalars into a neat summary using group_vars
+
+    summary = {
+        'Mean': scalar_df.groupby(sort_vars)[show_scalars].mean(),
+        'STD': scalar_df.groupby(sort_vars)[show_scalars].std()
+    }
+
+    for i, (k, v) in enumerate(summary.items()):
+        summary[k].reset_index(level=summary[k].index.names, inplace=True)
+        summary[k] = summary[k].melt(id_vars=group_var, value_vars=show_scalars)
+        sns.swarmplot(data=summary[k], x='variable', y='value', hue=group_var, ax=ax[i], **kwargs)
+        ax[i].set_ylabel(k)
+        ax[i].set_xlabel('')
+
+    plt.tight_layout()
+
+    return fig, ax
+
+
+def usage_plot(usages, groups=None, headless=False, **kwargs):
+
+    # use a Seaborn pointplot, groups map to hue
+    # make a useful x-axis to orient the user (which side is which)
+
+    if headless:
+        plt.switch_backend('agg')
+
+    if len(groups) == 0:
+        groups = None
+
+    if groups is None:
+        hue = None
     else:
-        raise RuntimeError("Transition matrix must be a numpy array or list of arrays")
+        hue = 'group'
 
-    ngraphs = len(trans_mats)
+    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+    sns.set_style('ticks')
 
-    if anchor > ngraphs:
-        print('Setting anchor to 0')
-        anchor = 0
+    ax = sns.pointplot(data=usages,
+                       x='syllable',
+                       y='usage',
+                       hue=hue,
+                       hue_order=groups,
+                       join=False,
+                       **kwargs)
 
-    ebunch_anchor = convert_transition_matrix_to_ebunch(
-        trans_mats[anchor], edge_threshold=edge_threshold)
-    graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
-    if layout == 'spring':
-        pos = nx.spring_layout(graph_anchor, **kwargs)
-    elif layout == 'circular':
-        pos = nx.circular_layout(graph_anchor, **kwargs)
-    elif layout == 'spectral':
-        pos = nx.spectral_layout(graph_anchor, **kwargs)
-    else:
-        raise RuntimeError('Did not understand layout type')
+    ax.set_xticks([])
+    plt.ylabel('P(syllable)')
+    plt.xlabel('Syllable (sorted by usage)')
 
-    fig, ax = plt.subplots(1, ngraphs, figsize=(ngraphs*width_per_group,
-                                                height))
-
-    if ngraphs == 1:
-        ax = [ax]
-
-    for i, tm in enumerate(trans_mats):
-        ebunch = convert_transition_matrix_to_ebunch(
-            tm, edge_threshold=edge_threshold, indices=ebunch_anchor)
-        graph = convert_ebunch_to_graph(ebunch)
-
-        weight = [graph[u][v]['weight']*edge_width_scale for u, v in graph.edges()]
-
-        nx.draw_networkx_nodes(graph, pos, node_size=node_size, ax=ax[i])
-        nx.draw_networkx_edges(graph, pos, ebunch, width=weight, ax=ax[i])
-        if font_size > 0:
-            nx.draw_networkx_labels(graph, pos,
-                                    {k: k for k in pos.keys()},
-                                    font_size=font_size,
-                                    ax=ax[i])
-
-        ax[i].axis('off')
-        if groups is not None:
-            ax[i].set_title('{}'.format(groups[i]))
-
-    plt.show()
+    sns.despine()
 
     return fig, ax

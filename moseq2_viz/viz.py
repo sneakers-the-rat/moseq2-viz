@@ -1,16 +1,16 @@
 from moseq2_viz.model.util import convert_ebunch_to_graph, convert_transition_matrix_to_ebunch
 from matplotlib import lines, gridspec
 import matplotlib.pyplot as plt
-import matplotlib.cbook as cb
 import numpy as np
 import h5py
 import cv2
 import seaborn as sns
 import networkx as nx
-from networkx.utils import is_string_like
+
 
 def graph_transition_matrix(trans_mats, groups=None, edge_threshold=.0025, anchor=0,
-                            layout='spring', edge_width_scale=100, node_size=400,
+                            node_color='w', node_edge_color='r', layout='spring',
+                            edge_width_scale=100, node_size=400,
                             width_per_group=8, height=8, headless=False, font_size=12,
                             plot_differences=True, difference_threshold=.0005, difference_edge_width_scale=500,
                              **kwargs):
@@ -56,7 +56,9 @@ def graph_transition_matrix(trans_mats, groups=None, edge_threshold=.0025, ancho
 
         weight = [graph[u][v]['weight']*edge_width_scale for u, v in graph.edges()]
 
-        nx.draw_networkx_nodes(graph, pos, node_size=node_size, ax=ax[i][i])
+        nx.draw_networkx_nodes(graph, pos,
+                               edgecolors=node_edge_color, node_color=node_color,
+                               node_size=node_size, ax=ax[i][i])
         nx.draw_networkx_edges(graph, pos, graph.edges(), width=weight, ax=ax[i][i])
         if font_size > 0:
             nx.draw_networkx_labels(graph, pos,
@@ -75,7 +77,9 @@ def graph_transition_matrix(trans_mats, groups=None, edge_threshold=.0025, ancho
                     df, edge_threshold=difference_threshold, indices=ebunch_anchor)
                 graph = convert_ebunch_to_graph(ebunch)
                 weight = [np.abs(graph[u][v]['weight'])*difference_edge_width_scale for u, v in graph.edges()]
-                nx.draw_networkx_nodes(graph, pos, node_size=node_size, ax=ax[i][j + i + 1])
+                nx.draw_networkx_nodes(graph, pos,
+                                       edgecolors=node_edge_color, node_color=node_color,
+                                       node_size=node_size, ax=ax[i][j + i + 1])
                 colors = []
 
                 for u, v in graph.edges():

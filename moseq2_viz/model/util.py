@@ -1,6 +1,6 @@
 from collections import defaultdict, OrderedDict
 from copy import deepcopy
-from moseq2_viz.util import recursively_load_dict_contents_from_group
+from moseq2_viz.util import h5_to_dict
 import numpy as np
 import h5py
 import ruamel.yaml as yaml
@@ -28,7 +28,7 @@ def sort_results(data, averaging=True, **kwargs):
     if dims > 2:
         raise NotImplementedError('No support for more than 2 dimensions')
 
-    if average == False:
+    if averaging == False:
         raise NotImplementedError('Only averaging restarts is supported')
 
     # TODO: add support for no averaging (just default_dict or list)
@@ -66,8 +66,9 @@ def parse_batch_modeling(filename):
     with h5py.File(filename, 'r') as f:
         results_dict = {
             'heldouts': np.squeeze(f['metadata/heldout_ll'].value),
-            'parameters': recursively_load_dict_contents_from_group(f, 'metadata/parameters'),
-            'scans': recursively_load_dict_contents_from_group(f, 'scans'),
+            'parameters': h5_to_dict(f, 'metadata/parameters'),
+            'scans': h5_to_dict(f, 'scans'),
+            'filenames': f['filenames'].value,
             'labels': np.squeeze(f['labels'].value),
             'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list'].value]
         }
@@ -239,7 +240,10 @@ def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max
 
     # by default the keys are the uuids
 
-    label_uuids = model_dict['train_list']
+    if 'train_list' in model_dict.keys():
+        label_uuids = model_dict['train_list']
+    else:
+        label_uuids = model_dict['keys']
 
     # durations = []
 
@@ -250,10 +254,10 @@ def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max
         }
 
     for key in include_meta:
-        df_dict['key'] = []
+        df_dict[key] = []
 
-    groups = [index_dict[uuid]['group'] for uuid in label_uuids]
-    metadata = [index_dict[uuid]['metadata'] for uuid in label_uuids]
+    groups = [index_dict['files'][uuid]['group'] for uuid in label_uuids]
+    metadata = [index_dict['files'][uuid]['metadata'] for uuid in label_uuids]
 
     for i, label_arr in enumerate(model_dict['labels']):
         tmp_usages, tmp_durations = get_syllable_statistics(label_arr, max_syllable=max_syllable)
@@ -273,18 +277,16 @@ def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max
 
 
 # return tuples with uuid and syllable indices
-def get_syllable_slices(syllable, labels, label_uuids, index_file, trim_nans=True):
+def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
 
-    with open(index_file, 'r') as f:
-        index = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
-
-    h5s, h5_uuids = zip(*index['files'])
+    h5s = [v['path'][0] for v in index['files'].values()]
+    h5_uuids = list(index['files'].keys())
 
     # grab the original indices from the pca file as well...
 
     if trim_nans:
         with h5py.File(index['pca_path'], 'r') as f:
-            score_idx = recursively_load_dict_contents_from_group(f, 'scores_idx')
+            score_idx = h5_to_dict(f, 'scores_idx')
 
     sorted_h5s = [h5s[h5_uuids.index(uuid)] for uuid in label_uuids]
     syllable_slices = []

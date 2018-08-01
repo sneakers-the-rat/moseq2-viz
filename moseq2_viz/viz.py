@@ -1,4 +1,5 @@
 from moseq2_viz.model.util import convert_ebunch_to_graph, convert_transition_matrix_to_ebunch
+from matplotlib import lines, gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import h5py
@@ -142,7 +143,97 @@ def usage_plot(usages, groups=None, headless=False, **kwargs):
 
     sns.despine()
 
-    return plt, ax, fig
+    return fig, ax
+
+
+def scalar_plot(scalar_df, sort_vars=['group', 'SubjectName'], group_var='group',
+                show_scalars=['velocity_2d_mm', 'velocity_3d_mm',
+                              'height_ave_mm', 'width_mm', 'length_mm'],
+                headless=False,
+                **kwargs):
+
+    if headless:
+        plt.switch_backend('agg')
+
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8))
+
+    # sort scalars into a neat summary using group_vars
+
+    summary = {
+        'Mean': scalar_df.groupby(sort_vars)[show_scalars].mean(),
+        'STD': scalar_df.groupby(sort_vars)[show_scalars].std()
+    }
+
+    for i, (k, v) in enumerate(summary.items()):
+        summary[k].reset_index(level=summary[k].index.names, inplace=True)
+        summary[k] = summary[k].melt(id_vars=group_var, value_vars=show_scalars)
+        sns.swarmplot(data=summary[k], x='variable', y='value', hue=group_var, ax=ax[i], **kwargs)
+        ax[i].set_ylabel(k)
+        ax[i].set_xlabel('')
+
+    plt.tight_layout()
+
+    return fig, ax
+
+
+def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
+                  sort_vars=['SubjectName', 'uuid'], group_var='group', sz=50,
+                  headless=False, **kwargs):
+
+    grouped = scalar_df.groupby([group_var] + sort_vars)
+
+    groups = [grp[0] for grp in grouped.groups]
+    uniq_groups = list(set(groups))
+    count = [len([grp1 for grp1 in groups if grp1 == grp]) for grp in uniq_groups]
+
+    grouped = scalar_df.groupby(group_var)
+
+    figsize = (np.round(2.5 * len(uniq_groups)), np.round(2.6 * np.max(count)))
+    lims = (np.min(scalar_df[centroid_vars].min()), np.max(scalar_df[centroid_vars].max()))
+
+    fig = plt.figure(figsize=figsize)
+    gs = gridspec.GridSpec(nrows=np.max(count),
+                           ncols=len(uniq_groups),
+                           width_ratios=[1, 1],
+                           wspace=0.0,
+                           hspace=0.0)
+
+    for i, (name, group) in enumerate(grouped):
+
+        group_session = group.groupby(sort_vars)
+
+        for j, (name2, group2) in enumerate(group_session):
+
+            ax = plt.subplot(gs[j, i])
+            ax.plot(group2[centroid_vars[0]],
+                    group2[centroid_vars[1]],
+                    linewidth=.5,
+                    **kwargs)
+            ax.set_xlim(lims)
+            ax.set_ylim(lims)
+            ax.axis('off')
+
+            if j == 0:
+                ax.set_title(name)
+
+            if i == 0 and j == len(group_session) - 1:
+                y_line = lines.Line2D([lims[0], lims[0]],
+                                      [lims[0], lims[0] + sz],
+                                      color='b',
+                                      alpha=1)
+                x_line = lines.Line2D([lims[0], lims[0] + sz],
+                                      [lims[0], lims[0]],
+                                      color='b',
+                                      alpha=1)
+                y_line.set_clip_on(False)
+                x_line.set_clip_on(False)
+                ax.add_line(y_line)
+                ax.add_line(x_line)
+                ax.text(lims[0] - 10, lims[0] - 60, '{} CM'.format(np.round(sz / 10).astype('int')))
+
+            ax.set_aspect('auto')
+
+    return fig, ax
 
 
 def graph_transition_matrix(trans_mats, groups=None, edge_threshold=.0025, anchor=0,
@@ -205,4 +296,4 @@ def graph_transition_matrix(trans_mats, groups=None, edge_threshold=.0025, ancho
 
     plt.show()
 
-    return plt, ax, fig
+    return fig, ax

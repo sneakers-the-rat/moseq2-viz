@@ -1,6 +1,5 @@
 import os
 import h5py
-import json
 import ruamel.yaml as yaml
 import numpy as np
 import re
@@ -40,7 +39,7 @@ def read_yaml(yaml_file):
     return return_dict
 
 
-def recursively_load_dict_contents_from_group(h5file, path):
+def h5_to_dict(h5file, path):
     """
     ....
     """
@@ -49,17 +48,13 @@ def recursively_load_dict_contents_from_group(h5file, path):
         if type(item) is h5py.Dataset:
             ans[key] = item.value
         elif type(item) is h5py.Group:
-            ans[key] = recursively_load_dict_contents_from_group(h5file, path + key + '/')
+            ans[key] = h5_to_dict(h5file, path + key + '/')
     return ans
 
 
-def check_video_parameters(index_file):
+def check_video_parameters(index):
 
-    with open(index_file, 'r') as f:
-        index = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
-
-    h5s, h5_uuids = zip(*index['files'])
-    ymls = ['{}.yaml'.format(os.path.splitext(h5)[0]) for h5 in h5s]
+    ymls = [v['path'][1] for v in index.values()]
 
     dicts = []
 
@@ -123,10 +118,13 @@ def parse_index(index_file, get_metadata=False):
     groups = [idx['group'] for idx in index['files']]
     metadata = [commented_map_to_dict(idx['metadata']) for idx in index['files']]
 
-    sorted_index = {}
+    sorted_index = {
+        'files': {},
+        'pca_path': index['pca_path']
+    }
 
     for uuid, h5, group, h5_meta in zip(h5_uuids, h5s, groups, metadata):
-        sorted_index[uuid] = {
+        sorted_index['files'][uuid] = {
             'path':  h5,
             'group': group,
             'metadata': h5_meta

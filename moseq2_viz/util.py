@@ -5,51 +5,16 @@ import numpy as np
 import re
 
 
-def recursive_find_h5s(root_dir=os.getcwd(),
-                       ext='.h5',
-                       yaml_string='{}.yaml'):
-    """Recursively find h5 files, along with yaml files with the same basename
+# https://gist.github.com/jaytaylor/3660565
+_underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
+_underscorer2 = re.compile('([a-z0-9])([A-Z])')
+
+
+def camel_to_snake(s):
+    """Converts CamelCase to snake_case
     """
-    dicts = []
-    h5s = []
-    yamls = []
-    for root, dirs, files in os.walk(root_dir):
-        for file in files:
-            yaml_file = yaml_string.format(os.path.splitext(file)[0])
-            if file.endswith(ext) and os.path.exists(os.path.join(root, yaml_file)):
-                with h5py.File(os.path.join(root, file), 'r') as f:
-                    if 'frames' not in f.keys():
-                        continue
-                h5s.append(os.path.join(root, file))
-                yamls.append(os.path.join(root, yaml_file))
-                dicts.append(read_yaml(os.path.join(root, yaml_file)))
-
-    return h5s, dicts, yamls
-
-
-def read_yaml(yaml_file):
-
-    with open(yaml_file, 'r') as f:
-        dat = f.read()
-        try:
-            return_dict = yaml.load(dat, Loader=yaml.RoundTripLoader)
-        except yaml.constructor.ConstructorError:
-            return_dict = yaml.load(dat, Loader=yaml.Loader)
-
-    return return_dict
-
-
-def h5_to_dict(h5file, path):
-    """
-    ....
-    """
-    ans = {}
-    for key, item in h5file[path].items():
-        if type(item) is h5py.Dataset:
-            ans[key] = item.value
-        elif type(item) is h5py.Group:
-            ans[key] = h5_to_dict(h5file, path + key + '/')
-    return ans
+    subbed = _underscorer1.sub(r'\1_\2', s)
+    return _underscorer2.sub(r'\1_\2', subbed).lower()
 
 
 def check_video_parameters(index):
@@ -104,6 +69,19 @@ def commented_map_to_dict(cmap):
     return new_var
 
 
+def h5_to_dict(h5file, path):
+    """
+    ....
+    """
+    ans = {}
+    for key, item in h5file[path].items():
+        if type(item) is h5py.Dataset:
+            ans[key] = item.value
+        elif type(item) is h5py.Group:
+            ans[key] = h5_to_dict(h5file, path + key + '/')
+    return ans
+
+
 def parse_index(index_file, get_metadata=False):
 
     with open(index_file, 'r') as f:
@@ -135,13 +113,35 @@ def parse_index(index_file, get_metadata=False):
     return index, sorted_index
 
 
-# https://gist.github.com/jaytaylor/3660565
-_underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
-_underscorer2 = re.compile('([a-z0-9])([A-Z])')
-
-
-def camel_to_snake(s):
-    """Converts CamelCase to snake_case
+def recursive_find_h5s(root_dir=os.getcwd(),
+                       ext='.h5',
+                       yaml_string='{}.yaml'):
+    """Recursively find h5 files, along with yaml files with the same basename
     """
-    subbed = _underscorer1.sub(r'\1_\2', s)
-    return _underscorer2.sub(r'\1_\2', subbed).lower()
+    dicts = []
+    h5s = []
+    yamls = []
+    for root, dirs, files in os.walk(root_dir):
+        for file in files:
+            yaml_file = yaml_string.format(os.path.splitext(file)[0])
+            if file.endswith(ext) and os.path.exists(os.path.join(root, yaml_file)):
+                with h5py.File(os.path.join(root, file), 'r') as f:
+                    if 'frames' not in f.keys():
+                        continue
+                h5s.append(os.path.join(root, file))
+                yamls.append(os.path.join(root, yaml_file))
+                dicts.append(read_yaml(os.path.join(root, yaml_file)))
+
+    return h5s, dicts, yamls
+
+
+def read_yaml(yaml_file):
+
+    with open(yaml_file, 'r') as f:
+        dat = f.read()
+        try:
+            return_dict = yaml.load(dat, Loader=yaml.RoundTripLoader)
+        except yaml.constructor.ConstructorError:
+            return_dict = yaml.load(dat, Loader=yaml.Loader)
+
+    return return_dict

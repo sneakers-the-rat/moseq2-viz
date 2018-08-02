@@ -82,6 +82,18 @@ def h5_to_dict(h5file, path):
     return ans
 
 
+def load_changepoints(cp_file):
+    with h5py.File(cpfile, 'r') as f:
+        cps = h5_to_dict(f, 'cps')
+
+    cp_dist = []
+
+    for k, v in cps.items():
+        cp_dist.append(np.diff(v.squeeze()))
+
+    return np.concatenate(cp_dist)
+
+
 def parse_index(index_file, get_metadata=False):
 
     with open(index_file, 'r') as f:

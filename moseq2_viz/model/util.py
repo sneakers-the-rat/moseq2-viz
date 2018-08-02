@@ -181,6 +181,16 @@ def get_transitions(label_sequence):
     return transitions, locs
 
 
+def labels_to_changepoints(labels, fs=30.):
+
+    cp_dist = []
+
+    for lab in labels:
+        cp_dist.append(np.diff(get_transitions(lab)[1].squeeze()) / fs)
+
+    return np.concatenate(cp_dist)
+
+
 def parse_batch_modeling(filename):
 
     with h5py.File(filename, 'r') as f:

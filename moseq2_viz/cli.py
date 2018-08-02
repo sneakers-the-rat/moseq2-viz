@@ -2,7 +2,7 @@ from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
                              parse_index, commented_map_to_dict, h5_to_dict)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
                                    results_to_dataframe, parse_model_results,
-                                   get_transition_matrix)
+                                   get_transition_matrix, get_syllable_statistics)
 from moseq2_viz.viz import (make_crowd_matrix, usage_plot, graph_transition_matrix,
                             scalar_plot, position_plot)
 from moseq2_viz.scalars.util import scalars_to_dataframe
@@ -235,9 +235,11 @@ def plot_scalar_summary(index_file, output_file):
 @click.option('--layout', type=str, default='spring', help="Default networkx layout algorithm")
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
 @click.option('--edge-scaling', type=float, default=250, help="Scale factor from transition probabilities to edge width")
+@click.option('--scale-node-by-usage', type=bool, default=True, help="Scale node sizes by usages probabilities")
 @click.option('--width-per-group', type=float, default=8, help="Width (in inches) for figure canvas per group")
 def plot_transition_graph(index_file, model_fit, max_syllable, group, output_file,
-                          normalize, edge_threshold, layout, sort, edge_scaling, width_per_group):
+                          normalize, edge_threshold, layout, sort, edge_scaling,
+                          scale_node_by_usage, width_per_group):
 
     model_data = parse_model_results(joblib.load(model_fit))
     index, sorted_index = parse_index(index_file)
@@ -270,15 +272,20 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
     print('Computing transition matrices...')
 
     trans_mats = []
+    usages = []
     for plt_group in group:
         use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
         trans_mats.append(get_transition_matrix(use_labels, normalize=normalize, combine=True, max_syllable=max_syllable))
+        usages.append(get_syllable_statistics(use_labels)[0])
+
+    if not scale_node_by_usage:
+        usages = None
 
     print('Creating plot...')
 
-    plt, _ = graph_transition_matrix(trans_mats, width_per_group=width_per_group,
-                                           edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
-                                           layout=layout, groups=group, headless=True)
+    plt, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
+                                     edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
+                                     layout=layout, groups=group, headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
 

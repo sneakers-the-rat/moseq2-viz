@@ -8,7 +8,7 @@ import seaborn as sns
 import networkx as nx
 
 
-def graph_transition_matrix(trans_mats, groups=None, edge_threshold=.0025, anchor=0,
+def graph_transition_matrix(trans_mats, usages=None, groups=None, edge_threshold=.0025, anchor=0,
                             node_color='w', node_edge_color='r', layout='spring',
                             edge_width_scale=100, node_size=400,
                             width_per_group=8, height=8, headless=False, font_size=12,
@@ -34,8 +34,10 @@ def graph_transition_matrix(trans_mats, groups=None, edge_threshold=.0025, ancho
     ebunch_anchor = convert_transition_matrix_to_ebunch(
         trans_mats[anchor], edge_threshold=edge_threshold)
     graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
+    nnodes = len(graph_anchor.nodes())
+
     if layout == 'spring':
-        pos = nx.spring_layout(graph_anchor, **kwargs)
+        pos = nx.spring_layout(graph_anchor, k=1.5 / np.sqrt(nnodes), **kwargs)
     elif layout == 'circular':
         pos = nx.circular_layout(graph_anchor, **kwargs)
     elif layout == 'spectral':
@@ -56,6 +58,9 @@ def graph_transition_matrix(trans_mats, groups=None, edge_threshold=.0025, ancho
 
         weight = [graph[u][v]['weight']*edge_width_scale for u, v in graph.edges()]
 
+        if usages is not None:
+            node_size = [usages[i][k] for k in pos.keys()]
+
         nx.draw_networkx_nodes(graph, pos,
                                edgecolors=node_edge_color, node_color=node_color,
                                node_size=node_size, ax=ax[i][i])
@@ -73,13 +78,19 @@ def graph_transition_matrix(trans_mats, groups=None, edge_threshold=.0025, ancho
         for i, tm in enumerate(trans_mats):
             for j, tm2 in enumerate(trans_mats[i+1:]):
                 df = tm2 - tm
+
                 ebunch = convert_transition_matrix_to_ebunch(
                     df, edge_threshold=difference_threshold, indices=ebunch_anchor)
                 graph = convert_ebunch_to_graph(ebunch)
                 weight = [np.abs(graph[u][v]['weight'])*difference_edge_width_scale for u, v in graph.edges()]
-                nx.draw_networkx_nodes(graph, pos,
-                                       edgecolors=node_edge_color, node_color=node_color,
-                                       node_size=node_size, ax=ax[i][j + i + 1])
+
+                if usages is not None:
+                    df_usage = [usages[j + i + 1][k] - usages[i][k] for k in pos.keys()]
+                    node_size = list(np.abs(df_usage))
+                    node_edge_color = ['r' if x > 0 else 'b' for x in df_usage]
+
+                nx.draw_networkx_nodes(graph, pos, edgecolors=node_edge_color, node_color=node_color,
+                                       node_size=node_size, ax=ax[i][j + i + 1], linewidths=1.5)
                 colors = []
 
                 for u, v in graph.edges():

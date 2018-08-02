@@ -139,7 +139,7 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
         usages[s] = 0
         durations[s] = []
 
-    if type(data) is list:
+    if type(data) is list or (type(data) is np.ndarray and data.dtype == np.object):
 
         for v in data:
             seq_array, locs = get_transitions(v)

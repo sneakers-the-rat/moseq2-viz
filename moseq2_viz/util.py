@@ -74,6 +74,10 @@ def h5_to_dict(h5file, path):
     ....
     """
     ans = {}
+
+    if type(h5file) is str:
+        h5file = h5py.File(h5file, 'r')
+
     for key, item in h5file[path].items():
         if type(item) is h5py.Dataset:
             ans[key] = item.value
@@ -103,14 +107,17 @@ def parse_index(index_file, get_metadata=False):
 
     # yaml_dir = os.path.dirname(index_file)
 
-    h5s = [idx['path'] for idx in index['files']]
+    index_dir = os.path.dirname(index_file)
+    h5s = [(os.path.join(index_dir, idx['path'][0]),
+            os.path.join(index_dir, idx['path'][1]))
+           for idx in index['files']]
     h5_uuids = [idx['uuid'] for idx in index['files']]
     groups = [idx['group'] for idx in index['files']]
     metadata = [commented_map_to_dict(idx['metadata']) for idx in index['files']]
 
     sorted_index = {
         'files': {},
-        'pca_path': index['pca_path']
+        'pca_path': os.path.join(index_dir, index['pca_path'])
     }
 
     for uuid, h5, group, h5_meta in zip(h5_uuids, h5s, groups, metadata):

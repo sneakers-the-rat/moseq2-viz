@@ -7,6 +7,7 @@ import pandas as pd
 import networkx as nx
 import warnings
 import tqdm
+import joblib
 
 
 def convert_ebunch_to_graph(ebunch):
@@ -189,6 +190,28 @@ def labels_to_changepoints(labels, fs=30.):
         cp_dist.append(np.diff(get_transitions(lab)[1].squeeze()) / fs)
 
     return np.concatenate(cp_dist)
+
+
+def load_model_labels(filename, sort=False):
+
+    if filename.endswith('.p') or filename.endswith('.pz'):
+        model_fit = parse_model_results(joblib.load(filename))
+        labels = model_fit['labels']
+
+        if 'train_list' in model_fit.keys():
+            label_uuids = model_fit['train_list']
+        else:
+            label_uuids = model_fit['keys']
+    elif model_fit.endswith('.h5'):
+        # load in h5, use index found using another function
+        raise NotImplementedError('Loading from hdf5 not currenltly supported')
+
+    if sort:
+        labels=relabel_by_usage(labels)
+
+    model_dict = {uuid: lbl for uuid, lbl in zip(label_uuids, labels)}
+
+    return model_dict
 
 
 def parse_batch_modeling(filename):

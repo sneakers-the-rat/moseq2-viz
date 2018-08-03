@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import numpy as np
 from moseq2_viz.util import h5_to_dict
+from moseq2_viz.model.util import load_model_labels
 
 
 # http://stackoverflow.com/questions/17832238/kinect-intrinsic-parameters-from-field-of-view/18199938#18199938
@@ -128,7 +129,8 @@ def convert_legacy_scalars(old_features, true_depth=673.1):
     return features
 
 
-def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'StartTime']):
+def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'StartTime'],
+                         include_model=None, sort_model_labels=False):
 
     scalar_dict = {}
 
@@ -148,6 +150,17 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
 
     for key in include_keys:
         scalar_dict[key] = []
+
+    include_labels = False
+    if include_model is not None and os.path.exists(include_model):
+        labels = load_model_labels(include_model, sort=sort_model_labels)
+        scalar_dict['model_label'] = []
+        label_idx = h5_to_dict(index['pca_path'], 'scores_idx')
+
+        for uuid, lbl in labels.items():
+            labels[uuid] = lbl[~np.isnan(label_idx[uuid])]
+
+        include_labels = True
 
     scalar_dict['group'] = []
     scalar_dict['uuid'] = []
@@ -170,6 +183,14 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
         for i in range(nframes):
             scalar_dict['group'].append(v['group'])
             scalar_dict['uuid'].append(k)
+
+        if include_labels:
+            if k in labels.keys():
+                for lbl in labels[k]:
+                    scalar_dict['model_label'].append(lbl)
+            else:
+                for i in range(nframes):
+                    scalar_dict['model_label'].append(np.nan)
 
     for scalar in scalar_names:
         scalar_dict[scalar] = np.concatenate(scalar_dict[scalar])

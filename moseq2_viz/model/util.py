@@ -302,7 +302,7 @@ def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max
     return df, df_dict
 
 
-def sort_batch_results(data, averaging=True, **kwargs):
+def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
 
     parameters = np.hstack(kwargs.values())
     param_sets = np.unique(parameters, axis=0)
@@ -314,6 +314,13 @@ def sort_batch_results(data, averaging=True, **kwargs):
 
     new_matrix = np.zeros(new_shape, dtype=data.dtype)
     new_count = np.zeros(new_shape, dtype=data.dtype)
+
+    if filenames is not None:
+        filename_index = np.empty(new_shape, dtype=np.object)
+        for i, v in np.ndenumerate(filename_index):
+            filename_index[i] = []
+    else:
+        filename_index = None
 
     dims = len(new_shape)
 
@@ -340,14 +347,16 @@ def sort_batch_results(data, averaging=True, **kwargs):
                 if idx[0] > 0 and idx[1] > 0:
                     new_matrix[idx[0], idx[1]] = data[row]
                     new_count[idx[0], idx[1]] += 1
+                    filename_index[idx[0], idx[1]].append(filenames[row])
             elif dims == 1:
                 if idx > 0:
                     new_matrix[idx] += data[row]
                     new_count[idx] += 1
+                    filename_index[idx].append(filenames[row])
 
     new_matrix[new_count == 0] = np.nan
 
     if averaging:
         new_matrix /= new_count
 
-    return new_matrix, param_dict
+    return new_matrix, param_dict, filename_index

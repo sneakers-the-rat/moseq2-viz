@@ -130,7 +130,7 @@ def convert_legacy_scalars(old_features, true_depth=673.1):
 
 
 def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'StartTime'],
-                         include_model=None, sort_model_labels=False):
+                         include_model=None, sort_model_labels=False, disable_output=False):
 
     scalar_dict = {}
 
@@ -165,7 +165,7 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
     scalar_dict['group'] = []
     scalar_dict['uuid'] = []
 
-    for k, v in tqdm.tqdm(index['files'].items()):
+    for k, v in tqdm.tqdm(index['files'].items(), disable=disable_output):
         dset = h5_to_dict(h5py.File(v['path'][0], 'r'), 'scalars')
 
         if 'velocity_2d_mm' not in dset.keys():

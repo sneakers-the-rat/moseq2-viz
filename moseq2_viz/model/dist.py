@@ -4,7 +4,7 @@ from moseq2_viz.util import strided_app, h5_to_dict
 from scipy.spatial.distance import squareform, pdist
 
 
-def get_behavioral_distance(index, model_file, distances=['ar[init]']):
+def get_behavioral_distance(index, model_file, whiten='all', distances=['ar[init]']):
 
     dist_dict = {}
 
@@ -20,7 +20,7 @@ def get_behavioral_distance(index, model_file, distances=['ar[init]']):
             for k, v in scores.items():
                 scores[k] = scores[k][:, :npcs]
 
-            scores = whiten_pcs(scores, 'all')
+            scores = whiten_pcs(scores, whiten)
             init = get_init_points(scores, model_fit['labels'],
                                    nlags=nlags, npcs=npcs)
 

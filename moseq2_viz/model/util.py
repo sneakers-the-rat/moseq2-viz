@@ -207,7 +207,7 @@ def load_model_labels(filename, sort=False):
         raise NotImplementedError('Loading from hdf5 not currenltly supported')
 
     if sort:
-        labels=relabel_by_usage(labels)
+        labels=relabel_by_usage(labels)[0]
 
     model_dict = {uuid: lbl for uuid, lbl in zip(label_uuids, labels)}
 
@@ -231,13 +231,37 @@ def parse_batch_modeling(filename):
     return results_dict
 
 
-def parse_model_results(model_obj, restart_idx=0):
+def parse_model_results(model_obj, restart_idx=0,
+                        map_uuid_to_keys=False, sort_labels_by_usage=False):
 
     # reformat labels into something useful
 
-    output_dict = model_obj
+    if type(model_obj) is str and (model_obj.endswith('.p') or model_obj.endswith('.pz')):
+        model_obj = joblib.load(model_obj)
+
+    output_dict = deepcopy(model_obj)
     if type(output_dict['labels']) is list and type(output_dict['labels'][0]) is list:
         output_dict['labels'] = [np.squeeze(tmp) for tmp in output_dict['labels'][restart_idx]]
+
+    if (type(output_dict['model_parameters']) is list
+            and len(output_dict['model_parameters']) == 1):
+        output_dict['model_parameters'] = output_dict['model_parameters'][0]
+
+    if sort_labels_by_usage:
+        output_dict['labels'], sorting = relabel_by_usage(output_dict['labels'])
+        old_ar_mat = deepcopy(output_dict['model_parameters']['ar_mat'])
+        for i, sort_idx in enumerate(sorting):
+            output_dict['model_parameters']['ar_mat'][i] = old_ar_mat[sort_idx]
+
+    if map_uuid_to_keys:
+        if 'train_list' in output_dict.keys():
+            label_uuids = output_dict['train_list']
+        else:
+            label_uuids = output_dict['keys']
+
+        label_dict = {uuid: lbl for uuid, lbl in zip(label_uuids, output_dict['labels'])}
+        output_dict['labels'] = label_dict
+
 
     return output_dict
 
@@ -255,14 +279,14 @@ def relabel_by_usage(labels):
         for j, idx in enumerate(sorting):
             sorted_labels[i][np.where(v == idx)] = j
 
-    return sorted_labels
+    return sorted_labels, sorting
 
 
 def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max_syllable=40,
                          include_meta=['SessionName', 'SubjectName', 'StartTime']):
 
     if sort:
-        model_dict['labels'] = relabel_by_usage(model_dict['labels'])
+        model_dict['labels'] = relabel_by_usage(model_dict['labels'])[0]
 
     # by default the keys are the uuids
 
@@ -300,6 +324,42 @@ def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max
     df = pd.DataFrame.from_dict(data=df_dict)
 
     return df, df_dict
+
+
+def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
+
+    npcs = ar_mat.shape[0]
+
+    if ar_mat.shape[1] % npcs == 1:
+        affine_term = ar_mat[:, -1]
+        ar_mat = np.delete(ar_mat, ar_mat.shape[1] - 1, axis=1)
+    else:
+        affine_term = np.zeros((ar_mat.shape[0], ), dtype='float32')
+
+
+    nlags = ar_mat.shape[1] // npcs
+
+    # print('Found {} pcs and {} lags in AR matrix'.format(npcs, nlags))
+
+    if init_points is None:
+        init_points = np.zeros((nlags, npcs), dtype='float32')
+
+    sim_mat = np.zeros((sim_points + nlags, npcs), dtype='float32')
+    sim_mat[:nlags] = init_points[:nlags]
+
+    use_mat = np.zeros((nlags, npcs, npcs))
+
+    for i in range(len(use_mat)):
+        use_mat[i] = ar_mat[:, i * npcs: (i + 1) * npcs]
+
+    for i in range(sim_points):
+        sim_idx = i + nlags
+        sim_mat[sim_idx, :] = sim_mat[sim_idx - 1].dot(use_mat[2]) +\
+                              sim_mat[sim_idx - 2].dot(use_mat[1]) +\
+                              sim_mat[sim_idx - 3].dot(use_mat[0]) +\
+                              affine_term
+
+    return sim_mat[nlags:]
 
 
 def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
@@ -347,12 +407,14 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
                 if idx[0] > 0 and idx[1] > 0:
                     new_matrix[idx[0], idx[1]] = data[row]
                     new_count[idx[0], idx[1]] += 1
-                    filename_index[idx[0], idx[1]].append(filenames[row])
+                    if filenames is not None:
+                        filename_index[idx[0], idx[1]].append(filenames[row])
             elif dims == 1:
                 if idx > 0:
                     new_matrix[idx] += data[row]
                     new_count[idx] += 1
-                    filename_index[idx].append(filenames[row])
+                    if filenames is not None:
+                        filename_index[idx].append(filenames[row])
 
     new_matrix[new_count == 0] = np.nan
 
@@ -360,3 +422,35 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
         new_matrix /= new_count
 
     return new_matrix, param_dict, filename_index
+
+
+def whiten_all(pca_scores, center=True):
+
+    valid_scores = np.concatenate([x[~np.isnan(x).any(axis=1), :] for x in pca_scores.values()])
+    mu, cov = valid_scores.mean(axis=0), np.cov(valid_scores, rowvar=False, bias=1)
+
+    L = np.linalg.cholesky(cov)
+
+    if center:
+        offset = 0
+    else:
+        offset = mu
+
+    whitened_scores = deepcopy(pca_scores)
+
+    for k, v in whitened_scores.items():
+        whitened_scores[k] = np.linalg.solve(L, (v - mu).T).T + offset
+
+    return whitened_scores
+
+
+def whiten_pcs(pca_scores, method='all', center=True):
+
+    if method[0].lower() == 'a':
+        whitened_scores = whiten_all(pca_scores)
+    else:
+        whitened_scores = {}
+        for k, v in pca_scores.items():
+            whitened_scores[k] = whiten_all({k: v})[k]
+
+    return whitened_scores

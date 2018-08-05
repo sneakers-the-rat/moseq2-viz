@@ -164,3 +164,11 @@ def read_yaml(yaml_file):
             return_dict = yaml.load(dat, Loader=yaml.Loader)
 
     return return_dict
+
+
+# from https://stackoverflow.com/questions/40084931/taking-subarrays-from-numpy-array-with-given-stride-stepsize/40085052#40085052
+# dang this is fast!
+def strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
+    nrows = ((a.size-L)//S)+1
+    n = a.strides[0]
+    return np.lib.stride_tricks.as_strided(a, shape=(nrows, L), strides=(S*n, n))

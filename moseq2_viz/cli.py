@@ -173,7 +173,7 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
         pass
 
     if sort:
-        labels = relabel_by_usage(labels)
+        labels = relabel_by_usage(labels)[0]
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -247,7 +247,7 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
     labels = model_data['labels']
 
     if sort:
-        labels = relabel_by_usage(labels)
+        labels = relabel_by_usage(labels)[0]
 
     if 'train_list' in model_data.keys():
         label_uuids = model_data['train_list']

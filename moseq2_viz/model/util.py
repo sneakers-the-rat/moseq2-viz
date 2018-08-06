@@ -404,14 +404,14 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
 
         for row in row_matches:
             if dims == 2:
-                if idx[0] > 0 and idx[1] > 0:
-                    new_matrix[idx[0], idx[1]] = data[row]
+                if idx[0] >= 0 and idx[1] >= 0:
+                    new_matrix[idx[0], idx[1]] = np.nansum([new_matrix[idx[0], idx[1]], data[row]])
                     new_count[idx[0], idx[1]] += 1
                     if filenames is not None:
                         filename_index[idx[0], idx[1]].append(filenames[row])
             elif dims == 1:
-                if idx > 0:
-                    new_matrix[idx] += data[row]
+                if idx >= 0:
+                    new_matrix[idx] = np.nansum([new_matrix[idx], data[row]])
                     new_count[idx] += 1
                     if filenames is not None:
                         filename_index[idx].append(filenames[row])

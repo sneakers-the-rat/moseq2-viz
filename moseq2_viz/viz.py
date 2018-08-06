@@ -49,7 +49,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None, edge_threshold
                            figsize=(ngraphs*width_per_group, ngraphs*width_per_group))
 
     if ngraphs == 1:
-        ax = [ax]
+        ax = [[ax]]
 
     for i, tm in enumerate(trans_mats):
         ebunch = convert_transition_matrix_to_ebunch(
@@ -161,8 +161,13 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         if use_idx[0] < 0 or use_idx[1] >= nframes:
             continue
 
-        centroid_x = h5['scalars/centroid_x'][use_idx[0]:use_idx[1]] + offset[0]
-        centroid_y = h5['scalars/centroid_y'][use_idx[0]:use_idx[1]] + offset[1]
+        if 'centroid_x' in h5['scalars'].keys():
+            use_names = ('scalars/centroid_x', 'scalars/centroid_y')
+        elif 'centroid_x_px' in h5['scalars'].keys():
+            use_names = ('scalars/centroid_x_px', 'scalars/centroid_y_px')
+
+        centroid_x = h5[use_names[0]][use_idx[0]:use_idx[1]] + offset[0]
+        centroid_y = h5[use_names[1]][use_idx[0]:use_idx[1]] + offset[1]
 
         angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
         frames = (h5['frames'][use_idx[0]:use_idx[1]] / scale).astype('uint8')
@@ -240,7 +245,7 @@ def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
     fig = plt.figure(figsize=figsize)
     gs = gridspec.GridSpec(nrows=np.max(count),
                            ncols=len(uniq_groups),
-                           width_ratios=[1, 1],
+                           width_ratios=[1] * len(uniq_groups),
                            wspace=0.0,
                            hspace=0.0)
 

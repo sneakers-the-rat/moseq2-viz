@@ -5,11 +5,19 @@ from moseq2_viz.scalars.util import get_scalar_map, get_scalar_triggered_average
 from scipy.spatial.distance import squareform, pdist
 
 
-def get_behavioral_distance(index, model_file, whiten='all', distances=['ar[init]']):
+def get_behavioral_distance(index, model_file, whiten='all',
+                            distances=['ar[init]', 'scalars'], max_syllable=None,
+                            dist_options={'scalars': {'nlags': 10, 'zscore': True}}):
 
     dist_dict = {}
 
     model_fit = parse_model_results(model_file, map_uuid_to_keys=True, sort_labels_by_usage=True)
+
+    if max_syllable is None:
+        max_syllable = -np.inf
+        for lbl in model_fit['labels'].values():
+            if lbl.max() > max_syllable:
+                max_syllable = lbl.max() + 1
 
     for dist in distances:
         if dist.lower() == 'ar[init]':
@@ -23,18 +31,20 @@ def get_behavioral_distance(index, model_file, whiten='all', distances=['ar[init
 
             scores = whiten_pcs(scores, whiten)
             init = get_init_points(scores, model_fit['labels'],
-                                   nlags=nlags, npcs=npcs)
+                                   nlags=nlags, npcs=npcs, max_syllable=max_syllable)
 
-            dist_dict['ar[init]'] = get_behavioral_distance_ar(ar_mat, init)
-        elif dist.lower() == 'scalar':
+            dist_dict['ar[init]'] = get_behavioral_distance_ar(ar_mat, init, max_syllable=max_syllable)
+        elif dist.lower() == 'scalars':
 
             scalar_map = get_scalar_map(index)
-            scalar_ave = get_scalar_triggered_average(scalar_map, model_fit['labels'])
+            scalar_ave = get_scalar_triggered_average(scalar_map, model_fit['labels'],
+                                                      max_syllable=max_syllable,
+                                                      **dist_options['scalars'])
 
             for k, v in scalar_ave.items():
-
                 key = 'scalar[{}]'.format(k)
-                dist_dict[key] = squareform(pdist(v, 'correlation'))
+                dist_dict[key] = squareform(pdist(v[:, dist_options['scalars']['nlags']:],
+                                                  'correlation'))
 
     return dist_dict
 

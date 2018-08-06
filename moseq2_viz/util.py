@@ -19,7 +19,7 @@ def camel_to_snake(s):
 
 def check_video_parameters(index):
 
-    ymls = [v['path'][1] for v in index.values()]
+    ymls = [v['path'][1] for v in index['files'].values()]
 
     dicts = []
 
@@ -86,7 +86,7 @@ def h5_to_dict(h5file, path):
     return ans
 
 
-def load_changepoints(cp_file):
+def load_changepoints(cpfile):
     with h5py.File(cpfile, 'r') as f:
         cps = h5_to_dict(f, 'cps')
 

@@ -262,7 +262,6 @@ def parse_model_results(model_obj, restart_idx=0,
         label_dict = {uuid: lbl for uuid, lbl in zip(label_uuids, output_dict['labels'])}
         output_dict['labels'] = label_dict
 
-
     return output_dict
 
 
@@ -336,7 +335,6 @@ def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
     else:
         affine_term = np.zeros((ar_mat.shape[0], ), dtype='float32')
 
-
     nlags = ar_mat.shape[1] // npcs
 
     # print('Found {} pcs and {} lags in AR matrix'.format(npcs, nlags))
@@ -354,10 +352,12 @@ def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
 
     for i in range(sim_points):
         sim_idx = i + nlags
-        sim_mat[sim_idx, :] = sim_mat[sim_idx - 1].dot(use_mat[2]) +\
-                              sim_mat[sim_idx - 2].dot(use_mat[1]) +\
-                              sim_mat[sim_idx - 3].dot(use_mat[0]) +\
-                              affine_term
+        result = 0
+        for j in range(1, nlags + 1):
+            result += sim_mat[sim_idx - j].dot(use_mat[nlags - j])
+        result += affine_term
+
+        sim_mat[sim_idx, :] = result
 
     return sim_mat[nlags:]
 

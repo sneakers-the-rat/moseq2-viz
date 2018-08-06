@@ -1,6 +1,7 @@
 import numpy as np
 from moseq2_viz.model.util import whiten_pcs, parse_model_results, simulate_ar_trajectory
 from moseq2_viz.util import strided_app, h5_to_dict
+from moseq2_viz.scalars.util import get_scalar_map, get_scalar_triggered_average
 from scipy.spatial.distance import squareform, pdist
 
 
@@ -25,6 +26,15 @@ def get_behavioral_distance(index, model_file, whiten='all', distances=['ar[init
                                    nlags=nlags, npcs=npcs)
 
             dist_dict['ar[init]'] = get_behavioral_distance_ar(ar_mat, init)
+        elif dist.lower() == 'scalar':
+
+            scalar_map = get_scalar_map(index)
+            scalar_ave = get_scalar_triggered_average(scalar_map, model_fit['labels'])
+
+            for k, v in scalar_ave.items():
+
+                key = 'scalar[{}]'.format(k)
+                dist_dict[key] = squareform(pdist(v, 'correlation'))
 
     return dist_dict
 

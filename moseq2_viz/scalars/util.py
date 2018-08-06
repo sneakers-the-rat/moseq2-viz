@@ -3,7 +3,8 @@ import h5py
 import os
 import pandas as pd
 import numpy as np
-from moseq2_viz.util import h5_to_dict
+import warnings
+from moseq2_viz.util import h5_to_dict, strided_app
 from moseq2_viz.model.util import load_model_labels
 
 
@@ -58,7 +59,7 @@ def convert_legacy_scalars(old_features, true_depth=673.1):
 
     if 'centroid_x_mm' in old_features.keys():
         print('Scalar features already updated.')
-        return None
+        return old_features
 
     nframes = len(old_features['centroid_x'])
 
@@ -109,22 +110,25 @@ def convert_legacy_scalars(old_features, true_depth=673.1):
     features['angle'] = old_features['angle']
     features['height_ave_mm'] = old_features['height_ave']
 
-    vel_x = np.diff(np.concatenate((features['centroid_x_px'][:1], features['centroid_x_px'])))
-    vel_y = np.diff(np.concatenate((features['centroid_y_px'][:1], features['centroid_y_px'])))
-    vel_z = np.diff(np.concatenate((features['height_ave_mm'][:1], features['height_ave_mm'])))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
 
-    features['velocity_2d_px'] = np.hypot(vel_x, vel_y)
-    features['velocity_3d_px'] = np.sqrt(
-        np.square(vel_x)+np.square(vel_y)+np.square(vel_z))
+        vel_x = np.diff(np.concatenate((features['centroid_x_px'][:1], features['centroid_x_px'])))
+        vel_y = np.diff(np.concatenate((features['centroid_y_px'][:1], features['centroid_y_px'])))
+        vel_z = np.diff(np.concatenate((features['height_ave_mm'][:1], features['height_ave_mm'])))
 
-    vel_x = np.diff(np.concatenate((features['centroid_x_mm'][:1], features['centroid_x_mm'])))
-    vel_y = np.diff(np.concatenate((features['centroid_y_mm'][:1], features['centroid_y_mm'])))
+        features['velocity_2d_px'] = np.hypot(vel_x, vel_y)
+        features['velocity_3d_px'] = np.sqrt(
+            np.square(vel_x)+np.square(vel_y)+np.square(vel_z))
 
-    features['velocity_2d_mm'] = np.hypot(vel_x, vel_y)
-    features['velocity_3d_mm'] = np.sqrt(
-        np.square(vel_x)+np.square(vel_y)+np.square(vel_z))
+        vel_x = np.diff(np.concatenate((features['centroid_x_mm'][:1], features['centroid_x_mm'])))
+        vel_y = np.diff(np.concatenate((features['centroid_y_mm'][:1], features['centroid_y_mm'])))
 
-    features['velocity_theta'] = np.arctan2(vel_y, vel_x)
+        features['velocity_2d_mm'] = np.hypot(vel_x, vel_y)
+        features['velocity_3d_mm'] = np.sqrt(
+            np.square(vel_x)+np.square(vel_y)+np.square(vel_z))
+
+        features['velocity_theta'] = np.arctan2(vel_y, vel_x)
 
     return features
 
@@ -198,3 +202,75 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
     scalar_df = pd.DataFrame(scalar_dict)
 
     return scalar_df
+
+
+def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlags=20,
+                                 include_keys=['velocity_2d_mm', 'velocity_3d_mm', 'width_mm',
+                                             'length_mm', 'height_ave_mm'],
+                                 zscore=False):
+
+    win = int(nlags * 2 + 1)
+
+    # cumulative average of PCs for nlags
+
+    if np.mod(win, 2) == 0:
+        win = win + 1
+
+    # cumulative average of PCs for nlags
+    # grab the windows where 0=syllable onset
+
+    syll_average = {}
+    count = np.zeros((max_syllable, ), dtype='int16')
+
+    for scalar in include_keys:
+        syll_average[scalar] = np.zeros((max_syllable, win), dtype='float32')
+
+    for k, v in scalar_map.items():
+
+        labels = model_labels[k]
+
+        for i in range(max_syllable):
+            hits = np.where(labels == i)[0]
+
+            if len(hits) == 0:
+                continue
+
+            count[i] += len(hits)
+
+            for scalar in include_keys:
+                if zscore:
+                    use_scalar = (v[scalar] - np.nanmean(v[scalar]))  / np.nanstd(v[scalar])
+                else:
+                    use_scalar = v[scalar]
+                padded_scores = np.pad(use_scalar, (win // 2, win // 2),
+                                   'constant', constant_values = np.nan)
+                win_scores = strided_app(padded_scores, win, 1)
+                syll_average[scalar][i] += np.nansum(win_scores[hits, :], axis=0)
+
+    for i in range(max_syllable):
+        for scalar in include_keys:
+            syll_average[scalar][i] /= count[i]
+
+    return syll_average
+
+
+def get_scalar_map(index, fill_nans=True):
+
+    scalar_map = {}
+    score_idx = h5_to_dict(index['pca_path'], 'scores_idx')
+
+    for uuid, v in index['files'].items():
+
+        scalars = convert_legacy_scalars(h5_to_dict(v['path'][0], 'scalars'))
+        idx = score_idx[uuid]
+        scalar_map[uuid] = {}
+
+        for k, v_scl in scalars.items():
+            if fill_nans:
+                scalar_map[uuid][k] = np.zeros((len(idx), ), dtype='float32')
+                scalar_map[uuid][k][:] = np.nan
+                scalar_map[uuid][k][~np.isnan(idx)] = v_scl
+            else:
+                scalar_map[uuid][k] = v_scl
+
+    return scalar_map

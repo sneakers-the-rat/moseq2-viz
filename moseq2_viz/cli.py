@@ -1,8 +1,11 @@
-from moseq2_viz.util import recursive_find_h5s, check_video_parameters,\
-    parse_index, commented_map_to_dict, recursively_load_dict_contents_from_group
-from moseq2_viz.model.util import sort_results, relabel_by_usage, get_syllable_slices,\
-    results_to_dataframe, parse_model_results, get_transition_matrix
-from moseq2_viz.viz import make_crowd_matrix, usage_plot, graph_transition_matrix
+from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
+                             parse_index, commented_map_to_dict, h5_to_dict)
+from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
+                                   results_to_dataframe, parse_model_results,
+                                   get_transition_matrix, get_syllable_statistics)
+from moseq2_viz.viz import (make_crowd_matrix, usage_plot, graph_transition_matrix,
+                            scalar_plot, position_plot)
+from moseq2_viz.scalars.util import scalars_to_dataframe
 from moseq2_viz.io.video import write_frames_preview
 from functools import partial
 from sys import platform
@@ -11,7 +14,6 @@ import os
 import ruamel.yaml as yaml
 import h5py
 import multiprocessing as mp
-import numpy as np
 import joblib
 import tqdm
 import warnings
@@ -21,7 +23,6 @@ import re
 if platform == 'linux' or platform == 'linux2':
     os.system('taskset -p 0xff {:d}'.format(os.getpid()))
 
-#TODO: simple way to put extraction metadata into results dataframe for better sorting
 
 orig_init = click.core.Option.__init__
 
@@ -39,33 +40,6 @@ def cli():
     pass
 
 
-@cli.command(name='generate-index')
-@click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
-@click.option('--pca-file', '-p', type=click.Path(exists=True), default=os.path.join(os.getcwd(), '_pca/pca_scores.h5'), help='Path to PCA results')
-@click.option('--output-file', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'moseq2-index.yaml'), help="Location for storing index")
-def generate_index(input_dir, pca_file, output_file):
-
-    # gather than h5s and the pca scores file
-
-    # uuids should match keys in the scores file
-
-    with h5py.File(pca_file, 'r') as f:
-        pca_uuids = list(f['scores'].keys())
-
-    h5s, dicts, yamls = recursive_find_h5s(input_dir)
-    file_uuids = [(os.path.relpath(h5), meta['uuid']) for h5, meta in zip(h5s, dicts) if meta['uuid'] in pca_uuids]
-
-    output_dict = {
-        'files': file_uuids,
-        'pca_path': os.path.relpath(pca_file)
-    }
-
-    # write out index yaml
-
-    with open(output_file, 'w') as f:
-        yaml.dump(output_dict, f, Dumper=yaml.RoundTripDumper)
-
-
 @cli.command(name="add-group")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.option('--key', '-k', type=str, default='SubjectName', help='Key to search for value')
@@ -75,26 +49,95 @@ def generate_index(input_dir, pca_file, output_file):
 @click.option('--lowercase', type=bool, is_flag=True, help='Lowercase text filter')
 def add_group(index_file, key, value, group, exact, lowercase):
 
-        index, h5s, h5_uuids, dicts, metadata = parse_index(index_file, get_metadata=True)
+    index = parse_index(index_file)[0]
+    h5_uuids = [f['uuid'] for f in index['files']]
+    metadata = [f['metadata'] for f in index['files']]
 
-        if lowercase:
-            hits = [re.search(value, meta[key].lower()) is not None for meta in metadata]
-        else:
-            hits = [re.search(value, meta[key]) is not None for meta in metadata]
+    if lowercase:
+        hits = [re.search(value, meta[key].lower()) is not None for meta in metadata]
+    else:
+        hits = [re.search(value, meta[key]) is not None for meta in metadata]
 
-        if 'groups' in list(index.keys()):
-            group_dict = index['groups']
-        else:
-            group_dict = {}
+    for uuid, hit in zip(h5_uuids, hits):
+        position = h5_uuids.index(uuid)
+        if hit:
+            index['files'][position]['group'] = group
 
-        for uuid, hit in zip(h5_uuids, hits):
-            if hit:
-                group_dict[uuid] = group
+    with open(index_file, 'w+') as f:
+        yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
 
-        index['groups'] = group_dict
 
-        with open(index_file, 'w+') as f:
-            yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
+# recurse through directories, find h5 files with completed extractions, make a manifest
+# and copy the contents to a new directory
+@cli.command(name="copy-h5-metadata-to-yaml")
+@click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
+def copy_h5_metadata_to_yaml(input_dir):
+
+    h5s, dicts, yamls = recursive_find_h5s(input_dir)
+    to_load = [(tmp, yml, file) for tmp, yml, file in zip(
+        dicts, yamls, h5s) if tmp['complete'] and not tmp['skip']]
+
+    # load in all of the h5 files, grab the extraction metadata, reformat to make nice 'n pretty
+    # then stage the copy
+
+    for i, tup in tqdm.tqdm(enumerate(to_load), total=len(to_load), desc='Scanning data'):
+        with h5py.File(tup[2], 'r') as f:
+            tmp = h5_to_dict(f, '/metadata/extraction')
+            tup[0]['metadata'] = dict(tmp)
+
+        with open(tup[1], 'w+') as f:
+            yaml.dump(commented_map_to_dict(
+                tup[0]), f, Dumper=yaml.RoundTripDumper)
+
+    # now the key is the source h5 file and the value is the path to copy to
+
+
+@cli.command(name='generate-index')
+@click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
+@click.option('--pca-file', '-p', type=click.Path(exists=True), default=os.path.join(os.getcwd(), '_pca/pca_scores.h5'), help='Path to PCA results')
+@click.option('--output-file', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'moseq2-index.yaml'), help="Location for storing index")
+@click.option('--filter', '-f', type=(str, str), default=[('SubjectName', '\w+')], help='Regex filter for metadata', multiple=True)
+def generate_index(input_dir, pca_file, output_file, filter):
+
+    # gather than h5s and the pca scores file
+
+    # uuids should match keys in the scores file
+
+    with h5py.File(pca_file, 'r') as f:
+        pca_uuids = list(f['scores'].keys())
+
+    h5s, dicts, yamls = recursive_find_h5s(input_dir)
+    file_with_uuids = [(os.path.relpath(h5), os.path.relpath(yml), meta) for h5, yml, meta in
+                       zip(h5s, yamls, dicts) if meta['uuid'] in pca_uuids]
+
+    if 'metadata' not in file_with_uuids[0][2]:
+        raise RuntimeError('Metadata not present in yaml files, run copy-h5-metadata-to-yaml to update yaml files')
+
+    output_dict = {
+        'files': [],
+        'pca_path': os.path.relpath(pca_file)
+    }
+
+    for i, file_tup in enumerate(file_with_uuids):
+        output_dict['files'].append({
+            'path': (file_tup[0], file_tup[1]),
+            'uuid': file_tup[2]['uuid'],
+            'group': 'default'
+        })
+
+        output_dict['files'][i]['metadata'] = {}
+
+        for k, v in file_tup[2]['metadata'].items():
+            for filt in filter:
+                if k == filt[0]:
+                    v = re.match(filt[1], v)[0]
+
+            output_dict['files'][i]['metadata'][k] = v
+
+    # write out index yaml
+
+    with open(output_file, 'w') as f:
+        yaml.dump(output_dict, f, Dumper=yaml.RoundTripDumper)
 
 
 @cli.command(name='make-crowd-movies')
@@ -118,7 +161,6 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
     # need to handle h5 intelligently here...
 
     if model_fit.endswith('.p') or model_fit.endswith('.pz'):
-
         model_fit = parse_model_results(joblib.load(model_fit))
         labels = model_fit['labels']
 
@@ -131,12 +173,13 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
         pass
 
     if sort:
-        labels = relabel_by_usage(labels)
+        labels = relabel_by_usage(labels)[0]
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    vid_parameters = check_video_parameters(index_file)
+    index, sorted_index = parse_index(index_file)
+    vid_parameters = check_video_parameters(sorted_index)
 
     if vid_parameters['resolution'] is not None:
         raw_size = vid_parameters['resolution']
@@ -145,7 +188,7 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
         slice_fun = partial(get_syllable_slices,
                             labels=labels,
                             label_uuids=label_uuids,
-                            index_file=index_file)
+                            index=sorted_index)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
             slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
@@ -163,6 +206,90 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
                                  for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
 
 
+@cli.command(name='plot-scalar-summary')
+@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
+@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'scalars'))
+def plot_scalar_summary(index_file, output_file):
+
+    index, sorted_index = parse_index(index_file)
+    scalar_df = scalars_to_dataframe(sorted_index)
+
+    plt_scalars, _ = scalar_plot(scalar_df, headless=True)
+    plt_position, _ = position_plot(scalar_df, headless=True)
+
+    plt_scalars.savefig('{}_summary.png'.format(output_file))
+    plt_scalars.savefig('{}_summary.pdf'.format(output_file))
+
+    plt_position.savefig('{}_position.png'.format(output_file))
+    plt_position.savefig('{}_position.pdf'.format(output_file))
+
+
+@cli.command(name='plot-transition-graph')
+@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
+@click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
+@click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
+@click.option('--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
+@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'transitions'), help="Filename to store plot")
+@click.option('--normalize', type=click.Choice(['bigram', 'rows', 'columns']), default='bigram', help="How to normalize transition probabilities")
+@click.option('--edge-threshold', type=float, default=.001, help="Threshold for edges to show")
+@click.option('--layout', type=str, default='spring', help="Default networkx layout algorithm")
+@click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
+@click.option('--edge-scaling', type=float, default=250, help="Scale factor from transition probabilities to edge width")
+@click.option('--scale-node-by-usage', type=bool, default=True, help="Scale node sizes by usages probabilities")
+@click.option('--width-per-group', type=float, default=8, help="Width (in inches) for figure canvas per group")
+def plot_transition_graph(index_file, model_fit, max_syllable, group, output_file,
+                          normalize, edge_threshold, layout, sort, edge_scaling,
+                          scale_node_by_usage, width_per_group):
+
+    model_data = parse_model_results(joblib.load(model_fit))
+    index, sorted_index = parse_index(index_file)
+
+    labels = model_data['labels']
+
+    if sort:
+        labels = relabel_by_usage(labels)[0]
+
+    if 'train_list' in model_data.keys():
+        label_uuids = model_data['train_list']
+    else:
+        label_uuids = model_data['keys']
+
+    label_group = []
+
+    print('Sorting labels...')
+
+    if 'group' in index['files'][0].keys() and len(group) > 0:
+        for uuid in label_uuids:
+            label_group.append(sorted_index['files'][uuid]['group'])
+    # elif 'group' in index['files'][0].keys() and (group is None or len(group) == 0):
+    #     for uuid in label_uuids:
+    #         label_group.append(sorted_index['files'][uuid]['group'])
+    #     group = list(set(label_group))
+    else:
+        label_group = ['']*len(model_data['labels'])
+        group = list(set(label_group))
+
+    print('Computing transition matrices...')
+
+    trans_mats = []
+    usages = []
+    for plt_group in group:
+        use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
+        trans_mats.append(get_transition_matrix(use_labels, normalize=normalize, combine=True, max_syllable=max_syllable))
+        usages.append(get_syllable_statistics(use_labels)[0])
+
+    if not scale_node_by_usage:
+        usages = None
+
+    print('Creating plot...')
+
+    plt, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
+                                     edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
+                                     layout=layout, groups=group, headless=True)
+    plt.savefig('{}.png'.format(output_file))
+    plt.savefig('{}.pdf'.format(output_file))
+
+
 @cli.command(name='plot-usages')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
@@ -177,95 +304,11 @@ def plot_usages(index_file, model_fit, max_syllable, group, output_file):
     # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
 
     model_data = parse_model_results(joblib.load(model_fit))
-    index, _, _, _, _ = parse_index(index_file)
-    df, _ = results_to_dataframe(model_data, index, max_syllable=max_syllable, sort=True)
-    plt, ax, fig = usage_plot(df, groups=group, headless=True)
+    index, sorted_index = parse_index(index_file)
+    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=True)
+    plt, _ = usage_plot(df, groups=group, headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
-
-
-@cli.command(name='plot-transition-graph')
-@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
-@click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
-@click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
-@click.option('--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
-@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'transitions'), help="Filename to store plot")
-@click.option('--normalize', type=click.Choice(['bigram', 'rows', 'columns']), default='bigram', help="How to normalize transition probabilities")
-@click.option('--edge-threshold', type=float, default=.001, help="Threshold for edges to show")
-@click.option('--layout', type=str, default='spring', help="Default networkx layout algorithm")
-@click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
-@click.option('--edge-scaling', type=float, default=250, help="Scale factor from transition probabilities to edge width")
-@click.option('--width-per-group', type=float, default=8, help="Width (in inches) for figure canvas per group")
-def plot_transition_graph(index_file, model_fit, max_syllable, group, output_file,
-                          normalize, edge_threshold, layout, sort, edge_scaling, width_per_group):
-
-    model_data = parse_model_results(joblib.load(model_fit))
-    index, _, _, _, _ = parse_index(index_file)
-
-    labels = model_data['labels']
-
-    if sort:
-        labels = relabel_by_usage(labels)
-
-    if 'train_list' in model_data.keys():
-        label_uuids = model_data['train_list']
-    else:
-        label_uuids = model_data['keys']
-
-    label_group = []
-
-    print('Sorting labels...')
-
-    if 'groups' in index.keys() and len(group) > 0:
-        for uuid in label_uuids:
-            label_group.append(index['groups'][uuid])
-    elif 'groups' in index.keys() and (group is None or len(group) == 0):
-        for uuid in label_uuids:
-            label_group.append(index['groups'][uuid])
-        group = list(set(label_group))
-    else:
-        label_group = ['']*len(model_data['labels'])
-        group = list(set(label_group))
-
-    print('Computing transition matrices...')
-
-    trans_mats = []
-    for plt_group in group:
-        use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
-        trans_mats.append(get_transition_matrix(use_labels, normalize=normalize, combine=True, max_syllable=max_syllable))
-
-    print('Creating plot...')
-
-    plt, fig, ax = graph_transition_matrix(trans_mats, width_per_group=width_per_group,
-                                           edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
-                                           layout=layout, groups=group, headless=True)
-    plt.savefig('{}.png'.format(output_file))
-    plt.savefig('{}.pdf'.format(output_file))
-
-
-# recurse through directories, find h5 files with completed extractions, make a manifest
-# and copy the contents to a new directory
-@cli.command(name="copy-h5-metadata-to-yaml")
-@click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
-def copy_h5_metadata_to_yaml(input_dir):
-
-    h5s, dicts, yamls = recursive_find_h5s(input_dir)
-    to_load = [(tmp, yml, file) for tmp, yml, file in zip(
-        dicts, yamls, h5s) if tmp['complete'] and not tmp['skip']]
-
-    # load in all of the h5 files, grab the extraction metadata, reformat to make nice 'n pretty
-    # then stage the copy
-
-    for i, tup in tqdm.tqdm(enumerate(to_load), total=len(to_load), desc='Scanning data'):
-        with h5py.File(tup[2], 'r') as f:
-            tmp = recursively_load_dict_contents_from_group(f, '/metadata/extraction')
-            tup[0]['metadata'] = dict(tmp)
-
-        with open(tup[1], 'w+') as f:
-            yaml.dump(commented_map_to_dict(
-                tup[0]), f, Dumper=yaml.RoundTripDumper)
-
-    # now the key is the source h5 file and the value is the path to copy to
 
 
 # TODO: usages...group comparisons...changepoints...

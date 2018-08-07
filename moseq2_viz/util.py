@@ -1,64 +1,25 @@
 import os
 import h5py
-import json
 import ruamel.yaml as yaml
 import numpy as np
+import re
 
 
-def recursive_find_h5s(root_dir=os.getcwd(),
-                       ext='.h5',
-                       yaml_string='{}.yaml'):
-    """Recursively find h5 files, along with yaml files with the same basename
+# https://gist.github.com/jaytaylor/3660565
+_underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
+_underscorer2 = re.compile('([a-z0-9])([A-Z])')
+
+
+def camel_to_snake(s):
+    """Converts CamelCase to snake_case
     """
-    dicts = []
-    h5s = []
-    yamls = []
-    for root, dirs, files in os.walk(root_dir):
-        for file in files:
-            yaml_file = yaml_string.format(os.path.splitext(file)[0])
-            if file.endswith(ext) and os.path.exists(os.path.join(root, yaml_file)):
-                with h5py.File(os.path.join(root, file), 'r') as f:
-                    if 'frames' not in f.keys():
-                        continue
-                h5s.append(os.path.join(root, file))
-                yamls.append(os.path.join(root, yaml_file))
-                dicts.append(read_yaml(os.path.join(root, yaml_file)))
-
-    return h5s, dicts, yamls
+    subbed = _underscorer1.sub(r'\1_\2', s)
+    return _underscorer2.sub(r'\1_\2', subbed).lower()
 
 
-def read_yaml(yaml_file):
+def check_video_parameters(index):
 
-    with open(yaml_file, 'r') as f:
-        dat = f.read()
-        try:
-            return_dict = yaml.load(dat, Loader=yaml.RoundTripLoader)
-        except yaml.constructor.ConstructorError:
-            return_dict = yaml.load(dat, Loader=yaml.Loader)
-
-    return return_dict
-
-
-def recursively_load_dict_contents_from_group(h5file, path):
-    """
-    ....
-    """
-    ans = {}
-    for key, item in h5file[path].items():
-        if isinstance(item, h5py._hl.dataset.Dataset):
-            ans[key] = item.value
-        elif isinstance(item, h5py._hl.group.Group):
-            ans[key] = recursively_load_dict_contents_from_group(h5file, path + key + '/')
-    return ans
-
-
-def check_video_parameters(index_file):
-
-    with open(index_file, 'r') as f:
-        index = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
-
-    h5s, h5_uuids = zip(*index['files'])
-    ymls = ['{}.yaml'.format(os.path.splitext(h5)[0]) for h5 in h5s]
+    ymls = [v['path'][1] for v in index['files'].values()]
 
     dicts = []
 
@@ -108,49 +69,106 @@ def commented_map_to_dict(cmap):
     return new_var
 
 
+def h5_to_dict(h5file, path):
+    """
+    ....
+    """
+    ans = {}
+
+    if type(h5file) is str:
+        h5file = h5py.File(h5file, 'r')
+
+    for key, item in h5file[path].items():
+        if type(item) is h5py.Dataset:
+            ans[key] = item.value
+        elif type(item) is h5py.Group:
+            ans[key] = h5_to_dict(h5file, path + key + '/')
+    return ans
+
+
+def load_changepoints(cpfile):
+    with h5py.File(cpfile, 'r') as f:
+        cps = h5_to_dict(f, 'cps')
+
+    cp_dist = []
+
+    for k, v in cps.items():
+        cp_dist.append(np.diff(v.squeeze()))
+
+    return np.concatenate(cp_dist)
+
+
 def parse_index(index_file, get_metadata=False):
 
     with open(index_file, 'r') as f:
         index = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
 
-    yaml_dir = os.path.dirname(index_file)
-    index = commented_map_to_dict(index)
+    # sort index by uuids
 
-    h5s, h5_uuids = zip(*index['files'])
-    ymls = ['{}.yaml'.format(os.path.splitext(h5)[0]) for h5 in h5s]
+    # yaml_dir = os.path.dirname(index_file)
 
+    index_dir = os.path.dirname(index_file)
+    h5s = [(os.path.join(index_dir, idx['path'][0]),
+            os.path.join(index_dir, idx['path'][1]))
+           for idx in index['files']]
+    h5_uuids = [idx['uuid'] for idx in index['files']]
+    groups = [idx['group'] for idx in index['files']]
+    metadata = [commented_map_to_dict(idx['metadata']) for idx in index['files']]
+
+    sorted_index = {
+        'files': {},
+        'pca_path': os.path.join(index_dir, index['pca_path'])
+    }
+
+    for uuid, h5, group, h5_meta in zip(h5_uuids, h5s, groups, metadata):
+        sorted_index['files'][uuid] = {
+            'path':  h5,
+            'group': group,
+            'metadata': h5_meta
+        }
+
+    # ymls = ['{}.yaml'.format(os.path.splitext(h5)[0]) for h5 in h5s]
+
+    return index, sorted_index
+
+
+def recursive_find_h5s(root_dir=os.getcwd(),
+                       ext='.h5',
+                       yaml_string='{}.yaml'):
+    """Recursively find h5 files, along with yaml files with the same basename
+    """
     dicts = []
-    has_meta = []
+    h5s = []
+    yamls = []
+    for root, dirs, files in os.walk(root_dir):
+        for file in files:
+            yaml_file = yaml_string.format(os.path.splitext(file)[0])
+            if file.endswith(ext) and os.path.exists(os.path.join(root, yaml_file)):
+                with h5py.File(os.path.join(root, file), 'r') as f:
+                    if 'frames' not in f.keys():
+                        continue
+                h5s.append(os.path.join(root, file))
+                yamls.append(os.path.join(root, yaml_file))
+                dicts.append(read_yaml(os.path.join(root, yaml_file)))
 
-    for yml in ymls:
-        with open(os.path.join(yaml_dir, yml), 'r') as f:
-            yml_dict = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
-            dicts.append(yml_dict)
-            has_meta.append('metadata' in list(yml_dict.keys()))
+    return h5s, dicts, yamls
 
-    metadata = []
 
-    if get_metadata:
-        for use_dict, yml_dict, h5 in zip(has_meta, dicts, h5s):
-            # check if original json still exists
-            try:
-                original_json = os.path.join(os.path.dirname(yml_dict['parameters']['input_file']),
-                                             'metadata.json')
-                backup_json = os.path.join(os.path.dirname(h5), '..', 'metadata.json')
+def read_yaml(yaml_file):
 
-                if not os.path.exists(original_json):
-                    original_json = backup_json
-                with open(original_json, 'r') as f:
-                    metadata.append(json.load(f))
-            except:
-                if use_dict:
-                    metadata.append(yml_dict)
-                else:
-                    metadata.append(
-                        recursively_load_dict_contents_from_group(
-                            h5py.File(os.path.join(yaml_dir, h5), 'r'),
-                            '/metadata/extraction'))
-    else:
-        metadata = None
+    with open(yaml_file, 'r') as f:
+        dat = f.read()
+        try:
+            return_dict = yaml.load(dat, Loader=yaml.RoundTripLoader)
+        except yaml.constructor.ConstructorError:
+            return_dict = yaml.load(dat, Loader=yaml.Loader)
 
-    return index, h5s, h5_uuids, dicts, metadata
+    return return_dict
+
+
+# from https://stackoverflow.com/questions/40084931/taking-subarrays-from-numpy-array-with-given-stride-stepsize/40085052#40085052
+# dang this is fast!
+def strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
+    nrows = ((a.size-L)//S)+1
+    n = a.strides[0]
+    return np.lib.stride_tricks.as_strided(a, shape=(nrows, L), strides=(S*n, n))

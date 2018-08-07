@@ -1,153 +1,32 @@
 from collections import defaultdict, OrderedDict
 from copy import deepcopy
-from moseq2_viz.util import recursively_load_dict_contents_from_group
+from moseq2_viz.util import h5_to_dict
 import numpy as np
 import h5py
-import ruamel.yaml as yaml
 import pandas as pd
 import networkx as nx
 import warnings
 import tqdm
+import joblib
 
 
-def sort_results(data, averaging=False, **kwargs):
+def convert_ebunch_to_graph(ebunch):
 
-    parameters = np.hstack(kwargs.values())
-    param_sets = np.unique(parameters, axis=0)
-    param_dict = {k: np.unique(v[np.isfinite(v)]) for k, v in kwargs.items()}
+    g = nx.Graph()
+    g.add_weighted_edges_from(ebunch)
 
-    param_list = list(param_dict.values())
-    param_list = [p[np.isfinite(p)] for p in param_list]
-    new_shape = tuple([len(v) for v in param_list])
-
-    new_matrix = np.zeros(new_shape, dtype=data.dtype)
-    new_count = np.zeros(new_shape, dtype=data.dtype)
-
-    for param in param_sets:
-        row_matches = np.where((parameters == param).all(axis=1))[0]
-        idx = np.zeros((len(param),), dtype='int')
-
-        if np.any(np.isnan(param)):
-            continue
-
-        for i, p in enumerate(param):
-            idx[i] = int(np.where(param_list[i] == p)[0])
-
-        for row in row_matches:
-            if (averaging and idx[0] > 0 and idx[1] > 0) and ~np.isnan(data[row]):
-                    new_matrix[idx[0], idx[1]] += data[row]
-                    new_count[idx[0], idx[1]] += 1
-            elif idx[0] > 0 and idx[1] > 0:
-                new_matrix[idx[0], idx[1]] = data[row]
-                new_count[idx[0], idx[1]] += 1
-
-    new_matrix[new_count == 0] = np.nan
-
-    if averaging:
-        new_matrix /= new_count
-
-    return new_matrix, param_dict
+    return g
 
 
-def parse_batch_modeling(filename):
+def convert_transition_matrix_to_ebunch(transition_matrix, edge_threshold=1, indices=None):
 
-    with h5py.File(filename, 'r') as f:
-        results_dict = {
-            'heldouts': np.squeeze(f['metadata/heldout_ll'].value),
-            'parameters': recursively_load_dict_contents_from_group(f, 'metadata/parameters'),
-            'scans': recursively_load_dict_contents_from_group(f, 'scans'),
-            'labels': np.squeeze(f['labels'].value),
-            'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list'].value]
-        }
-        results_dict['scan_parameters'] = {k: results_dict['parameters'][k]
-                                           for k in results_dict['scans'].keys()}
+    if indices is None:
+        ebunch = [(i[0], i[1], v) for i, v in np.ndenumerate(transition_matrix)
+                  if np.abs(v) > edge_threshold]
+    else:
+        ebunch = [(i[0], i[1], transition_matrix[i[0], i[1]]) for i in indices]
 
-    return results_dict
-
-
-def parse_model_results(model_obj, restart_idx=0):
-
-    # reformat labels into something useful
-
-    output_dict = model_obj
-    if type(output_dict['labels']) is list and type(output_dict['labels'][0]) is list:
-        output_dict['labels'] = [np.squeeze(tmp) for tmp in output_dict['labels'][restart_idx]]
-
-    return output_dict
-
-
-def get_transitions(label_sequence):
-
-    arr = deepcopy(label_sequence)
-    arr = np.insert(arr, len(arr), -10)
-    locs = np.where(arr[1:] != arr[:-1])[0]+1
-    transitions = arr[locs][:-1]
-    return transitions, locs
-
-
-def get_syll_durations(data, fill_value=-5, max_syllable=100):
-    return get_syllable_statistics(data, fill_value=fill_value, max_syllable=max_syllable)[1]
-
-
-def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
-
-    # if type(data) is list and type(data[0]) is np.ndarray:
-    #     data = np.array([np.squeeze(tmp) for tmp in data], dtype='object')
-
-    usages = defaultdict(int)
-    durations = defaultdict(list)
-
-    for s in range(max_syllable):
-        usages[s] = 0
-        durations[s] = []
-
-    if type(data) is list:
-
-        for v in data:
-            seq_array, locs = get_transitions(v)
-            to_rem = np.where(seq_array > max_syllable)[0]
-
-            seq_array = np.delete(seq_array, to_rem)
-            locs = np.delete(locs, to_rem)
-
-            durs = np.diff(locs)
-
-            for s, d in zip(seq_array, durs):
-                usages[s] += 1
-                durations[s].append(d)
-
-    elif type(data) is np.ndarray and data.dtype == 'int16':
-
-        seq_array, locs = get_transitions(data)
-        to_rem = np.where(seq_array > max_syllable)[0]
-        seq_array = np.delete(seq_array, to_rem)
-        locs = np.delete(locs, to_rem)
-        durs = np.diff(locs)
-
-        for s, d in zip(seq_array, durs):
-            usages[s] += 1
-            durations[s].append(d)
-
-    usages = OrderedDict(sorted(usages.items()))
-    durations = OrderedDict(sorted(durations.items()))
-
-    return usages, durations
-
-
-def relabel_by_usage(labels):
-
-    sorted_labels = deepcopy(labels)
-    usages, durations = get_syllable_statistics(labels)
-    sorting = []
-
-    for w in sorted(usages, key=usages.get, reverse=True):
-        sorting.append(w)
-
-    for i, v in enumerate(labels):
-        for j, idx in enumerate(sorting):
-            sorted_labels[i][np.where(v == idx)] = j
-
-    return sorted_labels
+    return ebunch
 
 
 # per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
@@ -200,74 +79,21 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothin
     return all_mats
 
 
-def convert_ebunch_to_graph(ebunch):
-
-    g = nx.Graph()
-    g.add_weighted_edges_from(ebunch)
-
-    return g
-
-
-def convert_transition_matrix_to_ebunch(transition_matrix, edge_threshold=1, indices=None):
-
-    if indices is None:
-        ebunch = [(i[0], i[1], v) for i, v in np.ndenumerate(transition_matrix)
-                  if v > edge_threshold]
-    else:
-        ebunch = [(i[0], i[1], transition_matrix[i[0], i[1]]) for i in indices]
-
-    return ebunch
-
-
-def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max_syllable=40):
-
-    if sort:
-        model_dict['labels'] = relabel_by_usage(model_dict['labels'])
-
-    # by default the keys are the uuids
-
-    label_uuids = model_dict['train_list']
-
-    # durations = []
-
-    df_dict = {
-            'usage': [],
-            'group': [],
-            'syllable': []
-        }
-
-    if 'groups' in index_dict.keys():
-        groups = [index_dict['groups'][uuid] for uuid in label_uuids]
-    else:
-        groups = ['default' for uuid in label_uuids]
-
-    for i, label_arr in enumerate(model_dict['labels']):
-        tmp_usages, tmp_durations = get_syllable_statistics(label_arr, max_syllable=max_syllable)
-        total_usage = np.sum(list(tmp_usages.values()))
-
-        for k, v in tmp_usages.items():
-            df_dict['usage'].append(v / total_usage)
-            df_dict['syllable'].append(k)
-            df_dict['group'].append(groups[i])
-
-    df = pd.DataFrame.from_dict(data=df_dict)
-
-    return df, df_dict
+def get_syll_durations(data, fill_value=-5, max_syllable=100):
+    return get_syllable_statistics(data, fill_value=fill_value, max_syllable=max_syllable)[1]
 
 
 # return tuples with uuid and syllable indices
-def get_syllable_slices(syllable, labels, label_uuids, index_file, trim_nans=True):
+def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
 
-    with open(index_file, 'r') as f:
-        index = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
-
-    h5s, h5_uuids = zip(*index['files'])
+    h5s = [v['path'][0] for v in index['files'].values()]
+    h5_uuids = list(index['files'].keys())
 
     # grab the original indices from the pca file as well...
 
     if trim_nans:
         with h5py.File(index['pca_path'], 'r') as f:
-            score_idx = recursively_load_dict_contents_from_group(f, 'scores_idx')
+            score_idx = h5_to_dict(f, 'scores_idx')
 
     sorted_h5s = [h5s[h5_uuids.index(uuid)] for uuid in label_uuids]
     syllable_slices = []
@@ -300,3 +126,331 @@ def get_syllable_slices(syllable, labels, label_uuids, index_file, trim_nans=Tru
             syllable_slices.append([(match_idx[i], match_idx[j]), label_uuid, h5])
 
     return syllable_slices
+
+
+def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
+
+    # if type(data) is list and type(data[0]) is np.ndarray:
+    #     data = np.array([np.squeeze(tmp) for tmp in data], dtype='object')
+
+    usages = defaultdict(int)
+    durations = defaultdict(list)
+
+    for s in range(max_syllable):
+        usages[s] = 0
+        durations[s] = []
+
+    if type(data) is list or (type(data) is np.ndarray and data.dtype == np.object):
+
+        for v in data:
+            seq_array, locs = get_transitions(v)
+            to_rem = np.where(seq_array > max_syllable)[0]
+
+            seq_array = np.delete(seq_array, to_rem)
+            locs = np.delete(locs, to_rem)
+
+            durs = np.diff(locs)
+
+            for s, d in zip(seq_array, durs):
+                usages[s] += 1
+                durations[s].append(d)
+
+    elif type(data) is np.ndarray and data.dtype == 'int16':
+
+        seq_array, locs = get_transitions(data)
+        to_rem = np.where(seq_array > max_syllable)[0]
+        seq_array = np.delete(seq_array, to_rem)
+        locs = np.delete(locs, to_rem)
+        durs = np.diff(locs)
+
+        for s, d in zip(seq_array, durs):
+            usages[s] += 1
+            durations[s].append(d)
+
+    usages = OrderedDict(sorted(usages.items()))
+    durations = OrderedDict(sorted(durations.items()))
+
+    return usages, durations
+
+
+def get_transitions(label_sequence):
+
+    arr = deepcopy(label_sequence)
+    arr = np.insert(arr, len(arr), -10)
+    locs = np.where(arr[1:] != arr[:-1])[0]+1
+    transitions = arr[locs][:-1]
+    return transitions, locs
+
+
+def labels_to_changepoints(labels, fs=30.):
+
+    cp_dist = []
+
+    for lab in labels:
+        cp_dist.append(np.diff(get_transitions(lab)[1].squeeze()) / fs)
+
+    return np.concatenate(cp_dist)
+
+
+def load_model_labels(filename, sort=False):
+
+    if filename.endswith('.p') or filename.endswith('.pz'):
+        model_fit = parse_model_results(joblib.load(filename))
+        labels = model_fit['labels']
+
+        if 'train_list' in model_fit.keys():
+            label_uuids = model_fit['train_list']
+        else:
+            label_uuids = model_fit['keys']
+    elif model_fit.endswith('.h5'):
+        # load in h5, use index found using another function
+        raise NotImplementedError('Loading from hdf5 not currenltly supported')
+
+    if sort:
+        labels=relabel_by_usage(labels)[0]
+
+    model_dict = {uuid: lbl for uuid, lbl in zip(label_uuids, labels)}
+
+    return model_dict
+
+
+def parse_batch_modeling(filename):
+
+    with h5py.File(filename, 'r') as f:
+        results_dict = {
+            'heldouts': np.squeeze(f['metadata/heldout_ll'].value),
+            'parameters': h5_to_dict(f, 'metadata/parameters'),
+            'scans': h5_to_dict(f, 'scans'),
+            'filenames': f['filenames'].value,
+            'labels': np.squeeze(f['labels'].value),
+            'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list'].value]
+        }
+        results_dict['scan_parameters'] = {k: results_dict['parameters'][k]
+                                           for k in results_dict['scans'].keys()}
+
+    return results_dict
+
+
+def parse_model_results(model_obj, restart_idx=0,
+                        map_uuid_to_keys=False, sort_labels_by_usage=False):
+
+    # reformat labels into something useful
+
+    if type(model_obj) is str and (model_obj.endswith('.p') or model_obj.endswith('.pz')):
+        model_obj = joblib.load(model_obj)
+
+    output_dict = deepcopy(model_obj)
+    if type(output_dict['labels']) is list and type(output_dict['labels'][0]) is list:
+        output_dict['labels'] = [np.squeeze(tmp) for tmp in output_dict['labels'][restart_idx]]
+
+    if (type(output_dict['model_parameters']) is list
+            and len(output_dict['model_parameters']) == 1):
+        output_dict['model_parameters'] = output_dict['model_parameters'][0]
+
+    if sort_labels_by_usage:
+        output_dict['labels'], sorting = relabel_by_usage(output_dict['labels'])
+        old_ar_mat = deepcopy(output_dict['model_parameters']['ar_mat'])
+        for i, sort_idx in enumerate(sorting):
+            output_dict['model_parameters']['ar_mat'][i] = old_ar_mat[sort_idx]
+
+    if map_uuid_to_keys:
+        if 'train_list' in output_dict.keys():
+            label_uuids = output_dict['train_list']
+        else:
+            label_uuids = output_dict['keys']
+
+        label_dict = {uuid: lbl for uuid, lbl in zip(label_uuids, output_dict['labels'])}
+        output_dict['labels'] = label_dict
+
+    return output_dict
+
+
+def relabel_by_usage(labels):
+
+    sorted_labels = deepcopy(labels)
+    usages, durations = get_syllable_statistics(labels)
+    sorting = []
+
+    for w in sorted(usages, key=usages.get, reverse=True):
+        sorting.append(w)
+
+    for i, v in enumerate(labels):
+        for j, idx in enumerate(sorting):
+            sorted_labels[i][np.where(v == idx)] = j
+
+    return sorted_labels, sorting
+
+
+def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max_syllable=40,
+                         include_meta=['SessionName', 'SubjectName', 'StartTime']):
+
+    if sort:
+        model_dict['labels'] = relabel_by_usage(model_dict['labels'])[0]
+
+    # by default the keys are the uuids
+
+    if 'train_list' in model_dict.keys():
+        label_uuids = model_dict['train_list']
+    else:
+        label_uuids = model_dict['keys']
+
+    # durations = []
+
+    df_dict = {
+            'usage': [],
+            'group': [],
+            'syllable': []
+        }
+
+    for key in include_meta:
+        df_dict[key] = []
+
+    groups = [index_dict['files'][uuid]['group'] for uuid in label_uuids]
+    metadata = [index_dict['files'][uuid]['metadata'] for uuid in label_uuids]
+
+    for i, label_arr in enumerate(model_dict['labels']):
+        tmp_usages, tmp_durations = get_syllable_statistics(label_arr, max_syllable=max_syllable)
+        total_usage = np.sum(list(tmp_usages.values()))
+
+        for k, v in tmp_usages.items():
+            df_dict['usage'].append(v / total_usage)
+            df_dict['syllable'].append(k)
+            df_dict['group'].append(groups[i])
+
+            for meta_key in include_meta:
+                df_dict[meta_key].append(metadata[i][meta_key])
+
+    df = pd.DataFrame.from_dict(data=df_dict)
+
+    return df, df_dict
+
+
+def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
+
+    npcs = ar_mat.shape[0]
+
+    if ar_mat.shape[1] % npcs == 1:
+        affine_term = ar_mat[:, -1]
+        ar_mat = np.delete(ar_mat, ar_mat.shape[1] - 1, axis=1)
+    else:
+        affine_term = np.zeros((ar_mat.shape[0], ), dtype='float32')
+
+    nlags = ar_mat.shape[1] // npcs
+
+    # print('Found {} pcs and {} lags in AR matrix'.format(npcs, nlags))
+
+    if init_points is None:
+        init_points = np.zeros((nlags, npcs), dtype='float32')
+
+    sim_mat = np.zeros((sim_points + nlags, npcs), dtype='float32')
+    sim_mat[:nlags] = init_points[:nlags]
+
+    use_mat = np.zeros((nlags, npcs, npcs))
+
+    for i in range(len(use_mat)):
+        use_mat[i] = ar_mat[:, i * npcs: (i + 1) * npcs]
+
+    for i in range(sim_points):
+        sim_idx = i + nlags
+        result = 0
+        for j in range(1, nlags + 1):
+            result += sim_mat[sim_idx - j].dot(use_mat[nlags - j])
+        result += affine_term
+
+        sim_mat[sim_idx, :] = result
+
+    return sim_mat[nlags:]
+
+
+def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
+
+    parameters = np.hstack(kwargs.values())
+    param_sets = np.unique(parameters, axis=0)
+    param_dict = {k: np.unique(v[np.isfinite(v)]) for k, v in kwargs.items()}
+
+    param_list = list(param_dict.values())
+    param_list = [p[np.isfinite(p)] for p in param_list]
+    new_shape = tuple([len(v) for v in param_list])
+
+    new_matrix = np.zeros(new_shape, dtype=data.dtype)
+    new_count = np.zeros(new_shape, dtype=data.dtype)
+
+    if filenames is not None:
+        filename_index = np.empty(new_shape, dtype=np.object)
+        for i, v in np.ndenumerate(filename_index):
+            filename_index[i] = []
+    else:
+        filename_index = None
+
+    dims = len(new_shape)
+
+    if dims > 2:
+        raise NotImplementedError('No support for more than 2 dimensions')
+
+    if not averaging:
+        raise NotImplementedError('Only averaging restarts is supported')
+
+    # TODO: add support for no averaging (just default_dict or list)
+
+    for param in param_sets:
+        row_matches = np.where((parameters == param).all(axis=1))[0]
+        idx = np.zeros((len(param),), dtype='int')
+
+        if np.any(np.isnan(param)):
+            continue
+
+        for i, p in enumerate(param):
+            idx[i] = int(np.where(param_list[i] == p)[0])
+
+        for row in row_matches:
+            if dims == 2:
+                if idx[0] >= 0 and idx[1] >= 0:
+                    new_matrix[idx[0], idx[1]] = np.nansum([new_matrix[idx[0], idx[1]], data[row]])
+                    new_count[idx[0], idx[1]] += 1
+                    if filenames is not None:
+                        filename_index[idx[0], idx[1]].append(filenames[row])
+            elif dims == 1:
+                if idx >= 0:
+                    new_matrix[idx] = np.nansum([new_matrix[idx], data[row]])
+                    new_count[idx] += 1
+                    if filenames is not None:
+                        filename_index[idx].append(filenames[row])
+
+    new_matrix[new_count == 0] = np.nan
+
+    if averaging:
+        new_matrix /= new_count
+
+    return new_matrix, param_dict, filename_index
+
+
+def whiten_all(pca_scores, center=True):
+
+    valid_scores = np.concatenate([x[~np.isnan(x).any(axis=1), :] for x in pca_scores.values()])
+    mu, cov = valid_scores.mean(axis=0), np.cov(valid_scores, rowvar=False, bias=1)
+
+    L = np.linalg.cholesky(cov)
+
+    if center:
+        offset = 0
+    else:
+        offset = mu
+
+    whitened_scores = deepcopy(pca_scores)
+
+    for k, v in whitened_scores.items():
+        whitened_scores[k] = np.linalg.solve(L, (v - mu).T).T + offset
+
+    return whitened_scores
+
+
+def whiten_pcs(pca_scores, method='all', center=True):
+
+    if method[0].lower() == 'a':
+        whitened_scores = whiten_all(pca_scores)
+    else:
+        whitened_scores = {}
+        for k, v in pca_scores.items():
+            whitened_scores[k] = whiten_all({k: v})[k]
+
+    return whitened_scores

@@ -144,7 +144,8 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
 
         for v in data:
             seq_array, locs = get_transitions(v)
-            to_rem = np.where(seq_array > max_syllable)[0]
+            to_rem = np.where(np.logical_or(seq_array > max_syllable,
+                                            seq_array == fill_value))
 
             seq_array = np.delete(seq_array, to_rem)
             locs = np.delete(locs, to_rem)
@@ -173,9 +174,11 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
     return usages, durations
 
 
-def get_transitions(label_sequence):
+def get_transitions(label_sequence, fill_value=-5):
 
+    to_rem = np.where(label_sequence == fill_value)
     arr = deepcopy(label_sequence)
+    arr = np.delete(arr, to_rem)
     arr = np.insert(arr, len(arr), -10)
     locs = np.where(arr[1:] != arr[:-1])[0]+1
     transitions = arr[locs][:-1]
@@ -265,10 +268,10 @@ def parse_model_results(model_obj, restart_idx=0,
     return output_dict
 
 
-def relabel_by_usage(labels):
+def relabel_by_usage(labels, fill_value=-5):
 
     sorted_labels = deepcopy(labels)
-    usages, durations = get_syllable_statistics(labels)
+    usages, durations = get_syllable_statistics(labels, fill_value=fill_value)
     sorting = []
 
     for w in sorted(usages, key=usages.get, reverse=True):
@@ -283,6 +286,9 @@ def relabel_by_usage(labels):
 
 def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max_syllable=40,
                          include_meta=['SessionName', 'SubjectName', 'StartTime']):
+
+    if type(model_dict) is str:
+        model_dict = parse_model_results(model_dict)
 
     if sort:
         model_dict['labels'] = relabel_by_usage(model_dict['labels'])[0]

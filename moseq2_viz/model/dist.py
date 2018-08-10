@@ -87,6 +87,9 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
 
     for k, v in pca_scores.items():
 
+        if k not in model_labels.keys():
+            continue
+
         labels = model_labels[k]
         padded_scores = np.pad(v,((win // 2, win // 2), (0,0)),
                                'constant', constant_values = np.nan)

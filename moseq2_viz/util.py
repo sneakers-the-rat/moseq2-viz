@@ -98,6 +98,19 @@ def load_changepoints(cpfile):
     return np.concatenate(cp_dist)
 
 
+def load_timestamps(timestamp_file, col=0):
+    """Read timestamps from space delimited text file
+    """
+
+    ts = []
+    with open(timestamp_file, 'r') as f:
+        for line in f:
+            cols = line.split()
+            ts.append(float(cols[col]))
+
+    return np.array(ts)
+
+
 def parse_index(index_file, get_metadata=False):
 
     with open(index_file, 'r') as f:

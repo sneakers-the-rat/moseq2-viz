@@ -8,6 +8,7 @@ import networkx as nx
 import warnings
 import tqdm
 import joblib
+import os
 
 
 def convert_ebunch_to_graph(ebunch):
@@ -210,7 +211,7 @@ def load_model_labels(filename, sort=False):
         raise NotImplementedError('Loading from hdf5 not currenltly supported')
 
     if sort:
-        labels=relabel_by_usage(labels)[0]
+        labels = relabel_by_usage(labels)[0]
 
     model_dict = {uuid: lbl for uuid, lbl in zip(label_uuids, labels)}
 
@@ -224,7 +225,8 @@ def parse_batch_modeling(filename):
             'heldouts': np.squeeze(f['metadata/heldout_ll'].value),
             'parameters': h5_to_dict(f, 'metadata/parameters'),
             'scans': h5_to_dict(f, 'scans'),
-            'filenames': f['filenames'].value,
+            'filenames': [os.path.join(os.path.dirname(filename), os.path.basename(fname).decode('utf-8'))
+                          for fname in f['filenames'].value],
             'labels': np.squeeze(f['labels'].value),
             'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list'].value]
         }

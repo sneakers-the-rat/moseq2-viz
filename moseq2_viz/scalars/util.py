@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import numpy as np
 import warnings
-from moseq2_viz.util import h5_to_dict, strided_app
+from moseq2_viz.util import h5_to_dict, strided_app, load_timestamps, read_yaml
 from moseq2_viz.model.util import load_model_labels
 
 
@@ -30,7 +30,7 @@ def convert_pxs_to_mm(coords, resolution=(512, 424), field_of_view=(70.6, 60), t
     return new_coords
 
 
-def convert_legacy_scalars(old_features, true_depth=673.1):
+def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
     """Converts scalars in the legacy format to the new format, with explicit units.
     Args:
         old_features (str, h5 group, or dictionary of scalars): filename, h5 group, or dictionary of scalar values
@@ -57,11 +57,18 @@ def convert_legacy_scalars(old_features, true_depth=673.1):
 
         old_features = feature_dict
 
-    if 'centroid_x_mm' in old_features.keys():
-        print('Scalar features already updated.')
-        return old_features
+    if 'centroid_x_mm' in old_features.keys() and force:
+        centroid = np.hstack((old_features['centroid_x_px'][:, None],
+                              old_features['centroid_y_px'][:, None]))
+        nframes = len(old_features['centroid_x_mm'])
 
-    nframes = len(old_features['centroid_x'])
+    elif not force:
+        print('Features already converted')
+        return None
+    else:
+        centroid = np.hstack((old_features['centroid_x'][:, None],
+                              old_features['centroid_y'][:, None]))
+        nframes = len(old_features['centroid_x'])
 
     features = {
         'centroid_x_px': np.zeros((nframes,), 'float32'),
@@ -83,9 +90,6 @@ def convert_legacy_scalars(old_features, true_depth=673.1):
         'velocity_theta': np.zeros((nframes,)),
     }
 
-    centroid = np.hstack((old_features['centroid_x'][:, None],
-                          old_features['centroid_y'][:, None]))
-
     centroid_mm = convert_pxs_to_mm(centroid, true_depth=true_depth)
     centroid_mm_shift = convert_pxs_to_mm(centroid + 1, true_depth=true_depth)
 
@@ -99,16 +103,31 @@ def convert_legacy_scalars(old_features, true_depth=673.1):
 
     # based on the centroid of the mouse, get the mm_to_px conversion
 
-    features['width_px'] = old_features['width']
-    features['length_px'] = old_features['length']
-    features['area_px'] = old_features['area']
+    if 'width_px' in old_features.keys():
+        features['width_px'] = old_features['width_px']
+    else:
+        features['width_px'] = old_features['width']
+
+    if 'length_px' in old_features.keys():
+        features['length_px'] = old_features['length_px']
+    else:
+        features['length_px'] = old_features['length']
+
+    if 'area_px' in old_features.keys():
+        features['area_px'] = old_features['area_px']
+    else:
+        features['area_px'] = old_features['area']
+
+    if 'height_ave_mm' in old_features.keys():
+        features['height_ave_mm'] = old_features['height_ave_mm']
+    else:
+        features['height_ave_mm'] = old_features['height_ave']
 
     features['width_mm'] = features['width_px'] * px_to_mm[:, 1]
     features['length_mm'] = features['length_px'] * px_to_mm[:, 0]
     features['area_mm'] = features['area_px'] * px_to_mm.mean(axis=1)
 
     features['angle'] = old_features['angle']
-    features['height_ave_mm'] = old_features['height_ave']
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
@@ -134,7 +153,8 @@ def convert_legacy_scalars(old_features, true_depth=673.1):
 
 
 def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'StartTime'],
-                         include_model=None, sort_model_labels=False, disable_output=False):
+                         include_model=None, sort_model_labels=False, disable_output=False,
+                         include_feedback=None, force_conversion=True):
 
     scalar_dict = {}
 
@@ -144,8 +164,10 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
     uuids = list(index['files'].keys())
     dset = h5_to_dict(h5py.File(index['files'][uuids[0]]['path'][0], 'r'), 'scalars')
 
-    if 'velocity_2d_mm' not in dset.keys():
-        dset = convert_legacy_scalars(dset)
+    tmp = convert_legacy_scalars(dset, force=force_conversion)
+
+    if tmp is not None:
+        dset = tmp
 
     scalar_names = list(dset.keys())
 
@@ -169,11 +191,27 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
     scalar_dict['group'] = []
     scalar_dict['uuid'] = []
 
+    if include_feedback:
+        scalar_dict['feedback_status'] = []
+
     for k, v in tqdm.tqdm(index['files'].items(), disable=disable_output):
         dset = h5_to_dict(h5py.File(v['path'][0], 'r'), 'scalars')
+        timestamps = h5py.File(v['path'][0], 'r')['metadata/timestamps'].value
+        parameters = read_yaml(v['path'][1])['parameters']
 
-        if 'velocity_2d_mm' not in dset.keys():
-            dset = convert_legacy_scalars(dset)
+        if include_feedback:
+            feedback_path = os.path.join(os.path.dirname(parameters['input_file']),
+                                         'feedback_ts.txt')
+            if os.path.exists(feedback_path):
+                feedback_ts = load_timestamps(feedback_path, 0)
+                feedback_status = load_timestamps(feedback_path, 1)
+            else:
+                raise RuntimeError('Could not find feedback file {}'.format(feedback_path))
+
+        tmp = convert_legacy_scalars(dset, force=force_conversion)
+
+        if tmp is not None:
+            dset = tmp
 
         nframes = len(dset[scalar_names[0]])
 
@@ -187,6 +225,15 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
         for i in range(nframes):
             scalar_dict['group'].append(v['group'])
             scalar_dict['uuid'].append(k)
+
+        if include_feedback and feedback_ts is not None:
+
+            for ts in timestamps:
+                hit = np.where(ts.astype('int32') == feedback_ts.astype('int32'))[0]
+                if len(hit) > 0:
+                    scalar_dict['feedback_status'].append(feedback_status[hit])
+                else:
+                    scalar_dict['feedback_status'].append(-1)
 
         if include_labels:
             if k in labels.keys():

@@ -96,7 +96,7 @@ def copy_h5_metadata_to_yaml(input_dir):
 @click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
 @click.option('--pca-file', '-p', type=click.Path(exists=True), default=os.path.join(os.getcwd(), '_pca/pca_scores.h5'), help='Path to PCA results')
 @click.option('--output-file', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'moseq2-index.yaml'), help="Location for storing index")
-@click.option('--filter', '-f', type=(str, str), default=[('SubjectName', '\w+')], help='Regex filter for metadata', multiple=True)
+@click.option('--filter', '-f', type=(str, str), default=None, help='Regex filter for metadata', multiple=True)
 def generate_index(input_dir, pca_file, output_file, filter):
 
     # gather than h5s and the pca scores file
@@ -130,7 +130,9 @@ def generate_index(input_dir, pca_file, output_file, filter):
         for k, v in file_tup[2]['metadata'].items():
             for filt in filter:
                 if k == filt[0]:
-                    v = re.match(filt[1], v)[0]
+                    tmp = re.match(filt[1], v)
+                    if tmp is not None:
+                        v = tmp[0]
 
             output_dict['files'][i]['metadata'][k] = v
 

@@ -134,7 +134,8 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
-                      crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1):
+                      crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
+                      center=False, rotate=False):
 
     durs = np.array([i[1]-i[0] for i, j, k in slices])
 
@@ -182,6 +183,10 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         centroid_x = h5[use_names[0]][use_idx[0]:use_idx[1]] + offset[0]
         centroid_y = h5[use_names[1]][use_idx[0]:use_idx[1]] + offset[1]
 
+        if center:
+            centroid_x -= centroid_x[0]
+            centroid_y -= centroid_y[0]
+
         angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
         frames = (h5['frames'][use_idx[0]:use_idx[1]] / scale).astype('uint8')
 
@@ -192,6 +197,9 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             flips = np.zeros(angles.shape, dtype='bool')
 
         angles = np.rad2deg(angles)
+
+        if rotate:
+            angles -= angles[0]
 
         for i in range(len(centroid_x)):
 

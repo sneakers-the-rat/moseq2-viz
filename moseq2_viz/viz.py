@@ -8,15 +8,20 @@ import seaborn as sns
 import networkx as nx
 
 
-def graph_transition_matrix(trans_mats, usages=None, groups=None, edge_threshold=.0025, anchor=0,
+def graph_transition_matrix(trans_mats, usages=None, groups=None,
+                            edge_threshold=.0025, anchor=0,
                             node_color='w', node_edge_color='r', layout='spring',
                             edge_width_scale=100, node_size=400,
                             width_per_group=8, height=8, headless=False, font_size=12,
-                            plot_differences=True, difference_threshold=.0005, difference_edge_width_scale=500,
-                             **kwargs):
+                            plot_differences=True, difference_threshold=.0005,
+                            difference_edge_width_scale=500, weights=None,
+                            usage_scale=1e4, **kwargs):
 
     if headless:
         plt.switch_backend('agg')
+
+    if weights is None:
+        weights = trans_mats
 
     if type(trans_mats) is np.ndarray and trans_mats.ndim == 2:
         trans_mats = [trans_mats]
@@ -32,12 +37,14 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None, edge_threshold
         anchor = 0
 
     ebunch_anchor = convert_transition_matrix_to_ebunch(
-        trans_mats[anchor], edge_threshold=edge_threshold)
+        weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold)
     graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
     nnodes = len(graph_anchor.nodes())
 
     if layout == 'spring':
-        pos = nx.spring_layout(graph_anchor, k=1.5 / np.sqrt(nnodes), **kwargs)
+        if 'k' not in kwargs.keys():
+            kwargs['k'] = 1.5 / np.sqrt(nnodes)
+        pos = nx.spring_layout(graph_anchor, **kwargs)
     elif layout == 'circular':
         pos = nx.circular_layout(graph_anchor, **kwargs)
     elif layout == 'spectral':
@@ -46,25 +53,31 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None, edge_threshold
         raise RuntimeError('Did not understand layout type')
 
     fig, ax = plt.subplots(ngraphs, ngraphs,
-                           figsize=(ngraphs*width_per_group, ngraphs*width_per_group))
+                           figsize=(ngraphs*width_per_group,
+                                    ngraphs*width_per_group))
 
     if ngraphs == 1:
         ax = [[ax]]
 
     for i, tm in enumerate(trans_mats):
+
         ebunch = convert_transition_matrix_to_ebunch(
-            tm, edge_threshold=edge_threshold, indices=ebunch_anchor)
+            tm, tm, edge_threshold=edge_threshold, indices=ebunch_anchor)
         graph = convert_ebunch_to_graph(ebunch)
 
-        weight = [graph[u][v]['weight']*edge_width_scale for u, v in graph.edges()]
+        width = [tm[u][v] * edge_width_scale for u, v in graph.edges()]
 
         if usages is not None:
-            node_size = [usages[i][k] for k in pos.keys()]
+
+            usage_total = sum(usages[i].values())
+            for k, v in usages[i].items():
+                usages[i][k] = v / usage_total
+            node_size = [usages[i][k] * usage_scale for k in pos.keys()]
 
         nx.draw_networkx_nodes(graph, pos,
                                edgecolors=node_edge_color, node_color=node_color,
                                node_size=node_size, ax=ax[i][i])
-        nx.draw_networkx_edges(graph, pos, graph.edges(), width=weight, ax=ax[i][i])
+        nx.draw_networkx_edges(graph, pos, graph.edges(), width=width, ax=ax[i][i])
         if font_size > 0:
             nx.draw_networkx_labels(graph, pos,
                                     {k: k for k in pos.keys()},
@@ -80,7 +93,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None, edge_threshold
                 df = tm2 - tm
 
                 ebunch = convert_transition_matrix_to_ebunch(
-                    df, edge_threshold=difference_threshold, indices=ebunch_anchor)
+                    df, df, edge_threshold=difference_threshold, indices=ebunch_anchor)
                 graph = convert_ebunch_to_graph(ebunch)
                 weight = [np.abs(graph[u][v]['weight'])*difference_edge_width_scale for u, v in graph.edges()]
 

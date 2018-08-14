@@ -19,13 +19,13 @@ def convert_ebunch_to_graph(ebunch):
     return g
 
 
-def convert_transition_matrix_to_ebunch(transition_matrix, edge_threshold=1, indices=None):
+def convert_transition_matrix_to_ebunch(weights, transition_matrix, edge_threshold=0, indices=None):
 
     if indices is None:
-        ebunch = [(i[0], i[1], v) for i, v in np.ndenumerate(transition_matrix)
+        ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i, v in np.ndenumerate(transition_matrix)
                   if np.abs(v) > edge_threshold]
     else:
-        ebunch = [(i[0], i[1], transition_matrix[i[0], i[1]]) for i in indices]
+        ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i in indices]
 
     return ebunch
 

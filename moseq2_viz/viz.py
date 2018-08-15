@@ -185,7 +185,9 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
 
         if center:
             centroid_x -= centroid_x[0]
+            centroid_x += raw_size[0] // 2
             centroid_y -= centroid_y[0]
+            centroid_y += raw_size[1] // 2
 
         angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
         frames = (h5['frames'][use_idx[0]:use_idx[1]] / scale).astype('uint8')
@@ -195,6 +197,9 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             angles[np.where(flips == True)] -= np.pi
         else:
             flips = np.zeros(angles.shape, dtype='bool')
+
+        # if rotate:
+        #     angles = np.unwrap(angles)
 
         angles = np.rad2deg(angles)
 

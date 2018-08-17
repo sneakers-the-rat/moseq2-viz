@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import warnings
 from moseq2_viz.util import h5_to_dict, strided_app, load_timestamps, read_yaml
-from moseq2_viz.model.util import load_model_labels
+from moseq2_viz.model.util import parse_model_results
 
 
 # http://stackoverflow.com/questions/17832238/kinect-intrinsic-parameters-from-field-of-view/18199938#18199938
@@ -225,7 +225,7 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
 
 
 def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'StartTime'],
-                         include_model=None, sort_model_labels=False, disable_output=False,
+                         include_model=None, sort_labels_by_usage=False, disable_output=False,
                          include_feedback=None, force_conversion=True):
 
     scalar_dict = {}
@@ -251,7 +251,8 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
 
     include_labels = False
     if include_model is not None and os.path.exists(include_model):
-        labels = load_model_labels(include_model, sort=sort_model_labels)
+        labels = parse_model_results(include_model,
+                                     sort_labels_by_usage=sort_labels_by_usage)['labels']
         scalar_dict['model_label'] = []
         label_idx = h5_to_dict(index['pca_path'], 'scores_idx')
 

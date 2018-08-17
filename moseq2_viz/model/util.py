@@ -4,11 +4,21 @@ from moseq2_viz.util import h5_to_dict
 import numpy as np
 import h5py
 import pandas as pd
-import networkx as nx
 import warnings
 import tqdm
 import joblib
 import os
+
+
+def _get_transitions(label_sequence, fill_value=-5):
+
+    to_rem = np.where(label_sequence == fill_value)
+    arr = deepcopy(label_sequence)
+    arr = np.delete(arr, to_rem)
+    arr = np.insert(arr, len(arr), -10)
+    locs = np.where(arr[1:] != arr[:-1])[0]+1
+    transitions = arr[locs][:-1]
+    return transitions, locs
 
 
 # per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
@@ -40,7 +50,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothin
 
         for v in labels:
 
-            transitions, _ = get_transitions(v)
+            transitions, _ = _get_transitions(v)
 
             for (i, j) in zip(transitions, transitions[1:]):
                 if i < max_syllable and j < max_syllable:
@@ -62,7 +72,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothin
         for v in tqdm.tqdm(labels):
 
             init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
-            transitions, _ = get_transitions(v)
+            transitions, _ = _get_transitions(v)
 
             for (i, j) in zip(transitions, transitions[1:]):
                 if i < max_syllable and j < max_syllable:
@@ -161,7 +171,7 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
     if type(data) is list or (type(data) is np.ndarray and data.dtype == np.object):
 
         for v in data:
-            seq_array, locs = get_transitions(v)
+            seq_array, locs = _get_transitions(v)
             to_rem = np.where(np.logical_or(seq_array > max_syllable,
                                             seq_array == fill_value))
 
@@ -176,7 +186,7 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
 
     elif type(data) is np.ndarray and data.dtype == 'int16':
 
-        seq_array, locs = get_transitions(data)
+        seq_array, locs = _get_transitions(data)
         to_rem = np.where(seq_array > max_syllable)[0]
         seq_array = np.delete(seq_array, to_rem)
         locs = np.delete(locs, to_rem)
@@ -191,16 +201,6 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
 
     return usages, durations
 
-
-def get_transitions(label_sequence, fill_value=-5):
-
-    to_rem = np.where(label_sequence == fill_value)
-    arr = deepcopy(label_sequence)
-    arr = np.delete(arr, to_rem)
-    arr = np.insert(arr, len(arr), -10)
-    locs = np.where(arr[1:] != arr[:-1])[0]+1
-    transitions = arr[locs][:-1]
-    return transitions, locs
 
 
 def labels_to_changepoints(labels, fs=30.):
@@ -226,31 +226,10 @@ def labels_to_changepoints(labels, fs=30.):
     cp_dist = []
 
     for lab in labels:
-        cp_dist.append(np.diff(get_transitions(lab)[1].squeeze()) / fs)
+        cp_dist.append(np.diff(_get_transitions(lab)[1].squeeze()) / fs)
 
     return np.concatenate(cp_dist)
 
-
-def load_model_labels(filename, sort=False):
-
-    if filename.endswith('.p') or filename.endswith('.pz'):
-        model_fit = parse_model_results(joblib.load(filename))
-        labels = model_fit['labels']
-
-        if 'train_list' in model_fit.keys():
-            label_uuids = model_fit['train_list']
-        else:
-            label_uuids = model_fit['keys']
-    elif model_fit.endswith('.h5'):
-        # load in h5, use index found using another function
-        raise NotImplementedError('Loading from hdf5 not currenltly supported')
-
-    if sort:
-        labels = relabel_by_usage(labels)[0]
-
-    model_dict = {uuid: lbl for uuid, lbl in zip(label_uuids, labels)}
-
-    return model_dict
 
 
 def parse_batch_modeling(filename):
@@ -272,7 +251,8 @@ def parse_batch_modeling(filename):
 
 
 def parse_model_results(model_obj, restart_idx=0,
-                        map_uuid_to_keys=False, sort_labels_by_usage=False):
+                        map_uuid_to_keys=False,
+                        sort_labels_by_usage=False):
     """Parses a model fit and returns a dictionary of results
 
     Args:
@@ -295,6 +275,8 @@ def parse_model_results(model_obj, restart_idx=0,
 
     if type(model_obj) is str and (model_obj.endswith('.p') or model_obj.endswith('.pz')):
         model_obj = joblib.load(model_obj)
+    elif type(model_obj) is str:
+        raise RuntimeError('Can only parse models saved using joblib that end with .p or .pz')
 
     output_dict = deepcopy(model_obj)
     if type(output_dict['labels']) is list and type(output_dict['labels'][0]) is list:
@@ -523,6 +505,26 @@ def whiten_all(pca_scores, center=True):
 
 
 def whiten_pcs(pca_scores, method='all', center=True):
+    """Whiten PC scores using Cholesky whitening
+
+    Args:
+        pca_scores (dict): dictionary where values are pca_scores (2d np arrays)
+        method (str): 'all' to whiten using the covariance estimated from all keys, or 'each' to whiten each separately
+        center (bool): whether or not to center the data
+
+    Returns:
+        whitened_scores (dict): dictionary of whitened pc scores
+
+    Examples:
+
+        Load in pca_scores and whiten
+
+        >>> from moseq2_viz.util import h5_to_dict
+        >>> from moseq2_viz.model.util import whiten_pcs
+        >>> pca_scores = h5_to_dict('pca_scores.h5', '/scores')
+        >>> whitened_scores = whiten_pcs(pca_scores, method='all')
+
+    """
 
     if method[0].lower() == 'a':
         whitened_scores = whiten_all(pca_scores)

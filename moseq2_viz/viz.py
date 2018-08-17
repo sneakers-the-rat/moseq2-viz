@@ -1,4 +1,3 @@
-from moseq2_viz.model.util import convert_ebunch_to_graph, convert_transition_matrix_to_ebunch
 from matplotlib import lines, gridspec
 import matplotlib.pyplot as plt
 import numpy as np
@@ -6,6 +5,25 @@ import h5py
 import cv2
 import seaborn as sns
 import networkx as nx
+
+
+def convert_ebunch_to_graph(ebunch):
+
+    g = nx.Graph()
+    g.add_weighted_edges_from(ebunch)
+
+    return g
+
+
+def convert_transition_matrix_to_ebunch(weights, transition_matrix, edge_threshold=0, indices=None):
+
+    if indices is None:
+        ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i, v in np.ndenumerate(transition_matrix)
+                  if np.abs(v) > edge_threshold]
+    else:
+        ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i in indices]
+
+    return ebunch
 
 
 def graph_transition_matrix(trans_mats, usages=None, groups=None,

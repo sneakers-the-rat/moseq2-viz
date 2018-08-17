@@ -11,27 +11,29 @@ import joblib
 import os
 
 
-def convert_ebunch_to_graph(ebunch):
-
-    g = nx.Graph()
-    g.add_weighted_edges_from(ebunch)
-
-    return g
-
-
-def convert_transition_matrix_to_ebunch(weights, transition_matrix, edge_threshold=0, indices=None):
-
-    if indices is None:
-        ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i, v in np.ndenumerate(transition_matrix)
-                  if np.abs(v) > edge_threshold]
-    else:
-        ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i in indices]
-
-    return ebunch
-
-
 # per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
 def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothing=1.0, combine=False):
+    """Compute the transition matrix from a set of model labels
+
+    Args:
+        labels (list of np.array of ints): labels loaded from a model fit
+        max_syllable (int): maximum syllable number to consider
+        normalize (str): how to normalize transition matrix, 'bigram' or 'rows' or 'columns'
+        smoothing (float): constant to add to transition_matrix pre-normalization to smooth counts
+        combine (bool): compute a separate transition matrix for each element (False) or combine across all arrays in the list (True)
+
+    Returns:
+        transition_matrix (list): list of 2d np.arrays that represent the transitions from syllable i (row) to syllable j (column)
+
+    Examples:
+
+        Load in model results and get the transition matrix combined across sessions.
+
+        >>> from moseq2_viz.model.util import parse_model_results, get_transition_matrix
+        >>> model_results = parse_model_results('mymodel.p')
+        >>> transition_matrix = get_transition_matrix(model_results['labels'], combine=True)
+
+    """
 
     if combine:
         init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
@@ -80,10 +82,6 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothin
     return all_mats
 
 
-def get_syll_durations(data, fill_value=-5, max_syllable=100):
-    return get_syllable_statistics(data, fill_value=fill_value, max_syllable=max_syllable)[1]
-
-
 # return tuples with uuid and syllable indices
 def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
 
@@ -130,6 +128,25 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
 
 
 def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
+    """Compute the transition matrix from a set of model labels
+
+    Args:
+        data (list of np.array of ints): labels loaded from a model fit
+        max_syllable (int): maximum syllable to consider
+
+    Returns:
+        usages (defaultdict): default dictionary of usages
+        durations (defaultdict): default dictionary of durations
+
+    Examples:
+
+        Load in model results and get the transition matrix combined across sessions.
+
+        >>> from moseq2_viz.model.util import parse_model_results, get_syllable_statistics
+        >>> model_results = parse_model_results('mymodel.p')
+        >>> usages, durations = get_syllable_statistics(model_results['labels'])
+
+    """
 
     # if type(data) is list and type(data[0]) is np.ndarray:
     #     data = np.array([np.squeeze(tmp) for tmp in data], dtype='object')
@@ -187,6 +204,24 @@ def get_transitions(label_sequence, fill_value=-5):
 
 
 def labels_to_changepoints(labels, fs=30.):
+    """Compute the transition matrix from a set of model labels
+
+    Args:
+        labels (list of np.array of ints): labels loaded from a model fit
+        fs (float): sampling rate of camera
+
+    Returns:
+        cp_dist (list of np.array of floats): list of block durations per element in labels list
+
+    Examples:
+
+        Load in model results and get the changepoint distribution
+
+        >>> from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
+        >>> model_results = parse_model_results('mymodel.p')
+        >>> cp_dist = labels_to_changepoints(model_results['labels'])
+
+    """
 
     cp_dist = []
 
@@ -238,7 +273,24 @@ def parse_batch_modeling(filename):
 
 def parse_model_results(model_obj, restart_idx=0,
                         map_uuid_to_keys=False, sort_labels_by_usage=False):
+    """Parses a model fit and returns a dictionary of results
 
+    Args:
+        model_obj (str or results returned from joblib.load): path to the model fit or a loaded model fit
+        map_uuid_to_keys (bool): for labels, make a dictionary where each key, value pair contains the uuid and the labels for that session
+        sort_labels_by_usage (bool): sort labels by their usages
+
+    Returns:
+        output_dict (dict): dictionary with labels and model parameters
+
+    Examples:
+
+        Load in model results
+
+        >>> from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
+        >>> model_results = parse_model_results('mymodel.p')
+
+    """
     # reformat labels into something useful
 
     if type(model_obj) is str and (model_obj.endswith('.p') or model_obj.endswith('.pz')):
@@ -271,6 +323,24 @@ def parse_model_results(model_obj, restart_idx=0,
 
 
 def relabel_by_usage(labels, fill_value=-5):
+    """Compute the transition matrix from a set of model labels
+
+    Args:
+        labels (list of np.array of ints): labels loaded from a model fit
+        fill_value (int): value prepended to modeling results to account for nlags
+
+    Returns:
+        labels (list of np.array of ints): labels resorted by usage
+
+    Examples:
+
+        Load in model results and sort labels by usages
+
+        >>> from moseq2_viz.model.util import parse_model_results, relabel_by_usage
+        >>> model_results = parse_model_results('mymodel.p')
+        >>> sorted_labels = relabel_by_usage(model_results['labels'])
+
+    """
 
     sorted_labels = deepcopy(labels)
     usages, durations = get_syllable_statistics(labels, fill_value=fill_value)

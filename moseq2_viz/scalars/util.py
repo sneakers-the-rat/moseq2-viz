@@ -252,7 +252,8 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
     include_labels = False
     if include_model is not None and os.path.exists(include_model):
         labels = parse_model_results(include_model,
-                                     sort_labels_by_usage=sort_labels_by_usage)['labels']
+                                     sort_labels_by_usage=sort_labels_by_usage,
+                                     map_uuid_to_keys=True)['labels']
         scalar_dict['model_label'] = []
         label_idx = h5_to_dict(index['pca_path'], 'scores_idx')
 

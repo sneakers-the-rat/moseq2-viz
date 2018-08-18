@@ -21,6 +21,26 @@ def _get_transitions(label_sequence, fill_value=-5):
     return transitions, locs
 
 
+def _whiten_all(pca_scores, center=True):
+
+    valid_scores = np.concatenate([x[~np.isnan(x).any(axis=1), :] for x in pca_scores.values()])
+    mu, cov = valid_scores.mean(axis=0), np.cov(valid_scores, rowvar=False, bias=1)
+
+    L = np.linalg.cholesky(cov)
+
+    if center:
+        offset = 0
+    else:
+        offset = mu
+
+    whitened_scores = deepcopy(pca_scores)
+
+    for k, v in whitened_scores.items():
+        whitened_scores[k] = np.linalg.solve(L, (v - mu).T).T + offset
+
+    return whitened_scores
+
+
 # per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
 def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothing=1.0, combine=False):
     """Compute the transition matrix from a set of model labels
@@ -484,26 +504,6 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
     return new_matrix, param_dict, filename_index
 
 
-def whiten_all(pca_scores, center=True):
-
-    valid_scores = np.concatenate([x[~np.isnan(x).any(axis=1), :] for x in pca_scores.values()])
-    mu, cov = valid_scores.mean(axis=0), np.cov(valid_scores, rowvar=False, bias=1)
-
-    L = np.linalg.cholesky(cov)
-
-    if center:
-        offset = 0
-    else:
-        offset = mu
-
-    whitened_scores = deepcopy(pca_scores)
-
-    for k, v in whitened_scores.items():
-        whitened_scores[k] = np.linalg.solve(L, (v - mu).T).T + offset
-
-    return whitened_scores
-
-
 def whiten_pcs(pca_scores, method='all', center=True):
     """Whiten PC scores using Cholesky whitening
 
@@ -527,10 +527,10 @@ def whiten_pcs(pca_scores, method='all', center=True):
     """
 
     if method[0].lower() == 'a':
-        whitened_scores = whiten_all(pca_scores)
+        whitened_scores = _whiten_all(pca_scores)
     else:
         whitened_scores = {}
         for k, v in pca_scores.items():
-            whitened_scores[k] = whiten_all({k: v})[k]
+            whitened_scores[k] = _whiten_all({k: v})[k]
 
     return whitened_scores

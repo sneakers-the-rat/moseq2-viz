@@ -117,7 +117,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
                 if usages is not None:
                     df_usage = [usages[j + i + 1][k] - usages[i][k] for k in pos.keys()]
-                    node_size = list(np.abs(df_usage))
+                    node_size = list(np.abs(df_usage) * usage_scale)
                     node_edge_color = ['r' if x > 0 else 'b' for x in df_usage]
 
                 nx.draw_networkx_nodes(graph, pos, edgecolors=node_edge_color, node_color=node_color,
@@ -140,7 +140,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
                                             font_size=font_size,
                                             ax=ax[i][j + i + 1])
 
-                ax[i][j + 1].set_title('{} - {}'.format(groups[i], groups[j + i + 1]))
+                ax[i][j + 1].set_title('{} - {}'.format(groups[j + i + 1], groups[i]))
 
     for i in range(len(ax)):
         for j in range(len(ax[i])):

@@ -18,6 +18,7 @@ import joblib
 import tqdm
 import warnings
 import re
+import shutil
 
 
 if platform == 'linux' or platform == 'linux2':
@@ -43,28 +44,43 @@ def cli():
 @cli.command(name="add-group")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.option('--key', '-k', type=str, default='SubjectName', help='Key to search for value')
-@click.option('--value', '-v', type=str, default='Mouse', help='Value to search for')
+@click.option('--value', '-v', type=str, default='Mouse', help='Value to search for', multiple=True)
 @click.option('--group', '-g', type=str, default='Group1', help='Group name to map to')
 @click.option('--exact', '-e', type=bool, is_flag=True, help='Exact match only')
 @click.option('--lowercase', type=bool, is_flag=True, help='Lowercase text filter')
-def add_group(index_file, key, value, group, exact, lowercase):
+@click.option('-n', '--negative', type=bool, is_flag=True, help='Negative match (everything that does not match is included)')
+def add_group(index_file, key, value, group, exact, lowercase, negative):
 
     index = parse_index(index_file)[0]
     h5_uuids = [f['uuid'] for f in index['files']]
     metadata = [f['metadata'] for f in index['files']]
 
-    if lowercase:
-        hits = [re.search(value, meta[key].lower()) is not None for meta in metadata]
-    else:
-        hits = [re.search(value, meta[key]) is not None for meta in metadata]
+    if type(value) is str:
+        value = [value]
 
-    for uuid, hit in zip(h5_uuids, hits):
-        position = h5_uuids.index(uuid)
-        if hit:
-            index['files'][position]['group'] = group
+    for v in value:
+        if lowercase and negative:
+            hits = [re.search(v, meta[key].lower()) is None for meta in metadata]
+        elif lowercase:
+            hits = [re.search(v, meta[key].lower()) is not None for meta in metadata]
+        elif negative:
+            hits = [re.search(v, meta[key]) is None for meta in metadata]
+        else:
+            hits = [re.search(v, meta[key]) is not None for meta in metadata]
 
-    with open(index_file, 'w+') as f:
-        yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
+        for uuid, hit in zip(h5_uuids, hits):
+            position = h5_uuids.index(uuid)
+            if hit:
+                index['files'][position]['group'] = group
+
+    new_index = '{}_update.yaml'.format(os.path.basename(index_file))
+
+    try:
+        with open(new_index, 'w+') as f:
+            yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
+        shutil.move(new_index, index_file)
+    except Exception:
+        raise Exception
 
 
 # recurse through directories, find h5 files with completed extractions, make a manifest
@@ -80,16 +96,18 @@ def copy_h5_metadata_to_yaml(input_dir):
     # load in all of the h5 files, grab the extraction metadata, reformat to make nice 'n pretty
     # then stage the copy
 
-    for i, tup in tqdm.tqdm(enumerate(to_load), total=len(to_load), desc='Scanning data'):
+    for i, tup in tqdm.tqdm(enumerate(to_load), total=len(to_load), desc='Copying data to yamls'):
         with h5py.File(tup[2], 'r') as f:
             tmp = h5_to_dict(f, '/metadata/extraction')
             tup[0]['metadata'] = dict(tmp)
 
-        with open(tup[1], 'w+') as f:
-            yaml.dump(commented_map_to_dict(
-                tup[0]), f, Dumper=yaml.RoundTripDumper)
-
-    # now the key is the source h5 file and the value is the path to copy to
+        try:
+            new_file = '{}_update.yaml'.format(os.path.basename(tup[1]))
+            with open(new_file, 'w+') as f:
+                yaml.dump(commented_map_to_dict(tup[0]), f, Dumper=yaml.RoundTripDumper)
+            shutil.move(new_file, tup[1])
+        except Exception:
+            raise Exception
 
 
 @cli.command(name='generate-index')
@@ -230,7 +248,7 @@ def plot_scalar_summary(index_file, output_file):
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
-@click.option('--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
+@click.option('-g', '--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'transitions'), help="Filename to store plot")
 @click.option('--normalize', type=click.Choice(['bigram', 'rows', 'columns']), default='bigram', help="How to normalize transition probabilities")
 @click.option('--edge-threshold', type=float, default=.001, help="Threshold for edges to show")
@@ -287,6 +305,7 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 
     plt, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
                                      edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
+                                     difference_edge_width_scale=edge_scaling,
                                      layout=layout, groups=group, headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
@@ -296,7 +315,7 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
-@click.option('--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
+@click.option('-g', '--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'usages'), help="Filename to store plot")
 def plot_usages(index_file, model_fit, max_syllable, group, output_file):
 

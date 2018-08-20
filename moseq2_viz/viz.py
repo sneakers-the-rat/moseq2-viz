@@ -1,4 +1,3 @@
-from moseq2_viz.model.util import convert_ebunch_to_graph, convert_transition_matrix_to_ebunch
 from matplotlib import lines, gridspec
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,15 +7,39 @@ import seaborn as sns
 import networkx as nx
 
 
-def graph_transition_matrix(trans_mats, usages=None, groups=None, edge_threshold=.0025, anchor=0,
+def convert_ebunch_to_graph(ebunch):
+
+    g = nx.Graph()
+    g.add_weighted_edges_from(ebunch)
+
+    return g
+
+
+def convert_transition_matrix_to_ebunch(weights, transition_matrix, edge_threshold=0, indices=None):
+
+    if indices is None:
+        ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i, v in np.ndenumerate(transition_matrix)
+                  if np.abs(v) > edge_threshold]
+    else:
+        ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i in indices]
+
+    return ebunch
+
+
+def graph_transition_matrix(trans_mats, usages=None, groups=None,
+                            edge_threshold=.0025, anchor=0,
                             node_color='w', node_edge_color='r', layout='spring',
                             edge_width_scale=100, node_size=400,
                             width_per_group=8, height=8, headless=False, font_size=12,
-                            plot_differences=True, difference_threshold=.0005, difference_edge_width_scale=500,
-                             **kwargs):
+                            plot_differences=True, difference_threshold=.0005,
+                            difference_edge_width_scale=500, weights=None,
+                            usage_scale=1e4, **kwargs):
 
     if headless:
         plt.switch_backend('agg')
+
+    if weights is None:
+        weights = trans_mats
 
     if type(trans_mats) is np.ndarray and trans_mats.ndim == 2:
         trans_mats = [trans_mats]
@@ -32,12 +55,14 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None, edge_threshold
         anchor = 0
 
     ebunch_anchor = convert_transition_matrix_to_ebunch(
-        trans_mats[anchor], edge_threshold=edge_threshold)
+        weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold)
     graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
     nnodes = len(graph_anchor.nodes())
 
     if layout == 'spring':
-        pos = nx.spring_layout(graph_anchor, k=1.5 / np.sqrt(nnodes), **kwargs)
+        if 'k' not in kwargs.keys():
+            kwargs['k'] = 1.5 / np.sqrt(nnodes)
+        pos = nx.spring_layout(graph_anchor, **kwargs)
     elif layout == 'circular':
         pos = nx.circular_layout(graph_anchor, **kwargs)
     elif layout == 'spectral':
@@ -46,25 +71,31 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None, edge_threshold
         raise RuntimeError('Did not understand layout type')
 
     fig, ax = plt.subplots(ngraphs, ngraphs,
-                           figsize=(ngraphs*width_per_group, ngraphs*width_per_group))
+                           figsize=(ngraphs*width_per_group,
+                                    ngraphs*width_per_group))
 
     if ngraphs == 1:
         ax = [[ax]]
 
     for i, tm in enumerate(trans_mats):
+
         ebunch = convert_transition_matrix_to_ebunch(
-            tm, edge_threshold=edge_threshold, indices=ebunch_anchor)
+            tm, tm, edge_threshold=edge_threshold, indices=ebunch_anchor)
         graph = convert_ebunch_to_graph(ebunch)
 
-        weight = [graph[u][v]['weight']*edge_width_scale for u, v in graph.edges()]
+        width = [tm[u][v] * edge_width_scale for u, v in graph.edges()]
 
         if usages is not None:
-            node_size = [usages[i][k] for k in pos.keys()]
+
+            usage_total = sum(usages[i].values())
+            for k, v in usages[i].items():
+                usages[i][k] = v / usage_total
+            node_size = [usages[i][k] * usage_scale for k in pos.keys()]
 
         nx.draw_networkx_nodes(graph, pos,
                                edgecolors=node_edge_color, node_color=node_color,
                                node_size=node_size, ax=ax[i][i])
-        nx.draw_networkx_edges(graph, pos, graph.edges(), width=weight, ax=ax[i][i])
+        nx.draw_networkx_edges(graph, pos, graph.edges(), width=width, ax=ax[i][i])
         if font_size > 0:
             nx.draw_networkx_labels(graph, pos,
                                     {k: k for k in pos.keys()},
@@ -80,13 +111,13 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None, edge_threshold
                 df = tm2 - tm
 
                 ebunch = convert_transition_matrix_to_ebunch(
-                    df, edge_threshold=difference_threshold, indices=ebunch_anchor)
+                    df, df, edge_threshold=difference_threshold, indices=ebunch_anchor)
                 graph = convert_ebunch_to_graph(ebunch)
                 weight = [np.abs(graph[u][v]['weight'])*difference_edge_width_scale for u, v in graph.edges()]
 
                 if usages is not None:
                     df_usage = [usages[j + i + 1][k] - usages[i][k] for k in pos.keys()]
-                    node_size = list(np.abs(df_usage))
+                    node_size = list(np.abs(df_usage) * usage_scale)
                     node_edge_color = ['r' if x > 0 else 'b' for x in df_usage]
 
                 nx.draw_networkx_nodes(graph, pos, edgecolors=node_edge_color, node_color=node_color,
@@ -109,7 +140,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None, edge_threshold
                                             font_size=font_size,
                                             ax=ax[i][j + i + 1])
 
-                ax[i][j + 1].set_title('{} - {}'.format(groups[i], groups[j + i + 1]))
+                ax[i][j + 1].set_title('{} - {}'.format(groups[j + i + 1], groups[i]))
 
     for i in range(len(ax)):
         for j in range(len(ax[i])):
@@ -121,7 +152,8 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None, edge_threshold
 
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
-                      crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1):
+                      crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
+                      center=False, rotate=False):
 
     durs = np.array([i[1]-i[0] for i, j, k in slices])
 
@@ -169,6 +201,12 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         centroid_x = h5[use_names[0]][use_idx[0]:use_idx[1]] + offset[0]
         centroid_y = h5[use_names[1]][use_idx[0]:use_idx[1]] + offset[1]
 
+        if center:
+            centroid_x -= centroid_x[0]
+            centroid_x += raw_size[0] // 2
+            centroid_y -= centroid_y[0]
+            centroid_y += raw_size[1] // 2
+
         angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
         frames = (h5['frames'][use_idx[0]:use_idx[1]] / scale).astype('uint8')
 
@@ -178,7 +216,13 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         else:
             flips = np.zeros(angles.shape, dtype='bool')
 
+        # if rotate:
+        #     angles = np.unwrap(angles)
+
         angles = np.rad2deg(angles)
+
+        if rotate:
+            angles -= angles[0]
 
         for i in range(len(centroid_x)):
 

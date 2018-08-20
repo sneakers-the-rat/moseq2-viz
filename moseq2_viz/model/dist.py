@@ -33,7 +33,9 @@ def get_behavioral_distance(index, model_file, whiten='all',
             init = get_init_points(scores, model_fit['labels'],
                                    nlags=nlags, npcs=npcs, max_syllable=max_syllable)
 
-            dist_dict['ar[init]'] = get_behavioral_distance_ar(ar_mat, init, max_syllable=max_syllable)
+            dist_dict['ar[init]'] = get_behavioral_distance_ar(ar_mat, init,
+                                                               sim_points=10,
+                                                               max_syllable=max_syllable)
         elif dist.lower() == 'scalars':
 
             scalar_map = get_scalar_map(index)

@@ -4,41 +4,73 @@ from moseq2_viz.util import h5_to_dict
 import numpy as np
 import h5py
 import pandas as pd
-import networkx as nx
 import warnings
 import tqdm
 import joblib
 import os
 
 
-def convert_ebunch_to_graph(ebunch):
+def _get_transitions(label_sequence, fill_value=-5):
 
-    g = nx.Graph()
-    g.add_weighted_edges_from(ebunch)
+    to_rem = np.where(label_sequence == fill_value)
+    arr = deepcopy(label_sequence)
+    arr = np.delete(arr, to_rem)
+    arr = np.insert(arr, len(arr), -10)
+    locs = np.where(arr[1:] != arr[:-1])[0]+1
+    transitions = arr[locs][:-1]
+    return transitions, locs
 
-    return g
 
+def _whiten_all(pca_scores, center=True):
 
-def convert_transition_matrix_to_ebunch(transition_matrix, edge_threshold=1, indices=None):
+    valid_scores = np.concatenate([x[~np.isnan(x).any(axis=1), :] for x in pca_scores.values()])
+    mu, cov = valid_scores.mean(axis=0), np.cov(valid_scores, rowvar=False, bias=1)
 
-    if indices is None:
-        ebunch = [(i[0], i[1], v) for i, v in np.ndenumerate(transition_matrix)
-                  if np.abs(v) > edge_threshold]
+    L = np.linalg.cholesky(cov)
+
+    if center:
+        offset = 0
     else:
-        ebunch = [(i[0], i[1], transition_matrix[i[0], i[1]]) for i in indices]
+        offset = mu
 
-    return ebunch
+    whitened_scores = deepcopy(pca_scores)
+
+    for k, v in whitened_scores.items():
+        whitened_scores[k] = np.linalg.solve(L, (v - mu).T).T + offset
+
+    return whitened_scores
 
 
 # per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
 def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothing=1.0, combine=False):
+    """Compute the transition matrix from a set of model labels
+
+    Args:
+        labels (list of np.array of ints): labels loaded from a model fit
+        max_syllable (int): maximum syllable number to consider
+        normalize (str): how to normalize transition matrix, 'bigram' or 'rows' or 'columns'
+        smoothing (float): constant to add to transition_matrix pre-normalization to smooth counts
+        combine (bool): compute a separate transition matrix for each element (False) or combine across all arrays in the list (True)
+
+    Returns:
+        transition_matrix (list): list of 2d np.arrays that represent the transitions from syllable i (row) to syllable j (column)
+
+    Examples:
+
+        Load in model results and get the transition matrix combined across sessions.
+
+        >>> from moseq2_viz.model.util import parse_model_results, get_transition_matrix
+        >>> model_results = parse_model_results('mymodel.p')
+        >>> transition_matrix = get_transition_matrix(model_results['labels'], combine=True)
+
+    """
 
     if combine:
         init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
 
         for v in labels:
 
-            transitions, _ = get_transitions(v)
+            transitions, _ = _get_transitions(v)
 
             for (i, j) in zip(transitions, transitions[1:]):
                 if i < max_syllable and j < max_syllable:
@@ -60,7 +92,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothin
         for v in tqdm.tqdm(labels):
 
             init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
-            transitions, _ = get_transitions(v)
+            transitions, _ = _get_transitions(v)
 
             for (i, j) in zip(transitions, transitions[1:]):
                 if i < max_syllable and j < max_syllable:
@@ -78,10 +110,6 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothin
         all_mats.append(init_matrix)
 
     return all_mats
-
-
-def get_syll_durations(data, fill_value=-5, max_syllable=100):
-    return get_syllable_statistics(data, fill_value=fill_value, max_syllable=max_syllable)[1]
 
 
 # return tuples with uuid and syllable indices
@@ -130,6 +158,25 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
 
 
 def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
+    """Compute the transition matrix from a set of model labels
+
+    Args:
+        data (list of np.array of ints): labels loaded from a model fit
+        max_syllable (int): maximum syllable to consider
+
+    Returns:
+        usages (defaultdict): default dictionary of usages
+        durations (defaultdict): default dictionary of durations
+
+    Examples:
+
+        Load in model results and get the transition matrix combined across sessions.
+
+        >>> from moseq2_viz.model.util import parse_model_results, get_syllable_statistics
+        >>> model_results = parse_model_results('mymodel.p')
+        >>> usages, durations = get_syllable_statistics(model_results['labels'])
+
+    """
 
     # if type(data) is list and type(data[0]) is np.ndarray:
     #     data = np.array([np.squeeze(tmp) for tmp in data], dtype='object')
@@ -144,7 +191,7 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
     if type(data) is list or (type(data) is np.ndarray and data.dtype == np.object):
 
         for v in data:
-            seq_array, locs = get_transitions(v)
+            seq_array, locs = _get_transitions(v)
             to_rem = np.where(np.logical_or(seq_array > max_syllable,
                                             seq_array == fill_value))
 
@@ -159,7 +206,7 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
 
     elif type(data) is np.ndarray and data.dtype == 'int16':
 
-        seq_array, locs = get_transitions(data)
+        seq_array, locs = _get_transitions(data)
         to_rem = np.where(seq_array > max_syllable)[0]
         seq_array = np.delete(seq_array, to_rem)
         locs = np.delete(locs, to_rem)
@@ -175,47 +222,34 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
     return usages, durations
 
 
-def get_transitions(label_sequence, fill_value=-5):
-
-    to_rem = np.where(label_sequence == fill_value)
-    arr = deepcopy(label_sequence)
-    arr = np.delete(arr, to_rem)
-    arr = np.insert(arr, len(arr), -10)
-    locs = np.where(arr[1:] != arr[:-1])[0]+1
-    transitions = arr[locs][:-1]
-    return transitions, locs
-
 
 def labels_to_changepoints(labels, fs=30.):
+    """Compute the transition matrix from a set of model labels
+
+    Args:
+        labels (list of np.array of ints): labels loaded from a model fit
+        fs (float): sampling rate of camera
+
+    Returns:
+        cp_dist (list of np.array of floats): list of block durations per element in labels list
+
+    Examples:
+
+        Load in model results and get the changepoint distribution
+
+        >>> from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
+        >>> model_results = parse_model_results('mymodel.p')
+        >>> cp_dist = labels_to_changepoints(model_results['labels'])
+
+    """
 
     cp_dist = []
 
     for lab in labels:
-        cp_dist.append(np.diff(get_transitions(lab)[1].squeeze()) / fs)
+        cp_dist.append(np.diff(_get_transitions(lab)[1].squeeze()) / fs)
 
     return np.concatenate(cp_dist)
 
-
-def load_model_labels(filename, sort=False):
-
-    if filename.endswith('.p') or filename.endswith('.pz'):
-        model_fit = parse_model_results(joblib.load(filename))
-        labels = model_fit['labels']
-
-        if 'train_list' in model_fit.keys():
-            label_uuids = model_fit['train_list']
-        else:
-            label_uuids = model_fit['keys']
-    elif model_fit.endswith('.h5'):
-        # load in h5, use index found using another function
-        raise NotImplementedError('Loading from hdf5 not currenltly supported')
-
-    if sort:
-        labels = relabel_by_usage(labels)[0]
-
-    model_dict = {uuid: lbl for uuid, lbl in zip(label_uuids, labels)}
-
-    return model_dict
 
 
 def parse_batch_modeling(filename):
@@ -237,12 +271,32 @@ def parse_batch_modeling(filename):
 
 
 def parse_model_results(model_obj, restart_idx=0,
-                        map_uuid_to_keys=False, sort_labels_by_usage=False):
+                        map_uuid_to_keys=False,
+                        sort_labels_by_usage=False):
+    """Parses a model fit and returns a dictionary of results
 
+    Args:
+        model_obj (str or results returned from joblib.load): path to the model fit or a loaded model fit
+        map_uuid_to_keys (bool): for labels, make a dictionary where each key, value pair contains the uuid and the labels for that session
+        sort_labels_by_usage (bool): sort labels by their usages
+
+    Returns:
+        output_dict (dict): dictionary with labels and model parameters
+
+    Examples:
+
+        Load in model results
+
+        >>> from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
+        >>> model_results = parse_model_results('mymodel.p')
+
+    """
     # reformat labels into something useful
 
     if type(model_obj) is str and (model_obj.endswith('.p') or model_obj.endswith('.pz')):
         model_obj = joblib.load(model_obj)
+    elif type(model_obj) is str:
+        raise RuntimeError('Can only parse models saved using joblib that end with .p or .pz')
 
     output_dict = deepcopy(model_obj)
     if type(output_dict['labels']) is list and type(output_dict['labels'][0]) is list:
@@ -271,6 +325,24 @@ def parse_model_results(model_obj, restart_idx=0,
 
 
 def relabel_by_usage(labels, fill_value=-5):
+    """Compute the transition matrix from a set of model labels
+
+    Args:
+        labels (list of np.array of ints): labels loaded from a model fit
+        fill_value (int): value prepended to modeling results to account for nlags
+
+    Returns:
+        labels (list of np.array of ints): labels resorted by usage
+
+    Examples:
+
+        Load in model results and sort labels by usages
+
+        >>> from moseq2_viz.model.util import parse_model_results, relabel_by_usage
+        >>> model_results = parse_model_results('mymodel.p')
+        >>> sorted_labels = relabel_by_usage(model_results['labels'])
+
+    """
 
     sorted_labels = deepcopy(labels)
     usages, durations = get_syllable_statistics(labels, fill_value=fill_value)
@@ -432,33 +504,33 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
     return new_matrix, param_dict, filename_index
 
 
-def whiten_all(pca_scores, center=True):
-
-    valid_scores = np.concatenate([x[~np.isnan(x).any(axis=1), :] for x in pca_scores.values()])
-    mu, cov = valid_scores.mean(axis=0), np.cov(valid_scores, rowvar=False, bias=1)
-
-    L = np.linalg.cholesky(cov)
-
-    if center:
-        offset = 0
-    else:
-        offset = mu
-
-    whitened_scores = deepcopy(pca_scores)
-
-    for k, v in whitened_scores.items():
-        whitened_scores[k] = np.linalg.solve(L, (v - mu).T).T + offset
-
-    return whitened_scores
-
-
 def whiten_pcs(pca_scores, method='all', center=True):
+    """Whiten PC scores using Cholesky whitening
+
+    Args:
+        pca_scores (dict): dictionary where values are pca_scores (2d np arrays)
+        method (str): 'all' to whiten using the covariance estimated from all keys, or 'each' to whiten each separately
+        center (bool): whether or not to center the data
+
+    Returns:
+        whitened_scores (dict): dictionary of whitened pc scores
+
+    Examples:
+
+        Load in pca_scores and whiten
+
+        >>> from moseq2_viz.util import h5_to_dict
+        >>> from moseq2_viz.model.util import whiten_pcs
+        >>> pca_scores = h5_to_dict('pca_scores.h5', '/scores')
+        >>> whitened_scores = whiten_pcs(pca_scores, method='all')
+
+    """
 
     if method[0].lower() == 'a':
-        whitened_scores = whiten_all(pca_scores)
+        whitened_scores = _whiten_all(pca_scores)
     else:
         whitened_scores = {}
         for k, v in pca_scores.items():
-            whitened_scores[k] = whiten_all({k: v})[k]
+            whitened_scores[k] = _whiten_all({k: v})[k]
 
     return whitened_scores

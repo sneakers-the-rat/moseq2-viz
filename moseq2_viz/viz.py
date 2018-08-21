@@ -155,6 +155,9 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
                       crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
                       center=False, rotate=False):
 
+    if rotate and not center:
+        raise NotImplementedError('Rotating without centering not supported')
+
     durs = np.array([i[1]-i[0] for i, j, k in slices])
 
     if dur_clip is not None:
@@ -202,9 +205,9 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         centroid_y = h5[use_names[1]][use_idx[0]:use_idx[1]] + offset[1]
 
         if center:
-            centroid_x -= centroid_x[0]
+            centroid_x -= centroid_x[pad]
             centroid_x += raw_size[0] // 2
-            centroid_y -= centroid_y[0]
+            centroid_y -= centroid_y[pad]
             centroid_y += raw_size[1] // 2
 
         angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
@@ -216,13 +219,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         else:
             flips = np.zeros(angles.shape, dtype='bool')
 
-        # if rotate:
-        #     angles = np.unwrap(angles)
-
         angles = np.rad2deg(angles)
-
-        if rotate:
-            angles -= angles[0]
 
         for i in range(len(centroid_x)):
 
@@ -232,22 +229,39 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             rr = (yc + centroid_y[i]).astype('int16')
             cc = (xc + centroid_x[i]).astype('int16')
 
-            if np.any(rr < 1) or np.any(cc < 1) or np.any(rr > raw_size[1]) or np.any(cc > raw_size[0]):
+            if (np.any(rr < 1)
+                or np.any(cc < 1)
+                or np.any(rr >= raw_size[1])
+                or np.any(cc >= raw_size[0])
+                or (rr[-1] - rr[0] != crop_size[0])
+                or (cc[-1] - cc[0] != crop_size[1])):
                 continue
 
-            old_frame = crowd_matrix[i][rr[0]:rr[-1],
-                                        cc[0]:cc[-1]]
-            new_frame = frames[i]
+            rot_mat = cv2.getRotationMatrix2D((xc0, yc0), angles[i], 1)
+            # old_frame = crowd_matrix[i][rr[0]:rr[-1],
+            #                             cc[0]:cc[-1]]
+            old_frame = crowd_matrix[i]
+            new_frame = np.zeros_like(old_frame)
+            new_frame_clip = frames[i]
 
             if flips[i]:
-                new_frame = np.fliplr(new_frame)
+                new_frame_clip = np.fliplr(new_frame_clip)
 
-            rot_mat = cv2.getRotationMatrix2D((xc0, yc0), angles[i], 1)
-            new_frame = cv2.warpAffine(new_frame.astype('float32'),
-                                       rot_mat, crop_size).astype(frames.dtype)
+            new_frame_clip = cv2.warpAffine(new_frame_clip.astype('float32'),
+                                            rot_mat, crop_size).astype(frames.dtype)
 
             if i > pad and i < pad + cur_len:
-                cv2.circle(new_frame, (xc0, yc0), 3, (255, 255, 255), -1)
+                cv2.circle(new_frame_clip, (xc0, yc0), 3, (255, 255, 255), -1)
+            try:
+                new_frame[rr[0]:rr[-1], cc[0]:cc[-1]] = new_frame_clip
+            except Exception:
+                raise Exception
+
+            if rotate:
+                rot_mat = cv2.getRotationMatrix2D((raw_size[0] // 2, raw_size[1] // 2),
+                                                  -angles[pad] + flips[pad] * 180,
+                                                  1)
+                new_frame = cv2.warpAffine(new_frame, rot_mat, raw_size).astype(new_frame.dtype)
 
             new_frame_nz = new_frame > 0
             old_frame_nz = old_frame > 0
@@ -261,7 +275,16 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             old_frame[blend_coords] = .5 * old_frame[blend_coords] + .5 * new_frame[blend_coords]
             old_frame[overwrite_coords] = new_frame[overwrite_coords]
 
-            crowd_matrix[i][rr[0]:rr[-1], cc[0]:cc[-1]] = old_frame
+            # crowd_matrix[i][rr[0]:rr[-1], cc[0]:cc[-1]] = old_frame
+            crowd_matrix[i] = old_frame
+
+        # if rotate:
+        #     for i in range(len(crowd_matrix)):
+        #         rot_mat = cv2.getRotationMatrix2D((raw_size[0] // 2, raw_size[1] // 2),
+        #                                           angles[pad], 1)
+        #         crowd_matrix[i] = cv2.warpAffine(crowd_matrix[i],
+        #                                          rot_mat,
+        #                                          raw_size).astype(crowd_matrix.dtype)
 
         count += 1
 

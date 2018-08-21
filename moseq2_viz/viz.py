@@ -278,14 +278,6 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             # crowd_matrix[i][rr[0]:rr[-1], cc[0]:cc[-1]] = old_frame
             crowd_matrix[i] = old_frame
 
-        # if rotate:
-        #     for i in range(len(crowd_matrix)):
-        #         rot_mat = cv2.getRotationMatrix2D((raw_size[0] // 2, raw_size[1] // 2),
-        #                                           angles[pad], 1)
-        #         crowd_matrix[i] = cv2.warpAffine(crowd_matrix[i],
-        #                                          rot_mat,
-        #                                          raw_size).astype(crowd_matrix.dtype)
-
         count += 1
 
         if count >= nexamples:

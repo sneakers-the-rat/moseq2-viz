@@ -59,6 +59,8 @@ def add_group(index_file, key, value, group, exact, lowercase, negative):
         value = [value]
 
     for v in value:
+        if exact:
+            v = r'\b{}\b'.format(v)
         if lowercase and negative:
             hits = [re.search(v, meta[key].lower()) is None for meta in metadata]
         elif lowercase:

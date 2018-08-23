@@ -280,7 +280,7 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
                 feedback_ts = load_timestamps(feedback_path, 0)
                 feedback_status = load_timestamps(feedback_path, 1)
             else:
-                raise RuntimeError('Could not find feedback file {}'.format(feedback_path))
+                continue
 
         tmp = convert_legacy_scalars(dset, force=force_conversion)
 
@@ -288,6 +288,8 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
             dset = tmp
 
         nframes = len(dset[scalar_names[0]])
+        if len(timestamps) != nframes:
+            continue
 
         for scalar in scalar_names:
             scalar_dict[scalar].append(dset[scalar])
@@ -309,6 +311,10 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
                 else:
                     scalar_dict['feedback_status'].append(-1)
 
+        elif include_feedback:
+            for frame in range(nframes):
+                scalar_dict['feedback_status'].append(-1)
+
         if include_labels:
             if k in labels.keys():
                 for lbl in labels[k]:
@@ -319,7 +325,7 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
 
     for scalar in scalar_names:
         scalar_dict[scalar] = np.concatenate(scalar_dict[scalar])
-
+    
     scalar_df = pd.DataFrame(scalar_dict)
 
     return scalar_df

@@ -302,9 +302,8 @@ def parse_model_results(model_obj, restart_idx=0,
     if type(output_dict['labels']) is list and type(output_dict['labels'][0]) is list:
         output_dict['labels'] = [np.squeeze(tmp) for tmp in output_dict['labels'][restart_idx]]
 
-    if (type(output_dict['model_parameters']) is list
-            and len(output_dict['model_parameters']) == 1):
-        output_dict['model_parameters'] = output_dict['model_parameters'][0]
+    if type(output_dict['model_parameters']) is list:
+        output_dict['model_parameters'] = output_dict['model_parameters'][restart_idx]
 
     if sort_labels_by_usage:
         output_dict['labels'], sorting = relabel_by_usage(output_dict['labels'])

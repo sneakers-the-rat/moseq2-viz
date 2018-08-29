@@ -7,11 +7,14 @@ from scipy.spatial.distance import squareform, pdist
 
 def get_behavioral_distance(index, model_file, whiten='all',
                             distances=['ar[init]', 'scalars'], max_syllable=None,
-                            dist_options={'scalars': {'nlags': 10, 'zscore': True}}):
+                            dist_options={'scalars': {'nlags': 10, 'zscore': True}},
+                            sort_labels_by_usage=True):
 
     dist_dict = {}
 
-    model_fit = parse_model_results(model_file, map_uuid_to_keys=True, sort_labels_by_usage=True)
+    model_fit = parse_model_results(model_file,
+                                    map_uuid_to_keys=True,
+                                    sort_labels_by_usage=sort_labels_by_usage)
 
     if max_syllable is None:
         max_syllable = -np.inf

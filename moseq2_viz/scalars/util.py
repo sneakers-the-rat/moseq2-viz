@@ -276,6 +276,11 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
         if include_feedback:
             feedback_path = os.path.join(os.path.dirname(parameters['input_file']),
                                          'feedback_ts.txt')
+
+            if not os.path.exists(feedback_path):
+                feedback_path = os.path.join(os.path.dirname(v['path'][0]),
+                                             '..', 'feedback_ts.txt')
+
             if os.path.exists(feedback_path):
                 feedback_ts = load_timestamps(feedback_path, 0)
                 feedback_status = load_timestamps(feedback_path, 1)
@@ -325,7 +330,7 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
 
     for scalar in scalar_names:
         scalar_dict[scalar] = np.concatenate(scalar_dict[scalar])
-    
+
     scalar_df = pd.DataFrame(scalar_dict)
 
     return scalar_df

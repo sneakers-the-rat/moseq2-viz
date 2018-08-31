@@ -250,14 +250,18 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
         scalar_dict[key] = []
 
     include_labels = False
+    skip = []
+
     if include_model is not None and os.path.exists(include_model):
         labels = parse_model_results(include_model,
                                      sort_labels_by_usage=sort_labels_by_usage,
                                      map_uuid_to_keys=True)['labels']
         scalar_dict['model_label'] = []
         label_idx = h5_to_dict(index['pca_path'], 'scores_idx')
-
         for uuid, lbl in labels.items():
+            if len(label_idx[uuid]) != len(labels[uuid]):
+                skip.append(uuid)
+                continue
             labels[uuid] = lbl[~np.isnan(label_idx[uuid])]
 
         include_labels = True
@@ -269,6 +273,8 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
         scalar_dict['feedback_status'] = []
 
     for k, v in tqdm.tqdm(index['files'].items(), disable=disable_output):
+        if k in skip:
+            continue
         dset = h5_to_dict(h5py.File(v['path'][0], 'r'), 'scalars')
         timestamps = h5py.File(v['path'][0], 'r')['metadata/timestamps'].value
         parameters = read_yaml(v['path'][1])['parameters']

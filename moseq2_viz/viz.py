@@ -175,7 +175,11 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
 
     # original_dtype = h5py.File(use_slices[0][2], 'r')['frames'].dtype
 
+    if max_dur < 0:
+        return None
+
     crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype='uint8')
+
     count = 0
 
     xc0 = crop_size[1] // 2
@@ -193,7 +197,8 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         cur_len = idx[1] - idx[0]
         use_idx = (idx[0] - pad, idx[1] + pad + (max_dur - cur_len))
 
-        if use_idx[0] < 0 or use_idx[1] >= nframes:
+        if use_idx[0] < 0 or use_idx[1] >= nframes - 1:
+            print('test')
             continue
 
         if 'centroid_x' in h5['scalars'].keys():
@@ -266,8 +271,8 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             new_frame_nz = new_frame > 0
             old_frame_nz = old_frame > 0
 
-            new_frame[np.where(new_frame < 10)] = 0
-            old_frame[np.where(old_frame < 10)] = 0
+            new_frame[new_frame < 10] = 0
+            old_frame[old_frame < 10] = 0
 
             blend_coords = np.logical_and(new_frame_nz, old_frame_nz)
             overwrite_coords = np.logical_and(new_frame_nz, ~old_frame_nz)

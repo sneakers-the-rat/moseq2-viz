@@ -117,15 +117,16 @@ def copy_h5_metadata_to_yaml(input_dir):
 @click.option('--pca-file', '-p', type=click.Path(), default=os.path.join(os.getcwd(), '_pca/pca_scores.h5'), help='Path to PCA results')
 @click.option('--output-file', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'moseq2-index.yaml'), help="Location for storing index")
 @click.option('--filter', '-f', type=(str, str), default=None, help='Regex filter for metadata', multiple=True)
-def generate_index(input_dir, pca_file, output_file, filter):
+@click.option('--all-uuids', '-a', type=bool, default=False, help='Use all uuids')
+def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 
     # gather than h5s and the pca scores file
     # uuids should match keys in the scores file
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)
 
-    if not os.path.exists(pca_file):
-        warnings.warn('PCA file not found, will include all files')
+    if not os.path.exists(pca_file) or all_uuids:
+        warnings.warn('Will include all files')
         pca_uuids = [dct['uuid'] for dct in dicts]
     else:
         with h5py.File(pca_file, 'r') as f:

@@ -464,7 +464,7 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
     if dims > 2:
         raise NotImplementedError('No support for more than 2 dimensions')
 
-    if not averaging:
+    if averaging:
         new_matrix = np.zeros(new_shape, dtype=data.dtype)
         new_count = np.zeros(new_shape, dtype=data.dtype)
     else:

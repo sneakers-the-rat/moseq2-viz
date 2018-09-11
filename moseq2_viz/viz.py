@@ -198,7 +198,6 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         use_idx = (idx[0] - pad, idx[1] + pad + (max_dur - cur_len))
 
         if use_idx[0] < 0 or use_idx[1] >= nframes - 1:
-            print('test')
             continue
 
         if 'centroid_x' in h5['scalars'].keys():

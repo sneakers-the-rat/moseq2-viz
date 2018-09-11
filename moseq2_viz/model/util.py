@@ -451,8 +451,6 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
     param_list = [p[np.isfinite(p)] for p in param_list]
     new_shape = tuple([len(v) for v in param_list])
 
-    new_matrix = np.zeros(new_shape, dtype=data.dtype)
-    new_count = np.zeros(new_shape, dtype=data.dtype)
 
     if filenames is not None:
         filename_index = np.empty(new_shape, dtype=np.object)
@@ -467,7 +465,17 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
         raise NotImplementedError('No support for more than 2 dimensions')
 
     if not averaging:
-        raise NotImplementedError('Only averaging restarts is supported')
+        new_matrix = np.zeros(new_shape, dtype=data.dtype)
+        new_count = np.zeros(new_shape, dtype=data.dtype)
+    else:
+        _, cnts = np.unique(parameters, return_counts=True, axis=0)
+        nrestarts = cnts.max()
+        if nrestarts == 0:
+            raise RuntimeError('Did not detect any restarts')
+
+        new_shape = tuple([nrestarts]) + new_shape
+        new_matrix = np.zeros(new_shape, dtype=data.dtype)
+        new_matrix[:] = np.nan
 
     # TODO: add support for no averaging (just default_dict or list)
 
@@ -481,17 +489,23 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
         for i, p in enumerate(param):
             idx[i] = int(np.where(param_list[i] == p)[0])
 
-        for row in row_matches:
+        for i, row in enumerate(row_matches):
             if dims == 2:
                 if idx[0] >= 0 and idx[1] >= 0:
-                    new_matrix[idx[0], idx[1]] = np.nansum([new_matrix[idx[0], idx[1]], data[row]])
-                    new_count[idx[0], idx[1]] += 1
+                    if averaging:
+                        new_matrix[idx[0], idx[1]] = np.nansum([new_matrix[idx[0], idx[1]], data[row]])
+                        new_count[idx[0], idx[1]] += 1
+                    else:
+                        new_matrix[i, idx[0], idx[1]] = data[row]
                     if filenames is not None:
                         filename_index[idx[0], idx[1]].append(filenames[row])
             elif dims == 1:
                 if idx >= 0:
-                    new_matrix[idx] = np.nansum([new_matrix[idx], data[row]])
-                    new_count[idx] += 1
+                    if averaging:
+                        new_matrix[idx] = np.nansum([new_matrix[idx], data[row]])
+                        new_count[idx] += 1
+                    else:
+                        new_matrix[i, idx] = data[row]
                     if filenames is not None:
                         filename_index[idx].append(filenames[row])
 

@@ -509,9 +509,8 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
                     if filenames is not None:
                         filename_index[idx].append(filenames[row])
 
-    new_matrix[new_count == 0] = np.nan
-
     if averaging:
+        new_matrix[new_count == 0] = np.nan
         new_matrix /= new_count
 
     return new_matrix, param_dict, filename_index

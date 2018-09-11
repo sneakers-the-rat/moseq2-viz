@@ -19,11 +19,7 @@ import tqdm
 import warnings
 import re
 import shutil
-
-
-if platform == 'linux' or platform == 'linux2':
-    os.system('taskset -p 0xff {:d}'.format(os.getpid()))
-
+import psutil
 
 orig_init = click.core.Option.__init__
 
@@ -184,6 +180,13 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 @click.option('--dur-clip', default=300, help="Exclude syllables more than this number of frames (None for no limit)")
 def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort,
                       output_dir, filename_format, min_height, max_height, raw_size, scale, cmap, dur_clip):
+
+    if platform == 'linux' or platform == 'linux2':
+        print('Setting CPU affinity to use all CPUs...')
+        cpu_count = psutil.cpu_count()
+        proc = psutil.Process()
+        proc.cpu_affinity(list(range(cpu_count)))
+        # os.system('taskset -p 0xff {:d}'.format(os.getpid()))
 
     # need to handle h5 intelligently here...
 

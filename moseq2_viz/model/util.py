@@ -287,7 +287,7 @@ def parse_batch_modeling(filename):
 
 def parse_model_results(model_obj, restart_idx=0,
                         map_uuid_to_keys=False,
-                        sort_labels_by_usage=False
+                        sort_labels_by_usage=False,
                         count='usage'):
     """Parses a model fit and returns a dictionary of results
 

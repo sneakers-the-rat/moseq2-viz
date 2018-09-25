@@ -170,6 +170,7 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 @click.option('--max-examples', '-m', type=int, default=40, help="Number of examples to show")
 @click.option('--threads', '-t', type=int, default=-1, help="Number of threads to use for rendering crowd movies")
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
+@click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--output-dir', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'crowd_movies'), help="Path to store files")
 @click.option('--filename-format', type=str, default='syllable_{:d}.mp4', help="Python 3 string format for filenames")
 @click.option('--min-height', type=int, default=5, help="Minimum height for scaling videos")
@@ -178,7 +179,7 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 @click.option('--scale', type=float, default=1, help="Scaling from pixel units to mm")
 @click.option('--cmap', type=str, default='jet', help="Name of valid Matplotlib colormap for false-coloring images")
 @click.option('--dur-clip', default=300, help="Exclude syllables more than this number of frames (None for no limit)")
-def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort,
+def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort, count,
                       output_dir, filename_format, min_height, max_height, raw_size, scale, cmap, dur_clip):
 
     if platform == 'linux' or platform == 'linux2':
@@ -203,7 +204,7 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
         pass
 
     if sort:
-        labels = relabel_by_usage(labels)[0]
+        labels = relabel_by_usage(labels, count=count)[0]
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -264,11 +265,12 @@ def plot_scalar_summary(index_file, output_file):
 @click.option('--edge-threshold', type=float, default=.001, help="Threshold for edges to show")
 @click.option('--layout', type=str, default='spring', help="Default networkx layout algorithm")
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
+@click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--edge-scaling', type=float, default=250, help="Scale factor from transition probabilities to edge width")
 @click.option('--scale-node-by-usage', type=bool, default=True, help="Scale node sizes by usages probabilities")
 @click.option('--width-per-group', type=float, default=8, help="Width (in inches) for figure canvas per group")
 def plot_transition_graph(index_file, model_fit, max_syllable, group, output_file,
-                          normalize, edge_threshold, layout, sort, edge_scaling,
+                          normalize, edge_threshold, layout, sort, count, edge_scaling,
                           scale_node_by_usage, width_per_group):
 
     model_data = parse_model_results(joblib.load(model_fit))
@@ -277,7 +279,7 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
     labels = model_data['labels']
 
     if sort:
-        labels = relabel_by_usage(labels)[0]
+        labels = relabel_by_usage(labels, count=count)[0]
 
     if 'train_list' in model_data.keys():
         label_uuids = model_data['train_list']
@@ -324,10 +326,12 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 @cli.command(name='plot-usages')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
+@click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
+@click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
 @click.option('-g', '--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'usages'), help="Filename to store plot")
-def plot_usages(index_file, model_fit, max_syllable, group, output_file):
+def plot_usages(index_file, model_fit, sort, count, max_syllable, group, output_file):
 
     # if the user passes multiple groups, sort and plot against each other
     # relabel by usage across the whole dataset, gather usages per session per group
@@ -336,12 +340,7 @@ def plot_usages(index_file, model_fit, max_syllable, group, output_file):
 
     model_data = parse_model_results(joblib.load(model_fit))
     index, sorted_index = parse_index(index_file)
-    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=True)
+    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
     plt, _ = usage_plot(df, groups=group, headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
-
-
-# TODO: usages...group comparisons...changepoints...
-# function for finding model index in h5 file, then we can pass to other functions and index simply...
-# map metadata onto groups

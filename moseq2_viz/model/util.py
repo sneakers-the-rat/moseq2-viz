@@ -262,6 +262,7 @@ def parse_batch_modeling(filename):
             'filenames': [os.path.join(os.path.dirname(filename), os.path.basename(fname).decode('utf-8'))
                           for fname in f['filenames'].value],
             'labels': np.squeeze(f['labels'].value),
+            'loglikes': np.squeeze(f['metadata/loglikes'].value),
             'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list'].value]
         }
         results_dict['scan_parameters'] = {k: results_dict['parameters'][k]

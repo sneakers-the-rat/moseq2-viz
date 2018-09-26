@@ -44,7 +44,8 @@ def _whiten_all(pca_scores, center=True):
 
 
 # per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
-def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothing=1.0, combine=False):
+def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
+                          smoothing=0.0, combine=False, disable_output=False):
     """Compute the transition matrix from a set of model labels
 
     Args:
@@ -68,22 +69,22 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothin
     """
 
     if combine:
-        init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
+        init_matrix = np.zeros((max_syllable + 1, max_syllable + 1), dtype='float32') + smoothing
 
         for v in labels:
 
             transitions, _ = _get_transitions(v)
 
             for (i, j) in zip(transitions, transitions[1:]):
-                if i < max_syllable and j < max_syllable:
+                if i <= max_syllable and j <= max_syllable:
                     init_matrix[i, j] += 1
 
         if normalize == 'bigram':
             init_matrix /= init_matrix.sum()
         elif normalize == 'rows':
-            init_matrix /= init_matrix.sum(axis=1) + smoothing
+            init_matrix /= init_matrix.sum(axis=1)
         elif normalize == 'columns':
-            init_matrix /= init_matrix.sum(axis=0) + smoothing
+            init_matrix /= init_matrix.sum(axis=0)
         else:
             pass
 
@@ -91,21 +92,21 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothin
     else:
 
         all_mats = []
-        for v in tqdm.tqdm(labels):
+        for v in tqdm.tqdm(labels, disable=disable_output):
 
-            init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
+            init_matrix = np.zeros((max_syllable + 1, max_syllable + 1), dtype='float32') + smoothing
             transitions, _ = _get_transitions(v)
 
             for (i, j) in zip(transitions, transitions[1:]):
-                if i < max_syllable and j < max_syllable:
+                if i <= max_syllable and j <= max_syllable:
                     init_matrix[i, j] += 1
 
         if normalize == 'bigram':
             init_matrix /= init_matrix.sum()
         elif normalize == 'rows':
-            init_matrix /= init_matrix.sum(axis=1) + smoothing
+            init_matrix /= init_matrix.sum(axis=1)
         elif normalize == 'columns':
-            init_matrix /= init_matrix.sum(axis=0) + smoothing
+            init_matrix /= init_matrix.sum(axis=0)
         else:
             pass
 

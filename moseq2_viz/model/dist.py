@@ -62,7 +62,7 @@ def get_behavioral_distance_ar(ar_mat, init_point=None, sim_points=10, max_sylla
     npcs = ar_mat[0].shape[0]
 
     if init_point is None:
-        init_point = ['None'] * max_syllable
+        init_point = [None] * max_syllable
 
     ar_traj = np.zeros((max_syllable, sim_points * npcs), dtype='float32')
 

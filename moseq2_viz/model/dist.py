@@ -122,6 +122,6 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
                 syll_average[i][:, j] += np.nansum(win_scores[hits, :], axis=0)
 
     for i in range(max_syllable):
-        syll_average[i] /= count[i]
+        syll_average[i] /= count[i].astype('float')
 
     return syll_average

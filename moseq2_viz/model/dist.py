@@ -7,10 +7,17 @@ from scipy.spatial.distance import squareform, pdist
 
 def get_behavioral_distance(index, model_file, whiten='all',
                             distances=['ar[init]', 'scalars'], max_syllable=None,
-                            dist_options={'scalars': {'nlags': 10, 'zscore': True}},
+                            dist_options={'scalars': {'nlags': 10, 'zscore': True},
+                                          'ar': {'sim_points': 10}},
                             sort_labels_by_usage=True, count='usage'):
 
     dist_dict = {}
+
+    if 'ar' not in dist_options.keys():
+        dist_options['ar'] = {}
+
+    if 'scalars' not in dist_options.keys():
+        dist_options['scalars'] = {}
 
     model_fit = parse_model_results(model_file,
                                     map_uuid_to_keys=True,
@@ -38,7 +45,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
                                    nlags=nlags, npcs=npcs, max_syllable=max_syllable)
 
             dist_dict['ar[init]'] = get_behavioral_distance_ar(ar_mat, init,
-                                                               sim_points=10,
+                                                               **dist_options['ar'],
                                                                max_syllable=max_syllable)
         elif dist.lower() == 'scalars':
 

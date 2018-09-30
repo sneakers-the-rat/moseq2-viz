@@ -1,5 +1,5 @@
 import numpy as np
-from moseq2_viz.model.util import whiten_pcs, parse_model_results, simulate_ar_trajectory
+from moseq2_viz.model.util import whiten_pcs, parse_model_results, simulate_ar_trajectory, _get_transitions
 from moseq2_viz.util import strided_app, h5_to_dict
 from moseq2_viz.scalars.util import get_scalar_map, get_scalar_triggered_average
 from scipy.spatial.distance import squareform, pdist
@@ -44,7 +44,8 @@ def get_behavioral_distance(index, model_file, whiten='all',
             init = get_init_points(scores, model_fit['labels'],
                                    nlags=nlags, npcs=npcs, max_syllable=max_syllable)
 
-            dist_dict['ar[init]'] = get_behavioral_distance_ar(ar_mat, init,
+            dist_dict['ar[init]'] = get_behavioral_distance_ar(ar_mat,
+                                                               init_point=init,
                                                                **dist_options['ar'],
                                                                max_syllable=max_syllable)
         elif dist.lower() == 'scalars':
@@ -93,7 +94,7 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
     # grab the windows where 0=syllable onset
 
     syll_average = []
-    count = np.zeros((max_syllable, ), dtype='int16')
+    count = np.zeros((max_syllable, ), dtype='int')
 
     for i in range(max_syllable):
         syll_average.append(np.zeros((win, npcs), dtype='float32'))
@@ -104,13 +105,15 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
             continue
 
         labels = model_labels[k]
+        seq_array, locs = _get_transitions(labels)
+
         padded_scores = np.pad(v,((win // 2, win // 2), (0,0)),
                                'constant', constant_values = np.nan)
 
         for i in range(max_syllable):
-            hits = np.where(labels == i)[0]
+            hits = locs[np.where(seq_array == i)[0]]
 
-            if len(hits) == 0:
+            if len(hits) < 1:
                 continue
 
             count[i] += len(hits)

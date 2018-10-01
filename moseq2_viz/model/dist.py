@@ -49,16 +49,16 @@ def get_behavioral_distance(index, model_file, whiten='all',
                                                                **dist_options['ar'],
                                                                max_syllable=max_syllable)
         elif dist.lower() == 'scalars':
-
             scalar_map = get_scalar_map(index)
-            scalar_ave = get_scalar_triggered_average(scalar_map, model_fit['labels'],
+            scalar_ave = get_scalar_triggered_average(scalar_map,
+                                                      model_fit['labels'],
                                                       max_syllable=max_syllable,
                                                       **dist_options['scalars'])
 
             for k, v in scalar_ave.items():
                 key = 'scalar[{}]'.format(k)
-                dist_dict[key] = squareform(pdist(v[:, dist_options['scalars']['nlags']:],
-                                                  'correlation'))
+                v = v[:, dist_options['scalars']['nlags']:]
+                dist_dict[key] = squareform(pdist(v, 'correlation'))
 
     return dist_dict
 

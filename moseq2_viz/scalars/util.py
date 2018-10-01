@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import warnings
 from moseq2_viz.util import h5_to_dict, strided_app, load_timestamps, read_yaml
-from moseq2_viz.model.util import parse_model_results
+from moseq2_viz.model.util import parse_model_results, _get_transitions
 
 
 # http://stackoverflow.com/questions/17832238/kinect-intrinsic-parameters-from-field-of-view/18199938#18199938
@@ -190,7 +190,7 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
     # grab the windows where 0=syllable onset
 
     syll_average = {}
-    count = np.zeros((max_syllable, ), dtype='int16')
+    count = np.zeros((max_syllable, ), dtype='int')
 
     for scalar in include_keys:
         syll_average[scalar] = np.zeros((max_syllable, win), dtype='float32')
@@ -198,11 +198,12 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
     for k, v in scalar_map.items():
 
         labels = model_labels[k]
+        seq_array, locs = _get_transitions(labels)
 
         for i in range(max_syllable):
-            hits = np.where(labels == i)[0]
+            hits = locs[np.where(seq_array == i)[0]]
 
-            if len(hits) == 0:
+            if len(hits) < 1:
                 continue
 
             count[i] += len(hits)

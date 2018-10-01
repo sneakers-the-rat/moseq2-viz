@@ -152,14 +152,19 @@ def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
     return features
 
 
-def get_scalar_map(index, fill_nans=True):
+def get_scalar_map(index, fill_nans=True, force_conversion=True):
 
     scalar_map = {}
     score_idx = h5_to_dict(index['pca_path'], 'scores_idx')
 
     for uuid, v in index['files'].items():
 
-        scalars = convert_legacy_scalars(h5_to_dict(v['path'][0], 'scalars'))
+        scalars = h5_to_dict(v['path'][0], 'scalars')
+        conv_scalars = convert_legacy_scalars(scalars, force=force_conversion)
+
+        if conv_scalars is not None:
+            scalars = conv_scalars
+
         idx = score_idx[uuid]
         scalar_map[uuid] = {}
 
@@ -176,7 +181,7 @@ def get_scalar_map(index, fill_nans=True):
 
 def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlags=20,
                                  include_keys=['velocity_2d_mm', 'velocity_3d_mm', 'width_mm',
-                                             'length_mm', 'height_ave_mm'],
+                                             'length_mm', 'height_ave_mm', 'angle'],
                                  zscore=False):
 
     win = int(nlags * 2 + 1)
@@ -209,6 +214,10 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
             count[i] += len(hits)
 
             for scalar in include_keys:
+                if scalar is 'angle':
+                    use_scalar = np.diff(v[scalar])
+                    use_scalar = np.insert(use_scalar, 0, 0)
+
                 if zscore:
                     use_scalar = (v[scalar] - np.nanmean(v[scalar]))  / np.nanstd(v[scalar])
                 else:

@@ -55,9 +55,17 @@ def get_behavioral_distance(index, model_file, whiten='all',
                                                       max_syllable=max_syllable,
                                                       **dist_options['scalars'])
 
+            if 'nlags' in dist_options['scalars'].keys():
+                scalar_nlags = dist_options['scalars']['nlags']
+            else:
+                scalar_nlags = None
+
             for k, v in scalar_ave.items():
                 key = 'scalar[{}]'.format(k)
-                v = v[:, dist_options['scalars']['nlags']:]
+                if scalar_nlags is None:
+                    scalar_nlags = v.shape[1] // 2
+                v = v[:, scalar_nlags + 1:]
+                print(v.shape)
                 dist_dict[key] = squareform(pdist(v, 'correlation'))
 
     return dist_dict

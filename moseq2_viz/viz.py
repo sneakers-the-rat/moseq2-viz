@@ -1,39 +1,61 @@
 from matplotlib import lines, gridspec
+from networkx.drawing.nx_agraph import graphviz_layout
 import matplotlib.pyplot as plt
 import numpy as np
 import h5py
 import cv2
 import seaborn as sns
 import networkx as nx
+import re
 
 
 def convert_ebunch_to_graph(ebunch):
 
-    g = nx.Graph()
+    g = nx.DiGraph()
     g.add_weighted_edges_from(ebunch)
 
     return g
 
 
-def convert_transition_matrix_to_ebunch(weights, transition_matrix, edge_threshold=0, indices=None):
+def convert_transition_matrix_to_ebunch(weights, transition_matrix,
+                                        usages=None, usage_threshold=-.1,
+                                        edge_threshold=-.1, indices=None,
+                                        keep_orphans=False):
 
-    if indices is None:
-        ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i, v in np.ndenumerate(transition_matrix)
-                  if np.abs(v) > edge_threshold]
+    ebunch = []
+    orphans = []
+    if indices is None and not keep_orphans:
+        for i, v in np.ndenumerate(transition_matrix):
+            if np.abs(v) > edge_threshold:
+                ebunch.append((i[0], i[1], weights[i[0], i[1]]))
+    elif indices is None and keep_orphans:
+        for i, v in np.ndenumerate(transition_matrix):
+            ebunch.append((i[0], i[1], weights[i[0], i[1]]))
+            if np.abs(v) <= edge_threshold:
+                orphans.append((i[0], i[1]))
+    elif indices is not None and keep_orphans:
+        for i in indices:
+            ebunch.append((i[0], i[1], weights[i[0], i[1]]))
+            if np.abs(weights[i[0], i[1]]) <= edge_threshold:
+                orphans.append((i[0], i[1]))
     else:
         ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i in indices]
 
-    return ebunch
+    if usages is not None:
+        ebunch = [e for e in ebunch if usages[e[0]] > usage_threshold and usages[e[1]] > usage_threshold]
+
+    return ebunch, orphans
 
 
 def graph_transition_matrix(trans_mats, usages=None, groups=None,
-                            edge_threshold=.0025, anchor=0,
+                            edge_threshold=.0025, anchor=0, usage_threshold=0,
                             node_color='w', node_edge_color='r', layout='spring',
                             edge_width_scale=100, node_size=400,
                             width_per_group=8, height=8, headless=False, font_size=12,
                             plot_differences=True, difference_threshold=.0005,
                             difference_edge_width_scale=500, weights=None,
-                            usage_scale=1e4, **kwargs):
+                            usage_scale=1e5, arrows=False, keep_orphans=False,
+                            orphan_weight=0, **kwargs):
 
     if headless:
         plt.switch_backend('agg')
@@ -48,25 +70,43 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     else:
         raise RuntimeError("Transition matrix must be a numpy array or list of arrays")
 
+    if type(usages) is list or type(usages) is np.ndarray:
+        from collections import defaultdict
+        for i, u in enumerate(usages):
+            d = defaultdict(int)
+            for j, v in enumerate(u):
+                d[j] = v
+            usages[i] = d
+
     ngraphs = len(trans_mats)
 
     if anchor > ngraphs:
         print('Setting anchor to 0')
         anchor = 0
 
-    ebunch_anchor = convert_transition_matrix_to_ebunch(
-        weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold)
+    if usages is not None:
+        usage_total = sum(usages[i].values())
+        for k, v in usages[i].items():
+            usages[i][k] = v / usage_total
+
+    ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
+        weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
+        keep_orphans=keep_orphans, usages=usages[anchor],
+        usage_threshold=usage_threshold)
     graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
     nnodes = len(graph_anchor.nodes())
 
-    if layout == 'spring':
+    if layout.lower() == 'spring':
         if 'k' not in kwargs.keys():
             kwargs['k'] = 1.5 / np.sqrt(nnodes)
         pos = nx.spring_layout(graph_anchor, **kwargs)
-    elif layout == 'circular':
+    elif layout.lower() == 'circular':
         pos = nx.circular_layout(graph_anchor, **kwargs)
-    elif layout == 'spectral':
+    elif layout.lower() == 'spectral':
         pos = nx.spectral_layout(graph_anchor, **kwargs)
+    elif layout.lower()[:8] == 'graphviz':
+        prog = re.split(r'\:', layout.lower())[1]
+        pos = graphviz_layout(graph_anchor, prog=prog, **kwargs)
     else:
         raise RuntimeError('Did not understand layout type')
 
@@ -79,23 +119,21 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
     for i, tm in enumerate(trans_mats):
 
-        ebunch = convert_transition_matrix_to_ebunch(
-            tm, tm, edge_threshold=edge_threshold, indices=ebunch_anchor)
+        ebunch, orphans = convert_transition_matrix_to_ebunch(
+            tm, tm, edge_threshold=edge_threshold, indices=ebunch_anchor,
+            keep_orphans=keep_orphans)
         graph = convert_ebunch_to_graph(ebunch)
-
-        width = [tm[u][v] * edge_width_scale for u, v in graph.edges()]
+        width = [tm[u][v] * edge_width_scale if (u, v) not in orphans else orphan_weight
+                 for u, v in graph.edges()]
 
         if usages is not None:
-
-            usage_total = sum(usages[i].values())
-            for k, v in usages[i].items():
-                usages[i][k] = v / usage_total
             node_size = [usages[i][k] * usage_scale for k in pos.keys()]
 
         nx.draw_networkx_nodes(graph, pos,
                                edgecolors=node_edge_color, node_color=node_color,
                                node_size=node_size, ax=ax[i][i])
-        nx.draw_networkx_edges(graph, pos, graph.edges(), width=width, ax=ax[i][i])
+        nx.draw_networkx_edges(graph, pos, graph.edges(), width=width, ax=ax[i][i],
+                               arrows=arrows)
         if font_size > 0:
             nx.draw_networkx_labels(graph, pos,
                                     {k: k for k in pos.keys()},
@@ -110,10 +148,12 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
             for j, tm2 in enumerate(trans_mats[i+1:]):
                 df = tm2 - tm
 
-                ebunch = convert_transition_matrix_to_ebunch(
+                ebunch, _ = convert_transition_matrix_to_ebunch(
                     df, df, edge_threshold=difference_threshold, indices=ebunch_anchor)
                 graph = convert_ebunch_to_graph(ebunch)
-                weight = [np.abs(graph[u][v]['weight'])*difference_edge_width_scale for u, v in graph.edges()]
+
+                weight = [np.abs(graph[u][v]['weight'])*difference_edge_width_scale
+                          for u, v in graph.edges()]
 
                 if usages is not None:
                     df_usage = [usages[j + i + 1][k] - usages[i][k] for k in pos.keys()]
@@ -132,7 +172,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
                 nx.draw_networkx_edges(graph, pos, graph.edges(),
                                        width=weight, edge_color=colors,
-                                       ax=ax[i][j + i + 1])
+                                       ax=ax[i][j + i + 1], arrows=arrows)
 
                 if font_size > 0:
                     nx.draw_networkx_labels(graph, pos,

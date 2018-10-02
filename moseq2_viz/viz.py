@@ -5,6 +5,7 @@ import h5py
 import cv2
 import seaborn as sns
 import networkx as nx
+import re
 
 
 def convert_ebunch_to_graph(ebunch):
@@ -59,14 +60,17 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
     nnodes = len(graph_anchor.nodes())
 
-    if layout == 'spring':
+    if layout.lower() == 'spring':
         if 'k' not in kwargs.keys():
             kwargs['k'] = 1.5 / np.sqrt(nnodes)
         pos = nx.spring_layout(graph_anchor, **kwargs)
-    elif layout == 'circular':
+    elif layout.lower() == 'circular':
         pos = nx.circular_layout(graph_anchor, **kwargs)
-    elif layout == 'spectral':
+    elif layout.lower() == 'spectral':
         pos = nx.spectral_layout(graph_anchor, **kwargs)
+    elif layout.lower()[:8] == 'graphviz':
+        prog = re.split(r'\:', layout.lower())[1]
+        pos = nx.graphviz_layout(graph_anchor, prog=prog, **kwargs)
     else:
         raise RuntimeError('Did not understand layout type')
 

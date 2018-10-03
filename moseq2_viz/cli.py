@@ -279,6 +279,12 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
                           keep_orphans, orphan_weight, arrows, sort, count,
                           edge_scaling, node_scaling, scale_node_by_usage, width_per_group):
 
+    if layout.lower()[:8] == 'graphviz':
+        try:
+            import pygraphviz
+        except ImportError:
+            raise ImportError('pygraphviz must be installed to use graphviz layout engines')
+
     model_data = parse_model_results(joblib.load(model_fit))
     index, sorted_index = parse_index(index_file)
 

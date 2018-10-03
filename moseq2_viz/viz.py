@@ -133,11 +133,6 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
         nx.draw_networkx_nodes(graph, pos,
                                edgecolors=node_edge_color, node_color=node_color,
                                node_size=node_size, ax=ax[i][i])
-
-        print(graph.edges())
-        print(width)
-        print(node_size)
-
         nx.draw_networkx_edges(graph, pos, graph.edges(), width=width, ax=ax[i][i],
                                arrows=arrows)
         if font_size > 0:

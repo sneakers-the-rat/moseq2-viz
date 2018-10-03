@@ -85,9 +85,10 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
         anchor = 0
 
     if usages is not None:
-        usage_total = sum(usages[i].values())
-        for k, v in usages[i].items():
-            usages[i][k] = v / usage_total
+        for i in range(len(usages)):
+            usage_total = sum(usages[i].values())
+            for k, v in usages[i].items():
+                usages[i][k] = v / usage_total
 
     ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
         weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
@@ -132,6 +133,11 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
         nx.draw_networkx_nodes(graph, pos,
                                edgecolors=node_edge_color, node_color=node_color,
                                node_size=node_size, ax=ax[i][i])
+
+        print(graph.edges())
+        print(width)
+        print(node_size)
+
         nx.draw_networkx_edges(graph, pos, graph.edges(), width=width, ax=ax[i][i],
                                arrows=arrows)
         if font_size > 0:

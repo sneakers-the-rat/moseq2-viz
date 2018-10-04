@@ -65,7 +65,6 @@ def get_behavioral_distance(index, model_file, whiten='all',
                 if scalar_nlags is None:
                     scalar_nlags = v.shape[1] // 2
                 v = v[:, scalar_nlags + 1:]
-                print(v.shape)
                 dist_dict[key] = squareform(pdist(v, 'correlation'))
 
     return dist_dict

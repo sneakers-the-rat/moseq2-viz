@@ -1,39 +1,61 @@
 from matplotlib import lines, gridspec
+from networkx.drawing.nx_agraph import graphviz_layout
 import matplotlib.pyplot as plt
 import numpy as np
 import h5py
 import cv2
 import seaborn as sns
 import networkx as nx
+import re
 
 
 def convert_ebunch_to_graph(ebunch):
 
-    g = nx.Graph()
+    g = nx.DiGraph()
     g.add_weighted_edges_from(ebunch)
 
     return g
 
 
-def convert_transition_matrix_to_ebunch(weights, transition_matrix, edge_threshold=0, indices=None):
+def convert_transition_matrix_to_ebunch(weights, transition_matrix,
+                                        usages=None, usage_threshold=-.1,
+                                        edge_threshold=-.1, indices=None,
+                                        keep_orphans=False):
 
-    if indices is None:
-        ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i, v in np.ndenumerate(transition_matrix)
-                  if np.abs(v) > edge_threshold]
+    ebunch = []
+    orphans = []
+    if indices is None and not keep_orphans:
+        for i, v in np.ndenumerate(transition_matrix):
+            if np.abs(v) > edge_threshold:
+                ebunch.append((i[0], i[1], weights[i[0], i[1]]))
+    elif indices is None and keep_orphans:
+        for i, v in np.ndenumerate(transition_matrix):
+            ebunch.append((i[0], i[1], weights[i[0], i[1]]))
+            if np.abs(v) <= edge_threshold:
+                orphans.append((i[0], i[1]))
+    elif indices is not None and keep_orphans:
+        for i in indices:
+            ebunch.append((i[0], i[1], weights[i[0], i[1]]))
+            if np.abs(weights[i[0], i[1]]) <= edge_threshold:
+                orphans.append((i[0], i[1]))
     else:
         ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i in indices]
 
-    return ebunch
+    if usages is not None:
+        ebunch = [e for e in ebunch if usages[e[0]] > usage_threshold and usages[e[1]] > usage_threshold]
+
+    return ebunch, orphans
 
 
 def graph_transition_matrix(trans_mats, usages=None, groups=None,
-                            edge_threshold=.0025, anchor=0,
+                            edge_threshold=.0025, anchor=0, usage_threshold=0,
                             node_color='w', node_edge_color='r', layout='spring',
                             edge_width_scale=100, node_size=400,
                             width_per_group=8, height=8, headless=False, font_size=12,
                             plot_differences=True, difference_threshold=.0005,
                             difference_edge_width_scale=500, weights=None,
-                            usage_scale=1e4, **kwargs):
+                            usage_scale=1e5, arrows=False, keep_orphans=False,
+                            orphan_weight=0, **kwargs):
 
     if headless:
         plt.switch_backend('agg')
@@ -48,25 +70,44 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     else:
         raise RuntimeError("Transition matrix must be a numpy array or list of arrays")
 
+    if type(usages) is list or type(usages) is np.ndarray:
+        from collections import defaultdict
+        for i, u in enumerate(usages):
+            d = defaultdict(int)
+            for j, v in enumerate(u):
+                d[j] = v
+            usages[i] = d
+
     ngraphs = len(trans_mats)
 
     if anchor > ngraphs:
         print('Setting anchor to 0')
         anchor = 0
 
-    ebunch_anchor = convert_transition_matrix_to_ebunch(
-        weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold)
+    if usages is not None:
+        for i in range(len(usages)):
+            usage_total = sum(usages[i].values())
+            for k, v in usages[i].items():
+                usages[i][k] = v / usage_total
+
+    ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
+        weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
+        keep_orphans=keep_orphans, usages=usages[anchor],
+        usage_threshold=usage_threshold)
     graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
     nnodes = len(graph_anchor.nodes())
 
-    if layout == 'spring':
+    if layout.lower() == 'spring':
         if 'k' not in kwargs.keys():
             kwargs['k'] = 1.5 / np.sqrt(nnodes)
         pos = nx.spring_layout(graph_anchor, **kwargs)
-    elif layout == 'circular':
+    elif layout.lower() == 'circular':
         pos = nx.circular_layout(graph_anchor, **kwargs)
-    elif layout == 'spectral':
+    elif layout.lower() == 'spectral':
         pos = nx.spectral_layout(graph_anchor, **kwargs)
+    elif layout.lower()[:8] == 'graphviz':
+        prog = re.split(r'\:', layout.lower())[1]
+        pos = graphviz_layout(graph_anchor, prog=prog, **kwargs)
     else:
         raise RuntimeError('Did not understand layout type')
 
@@ -79,23 +120,21 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
     for i, tm in enumerate(trans_mats):
 
-        ebunch = convert_transition_matrix_to_ebunch(
-            tm, tm, edge_threshold=edge_threshold, indices=ebunch_anchor)
+        ebunch, orphans = convert_transition_matrix_to_ebunch(
+            tm, tm, edge_threshold=edge_threshold, indices=ebunch_anchor,
+            keep_orphans=keep_orphans)
         graph = convert_ebunch_to_graph(ebunch)
-
-        width = [tm[u][v] * edge_width_scale for u, v in graph.edges()]
+        width = [tm[u][v] * edge_width_scale if (u, v) not in orphans else orphan_weight
+                 for u, v in graph.edges()]
 
         if usages is not None:
-
-            usage_total = sum(usages[i].values())
-            for k, v in usages[i].items():
-                usages[i][k] = v / usage_total
             node_size = [usages[i][k] * usage_scale for k in pos.keys()]
 
         nx.draw_networkx_nodes(graph, pos,
                                edgecolors=node_edge_color, node_color=node_color,
                                node_size=node_size, ax=ax[i][i])
-        nx.draw_networkx_edges(graph, pos, graph.edges(), width=width, ax=ax[i][i])
+        nx.draw_networkx_edges(graph, pos, graph.edges(), width=width, ax=ax[i][i],
+                               arrows=arrows)
         if font_size > 0:
             nx.draw_networkx_labels(graph, pos,
                                     {k: k for k in pos.keys()},
@@ -110,10 +149,12 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
             for j, tm2 in enumerate(trans_mats[i+1:]):
                 df = tm2 - tm
 
-                ebunch = convert_transition_matrix_to_ebunch(
+                ebunch, _ = convert_transition_matrix_to_ebunch(
                     df, df, edge_threshold=difference_threshold, indices=ebunch_anchor)
                 graph = convert_ebunch_to_graph(ebunch)
-                weight = [np.abs(graph[u][v]['weight'])*difference_edge_width_scale for u, v in graph.edges()]
+
+                weight = [np.abs(graph[u][v]['weight'])*difference_edge_width_scale
+                          for u, v in graph.edges()]
 
                 if usages is not None:
                     df_usage = [usages[j + i + 1][k] - usages[i][k] for k in pos.keys()]
@@ -132,7 +173,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
                 nx.draw_networkx_edges(graph, pos, graph.edges(),
                                        width=weight, edge_color=colors,
-                                       ax=ax[i][j + i + 1])
+                                       ax=ax[i][j + i + 1], arrows=arrows)
 
                 if font_size > 0:
                     nx.draw_networkx_labels(graph, pos,
@@ -155,6 +196,9 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
                       crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
                       center=False, rotate=False):
 
+    if rotate and not center:
+        raise NotImplementedError('Rotating without centering not supported')
+
     durs = np.array([i[1]-i[0] for i, j, k in slices])
 
     if dur_clip is not None:
@@ -172,7 +216,11 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
 
     # original_dtype = h5py.File(use_slices[0][2], 'r')['frames'].dtype
 
+    if max_dur < 0:
+        return None
+
     crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype='uint8')
+
     count = 0
 
     xc0 = crop_size[1] // 2
@@ -190,7 +238,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         cur_len = idx[1] - idx[0]
         use_idx = (idx[0] - pad, idx[1] + pad + (max_dur - cur_len))
 
-        if use_idx[0] < 0 or use_idx[1] >= nframes:
+        if use_idx[0] < 0 or use_idx[1] >= nframes - 1:
             continue
 
         if 'centroid_x' in h5['scalars'].keys():
@@ -202,9 +250,9 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         centroid_y = h5[use_names[1]][use_idx[0]:use_idx[1]] + offset[1]
 
         if center:
-            centroid_x -= centroid_x[0]
+            centroid_x -= centroid_x[pad]
             centroid_x += raw_size[0] // 2
-            centroid_y -= centroid_y[0]
+            centroid_y -= centroid_y[pad]
             centroid_y += raw_size[1] // 2
 
         angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
@@ -216,13 +264,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         else:
             flips = np.zeros(angles.shape, dtype='bool')
 
-        # if rotate:
-        #     angles = np.unwrap(angles)
-
         angles = np.rad2deg(angles)
-
-        if rotate:
-            angles -= angles[0]
 
         for i in range(len(centroid_x)):
 
@@ -232,28 +274,45 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             rr = (yc + centroid_y[i]).astype('int16')
             cc = (xc + centroid_x[i]).astype('int16')
 
-            if np.any(rr < 1) or np.any(cc < 1) or np.any(rr > raw_size[1]) or np.any(cc > raw_size[0]):
+            if (np.any(rr < 1)
+                or np.any(cc < 1)
+                or np.any(rr >= raw_size[1])
+                or np.any(cc >= raw_size[0])
+                or (rr[-1] - rr[0] != crop_size[0])
+                or (cc[-1] - cc[0] != crop_size[1])):
                 continue
 
-            old_frame = crowd_matrix[i][rr[0]:rr[-1],
-                                        cc[0]:cc[-1]]
-            new_frame = frames[i]
+            rot_mat = cv2.getRotationMatrix2D((xc0, yc0), angles[i], 1)
+            # old_frame = crowd_matrix[i][rr[0]:rr[-1],
+            #                             cc[0]:cc[-1]]
+            old_frame = crowd_matrix[i]
+            new_frame = np.zeros_like(old_frame)
+            new_frame_clip = frames[i]
 
             if flips[i]:
-                new_frame = np.fliplr(new_frame)
+                new_frame_clip = np.fliplr(new_frame_clip)
 
-            rot_mat = cv2.getRotationMatrix2D((xc0, yc0), angles[i], 1)
-            new_frame = cv2.warpAffine(new_frame.astype('float32'),
-                                       rot_mat, crop_size).astype(frames.dtype)
+            new_frame_clip = cv2.warpAffine(new_frame_clip.astype('float32'),
+                                            rot_mat, crop_size).astype(frames.dtype)
 
             if i > pad and i < pad + cur_len:
-                cv2.circle(new_frame, (xc0, yc0), 3, (255, 255, 255), -1)
+                cv2.circle(new_frame_clip, (xc0, yc0), 3, (255, 255, 255), -1)
+            try:
+                new_frame[rr[0]:rr[-1], cc[0]:cc[-1]] = new_frame_clip
+            except Exception:
+                raise Exception
+
+            if rotate:
+                rot_mat = cv2.getRotationMatrix2D((raw_size[0] // 2, raw_size[1] // 2),
+                                                  -angles[pad] + flips[pad] * 180,
+                                                  1)
+                new_frame = cv2.warpAffine(new_frame, rot_mat, raw_size).astype(new_frame.dtype)
 
             new_frame_nz = new_frame > 0
             old_frame_nz = old_frame > 0
 
-            new_frame[np.where(new_frame < 10)] = 0
-            old_frame[np.where(old_frame < 10)] = 0
+            new_frame[new_frame < 10] = 0
+            old_frame[old_frame < 10] = 0
 
             blend_coords = np.logical_and(new_frame_nz, old_frame_nz)
             overwrite_coords = np.logical_and(new_frame_nz, ~old_frame_nz)
@@ -261,7 +320,8 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             old_frame[blend_coords] = .5 * old_frame[blend_coords] + .5 * new_frame[blend_coords]
             old_frame[overwrite_coords] = new_frame[overwrite_coords]
 
-            crowd_matrix[i][rr[0]:rr[-1], cc[0]:cc[-1]] = old_frame
+            # crowd_matrix[i][rr[0]:rr[-1], cc[0]:cc[-1]] = old_frame
+            crowd_matrix[i] = old_frame
 
         count += 1
 

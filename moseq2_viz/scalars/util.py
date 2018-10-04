@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import warnings
 from moseq2_viz.util import h5_to_dict, strided_app, load_timestamps, read_yaml
-from moseq2_viz.model.util import parse_model_results
+from moseq2_viz.model.util import parse_model_results, _get_transitions
 
 
 # http://stackoverflow.com/questions/17832238/kinect-intrinsic-parameters-from-field-of-view/18199938#18199938
@@ -152,14 +152,19 @@ def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
     return features
 
 
-def get_scalar_map(index, fill_nans=True):
+def get_scalar_map(index, fill_nans=True, force_conversion=True):
 
     scalar_map = {}
     score_idx = h5_to_dict(index['pca_path'], 'scores_idx')
 
     for uuid, v in index['files'].items():
 
-        scalars = convert_legacy_scalars(h5_to_dict(v['path'][0], 'scalars'))
+        scalars = h5_to_dict(v['path'][0], 'scalars')
+        conv_scalars = convert_legacy_scalars(scalars, force=force_conversion)
+
+        if conv_scalars is not None:
+            scalars = conv_scalars
+
         idx = score_idx[uuid]
         scalar_map[uuid] = {}
 
@@ -176,7 +181,7 @@ def get_scalar_map(index, fill_nans=True):
 
 def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlags=20,
                                  include_keys=['velocity_2d_mm', 'velocity_3d_mm', 'width_mm',
-                                             'length_mm', 'height_ave_mm'],
+                                             'length_mm', 'height_ave_mm', 'angle'],
                                  zscore=False):
 
     win = int(nlags * 2 + 1)
@@ -190,7 +195,7 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
     # grab the windows where 0=syllable onset
 
     syll_average = {}
-    count = np.zeros((max_syllable, ), dtype='int16')
+    count = np.zeros((max_syllable, ), dtype='int')
 
     for scalar in include_keys:
         syll_average[scalar] = np.zeros((max_syllable, win), dtype='float32')
@@ -198,16 +203,21 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
     for k, v in scalar_map.items():
 
         labels = model_labels[k]
+        seq_array, locs = _get_transitions(labels)
 
         for i in range(max_syllable):
-            hits = np.where(labels == i)[0]
+            hits = locs[np.where(seq_array == i)[0]]
 
-            if len(hits) == 0:
+            if len(hits) < 1:
                 continue
 
             count[i] += len(hits)
 
             for scalar in include_keys:
+                if scalar is 'angle':
+                    use_scalar = np.diff(v[scalar])
+                    use_scalar = np.insert(use_scalar, 0, 0)
+
                 if zscore:
                     use_scalar = (v[scalar] - np.nanmean(v[scalar]))  / np.nanstd(v[scalar])
                 else:
@@ -250,14 +260,18 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
         scalar_dict[key] = []
 
     include_labels = False
+    skip = []
+
     if include_model is not None and os.path.exists(include_model):
         labels = parse_model_results(include_model,
                                      sort_labels_by_usage=sort_labels_by_usage,
                                      map_uuid_to_keys=True)['labels']
         scalar_dict['model_label'] = []
         label_idx = h5_to_dict(index['pca_path'], 'scores_idx')
-
         for uuid, lbl in labels.items():
+            if len(label_idx[uuid]) != len(labels[uuid]):
+                skip.append(uuid)
+                continue
             labels[uuid] = lbl[~np.isnan(label_idx[uuid])]
 
         include_labels = True
@@ -269,6 +283,8 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
         scalar_dict['feedback_status'] = []
 
     for k, v in tqdm.tqdm(index['files'].items(), disable=disable_output):
+        if k in skip:
+            continue
         dset = h5_to_dict(h5py.File(v['path'][0], 'r'), 'scalars')
         timestamps = h5py.File(v['path'][0], 'r')['metadata/timestamps'].value
         parameters = read_yaml(v['path'][1])['parameters']
@@ -276,11 +292,16 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
         if include_feedback:
             feedback_path = os.path.join(os.path.dirname(parameters['input_file']),
                                          'feedback_ts.txt')
+
+            if not os.path.exists(feedback_path):
+                feedback_path = os.path.join(os.path.dirname(v['path'][0]),
+                                             '..', 'feedback_ts.txt')
+
             if os.path.exists(feedback_path):
                 feedback_ts = load_timestamps(feedback_path, 0)
                 feedback_status = load_timestamps(feedback_path, 1)
             else:
-                raise RuntimeError('Could not find feedback file {}'.format(feedback_path))
+                continue
 
         tmp = convert_legacy_scalars(dset, force=force_conversion)
 
@@ -288,6 +309,8 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
             dset = tmp
 
         nframes = len(dset[scalar_names[0]])
+        if len(timestamps) != nframes:
+            continue
 
         for scalar in scalar_names:
             scalar_dict[scalar].append(dset[scalar])
@@ -308,6 +331,10 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
                     scalar_dict['feedback_status'].append(feedback_status[hit])
                 else:
                     scalar_dict['feedback_status'].append(-1)
+
+        elif include_feedback:
+            for frame in range(nframes):
+                scalar_dict['feedback_status'].append(-1)
 
         if include_labels:
             if k in labels.keys():

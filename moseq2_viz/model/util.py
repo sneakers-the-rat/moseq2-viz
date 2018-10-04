@@ -12,12 +12,14 @@ import os
 
 def _get_transitions(label_sequence, fill_value=-5):
 
-    to_rem = np.where(label_sequence == fill_value)
+    # to_rem = np.where(label_sequence == fill_value)[0]
     arr = deepcopy(label_sequence)
-    arr = np.delete(arr, to_rem)
-    arr = np.insert(arr, len(arr), -10)
-    locs = np.where(arr[1:] != arr[:-1])[0]+1
-    transitions = arr[locs][:-1]
+    # arr = np.delete(arr, to_rem)
+    # arr = np.insert(arr, len(arr), -10)
+    # arr = np.insert(arr, 0, -10)
+
+    locs = np.where(arr[1:] != arr[:-1])[0] + 1
+    transitions = arr[locs]
     return transitions, locs
 
 
@@ -42,7 +44,8 @@ def _whiten_all(pca_scores, center=True):
 
 
 # per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
-def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothing=1.0, combine=False):
+def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
+                          smoothing=0.0, combine=False, disable_output=False):
     """Compute the transition matrix from a set of model labels
 
     Args:
@@ -66,22 +69,22 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothin
     """
 
     if combine:
-        init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
+        init_matrix = np.zeros((max_syllable + 1, max_syllable + 1), dtype='float32') + smoothing
 
         for v in labels:
 
             transitions, _ = _get_transitions(v)
 
             for (i, j) in zip(transitions, transitions[1:]):
-                if i < max_syllable and j < max_syllable:
+                if i <= max_syllable and j <= max_syllable:
                     init_matrix[i, j] += 1
 
         if normalize == 'bigram':
             init_matrix /= init_matrix.sum()
         elif normalize == 'rows':
-            init_matrix /= init_matrix.sum(axis=1) + smoothing
+            init_matrix /= init_matrix.sum(axis=1)
         elif normalize == 'columns':
-            init_matrix /= init_matrix.sum(axis=0) + smoothing
+            init_matrix /= init_matrix.sum(axis=0)
         else:
             pass
 
@@ -89,21 +92,21 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram', smoothin
     else:
 
         all_mats = []
-        for v in tqdm.tqdm(labels):
+        for v in tqdm.tqdm(labels, disable=disable_output):
 
-            init_matrix = np.zeros((max_syllable, max_syllable), dtype='float32')
+            init_matrix = np.zeros((max_syllable + 1, max_syllable + 1), dtype='float32') + smoothing
             transitions, _ = _get_transitions(v)
 
             for (i, j) in zip(transitions, transitions[1:]):
-                if i < max_syllable and j < max_syllable:
+                if i <= max_syllable and j <= max_syllable:
                     init_matrix[i, j] += 1
 
         if normalize == 'bigram':
             init_matrix /= init_matrix.sum()
         elif normalize == 'rows':
-            init_matrix /= init_matrix.sum(axis=1) + smoothing
+            init_matrix /= init_matrix.sum(axis=1)
         elif normalize == 'columns':
-            init_matrix /= init_matrix.sum(axis=0) + smoothing
+            init_matrix /= init_matrix.sum(axis=0)
         else:
             pass
 
@@ -157,12 +160,13 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
     return syllable_slices
 
 
-def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
-    """Compute the transition matrix from a set of model labels
+def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'):
+    """Compute the syllable statistics from a set of model labels
 
     Args:
         data (list of np.array of ints): labels loaded from a model fit
         max_syllable (int): maximum syllable to consider
+        count (str): how to count syllable usage, either by number of emissions (usage), or number of frames (frames)
 
     Returns:
         usages (defaultdict): default dictionary of usages
@@ -184,6 +188,13 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
     usages = defaultdict(int)
     durations = defaultdict(list)
 
+    if count == 'usage':
+        use_usage = True
+    elif count == 'frames':
+        use_usage = False
+    else:
+        raise RuntimeError('Did not understand count argument (must by usage or frames)')
+
     for s in range(max_syllable):
         usages[s] = 0
         durations[s] = []
@@ -194,33 +205,38 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100):
             seq_array, locs = _get_transitions(v)
             to_rem = np.where(np.logical_or(seq_array > max_syllable,
                                             seq_array == fill_value))
+            durs = np.diff(np.insert(locs, len(locs), len(v)))
 
             seq_array = np.delete(seq_array, to_rem)
             locs = np.delete(locs, to_rem)
 
-            durs = np.diff(locs)
-
             for s, d in zip(seq_array, durs):
-                usages[s] += 1
+                if use_usage:
+                    usages[s] += 1
+                else:
+                    usages[s] += d
                 durations[s].append(d)
 
     elif type(data) is np.ndarray and data.dtype == 'int16':
 
         seq_array, locs = _get_transitions(data)
         to_rem = np.where(seq_array > max_syllable)[0]
+        durs = np.diff(np.insert(locs, len(locs), len(data)))
+
         seq_array = np.delete(seq_array, to_rem)
         locs = np.delete(locs, to_rem)
-        durs = np.diff(locs)
 
         for s, d in zip(seq_array, durs):
-            usages[s] += 1
+            if use_usage:
+                usages[s] += 1
+            else:
+                usages[s] += d
             durations[s].append(d)
 
     usages = OrderedDict(sorted(usages.items()))
     durations = OrderedDict(sorted(durations.items()))
 
     return usages, durations
-
 
 
 def labels_to_changepoints(labels, fs=30.):
@@ -251,7 +267,6 @@ def labels_to_changepoints(labels, fs=30.):
     return np.concatenate(cp_dist)
 
 
-
 def parse_batch_modeling(filename):
 
     with h5py.File(filename, 'r') as f:
@@ -262,6 +277,7 @@ def parse_batch_modeling(filename):
             'filenames': [os.path.join(os.path.dirname(filename), os.path.basename(fname).decode('utf-8'))
                           for fname in f['filenames'].value],
             'labels': np.squeeze(f['labels'].value),
+            'loglikes': np.squeeze(f['metadata/loglikes'].value),
             'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list'].value]
         }
         results_dict['scan_parameters'] = {k: results_dict['parameters'][k]
@@ -272,13 +288,15 @@ def parse_batch_modeling(filename):
 
 def parse_model_results(model_obj, restart_idx=0,
                         map_uuid_to_keys=False,
-                        sort_labels_by_usage=False):
+                        sort_labels_by_usage=False,
+                        count='usage'):
     """Parses a model fit and returns a dictionary of results
 
     Args:
         model_obj (str or results returned from joblib.load): path to the model fit or a loaded model fit
         map_uuid_to_keys (bool): for labels, make a dictionary where each key, value pair contains the uuid and the labels for that session
         sort_labels_by_usage (bool): sort labels by their usages
+        count (str): how to count syllable usage, either by number of emissions (usage), or number of frames (frames)
 
     Returns:
         output_dict (dict): dictionary with labels and model parameters
@@ -306,7 +324,7 @@ def parse_model_results(model_obj, restart_idx=0,
         output_dict['model_parameters'] = output_dict['model_parameters'][restart_idx]
 
     if sort_labels_by_usage:
-        output_dict['labels'], sorting = relabel_by_usage(output_dict['labels'])
+        output_dict['labels'], sorting = relabel_by_usage(output_dict['labels'], count=count)
         old_ar_mat = deepcopy(output_dict['model_parameters']['ar_mat'])
         for i, sort_idx in enumerate(sorting):
             output_dict['model_parameters']['ar_mat'][i] = old_ar_mat[sort_idx]
@@ -323,12 +341,13 @@ def parse_model_results(model_obj, restart_idx=0,
     return output_dict
 
 
-def relabel_by_usage(labels, fill_value=-5):
-    """Compute the transition matrix from a set of model labels
+def relabel_by_usage(labels, fill_value=-5, count='usage'):
+    """Resort model labels by their usages
 
     Args:
         labels (list of np.array of ints): labels loaded from a model fit
         fill_value (int): value prepended to modeling results to account for nlags
+        count (str): how to count syllable usage, either by number of emissions (usage), or number of frames (frames)
 
     Returns:
         labels (list of np.array of ints): labels resorted by usage
@@ -344,7 +363,7 @@ def relabel_by_usage(labels, fill_value=-5):
     """
 
     sorted_labels = deepcopy(labels)
-    usages, durations = get_syllable_statistics(labels, fill_value=fill_value)
+    usages, durations = get_syllable_statistics(labels, fill_value=fill_value, count=count)
     sorting = []
 
     for w in sorted(usages, key=usages.get, reverse=True):
@@ -357,14 +376,14 @@ def relabel_by_usage(labels, fill_value=-5):
     return sorted_labels, sorting
 
 
-def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max_syllable=40,
+def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', normalize=True, max_syllable=40,
                          include_meta=['SessionName', 'SubjectName', 'StartTime']):
 
     if type(model_dict) is str:
         model_dict = parse_model_results(model_dict)
 
     if sort:
-        model_dict['labels'] = relabel_by_usage(model_dict['labels'])[0]
+        model_dict['labels'] = relabel_by_usage(model_dict['labels'], count=count)[0]
 
     # by default the keys are the uuids
 
@@ -388,7 +407,7 @@ def results_to_dataframe(model_dict, index_dict, sort=False, normalize=True, max
     metadata = [index_dict['files'][uuid]['metadata'] for uuid in label_uuids]
 
     for i, label_arr in enumerate(model_dict['labels']):
-        tmp_usages, tmp_durations = get_syllable_statistics(label_arr, max_syllable=max_syllable)
+        tmp_usages, tmp_durations = get_syllable_statistics(label_arr, count=count, max_syllable=max_syllable)
         total_usage = np.sum(list(tmp_usages.values()))
 
         for k, v in tmp_usages.items():
@@ -451,9 +470,6 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
     param_list = [p[np.isfinite(p)] for p in param_list]
     new_shape = tuple([len(v) for v in param_list])
 
-    new_matrix = np.zeros(new_shape, dtype=data.dtype)
-    new_count = np.zeros(new_shape, dtype=data.dtype)
-
     if filenames is not None:
         filename_index = np.empty(new_shape, dtype=np.object)
         for i, v in np.ndenumerate(filename_index):
@@ -466,8 +482,18 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
     if dims > 2:
         raise NotImplementedError('No support for more than 2 dimensions')
 
-    if not averaging:
-        raise NotImplementedError('Only averaging restarts is supported')
+    if averaging:
+        new_matrix = np.zeros(new_shape, dtype=data.dtype)
+        new_count = np.zeros(new_shape, dtype=data.dtype)
+    else:
+        _, cnts = np.unique(parameters, return_counts=True, axis=0)
+        nrestarts = cnts.max()
+        if nrestarts == 0:
+            raise RuntimeError('Did not detect any restarts')
+
+        new_shape = tuple([nrestarts]) + new_shape
+        new_matrix = np.zeros(new_shape, dtype=data.dtype)
+        new_matrix[:] = np.nan
 
     # TODO: add support for no averaging (just default_dict or list)
 
@@ -481,23 +507,28 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
         for i, p in enumerate(param):
             idx[i] = int(np.where(param_list[i] == p)[0])
 
-        for row in row_matches:
+        for i, row in enumerate(row_matches):
             if dims == 2:
                 if idx[0] >= 0 and idx[1] >= 0:
-                    new_matrix[idx[0], idx[1]] = np.nansum([new_matrix[idx[0], idx[1]], data[row]])
-                    new_count[idx[0], idx[1]] += 1
+                    if averaging:
+                        new_matrix[idx[0], idx[1]] = np.nansum([new_matrix[idx[0], idx[1]], data[row]])
+                        new_count[idx[0], idx[1]] += 1
+                    else:
+                        new_matrix[i, idx[0], idx[1]] = data[row]
                     if filenames is not None:
                         filename_index[idx[0], idx[1]].append(filenames[row])
             elif dims == 1:
                 if idx >= 0:
-                    new_matrix[idx] = np.nansum([new_matrix[idx], data[row]])
-                    new_count[idx] += 1
+                    if averaging:
+                        new_matrix[idx] = np.nansum([new_matrix[idx], data[row]])
+                        new_count[idx] += 1
+                    else:
+                        new_matrix[i, idx] = data[row]
                     if filenames is not None:
                         filename_index[idx].append(filenames[row])
 
-    new_matrix[new_count == 0] = np.nan
-
     if averaging:
+        new_matrix[new_count == 0] = np.nan
         new_matrix /= new_count
 
     return new_matrix, param_dict, filename_index

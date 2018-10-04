@@ -1,5 +1,5 @@
 import numpy as np
-from moseq2_viz.model.util import whiten_pcs, parse_model_results, simulate_ar_trajectory
+from moseq2_viz.model.util import whiten_pcs, parse_model_results, simulate_ar_trajectory, _get_transitions
 from moseq2_viz.util import strided_app, h5_to_dict
 from moseq2_viz.scalars.util import get_scalar_map, get_scalar_triggered_average
 from scipy.spatial.distance import squareform, pdist
@@ -7,14 +7,22 @@ from scipy.spatial.distance import squareform, pdist
 
 def get_behavioral_distance(index, model_file, whiten='all',
                             distances=['ar[init]', 'scalars'], max_syllable=None,
-                            dist_options={'scalars': {'nlags': 10, 'zscore': True}},
-                            sort_labels_by_usage=True):
+                            dist_options={'scalars': {'nlags': 10, 'zscore': True},
+                                          'ar': {'sim_points': 10}},
+                            sort_labels_by_usage=True, count='usage'):
 
     dist_dict = {}
 
+    if 'ar' not in dist_options.keys():
+        dist_options['ar'] = {}
+
+    if 'scalars' not in dist_options.keys():
+        dist_options['scalars'] = {}
+
     model_fit = parse_model_results(model_file,
                                     map_uuid_to_keys=True,
-                                    sort_labels_by_usage=sort_labels_by_usage)
+                                    sort_labels_by_usage=sort_labels_by_usage,
+                                    count=count)
 
     if max_syllable is None:
         max_syllable = -np.inf
@@ -36,20 +44,28 @@ def get_behavioral_distance(index, model_file, whiten='all',
             init = get_init_points(scores, model_fit['labels'],
                                    nlags=nlags, npcs=npcs, max_syllable=max_syllable)
 
-            dist_dict['ar[init]'] = get_behavioral_distance_ar(ar_mat, init,
-                                                               sim_points=10,
+            dist_dict['ar[init]'] = get_behavioral_distance_ar(ar_mat,
+                                                               init_point=init,
+                                                               **dist_options['ar'],
                                                                max_syllable=max_syllable)
         elif dist.lower() == 'scalars':
-
             scalar_map = get_scalar_map(index)
-            scalar_ave = get_scalar_triggered_average(scalar_map, model_fit['labels'],
+            scalar_ave = get_scalar_triggered_average(scalar_map,
+                                                      model_fit['labels'],
                                                       max_syllable=max_syllable,
                                                       **dist_options['scalars'])
 
+            if 'nlags' in dist_options['scalars'].keys():
+                scalar_nlags = dist_options['scalars']['nlags']
+            else:
+                scalar_nlags = None
+
             for k, v in scalar_ave.items():
                 key = 'scalar[{}]'.format(k)
-                dist_dict[key] = squareform(pdist(v[:, dist_options['scalars']['nlags']:],
-                                                  'correlation'))
+                if scalar_nlags is None:
+                    scalar_nlags = v.shape[1] // 2
+                v = v[:, scalar_nlags + 1:]
+                dist_dict[key] = squareform(pdist(v, 'correlation'))
 
     return dist_dict
 
@@ -61,7 +77,7 @@ def get_behavioral_distance_ar(ar_mat, init_point=None, sim_points=10, max_sylla
     npcs = ar_mat[0].shape[0]
 
     if init_point is None:
-        init_point = ['None'] * max_syllable
+        init_point = [None] * max_syllable
 
     ar_traj = np.zeros((max_syllable, sim_points * npcs), dtype='float32')
 
@@ -85,7 +101,7 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
     # grab the windows where 0=syllable onset
 
     syll_average = []
-    count = np.zeros((max_syllable, ), dtype='int16')
+    count = np.zeros((max_syllable, ), dtype='int')
 
     for i in range(max_syllable):
         syll_average.append(np.zeros((win, npcs), dtype='float32'))
@@ -96,13 +112,15 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
             continue
 
         labels = model_labels[k]
+        seq_array, locs = _get_transitions(labels)
+
         padded_scores = np.pad(v,((win // 2, win // 2), (0,0)),
                                'constant', constant_values = np.nan)
 
         for i in range(max_syllable):
-            hits = np.where(labels == i)[0]
+            hits = locs[np.where(seq_array == i)[0]]
 
-            if len(hits) == 0:
+            if len(hits) < 1:
                 continue
 
             count[i] += len(hits)
@@ -111,6 +129,6 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
                 syll_average[i][:, j] += np.nansum(win_scores[hits, :], axis=0)
 
     for i in range(max_syllable):
-        syll_average[i] /= count[i]
+        syll_average[i] /= count[i].astype('float')
 
     return syll_average

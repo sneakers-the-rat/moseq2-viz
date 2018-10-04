@@ -19,11 +19,7 @@ import tqdm
 import warnings
 import re
 import shutil
-
-
-if platform == 'linux' or platform == 'linux2':
-    os.system('taskset -p 0xff {:d}'.format(os.getpid()))
-
+import psutil
 
 orig_init = click.core.Option.__init__
 
@@ -114,19 +110,24 @@ def copy_h5_metadata_to_yaml(input_dir):
 
 @cli.command(name='generate-index')
 @click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
-@click.option('--pca-file', '-p', type=click.Path(exists=True), default=os.path.join(os.getcwd(), '_pca/pca_scores.h5'), help='Path to PCA results')
+@click.option('--pca-file', '-p', type=click.Path(), default=os.path.join(os.getcwd(), '_pca/pca_scores.h5'), help='Path to PCA results')
 @click.option('--output-file', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'moseq2-index.yaml'), help="Location for storing index")
 @click.option('--filter', '-f', type=(str, str), default=None, help='Regex filter for metadata', multiple=True)
-def generate_index(input_dir, pca_file, output_file, filter):
+@click.option('--all-uuids', '-a', type=bool, default=False, help='Use all uuids')
+def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 
     # gather than h5s and the pca scores file
-
     # uuids should match keys in the scores file
 
-    with h5py.File(pca_file, 'r') as f:
-        pca_uuids = list(f['scores'].keys())
-
     h5s, dicts, yamls = recursive_find_h5s(input_dir)
+
+    if not os.path.exists(pca_file) or all_uuids:
+        warnings.warn('Will include all files')
+        pca_uuids = [dct['uuid'] for dct in dicts]
+    else:
+        with h5py.File(pca_file, 'r') as f:
+            pca_uuids = list(f['scores'].keys())
+
     file_with_uuids = [(os.path.relpath(h5), os.path.relpath(yml), meta) for h5, yml, meta in
                        zip(h5s, yamls, dicts) if meta['uuid'] in pca_uuids]
 
@@ -169,6 +170,7 @@ def generate_index(input_dir, pca_file, output_file, filter):
 @click.option('--max-examples', '-m', type=int, default=40, help="Number of examples to show")
 @click.option('--threads', '-t', type=int, default=-1, help="Number of threads to use for rendering crowd movies")
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
+@click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--output-dir', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'crowd_movies'), help="Path to store files")
 @click.option('--filename-format', type=str, default='syllable_{:d}.mp4', help="Python 3 string format for filenames")
 @click.option('--min-height', type=int, default=5, help="Minimum height for scaling videos")
@@ -177,8 +179,15 @@ def generate_index(input_dir, pca_file, output_file, filter):
 @click.option('--scale', type=float, default=1, help="Scaling from pixel units to mm")
 @click.option('--cmap', type=str, default='jet', help="Name of valid Matplotlib colormap for false-coloring images")
 @click.option('--dur-clip', default=300, help="Exclude syllables more than this number of frames (None for no limit)")
-def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort,
+def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort, count,
                       output_dir, filename_format, min_height, max_height, raw_size, scale, cmap, dur_clip):
+
+    if platform == 'linux' or platform == 'linux2':
+        print('Setting CPU affinity to use all CPUs...')
+        cpu_count = psutil.cpu_count()
+        proc = psutil.Process()
+        proc.cpu_affinity(list(range(cpu_count)))
+        # os.system('taskset -p 0xff {:d}'.format(os.getpid()))
 
     # need to handle h5 intelligently here...
 
@@ -195,7 +204,7 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
         pass
 
     if sort:
-        labels = relabel_by_usage(labels)[0]
+        labels = relabel_by_usage(labels, count=count)[0]
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -254,14 +263,27 @@ def plot_scalar_summary(index_file, output_file):
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'transitions'), help="Filename to store plot")
 @click.option('--normalize', type=click.Choice(['bigram', 'rows', 'columns']), default='bigram', help="How to normalize transition probabilities")
 @click.option('--edge-threshold', type=float, default=.001, help="Threshold for edges to show")
+@click.option('--usage-threshold', type=float, default=0, help="Threshold for nodes to show")
 @click.option('--layout', type=str, default='spring', help="Default networkx layout algorithm")
+@click.option('--keep-orphans', '-k', type=bool, is_flag=True, help="Show orphaned nodes")
+@click.option('--orphan-weight', type=float, default=0, help="Weight for non-existent connections")
+@click.option('--arrows', type=bool, is_flag=True, help="Show arrows")
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
+@click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--edge-scaling', type=float, default=250, help="Scale factor from transition probabilities to edge width")
+@click.option('--node-scaling', type=float, default=1e4, help="Scale factor for nodes by usage")
 @click.option('--scale-node-by-usage', type=bool, default=True, help="Scale node sizes by usages probabilities")
 @click.option('--width-per-group', type=float, default=8, help="Width (in inches) for figure canvas per group")
 def plot_transition_graph(index_file, model_fit, max_syllable, group, output_file,
-                          normalize, edge_threshold, layout, sort, edge_scaling,
-                          scale_node_by_usage, width_per_group):
+                          normalize, edge_threshold, usage_threshold, layout,
+                          keep_orphans, orphan_weight, arrows, sort, count,
+                          edge_scaling, node_scaling, scale_node_by_usage, width_per_group):
+
+    if layout.lower()[:8] == 'graphviz':
+        try:
+            import pygraphviz
+        except ImportError:
+            raise ImportError('pygraphviz must be installed to use graphviz layout engines')
 
     model_data = parse_model_results(joblib.load(model_fit))
     index, sorted_index = parse_index(index_file)
@@ -269,7 +291,7 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
     labels = model_data['labels']
 
     if sort:
-        labels = relabel_by_usage(labels)[0]
+        labels = relabel_by_usage(labels, count=count)[0]
 
     if 'train_list' in model_data.keys():
         label_uuids = model_data['train_list']
@@ -307,8 +329,9 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 
     plt, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
                                      edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
-                                     difference_edge_width_scale=edge_scaling,
-                                     layout=layout, groups=group, headless=True)
+                                     difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
+                                     orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
+                                     layout=layout, groups=group, usage_scale=node_scaling, headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
 
@@ -316,10 +339,12 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 @cli.command(name='plot-usages')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
+@click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
+@click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
 @click.option('-g', '--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'usages'), help="Filename to store plot")
-def plot_usages(index_file, model_fit, max_syllable, group, output_file):
+def plot_usages(index_file, model_fit, sort, count, max_syllable, group, output_file):
 
     # if the user passes multiple groups, sort and plot against each other
     # relabel by usage across the whole dataset, gather usages per session per group
@@ -328,12 +353,7 @@ def plot_usages(index_file, model_fit, max_syllable, group, output_file):
 
     model_data = parse_model_results(joblib.load(model_fit))
     index, sorted_index = parse_index(index_file)
-    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=True)
+    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
     plt, _ = usage_plot(df, groups=group, headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
-
-
-# TODO: usages...group comparisons...changepoints...
-# function for finding model index in h5 file, then we can pass to other functions and index simply...
-# map metadata onto groups

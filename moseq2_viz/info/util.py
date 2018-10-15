@@ -24,7 +24,7 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0):
         usages = usages[:truncate_point] + smoothing
         usages /= usages.sum()
 
-        ent.append(np.sum(usages * np.log2(usages)))
+        ent.append(-np.sum(usages * np.log2(usages)))
 
     return ent
 
@@ -68,6 +68,6 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
         elif normalize == 'columns':
             tm /= tm.sum(axis=0, keepdims=True)
 
-        ent.append(np.sum(usages[:, None] * tm * np.log2(tm)))
+        ent.append(-np.sum(usages[:, None] * tm * np.log2(tm)))
 
     return ent

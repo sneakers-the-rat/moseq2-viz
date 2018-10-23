@@ -153,7 +153,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
         if len(breakpoints) < 1:
             continue
 
-        breakpoints = zip(np.r_[0, breakpoints+1], np.r_[breakpoints, len(breakpoints)-1])
+        breakpoints = zip(np.r_[0, breakpoints+1], np.r_[breakpoints, len(match_idx)-1])
         for i, j in breakpoints:
             syllable_slices.append([(match_idx[i], match_idx[j]), label_uuid, h5])
 

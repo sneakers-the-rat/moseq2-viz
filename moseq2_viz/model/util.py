@@ -136,18 +136,23 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
             idx = score_idx[label_uuid]
 
             if len(idx) > len(label_arr):
+                warnings.warn('Index length {:d} and label array length {:d} in {}'
+                              .format(len(idx), len(label_arr), h5))
                 idx = idx[:len(label_arr)]
             elif len(idx) < len(label_arr):
                 warnings.warn('Index length {:d} and label array length {:d} in {}'
                               .format(len(idx), len(label_arr), h5))
                 continue
 
+            missing_frames = np.where(np.isnan(idx))[0]
             trim_idx = idx[~np.isnan(idx)].astype('int32')
             label_arr = label_arr[~np.isnan(idx)]
         else:
+            missing_frames = None
             trim_idx = np.arange(len(label_arr))
 
-        match_idx = trim_idx[np.where(label_arr == syllable)[0]]
+        # do we need the trim_idx here actually?
+        match_idx = np.where(label_arr == syllable)[0]
         breakpoints = np.where(np.diff(match_idx, axis=0) > 1)[0]
 
         if len(breakpoints) < 1:
@@ -155,6 +160,10 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
 
         breakpoints = zip(np.r_[0, breakpoints+1], np.r_[breakpoints, len(match_idx)-1])
         for i, j in breakpoints:
+            # strike out movies that have missing frames
+            if missing_frames is not None:
+                if np.any(np.logical_and(missing_frames >= i, missing_frames <= j)):
+                    continue
             syllable_slices.append([(match_idx[i], match_idx[j]), label_uuid, h5])
 
     return syllable_slices

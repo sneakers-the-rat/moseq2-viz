@@ -299,7 +299,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             new_frame_clip = cv2.warpAffine(new_frame_clip.astype('float32'),
                                             rot_mat, crop_size).astype(frames.dtype)
 
-            if i > pad and i < pad + cur_len:
+            if i >= pad and i <= pad + cur_len:
                 cv2.circle(new_frame_clip, (xc0, yc0), 3, (255, 255, 255), -1)
             try:
                 new_frame[rr[0]:rr[-1], cc[0]:cc[-1]] = new_frame_clip

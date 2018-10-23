@@ -152,7 +152,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
             trim_idx = np.arange(len(label_arr))
 
         # do we need the trim_idx here actually?
-        match_idx = np.where(label_arr == syllable)[0]
+        match_idx = trim_idx[np.where(label_arr == syllable)[0]]
         breakpoints = np.where(np.diff(match_idx, axis=0) > 1)[0]
 
         if len(breakpoints) < 1:

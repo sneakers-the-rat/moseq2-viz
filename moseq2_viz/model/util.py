@@ -164,7 +164,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
             if missing_frames is not None:
                 if np.any(np.logical_and(missing_frames >= i, missing_frames <= j)):
                     continue
-            syllable_slices.append([(match_idx[i], match_idx[j]), label_uuid, h5])
+            syllable_slices.append([(match_idx[i], match_idx[j] + 1), label_uuid, h5])
 
     return syllable_slices
 

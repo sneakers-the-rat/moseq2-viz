@@ -226,7 +226,6 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
 
         matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=dur_clip,
                              crop_size=vid_parameters['crop_size'], raw_size=raw_size, scale=scale)
-
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
             crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))

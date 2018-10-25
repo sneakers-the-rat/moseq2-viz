@@ -172,7 +172,7 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
 @click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--output-dir', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'crowd_movies'), help="Path to store files")
-@click.option('--filename-format', type=str, default='syllable_{:d}.mp4', help="Python 3 string format for filenames")
+#@click.option('--filename-format', type=str, default='syllable_{:d}.mp4', help="Python 3 string format for filenames")
 @click.option('--min-height', type=int, default=5, help="Minimum height for scaling videos")
 @click.option('--max-height', type=int, default=80, help="Minimum height for scaling videos")
 @click.option('--raw-size', type=(int, int), default=(512, 424), help="Size of original videos")
@@ -180,7 +180,7 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 @click.option('--cmap', type=str, default='jet', help="Name of valid Matplotlib colormap for false-coloring images")
 @click.option('--dur-clip', default=300, help="Exclude syllables more than this number of frames (None for no limit)")
 def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort, count,
-                      output_dir, filename_format, min_height, max_height, raw_size, scale, cmap, dur_clip):
+                      output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip):
 
     if platform == 'linux' or platform == 'linux2':
         print('Setting CPU affinity to use all CPUs...')
@@ -204,7 +204,9 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
         pass
 
     if sort:
-        labels = relabel_by_usage(labels, count=count)[0]
+        labels, ordering = relabel_by_usage(labels, count=count)
+    else:
+        ordering = list(range(max_syllable))
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -214,6 +216,11 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
 
     if vid_parameters['resolution'] is not None:
         raw_size = vid_parameters['resolution']
+
+    if sort:
+        filename_format = 'syllable_sorted-id-{:d} ({})_original-id-{:d}.mp4'
+    else:
+        filename_format = 'syllable_{:d}.mp4'
 
     with mp.Pool() as pool:
         slice_fun = partial(get_syllable_slices,
@@ -232,8 +239,10 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
 
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=min_height,
                             depth_max=max_height, cmap=cmap)
-        pool.starmap(write_fun, [(os.path.join(output_dir, filename_format.format(i)), crowd_matrix)
-                                 for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
+        pool.starmap(write_fun,
+                     [(os.path.join(output_dir, filename_format.format(i, count, ordering[i])),
+                       crowd_matrix)
+                      for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
 
 
 @cli.command(name='plot-scalar-summary')

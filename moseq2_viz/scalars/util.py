@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import warnings
 from moseq2_viz.util import h5_to_dict, strided_app, load_timestamps, read_yaml
-from moseq2_viz.model.util import parse_model_results, _get_transitions
+from moseq2_viz.model.util import parse_model_results, _get_transitions, relabel_by_usage
 
 
 # http://stackoverflow.com/questions/17832238/kinect-intrinsic-parameters-from-field-of-view/18199938#18199938
@@ -235,7 +235,7 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
 
 
 def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'StartTime'],
-                         include_model=None, sort_labels_by_usage=False, disable_output=False,
+                         include_model=None, disable_output=False,
                          include_feedback=None, force_conversion=True):
 
     scalar_dict = {}
@@ -263,16 +263,33 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
     skip = []
 
     if include_model is not None and os.path.exists(include_model):
-        labels = parse_model_results(include_model,
-                                     sort_labels_by_usage=sort_labels_by_usage,
-                                     map_uuid_to_keys=True)['labels']
+        labels = {}
+        mdl = parse_model_results(include_model, sort_labels_by_usage=False)
+
+        if 'train_list' in mdl.keys():
+            uuids = mdl['train_list']
+        else:
+            uuids = mdl['keys']
+
+        labels_usage = relabel_by_usage(mdl['labels'], count='usage')[0]
+        labels_frames = relabel_by_usage(mdl['labels'], count='frames')[0]
+
+        labels['raw'] = {k: v for k, v in zip(uuids, mdl['labels'])}
+        labels['usage'] = {k: v for k, v in zip(uuids, labels_usage)}
+        labels['frames'] = {k: v for k, v in zip(uuids, labels_frames)}
+
         scalar_dict['model_label'] = []
+        scalar_dict['model_label (sort=usage)'] = []
+        scalar_dict['model_label (sort=frames)'] = []
+
         label_idx = h5_to_dict(index['pca_path'], 'scores_idx')
-        for uuid, lbl in labels.items():
-            if len(label_idx[uuid]) != len(labels[uuid]):
+        for uuid, lbl in labels['raw'].items():
+            if len(label_idx[uuid]) != len(lbl):
                 skip.append(uuid)
                 continue
-            labels[uuid] = lbl[~np.isnan(label_idx[uuid])]
+            labels['raw'][uuid] = lbl[~np.isnan(label_idx[uuid])]
+            labels['usage'][uuid] = labels['usage'][uuid][~np.isnan(label_idx[uuid])]
+            labels['frames'][uuid] = labels['frames'][uuid][~np.isnan(label_idx[uuid])]
 
         include_labels = True
 
@@ -337,9 +354,13 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
                 scalar_dict['feedback_status'].append(-1)
 
         if include_labels:
-            if k in labels.keys():
-                for lbl in labels[k]:
+            if k in labels['raw'].keys():
+                for lbl, lbl_usage, lbl_frames in zip(labels['raw'][k],
+                                                      labels['usage'][k],
+                                                      labels['frames'][k]):
                     scalar_dict['model_label'].append(lbl)
+                    scalar_dict['model_label (sort=usage)'].append(lbl_usage)
+                    scalar_dict['model_label (sort=frames)'].append(lbl_frames)
             else:
                 for i in range(nframes):
                     scalar_dict['model_label'].append(np.nan)

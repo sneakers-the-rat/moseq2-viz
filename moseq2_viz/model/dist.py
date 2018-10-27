@@ -36,7 +36,6 @@ def get_behavioral_distance(index, model_file, whiten='all',
         if k not in dist_options.keys():
             dist_options[k] = {}
         dist_options[k] = {**defaults[k], **dist_options[k]}
-    print(dist_options)
 
     model_fit = parse_model_results(model_file,
                                     map_uuid_to_keys=True,
@@ -192,11 +191,18 @@ def reformat_dtw_distances(full_mat, nsyllables):
 
     nsamples = rmat.shape[0] // nsyllables
     rmat = rmat.reshape(rmat.shape[0], nsyllables, nsamples)
-    rmat = np.nanmean(rmat, axis=2)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', category=RuntimeWarning)
+        rmat = np.nanmean(rmat, axis=2)
 
     rmat = rmat.T
     rmat = rmat.reshape(nsyllables, nsyllables, nsamples)
-    rmat = np.nanmean(rmat, axis=2)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', category=RuntimeWarning)
+        rmat = np.nanmean(rmat, axis=2)
+
     rmat[~np.isfinite(rmat)] = 0
     rmat += rmat.T
     rmat[np.diag_indices_from(rmat)] = 0

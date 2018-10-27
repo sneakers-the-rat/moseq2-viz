@@ -33,7 +33,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
         }
 
     for k in defaults.keys():
-        if k not in dist_options[k]:
+        if k not in dist_options.keys():
             dist_options[k] = {}
         dist_options[k] = {**defaults[k], **dist_options[k]}
     print(dist_options)

@@ -73,7 +73,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
                 scalar_nlags = None
 
             for k, v in scalar_ave.items():
-                key = 'scalar[{}]'.fofull_mat(k)
+                key = 'scalar[{}]'.format(k)
                 if scalar_nlags is None:
                     scalar_nlags = v.shape[1] // 2
                 v = v[:, scalar_nlags + 1:]
@@ -178,18 +178,18 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
 
 def reformat_dtw_distances(full_mat, nsyllables):
 
-    full_mat = deepcopy(mat)
-    full_mat[full_mat == np.inf] = np.nan
+    rmat = deepcopy(full_mat)
+    rmat[rmat == np.inf] = np.nan
 
-    nsamples = full_mat.shape[0] // nsyllables
-    full_mat = full_mat.reshape(full_mat.shape[0], nsyllables, nsamples)
-    full_mat = np.nanmean(full_mat, axis=2)
+    nsamples = rmat.shape[0] // nsyllables
+    rmat = rmat.reshape(rmat.shape[0], nsyllables, nsamples)
+    rmat = np.nanmean(rmat, axis=2)
 
-    full_mat = full_mat.T
-    full_mat = full_mat.reshape(nsyllables, nsyllables, nsamples)
-    full_mat = np.nanmean(full_mat, axis=2)
-    full_mat[~np.isfinite(full_mat)] = 0
-    full_mat += full_mat.T
-    full_mat[np.diag_indices_from(full_mat)] = 0
+    rmat = rmat.T
+    rmat = rmat.reshape(nsyllables, nsyllables, nsamples)
+    rmat = np.nanmean(rmat, axis=2)
+    rmat[~np.isfinite(rmat)] = 0
+    rmat += rmat.T
+    rmat[np.diag_indices_from(rmat)] = 0
 
-    return full_mat
+    return rmat

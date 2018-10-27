@@ -14,22 +14,29 @@ from functools import partial
 
 
 def get_behavioral_distance(index, model_file, whiten='all',
-                            distances=['ar[init]', 'scalars'], max_syllable=None,
-                            dist_options={'scalars': {'nlags': 10, 'zscore': True},
-                                          'ar': {'sim_points': 10},
-                                          'pca': {'normalize': 'demean', 'max_dur': 30,
-                                                  'subsampling': 5, 'max_samples': None,
-                                                  'npcs': 10,
-                                                  'remove_offset': False}},
+                            distances=['ar[init]', 'scalars'],
+                            max_syllable=None,
+                            dist_options={},
                             sort_labels_by_usage=True, count='usage'):
 
     dist_dict = {}
 
-    if 'ar' not in dist_options.keys():
-        dist_options['ar'] = {}
+    defaults = {
+        'scalars': {},
+        'ar': {'sim_points': 10},
+        'pca': {'normalize': 'demean',
+                'max_dur': 30,
+                'subsampling': 5,
+                'max_samples': None,
+                'npcs': 10,
+                'remove_offset': False}
+        }
 
-    if 'scalars' not in dist_options.keys():
-        dist_options['scalars'] = {}
+    for k in defaults.keys():
+        if k not in dist_options[k]:
+            dist_options[k] = {}
+        dist_options[k] = {**defaults[k], **dist_options[k]}
+    print(dist_options)
 
     model_fit = parse_model_results(model_file,
                                     map_uuid_to_keys=True,
@@ -44,6 +51,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
 
     for dist in distances:
         if dist.lower() == 'ar[init]':
+
             ar_mat = model_fit['model_parameters']['ar_mat']
             npcs = ar_mat[0].shape[0]
             nlags = ar_mat[0].shape[1] // npcs

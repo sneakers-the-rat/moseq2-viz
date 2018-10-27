@@ -5,7 +5,8 @@ from dtaidistance import dtw_ndim
 from copy import deepcopy
 from moseq2_viz.model.util import (whiten_pcs, parse_model_results,
                                    simulate_ar_trajectory, _get_transitions,
-                                   get_syllable_slices, retrieve_pcs_from_slices)
+                                   get_syllable_slices, retrieve_pcs_from_slices,
+                                   normalize_pcs)
 from moseq2_viz.util import strided_app, h5_to_dict
 from moseq2_viz.scalars.util import get_scalar_map, get_scalar_triggered_average
 from scipy.spatial.distance import squareform, pdist
@@ -16,7 +17,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
                             distances=['ar[init]', 'scalars'], max_syllable=None,
                             dist_options={'scalars': {'nlags': 10, 'zscore': True},
                                           'ar': {'sim_points': 10},
-                                          'pca': {'normalization': None, 'max_dur': 30,
+                                          'pca': {'normalize': None, 'max_dur': 30,
                                                   'subsampling': 5, 'max_samples': None,
                                                   'npcs': 10,
                                                   'remove_offset': False}},
@@ -86,6 +87,8 @@ def get_behavioral_distance(index, model_file, whiten='all',
                                 index=index)
 
             pca_scores = h5_to_dict(index['pca_path'], 'scores')
+            pca_scores = normalize_pcs(pca_scores, method=dist_options['pca']['normalize'])
+            del dist_options['pca']['normalize']
 
             pc_slices = []
             for syllable in tqdm.tqdm(range(max_syllable)):

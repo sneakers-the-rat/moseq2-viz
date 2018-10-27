@@ -581,13 +581,13 @@ def normalize_pcs(pca_scores, method='z'):
     """
 
     norm_scores = deepcopy(pca_scores)
-    if method == 'z':
+    if method.lower()[0] == 'z':
         all_values = np.concatenate(list(norm_scores.values()), axis=0)
         mu = np.nanmean(all_values, axis=0)
         sig = np.nanstd(all_values, axis=0)
         for k, v in norm_scores.items():
             norm_scores[k] = (v - mu) / sig
-    elif method == 'm':
+    elif method.lower()[0] == 'm':
         all_values = np.concatenate(list(norm_scores.values()), axis=0)
         mu = np.nanmean(all_values, axis=0)
         for k, v in norm_scores.items():

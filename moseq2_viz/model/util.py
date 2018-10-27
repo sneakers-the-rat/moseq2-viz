@@ -598,7 +598,7 @@ def normalize_pcs(pca_scores, method='z'):
 
 def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60,
                              max_samples=100, npcs=10, subsampling=None,
-                             remove_offset=False):
+                             remove_offset=False, **kwargs):
     # pad using zeros, get dtw distances...
 
     durs = [idx[1] - idx[0] for idx, _, _ in slices]

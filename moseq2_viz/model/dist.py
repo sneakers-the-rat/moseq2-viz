@@ -88,13 +88,14 @@ def get_behavioral_distance(index, model_file, whiten='all',
 
             pca_scores = h5_to_dict(index['pca_path'], 'scores')
             pca_scores = normalize_pcs(pca_scores, method=dist_options['pca']['normalize'])
-            del dist_options['pca']['normalize']
+            use_options = deepcopy(dist_options['pca'])
+            use_options.pop('normalize')
 
             pc_slices = []
             for syllable in tqdm.tqdm(range(max_syllable)):
                 pc_slice = retrieve_pcs_from_slices(slice_fun(syllable),
                                                     pca_scores,
-                                                    **dist_options['pca'])
+                                                    **use_options)
                 pc_slices.append(pc_slice)
 
             lens = [_.shape[0] for _ in pc_slices]

@@ -1,5 +1,6 @@
 from collections import defaultdict, OrderedDict
 from copy import deepcopy
+from sklearn.cluster import KMeans
 from moseq2_viz.util import h5_to_dict
 import numpy as np
 import h5py
@@ -573,3 +574,55 @@ def whiten_pcs(pca_scores, method='all', center=True):
             whitened_scores[k] = _whiten_all({k: v})[k]
 
     return whitened_scores
+
+
+def normalize_pcs(pca_scores, method='z'):
+    """Normalize PCs (either de-mean or z-score)
+    """
+
+    norm_scores = deepcopy(pca_scores)
+    if method == 'z':
+        all_values = np.concatenate(list(norm_scores.values()), axis=0)
+        mu = np.nanmean(all_values, axis=0)
+        sig = np.nanstd(all_values, axis=0)
+        for k, v in norm_scores.items():
+            norm_scores[k] = (v - mu) / sig
+    elif method == 'm':
+        all_values = np.concatenate(list(norm_scores.values()), axis=0)
+        mu = np.nanmean(all_values, axis=0)
+        for k, v in norm_scores.items():
+            norm_scores[k] = v - mu
+
+    return norm_scores
+
+
+def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60,
+                             max_samples=100, npcs=10, subsampling=None,
+                             remove_offset=False):
+    # pad using zeros, get dtw distances...
+
+    durs = [idx[1] - idx[0] for idx, _, _ in slices]
+    use_slices = [_ for i, _ in enumerate(slices) if durs[i] < max_dur]
+    if max_samples is not None and len(use_slices) > max_samples:
+        choose_samples = np.random.permutation(range(len(use_slices)))[:max_samples]
+        use_slices = [_ for i, _ in enumerate(use_slices) if i in choose_samples]
+
+    syllable_matrix = np.zeros((len(use_slices), max_dur, npcs), 'float32')
+#     syllable_matrix[:] = np.nan
+
+    for i, (idx, uuid, h5) in enumerate(use_slices):
+        syllable_matrix[i, :idx[1]-idx[0], :] = pca_scores[uuid][idx[0]:idx[1], :npcs]
+
+    if remove_offset:
+        syllable_matrix = syllable_matrix - syllable_matrix[:, 0, :][:, None, :]
+
+    if subsampling is not None and subsampling > 0:
+        try:
+            km = KMeans(subsampling)
+            km.fit(syllable_matrix.reshape(syllable_matrix.shape[0], max_dur * npcs))
+            syllable_matrix = km.cluster_centers_.reshape(subsampling, max_dur, npcs)
+        except Exception:
+            syllable_matrix = np.zeros((subsampling, max_dur, npcs))
+            syllable_matrix[:] = np.nan
+
+    return syllable_matrix

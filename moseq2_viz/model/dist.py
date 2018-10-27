@@ -1,14 +1,25 @@
 import numpy as np
-from moseq2_viz.model.util import whiten_pcs, parse_model_results, simulate_ar_trajectory, _get_transitions
+import tqdm
+import warnings
+from dtaidistance import dtw_ndim
+from copy import deepcopy
+from moseq2_viz.model.util import (whiten_pcs, parse_model_results,
+                                   simulate_ar_trajectory, _get_transitions,
+                                   get_syllable_slices, retrieve_pcs_from_slices)
 from moseq2_viz.util import strided_app, h5_to_dict
 from moseq2_viz.scalars.util import get_scalar_map, get_scalar_triggered_average
 from scipy.spatial.distance import squareform, pdist
+from functools import partial
 
 
 def get_behavioral_distance(index, model_file, whiten='all',
                             distances=['ar[init]', 'scalars'], max_syllable=None,
                             dist_options={'scalars': {'nlags': 10, 'zscore': True},
-                                          'ar': {'sim_points': 10}},
+                                          'ar': {'sim_points': 10},
+                                          'pca': {'normalization': None, 'max_dur': 30,
+                                                  'subsampling': 5, 'max_samples': None,
+                                                  'npcs': 10,
+                                                  'remove_offset': False}},
                             sort_labels_by_usage=True, count='usage'):
 
     dist_dict = {}
@@ -61,19 +72,47 @@ def get_behavioral_distance(index, model_file, whiten='all',
                 scalar_nlags = None
 
             for k, v in scalar_ave.items():
-                key = 'scalar[{}]'.format(k)
+                key = 'scalar[{}]'.fofull_mat(k)
                 if scalar_nlags is None:
                     scalar_nlags = v.shape[1] // 2
                 v = v[:, scalar_nlags + 1:]
                 dist_dict[key] = squareform(pdist(v, 'correlation'))
 
-    return dist_dict
+        elif dist.lower() == 'pca[dtw]':
 
+            slice_fun = partial(get_syllable_slices,
+                                labels=list(model_fit['labels'].values()),
+                                uuids=list(model_fit['labels'].keys()),
+                                index=index)
+
+            pca_scores = h5_to_dict(index['pca_path'], 'scores')
+
+            pc_slices = []
+            for syllable in tqdm.tqdm(range(max_syllable)):
+                pc_slice = retrieve_pcs_from_slices(slice_fun(syllable),
+                                                    pca_scores,
+                                                    **dist_options['pca'])
+                pc_slices.append(pc_slice)
+
+            lens = [_.shape[0] for _ in pc_slices]
+            pc_mat = np.concatenate(pc_slices, axis=0)
+
+            # all lengths need to be equal for our current, naive subsampling implementation
+            if len(set(lens)) != 1:
+                warnings.warn('Number of example per syllable not equal, returning full matrix')
+                dist_dict['pca[dtw]'] = pc_mat
+                dist_dict['pca[dtw] (syllables)'] = lens
+            else:
+                print('Computing DTW matrix (this may take a minute)...')
+                full_dist_mat = dtw_ndim.distance_matrix(pc_mat, parallel=True)
+                reduced_mat = reformat_dtw_distances(full_dist_mat, len(lens))
+                dist_dict['pca[dtw]'] = reduced_mat
+
+    return dist_dict
 
 
 def get_behavioral_distance_ar(ar_mat, init_point=None, sim_points=10, max_syllable=40):
 
-    dist_mat = np.zeros((max_syllable, max_syllable), dtype='float32')
     npcs = ar_mat[0].shape[0]
 
     if init_point is None:
@@ -132,3 +171,22 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
         syll_average[i] /= count[i].astype('float')
 
     return syll_average
+
+
+def reformat_dtw_distances(full_mat, nsyllables):
+
+    full_mat = deepcopy(mat)
+    full_mat[full_mat == np.inf] = np.nan
+
+    nsamples = full_mat.shape[0] // nsyllables
+    full_mat = full_mat.reshape(full_mat.shape[0], nsyllables, nsamples)
+    full_mat = np.nanmean(full_mat, axis=2)
+
+    full_mat = full_mat.T
+    full_mat = full_mat.reshape(nsyllables, nsyllables, nsamples)
+    full_mat = np.nanmean(full_mat, axis=2)
+    full_mat[~np.isfinite(full_mat)] = 0
+    full_mat += full_mat.T
+    full_mat[np.diag_indices_from(full_mat)] = 0
+
+    return full_mat

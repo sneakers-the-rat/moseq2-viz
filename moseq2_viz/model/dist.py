@@ -1,6 +1,7 @@
 import numpy as np
 import tqdm
 import warnings
+import os
 from dtaidistance import dtw_ndim
 from copy import deepcopy
 from moseq2_viz.model.util import (whiten_pcs, parse_model_results,
@@ -41,6 +42,25 @@ def get_behavioral_distance(index, model_file, whiten='all',
                                     map_uuid_to_keys=True,
                                     sort_labels_by_usage=sort_labels_by_usage,
                                     count=count)
+
+    # make sure the index only uses (a) files that exist and (b) files in the model fit
+
+    rem_keys = []
+    for k, v in index['files'].items():
+        if not os.path.exists(v['path'][0]):
+            print('{} not found, removing...'.format(v['path'][0]))
+            rem_keys.append(k)
+            continue
+
+        if k not in model_fit['train_list']:
+            print('model not fit to {}, removing...'.format(k))
+            rem_keys.append(k)
+            continue
+
+    for k in rem_keys:
+        index['files'].pop(k, None)
+        if k in model_fit['labels'].keys():
+            model_fit['labels'].pop(k, None)
 
     if max_syllable is None:
         max_syllable = -np.inf

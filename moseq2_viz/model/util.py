@@ -122,6 +122,9 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
     h5s = [v['path'][0] for v in index['files'].values()]
     h5_uuids = list(index['files'].keys())
 
+    # only extract if we have a match in the index
+    label_uuids = [uuid for uuid in label_uuids if uuid in h5_uuids]
+
     # grab the original indices from the pca file as well...
 
     if trim_nans:

@@ -296,7 +296,7 @@ def parse_batch_modeling(filename):
     return results_dict
 
 
-def parse_model_results(model_obj, restart_idx=0,
+def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
                         map_uuid_to_keys=False,
                         sort_labels_by_usage=False,
                         count='usage'):
@@ -328,7 +328,7 @@ def parse_model_results(model_obj, restart_idx=0,
 
     output_dict = deepcopy(model_obj)
     if type(output_dict['labels']) is list and type(output_dict['labels'][0]) is list:
-        output_dict['labels'] = [np.squeeze(tmp) for tmp in output_dict['labels'][restart_idx]]
+        output_dict['labels'] = [np.squeeze(tmp) for tmp in output_dict['labels'][restart_idx][resample_idx]]
 
     if type(output_dict['model_parameters']) is list:
         output_dict['model_parameters'] = output_dict['model_parameters'][restart_idx]

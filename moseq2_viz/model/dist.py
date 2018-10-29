@@ -60,7 +60,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
     for k in rem_keys:
         index['files'].pop(k, None)
         if k in model_fit['labels'].keys():
-            model_fit['labels'].pop(k)
+            model_fit['labels'].pop(k, None)
 
     if max_syllable is None:
         max_syllable = -np.inf

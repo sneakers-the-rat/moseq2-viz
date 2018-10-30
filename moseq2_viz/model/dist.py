@@ -30,7 +30,8 @@ def get_behavioral_distance(index, model_file, whiten='all',
                 'subsampling': 5,
                 'max_samples': None,
                 'npcs': 10,
-                'remove_offset': False}
+                'remove_offset': False,
+                'parallel': False}
         }
 
     for k in defaults.keys():
@@ -110,6 +111,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
             pca_scores = normalize_pcs(pca_scores, method=dist_options['pca']['normalize'])
             use_options = deepcopy(dist_options['pca'])
             use_options.pop('normalize')
+            parallel = use_options.pop('parallel')
 
             pc_slices = []
             for syllable in tqdm.tqdm(range(max_syllable)):
@@ -128,7 +130,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
                 dist_dict['pca[dtw] (syllables)'] = lens
             else:
                 print('Computing DTW matrix (this may take a minute)...')
-                full_dist_mat = dtw_ndim.distance_matrix(pc_mat, parallel=True)
+                full_dist_mat = dtw_ndim.distance_matrix(pc_mat, parallel=parallel)
                 reduced_mat = reformat_dtw_distances(full_dist_mat, len(lens))
                 dist_dict['pca[dtw]'] = reduced_mat
 

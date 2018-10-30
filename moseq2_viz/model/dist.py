@@ -44,23 +44,14 @@ def get_behavioral_distance(index, model_file, whiten='all',
                                     count=count)
 
     # make sure the index only uses (a) files that exist and (b) files in the model fit
+    # master uuid list...uuid exists in PCA file, model file, and index
 
-    rem_keys = []
-    for k, v in index['files'].items():
-        if not os.path.exists(v['path'][0]):
-            print('{} not found, removing...'.format(v['path'][0]))
-            rem_keys.append(k)
-            continue
+    uuid_set = set.intersection(set(model_fit['labels'].keys()),
+                                set(index['files'].keys()))
+    #uuid_set = [uuid for uuid in uuid_set if os.path.exists(index['files'][uuid]['path'][0])]
 
-        if k not in model_fit['train_list']:
-            print('model not fit to {}, removing...'.format(k))
-            rem_keys.append(k)
-            continue
-
-    for k in rem_keys:
-        index['files'].pop(k, None)
-        if k in model_fit['labels'].keys():
-            model_fit['labels'].pop(k, None)
+    index['files'] = {k: v for k, v in index['files'].items() if k in uuid_set}
+    model_fit['labels'] = {k: v for k, v in model_fit['labels'].items() if k in uuid_set}
 
     if max_syllable is None:
         max_syllable = -np.inf
@@ -76,6 +67,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
             nlags = ar_mat[0].shape[1] // npcs
 
             scores = h5_to_dict(index['pca_path'], 'scores')
+
             for k, v in scores.items():
                 scores[k] = scores[k][:, :npcs]
 

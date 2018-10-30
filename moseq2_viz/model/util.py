@@ -331,7 +331,12 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
 
     output_dict = deepcopy(model_obj)
     if type(output_dict['labels']) is list and type(output_dict['labels'][0]) is list:
-        output_dict['labels'] = [np.squeeze(tmp) for tmp in output_dict['labels'][restart_idx][resample_idx]]
+        if np.ndim(output_dict['labels'][0]) == 2:
+            output_dict['labels'] = [np.squeeze(tmp) for tmp in output_dict['labels'][restart_idx][resample_idx]]
+        elif np.ndim(output_dict['labels'][0]) == 1:
+            output_dict['labels'] = [np.squeeze(tmp) for tmp in output_dict['labels'][restart_idx]]
+        else:
+            raise RuntimeError('Could not parse model labels')
 
     if type(output_dict['model_parameters']) is list:
         output_dict['model_parameters'] = output_dict['model_parameters'][restart_idx]

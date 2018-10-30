@@ -218,6 +218,7 @@ def reformat_dtw_distances(full_mat, nsyllables):
         warnings.simplefilter('ignore', category=RuntimeWarning)
         rmat = np.nanmean(rmat, axis=2)
 
+    # TODO: make sure to return nans
     rmat[~np.isfinite(rmat)] = 0
     rmat += rmat.T
     rmat[np.diag_indices_from(rmat)] = 0

@@ -16,7 +16,7 @@ from functools import partial
 
 def get_behavioral_distance(index, model_file, whiten='all',
                             distances=['ar[init]', 'scalars'],
-                            max_syllable=None,
+                            max_syllable=None, resample_idx=-1,
                             dist_options={},
                             sort_labels_by_usage=True, count='usage'):
 
@@ -38,7 +38,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
             dist_options[k] = {}
         dist_options[k] = {**defaults[k], **dist_options[k]}
 
-    model_fit = parse_model_results(model_file,
+    model_fit = parse_model_results(model_file, resample_idx=resample_idx,
                                     map_uuid_to_keys=True,
                                     sort_labels_by_usage=sort_labels_by_usage,
                                     count=count)

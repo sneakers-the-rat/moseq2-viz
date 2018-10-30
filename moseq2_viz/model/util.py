@@ -629,7 +629,7 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60,
             km = KMeans(subsampling)
             syllable_matrix = syllable_matrix.reshape(syllable_matrix.shape[0], max_dur * npcs)
             syllable_matrix = syllable_matrix[np.all(~np.isnan(syllable_matrix), axis=1), :]
-            km.fit(syllable_matrix.reshape(syllable_matrix)
+            km.fit(syllable_matrix)
             syllable_matrix = km.cluster_centers_.reshape(subsampling, max_dur, npcs)
         except Exception:
             syllable_matrix = np.zeros((subsampling, max_dur, npcs))

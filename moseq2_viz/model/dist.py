@@ -103,7 +103,8 @@ def get_behavioral_distance(index, model_file, whiten='all',
             slice_fun = partial(get_syllable_slices,
                                 labels=list(model_fit['labels'].values()),
                                 label_uuids=list(model_fit['labels'].keys()),
-                                index=index)
+                                index=index,
+                                trim_nans=False)
 
             pca_scores = h5_to_dict(index['pca_path'], 'scores')
             pca_scores = normalize_pcs(pca_scores, method=dist_options['pca']['normalize'])

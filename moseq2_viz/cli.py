@@ -216,15 +216,15 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
 
     # uuid in both the labels and the index
     uuid_set = set.intersection(set(label_uuids),
-                                set(index['files'].keys()))
+                                set(sorted_index['files'].keys()))
 
     # make sure the files exist
-    uuid_set = [uuid for uuid in uuid_set if os.path.exists(index['files'][uuid]['path'][0])]
+    uuid_set = [uuid for uuid in uuid_set if os.path.exists(sorted_index['files'][uuid]['path'][0])]
 
     # harmonize everything...
     labels = [label_arr for label_arr, uuid in zip(labels, label_uuids) if uuid in uuid_set]
     label_uuids = [uuid for uuid in label_uuids if uuid in uuid_set]
-    index['files'] = {k: v for k, v in index['files'].items() if k in uuid_set}
+    sorted_index['files'] = {k: v for k, v in sorted_index['files'].items() if k in uuid_set}
 
     if vid_parameters['resolution'] is not None:
         raw_size = vid_parameters['resolution']

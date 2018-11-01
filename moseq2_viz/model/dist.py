@@ -130,7 +130,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
                 dist_dict['pca[dtw] (syllables)'] = lens
             else:
                 print('Computing DTW matrix (this may take a minute)...')
-                full_dist_mat = dtw_ndim.distance_matrix(pc_mat, parallel=parallel)
+                full_dist_mat = dtw_ndim.distance_matrix(pc_mat, parallel=parallel, show_progress=True)
                 reduced_mat = reformat_dtw_distances(full_dist_mat, len(lens))
                 dist_dict['pca[dtw]'] = reduced_mat
 

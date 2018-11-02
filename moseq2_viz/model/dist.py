@@ -1,7 +1,6 @@
 import numpy as np
 import tqdm
 import warnings
-import os
 from dtaidistance import dtw_ndim
 from copy import deepcopy
 from moseq2_viz.model.util import (whiten_pcs, parse_model_results,
@@ -25,6 +24,8 @@ def get_behavioral_distance(index, model_file, whiten='all',
     defaults = {
         'scalars': {},
         'ar': {'sim_points': 10},
+        'ar[dtw]': {'sim_points': 60,
+                    'parallel': False},
         'pca': {'normalize': 'demean',
                 'max_dur': 30,
                 'subsampling': 5,
@@ -61,7 +62,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
                 max_syllable = lbl.max() + 1
 
     for dist in distances:
-        if dist.lower() == 'ar[init]':
+        if 'ar' in dist.lower():
 
             ar_mat = model_fit['model_parameters']['ar_mat']
             npcs = ar_mat[0].shape[0]
@@ -76,10 +77,18 @@ def get_behavioral_distance(index, model_file, whiten='all',
             init = get_init_points(scores, model_fit['labels'],
                                    nlags=nlags, npcs=npcs, max_syllable=max_syllable)
 
-            dist_dict['ar[init]'] = get_behavioral_distance_ar(ar_mat,
-                                                               init_point=init,
-                                                               **dist_options['ar'],
-                                                               max_syllable=max_syllable)
+            if dist.lower() == 'ar[init]':
+                dist_dict['ar[init]'] = get_behavioral_distance_ar(ar_mat,
+                                                                   init_point=init,
+                                                                   **dist_options['ar'],
+                                                                   max_syllable=max_syllable,
+                                                                   dist='correlation')
+            elif dist.lower() == 'ar[dtw]':
+                dist_dict['ar[dtw]'] = get_behavioral_distance_ar(ar_mat,
+                                                                  init_point=init,
+                                                                  **dist_options['ar[dtw]'],
+                                                                  max_syllable=max_syllable,
+                                                                  dist='dtw')
         elif dist.lower() == 'scalars':
             scalar_map = get_scalar_map(index)
             scalar_ave = get_scalar_triggered_average(scalar_map,
@@ -137,19 +146,27 @@ def get_behavioral_distance(index, model_file, whiten='all',
     return dist_dict
 
 
-def get_behavioral_distance_ar(ar_mat, init_point=None, sim_points=10, max_syllable=40):
+def get_behavioral_distance_ar(ar_mat, init_point=None, sim_points=10, max_syllable=40, dist='correlation',
+                               parallel=False):
 
     npcs = ar_mat[0].shape[0]
 
     if init_point is None:
         init_point = [None] * max_syllable
 
-    ar_traj = np.zeros((max_syllable, sim_points * npcs), dtype='float32')
+    ar_traj = np.zeros((max_syllable, sim_points, npcs), dtype='float32')
 
     for i in range(max_syllable):
-        ar_traj[i] = simulate_ar_trajectory(ar_mat[i], init_point[i], sim_points=sim_points).ravel()
+        ar_traj[i] = simulate_ar_trajectory(ar_mat[i], init_point[i], sim_points=sim_points)
 
-    ar_dist = squareform(pdist(ar_traj, 'correlation'))
+    if dist.lower() == 'correlation':
+        ar_dist = squareform(pdist(ar_traj.reshape(max_syllable, sim_points * npcs), 'correlation'))
+    elif dist.lower() == 'dtw':
+        print('Computing DTW matrix (this may take a minute)...')
+        ar_dist = dtw_ndim.distance_matrix(ar_traj, parallel=parallel, show_progress=True)
+        ar_dist = reformat_dtw_distances(ar_dist, nsyllables=ar_dist.shape[0])
+    else:
+        raise RuntimeError('Did not understand distance {}'.format(dist))
 
     return ar_dist
 
@@ -205,18 +222,20 @@ def reformat_dtw_distances(full_mat, nsyllables):
     rmat[rmat == np.inf] = np.nan
 
     nsamples = rmat.shape[0] // nsyllables
-    rmat = rmat.reshape(rmat.shape[0], nsyllables, nsamples)
 
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', category=RuntimeWarning)
-        rmat = np.nanmean(rmat, axis=2)
+    if nsamples > 1:
+        rmat = rmat.reshape(rmat.shape[0], nsyllables, nsamples)
 
-    rmat = rmat.T
-    rmat = rmat.reshape(nsyllables, nsyllables, nsamples)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=RuntimeWarning)
+            rmat = np.nanmean(rmat, axis=2)
 
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore', category=RuntimeWarning)
-        rmat = np.nanmean(rmat, axis=2)
+        rmat = rmat.T
+        rmat = rmat.reshape(nsyllables, nsyllables, nsamples)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=RuntimeWarning)
+            rmat = np.nanmean(rmat, axis=2)
 
     diag_vals = rmat.diagonal()
     rmat[~np.isfinite(rmat)] = 0

@@ -164,7 +164,7 @@ def get_behavioral_distance_ar(ar_mat, init_point=None, sim_points=10, max_sylla
     elif dist.lower() == 'dtw':
         print('Computing DTW matrix (this may take a minute)...')
         ar_dist = dtw_ndim.distance_matrix(ar_traj, parallel=parallel, show_progress=True)
-        ar_dist = reformat_dtw_distances(ar_dist, nsyllables=ar_dist.shape[0])
+        ar_dist = reformat_dtw_distances(ar_dist, nsyllables=ar_dist.shape[0], rescale=False)
     else:
         raise RuntimeError('Did not understand distance {}'.format(dist))
 
@@ -216,7 +216,7 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
     return syll_average
 
 
-def reformat_dtw_distances(full_mat, nsyllables):
+def reformat_dtw_distances(full_mat, nsyllables, rescale=True):
 
     rmat = deepcopy(full_mat)
     rmat[rmat == np.inf] = np.nan
@@ -245,9 +245,10 @@ def reformat_dtw_distances(full_mat, nsyllables):
     rmat[nan_rows, :] = np.nan
     rmat[:, nan_rows] = np.nan
 
-    for idx, v in np.ndenumerate(rmat):
-        ii = diag_vals[idx[0]]
-        jj = diag_vals[idx[1]]
-        rmat[idx] = v / (np.sqrt(ii * jj) + 1e-12)
+    if rescale:
+        for idx, v in np.ndenumerate(rmat):
+            ii = diag_vals[idx[0]]
+            jj = diag_vals[idx[1]]
+            rmat[idx] = v / (np.sqrt(ii * jj) + 1e-12)
 
     return rmat

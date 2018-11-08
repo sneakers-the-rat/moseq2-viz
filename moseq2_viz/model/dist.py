@@ -22,7 +22,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
     dist_dict = {}
 
     defaults = {
-        'scalars': {},
+        'scalars': {'nlags': 10},
         'ar': {'sim_points': 10},
         'ar[dtw]': {'sim_points': 60,
                     'parallel': False},

@@ -111,7 +111,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
         else:
             pass
 
-        all_mats.append(init_matrix)
+            all_mats.append(init_matrix)
 
     return all_mats
 

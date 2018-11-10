@@ -74,7 +74,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
 
         for v in labels:
 
-            transitions, _ = _get_transitions(v)
+            transitions = _get_transitions(v)[0]
 
             for (i, j) in zip(transitions, transitions[1:]):
                 if i <= max_syllable and j <= max_syllable:
@@ -96,7 +96,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
         for v in tqdm.tqdm(labels, disable=disable_output):
 
             init_matrix = np.zeros((max_syllable + 1, max_syllable + 1), dtype='float32') + smoothing
-            transitions, _ = _get_transitions(v)
+            transitions = _get_transitions(v)[0]
 
             for (i, j) in zip(transitions, transitions[1:]):
                 if i <= max_syllable and j <= max_syllable:

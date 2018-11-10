@@ -126,7 +126,8 @@ def parse_index(index_file, get_metadata=False):
            for idx in index['files']]
     h5_uuids = [idx['uuid'] for idx in index['files']]
     groups = [idx['group'] for idx in index['files']]
-    metadata = [commented_map_to_dict(idx['metadata']) for idx in index['files']]
+    metadata = [commented_map_to_dict(idx['metadata'])
+                if 'metadata' in idx.keys() else {} for idx in index['files']]
 
     sorted_index = {
         'files': {},

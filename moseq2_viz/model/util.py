@@ -102,14 +102,14 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
                 if i <= max_syllable and j <= max_syllable:
                     init_matrix[i, j] += 1
 
-        if normalize == 'bigram':
-            init_matrix /= init_matrix.sum()
-        elif normalize == 'rows':
-            init_matrix /= init_matrix.sum(axis=1)
-        elif normalize == 'columns':
-            init_matrix /= init_matrix.sum(axis=0)
-        else:
-            pass
+            if normalize == 'bigram':
+                init_matrix /= init_matrix.sum()
+            elif normalize == 'rows':
+                init_matrix /= init_matrix.sum(axis=1)
+            elif normalize == 'columns':
+                init_matrix /= init_matrix.sum(axis=0)
+            else:
+                pass
 
             all_mats.append(init_matrix)
 

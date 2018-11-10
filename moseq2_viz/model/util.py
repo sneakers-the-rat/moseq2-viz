@@ -83,9 +83,9 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
         if normalize == 'bigram':
             init_matrix /= init_matrix.sum()
         elif normalize == 'rows':
-            init_matrix /= init_matrix.sum(axis=1)
+            init_matrix /= init_matrix.sum(axis=1, keepdims=True)
         elif normalize == 'columns':
-            init_matrix /= init_matrix.sum(axis=0)
+            init_matrix /= init_matrix.sum(axis=0, keepdims=True)
         else:
             pass
 
@@ -105,9 +105,9 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
             if normalize == 'bigram':
                 init_matrix /= init_matrix.sum()
             elif normalize == 'rows':
-                init_matrix /= init_matrix.sum(axis=1)
+                init_matrix /= init_matrix.sum(axis=1, keepdims=True)
             elif normalize == 'columns':
-                init_matrix /= init_matrix.sum(axis=0)
+                init_matrix /= init_matrix.sum(axis=0, keepdims=True)
             else:
                 pass
 

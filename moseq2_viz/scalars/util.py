@@ -332,6 +332,7 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
 
         nframes = len(dset[scalar_names[0]])
         if len(timestamps) != nframes:
+            warnings.warn('Timestamps not equal to number of frames for {}'.format(v['path'][0]))
             continue
 
         for scalar in scalar_names:

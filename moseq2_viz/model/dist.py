@@ -146,8 +146,8 @@ def get_behavioral_distance(index, model_file, whiten='all',
     return dist_dict
 
 
-def get_behavioral_distance_ar(ar_mat, init_point=None, sim_points=10, max_syllable=40, dist='correlation',
-                               parallel=False):
+def get_behavioral_distance_ar(ar_mat, init_point=None, sim_points=10, max_syllable=40,
+                               dist='correlation', parallel=False):
 
     npcs = ar_mat[0].shape[0]
 

@@ -344,8 +344,12 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
     if sort_labels_by_usage:
         output_dict['labels'], sorting = relabel_by_usage(output_dict['labels'], count=count)
         old_ar_mat = deepcopy(output_dict['model_parameters']['ar_mat'])
+        old_nu = deepcopy(output_dict['model_parameters']['nu'])
         for i, sort_idx in enumerate(sorting):
             output_dict['model_parameters']['ar_mat'][i] = old_ar_mat[sort_idx]
+            if type(output_dir['model_parameters']['nu']) is list:
+                output_dict['model_parameters']['nu'][i] = old_nu[sort_idx]
+
 
     if map_uuid_to_keys:
         if 'train_list' in output_dict.keys():

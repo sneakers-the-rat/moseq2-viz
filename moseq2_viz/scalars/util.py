@@ -304,21 +304,26 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
             continue
         dset = h5_to_dict(h5py.File(v['path'][0], 'r'), 'scalars')
         timestamps = h5py.File(v['path'][0], 'r')['metadata/timestamps'].value
-        parameters = read_yaml(v['path'][1])['parameters']
+        dct = read_yaml(v['path'][1])
+        parameters = dct['parameters']
 
         if include_feedback:
-            feedback_path = os.path.join(os.path.dirname(parameters['input_file']),
-                                         'feedback_ts.txt')
-
-            if not os.path.exists(feedback_path):
-                feedback_path = os.path.join(os.path.dirname(v['path'][0]),
-                                             '..', 'feedback_ts.txt')
-
-            if os.path.exists(feedback_path):
-                feedback_ts = load_timestamps(feedback_path, 0)
-                feedback_status = load_timestamps(feedback_path, 1)
+            if 'feedback_timestamps' in dct.keys():
+                ts_data = np.array(dct['feedback_timestamps'])
+                feedback_ts, feedback_status = ts_data[:, 0], ts_data[:, 1]
             else:
-                continue
+                feedback_path = os.path.join(os.path.dirname(parameters['input_file']),
+                                             'feedback_ts.txt')
+                if not os.path.exists(feedback_path):
+                    feedback_path = os.path.join(os.path.dirname(v['path'][0]),
+                                                 '..', 'feedback_ts.txt')
+
+                if os.path.exists(feedback_path):
+                    feedback_ts = load_timestamps(feedback_path, 0)
+                    feedback_status = load_timestamps(feedback_path, 1)
+                else:
+                    warnings.warn('Could not find feedback file for {}'.format(v['path'][0]))
+                    continue
 
         tmp = convert_legacy_scalars(dset, force=force_conversion)
 
@@ -327,6 +332,7 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
 
         nframes = len(dset[scalar_names[0]])
         if len(timestamps) != nframes:
+            warnings.warn('Timestamps not equal to number of frames for {}'.format(v['path'][0]))
             continue
 
         for scalar in scalar_names:

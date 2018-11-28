@@ -74,7 +74,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
 
         for v in labels:
 
-            transitions, _ = _get_transitions(v)
+            transitions = _get_transitions(v)[0]
 
             for (i, j) in zip(transitions, transitions[1:]):
                 if i <= max_syllable and j <= max_syllable:
@@ -83,9 +83,9 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
         if normalize == 'bigram':
             init_matrix /= init_matrix.sum()
         elif normalize == 'rows':
-            init_matrix /= init_matrix.sum(axis=1)
+            init_matrix /= init_matrix.sum(axis=1, keepdims=True)
         elif normalize == 'columns':
-            init_matrix /= init_matrix.sum(axis=0)
+            init_matrix /= init_matrix.sum(axis=0, keepdims=True)
         else:
             pass
 
@@ -96,22 +96,22 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
         for v in tqdm.tqdm(labels, disable=disable_output):
 
             init_matrix = np.zeros((max_syllable + 1, max_syllable + 1), dtype='float32') + smoothing
-            transitions, _ = _get_transitions(v)
+            transitions = _get_transitions(v)[0]
 
             for (i, j) in zip(transitions, transitions[1:]):
                 if i <= max_syllable and j <= max_syllable:
                     init_matrix[i, j] += 1
 
-        if normalize == 'bigram':
-            init_matrix /= init_matrix.sum()
-        elif normalize == 'rows':
-            init_matrix /= init_matrix.sum(axis=1)
-        elif normalize == 'columns':
-            init_matrix /= init_matrix.sum(axis=0)
-        else:
-            pass
+            if normalize == 'bigram':
+                init_matrix /= init_matrix.sum()
+            elif normalize == 'rows':
+                init_matrix /= init_matrix.sum(axis=1, keepdims=True)
+            elif normalize == 'columns':
+                init_matrix /= init_matrix.sum(axis=0, keepdims=True)
+            else:
+                pass
 
-        all_mats.append(init_matrix)
+            all_mats.append(init_matrix)
 
     return all_mats
 

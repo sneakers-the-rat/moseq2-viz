@@ -262,8 +262,8 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
         frames = (h5['frames'][use_idx[0]:use_idx[1]] / scale).astype('uint8')
 
-        if 'flips' in h5['metadata'].keys():
-            flips = h5['metadata/flips'][use_idx[0]:use_idx[1]]
+        if 'flips' in h5['metadata/extraction'].keys():
+            flips = h5['metadata/extraction/flips'][use_idx[0]:use_idx[1]]
             angles[np.where(flips == True)] -= np.pi
         else:
             flips = np.zeros(angles.shape, dtype='bool')

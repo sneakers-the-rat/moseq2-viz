@@ -303,7 +303,7 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
         if k in skip:
             continue
         dset = h5_to_dict(h5py.File(v['path'][0], 'r'), 'scalars')
-        timestamps = h5py.File(v['path'][0], 'r')['metadata/timestamps'].value
+        timestamps = h5py.File(v['path'][0], 'r')['/timestamps'].value
         parameters = read_yaml(v['path'][1])['parameters']
 
         if include_feedback:

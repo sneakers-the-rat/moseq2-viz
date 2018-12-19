@@ -85,7 +85,8 @@ def add_group(index_file, key, value, group, exact, lowercase, negative):
 # and copy the contents to a new directory
 @cli.command(name="copy-h5-metadata-to-yaml")
 @click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
-def copy_h5_metadata_to_yaml(input_dir):
+@click.option('--h5-metadata-path', default='/metadata/acquisition', type=str, help='Path to acquisition metadata in h5 files')
+def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)
     to_load = [(tmp, yml, file) for tmp, yml, file in zip(
@@ -96,7 +97,7 @@ def copy_h5_metadata_to_yaml(input_dir):
 
     for i, tup in tqdm.tqdm(enumerate(to_load), total=len(to_load), desc='Copying data to yamls'):
         with h5py.File(tup[2], 'r') as f:
-            tmp = h5_to_dict(f, '/metadata/extraction')
+            tmp = h5_to_dict(f, h5_metadata_path)
             tup[0]['metadata'] = dict(tmp)
 
         try:

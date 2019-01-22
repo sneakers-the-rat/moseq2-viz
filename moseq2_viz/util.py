@@ -1,6 +1,7 @@
 import os
 import h5py
-import ruamel.yaml as yaml
+from ruamel.yaml import YAML
+from ruamel.yaml import CommentedMap
 import numpy as np
 import re
 
@@ -23,9 +24,11 @@ def check_video_parameters(index):
 
     dicts = []
 
+    yaml = YAML(typ='safe')
+
     for yml in ymls:
         with open(yml, 'r') as f:
-            dicts.append(yaml.load(f.read(), Loader=yaml.RoundTripLoader))
+            dicts.append(yaml.load(f.read()))
 
     check_parameters = ['crop_size', 'fps', 'max_height', 'min_height']
 
@@ -55,9 +58,9 @@ def commented_map_to_dict(cmap):
 
     new_var = dict()
 
-    if type(cmap) is yaml.comments.CommentedMap or type(cmap) is dict:
+    if type(cmap) is CommentedMap or type(cmap) is dict:
         for k, v in cmap.items():
-            if type(v) is yaml.comments.CommentedMap or type(v) is dict:
+            if type(v) is CommentedMap or type(v) is dict:
                 new_var[k] = commented_map_to_dict(v)
             elif type(v) is np.ndarray:
                 new_var[k] = v.tolist()
@@ -113,8 +116,10 @@ def load_timestamps(timestamp_file, col=0):
 
 def parse_index(index_file, get_metadata=False):
 
+    yaml = YAML(typ='safe')
+
     with open(index_file, 'r') as f:
-        index = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
+        index = yaml.load(f)
 
     # sort index by uuids
 
@@ -170,12 +175,14 @@ def recursive_find_h5s(root_dir=os.getcwd(),
 
 def read_yaml(yaml_file):
 
+    yaml = YAML(typ='safe')
+
     with open(yaml_file, 'r') as f:
         dat = f.read()
         try:
-            return_dict = yaml.load(dat, Loader=yaml.RoundTripLoader)
+            return_dict = yaml.load(dat)
         except yaml.constructor.ConstructorError:
-            return_dict = yaml.load(dat, Loader=yaml.Loader)
+            return_dict = yaml.load(dat)
 
     return return_dict
 

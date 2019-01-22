@@ -323,7 +323,8 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
                     feedback_status = load_timestamps(feedback_path, 1)
                 else:
                     warnings.warn('Could not find feedback file for {}'.format(v['path'][0]))
-                    continue
+                    feedback_ts = None
+                    #continue
 
         tmp = convert_legacy_scalars(dset, force=force_conversion)
 

@@ -1,5 +1,5 @@
 from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
-                             parse_index, commented_map_to_dict, h5_to_dict)
+                             parse_index, h5_to_dict)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
                                    results_to_dataframe, parse_model_results,
                                    get_transition_matrix, get_syllable_statistics)
@@ -102,7 +102,7 @@ def copy_h5_metadata_to_yaml(input_dir):
         try:
             new_file = '{}_update.yaml'.format(os.path.basename(tup[1]))
             with open(new_file, 'w+') as f:
-                yaml.dump(commented_map_to_dict(tup[0]), f, Dumper=yaml.RoundTripDumper)
+                yaml.dump(tup[0], f, Dumper=yaml.RoundTripDumper)
             shutil.move(new_file, tup[1])
         except Exception:
             raise Exception

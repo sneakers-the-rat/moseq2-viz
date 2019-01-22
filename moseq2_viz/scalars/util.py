@@ -44,7 +44,7 @@ def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
         print('Loading scalars from h5 dataset')
         feature_dict = {}
         for k, v in old_features.items():
-            feature_dict[k] = v.value
+            feature_dict[k] = v[...]
 
         old_features = feature_dict
 
@@ -53,7 +53,7 @@ def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
         with h5py.File(old_features, 'r') as f:
             feature_dict = {}
             for k, v in f['scalars'].items():
-                feature_dict[k] = v.value
+                feature_dict[k] = v[...]
 
         old_features = feature_dict
 
@@ -303,7 +303,7 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
         if k in skip:
             continue
         dset = h5_to_dict(h5py.File(v['path'][0], 'r'), 'scalars')
-        timestamps = h5py.File(v['path'][0], 'r')['metadata/timestamps'].value
+        timestamps = h5py.File(v['path'][0], 'r')['metadata/timestamps'][...]
         dct = read_yaml(v['path'][1])
         parameters = dct['parameters']
 

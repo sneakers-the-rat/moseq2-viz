@@ -80,7 +80,7 @@ def h5_to_dict(h5file, path):
 
     for key, item in h5file[path].items():
         if type(item) is h5py.Dataset:
-            ans[key] = item.value
+            ans[key] = item[...]
         elif type(item) is h5py.Group:
             ans[key] = h5_to_dict(h5file, path + key + '/')
     return ans

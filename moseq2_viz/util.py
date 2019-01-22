@@ -53,22 +53,22 @@ def check_video_parameters(index):
     return vid_parameters
 
 
-def commented_map_to_dict(cmap):
-
-    new_var = dict()
-
-    if type(cmap) is CommentedMap or type(cmap) is dict:
-        for k, v in cmap.items():
-            if type(v) is CommentedMap or type(v) is dict:
-                new_var[k] = commented_map_to_dict(v)
-            elif type(v) is np.ndarray:
-                new_var[k] = v.tolist()
-            elif isinstance(v, np.generic):
-                new_var[k] = np.asscalar(v)
-            else:
-                new_var[k] = v
-
-    return new_var
+# def commented_map_to_dict(cmap):
+#
+#     new_var = dict()
+#
+#     if type(cmap) is CommentedMap or type(cmap) is dict:
+#         for k, v in cmap.items():
+#             if type(v) is CommentedMap or type(v) is dict:
+#                 new_var[k] = commented_map_to_dict(v)
+#             elif type(v) is np.ndarray:
+#                 new_var[k] = v.tolist()
+#             elif isinstance(v, np.generic):
+#                 new_var[k] = np.asscalar(v)
+#             else:
+#                 new_var[k] = v
+#
+#     return new_var
 
 
 def h5_to_dict(h5file, path):
@@ -130,7 +130,7 @@ def parse_index(index_file, get_metadata=False):
            for idx in index['files']]
     h5_uuids = [idx['uuid'] for idx in index['files']]
     groups = [idx['group'] for idx in index['files']]
-    metadata = [commented_map_to_dict(idx['metadata'])
+    metadata = [idx['metadata']
                 if 'metadata' in idx.keys() else {} for idx in index['files']]
 
     sorted_index = {

@@ -1,7 +1,6 @@
 import os
 import h5py
 from ruamel.yaml import YAML
-from ruamel.yaml import CommentedMap
 import numpy as np
 import re
 

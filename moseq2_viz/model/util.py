@@ -218,10 +218,10 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
             seq_array, locs = _get_transitions(v)
             to_rem = np.where(np.logical_or(seq_array > max_syllable,
                                             seq_array == fill_value))
-            durs = np.diff(np.insert(locs, len(locs), len(v)))
 
             seq_array = np.delete(seq_array, to_rem)
             locs = np.delete(locs, to_rem)
+            durs = np.diff(np.insert(locs, len(locs), len(v)))
 
             for s, d in zip(seq_array, durs):
                 if use_usage:
@@ -234,10 +234,10 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
 
         seq_array, locs = _get_transitions(data)
         to_rem = np.where(seq_array > max_syllable)[0]
-        durs = np.diff(np.insert(locs, len(locs), len(data)))
 
         seq_array = np.delete(seq_array, to_rem)
         locs = np.delete(locs, to_rem)
+        durs = np.diff(np.insert(locs, len(locs), len(data)))
 
         for s, d in zip(seq_array, durs):
             if use_usage:

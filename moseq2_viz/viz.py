@@ -55,7 +55,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             plot_differences=True, difference_threshold=.0005,
                             difference_edge_width_scale=500, weights=None,
                             usage_scale=1e5, arrows=False, keep_orphans=False,
-                            orphan_weight=0, **kwargs):
+                            orphan_weight=0, edge_color='k', **kwargs):
 
     if headless:
         plt.switch_backend('agg')
@@ -137,7 +137,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
                                edgecolors=node_edge_color, node_color=node_color,
                                node_size=node_size, ax=ax[i][i])
         nx.draw_networkx_edges(graph, pos, graph.edges(), width=width, ax=ax[i][i],
-                               arrows=arrows)
+                               arrows=arrows, edge_color=edge_color)
         if font_size > 0:
             nx.draw_networkx_labels(graph, pos,
                                     {k: k for k in pos.keys()},

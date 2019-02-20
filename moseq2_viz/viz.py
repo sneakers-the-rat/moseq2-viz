@@ -89,10 +89,13 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
             usage_total = sum(usages[i].values())
             for k, v in usages[i].items():
                 usages[i][k] = v / usage_total
+        usage_anchor = usages[anchor]
+    else:
+        usage_anchor = None
 
     ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
         weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
-        keep_orphans=keep_orphans, usages=usages[anchor],
+        keep_orphans=keep_orphans, usages=usage_anchor,
         usage_threshold=usage_threshold)
     graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
     nnodes = len(graph_anchor.nodes())

@@ -108,3 +108,5 @@ venv.bak/
 # it just works
 .DS_Store
 
+# VS Code
+.vscode/

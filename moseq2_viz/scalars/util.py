@@ -302,8 +302,15 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
     for k, v in tqdm.tqdm(index['files'].items(), disable=disable_output):
         if k in skip:
             continue
-        dset = h5_to_dict(h5py.File(v['path'][0], 'r'), 'scalars')
-        timestamps = h5py.File(v['path'][0], 'r')['/timestamps'].value
+        h5 = h5py.File(v['path'][0], 'r')
+        dset = h5_to_dict(h5, 'scalars')
+        if 'timestamps' in h5:
+            # h5 format as of v0.1.3
+            timestamps = h5['/timestamps'].value
+        elif timestamps in h5['/metadata']:
+            # h5 format prior to v0.1.3
+            timestamps = h5['/metadata/timestamps'].value
+
         parameters = read_yaml(v['path'][1])['parameters']
 
         if include_feedback:

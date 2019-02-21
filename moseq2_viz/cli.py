@@ -347,11 +347,11 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 
     print('Creating plot...')
 
-    plt, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
-                                     edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
-                                     difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
-                                     orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
-                                     layout=layout, groups=group, usage_scale=node_scaling, headless=True)
+    plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
+                                        edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
+                                        difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
+                                        orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
+                                        layout=layout, groups=group, usage_scale=node_scaling, headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
 

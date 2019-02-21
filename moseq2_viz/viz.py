@@ -184,7 +184,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
                                             font_size=font_size,
                                             ax=ax[i][j + i + 1])
 
-                ax[i][j + 1].set_title('{} - {}'.format(groups[j + i + 1], groups[i]))
+                ax[i][j + i + 1].set_title('{} - {}'.format(groups[j + i + 1], groups[i]))
 
     for i in range(len(ax)):
         for j in range(len(ax[i])):

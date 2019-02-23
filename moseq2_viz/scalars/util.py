@@ -44,7 +44,7 @@ def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
         print('Loading scalars from h5 dataset')
         feature_dict = {}
         for k, v in old_features.items():
-            feature_dict[k] = v.value
+            feature_dict[k] = v[...]
 
         old_features = feature_dict
 
@@ -53,7 +53,7 @@ def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
         with h5py.File(old_features, 'r') as f:
             feature_dict = {}
             for k, v in f['scalars'].items():
-                feature_dict[k] = v.value
+                feature_dict[k] = v[...]
 
         old_features = feature_dict
 
@@ -302,30 +302,37 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
     for k, v in tqdm.tqdm(index['files'].items(), disable=disable_output):
         if k in skip:
             continue
+
         h5 = h5py.File(v['path'][0], 'r')
         dset = h5_to_dict(h5, 'scalars')
         if 'timestamps' in h5:
             # h5 format as of v0.1.3
-            timestamps = h5['/timestamps'].value
+            timestamps = h5['/timestamps'][...]
         elif timestamps in h5['/metadata']:
             # h5 format prior to v0.1.3
-            timestamps = h5['/metadata/timestamps'].value
+            timestamps = h5['/metadata/timestamps'][...]
 
-        parameters = read_yaml(v['path'][1])['parameters']
+        dct = read_yaml(v['path'][1])
+        parameters = dct['parameters']
 
         if include_feedback:
-            feedback_path = os.path.join(os.path.dirname(parameters['input_file']),
-                                         'feedback_ts.txt')
-
-            if not os.path.exists(feedback_path):
-                feedback_path = os.path.join(os.path.dirname(v['path'][0]),
-                                             '..', 'feedback_ts.txt')
-
-            if os.path.exists(feedback_path):
-                feedback_ts = load_timestamps(feedback_path, 0)
-                feedback_status = load_timestamps(feedback_path, 1)
+            if 'feedback_timestamps' in dct.keys():
+                ts_data = np.array(dct['feedback_timestamps'])
+                feedback_ts, feedback_status = ts_data[:, 0], ts_data[:, 1]
             else:
-                continue
+                feedback_path = os.path.join(os.path.dirname(parameters['input_file']),
+                                             'feedback_ts.txt')
+                if not os.path.exists(feedback_path):
+                    feedback_path = os.path.join(os.path.dirname(v['path'][0]),
+                                                 '..', 'feedback_ts.txt')
+
+                if os.path.exists(feedback_path):
+                    feedback_ts = load_timestamps(feedback_path, 0)
+                    feedback_status = load_timestamps(feedback_path, 1)
+                else:
+                    warnings.warn('Could not find feedback file for {}'.format(v['path'][0]))
+                    feedback_ts = None
+                    #continue
 
         tmp = convert_legacy_scalars(dset, force=force_conversion)
 
@@ -334,6 +341,7 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
 
         nframes = len(dset[scalar_names[0]])
         if len(timestamps) != nframes:
+            warnings.warn('Timestamps not equal to number of frames for {}'.format(v['path'][0]))
             continue
 
         for scalar in scalar_names:

@@ -1,6 +1,6 @@
 import os
 import h5py
-import ruamel.yaml as yaml
+from ruamel.yaml import YAML
 import numpy as np
 import re
 
@@ -23,9 +23,11 @@ def check_video_parameters(index):
 
     dicts = []
 
+    yaml = YAML(typ='safe')
+
     for yml in ymls:
         with open(yml, 'r') as f:
-            dicts.append(yaml.load(f.read(), Loader=yaml.RoundTripLoader))
+            dicts.append(yaml.load(f.read()))
 
     check_parameters = ['crop_size', 'fps', 'max_height', 'min_height']
 
@@ -51,22 +53,22 @@ def check_video_parameters(index):
     return vid_parameters
 
 
-def commented_map_to_dict(cmap):
-
-    new_var = dict()
-
-    if type(cmap) is yaml.comments.CommentedMap or type(cmap) is dict:
-        for k, v in cmap.items():
-            if type(v) is yaml.comments.CommentedMap or type(v) is dict:
-                new_var[k] = commented_map_to_dict(v)
-            elif type(v) is np.ndarray:
-                new_var[k] = v.tolist()
-            elif isinstance(v, np.generic):
-                new_var[k] = np.asscalar(v)
-            else:
-                new_var[k] = v
-
-    return new_var
+# def commented_map_to_dict(cmap):
+#
+#     new_var = dict()
+#
+#     if type(cmap) is CommentedMap or type(cmap) is dict:
+#         for k, v in cmap.items():
+#             if type(v) is CommentedMap or type(v) is dict:
+#                 new_var[k] = commented_map_to_dict(v)
+#             elif type(v) is np.ndarray:
+#                 new_var[k] = v.tolist()
+#             elif isinstance(v, np.generic):
+#                 new_var[k] = np.asscalar(v)
+#             else:
+#                 new_var[k] = v
+#
+#     return new_var
 
 
 def h5_to_dict(h5file, path):
@@ -80,7 +82,7 @@ def h5_to_dict(h5file, path):
 
     for key, item in h5file[path].items():
         if type(item) is h5py.Dataset:
-            ans[key] = item.value
+            ans[key] = item[...]
         elif type(item) is h5py.Group:
             ans[key] = h5_to_dict(h5file, path + key + '/')
     return ans
@@ -113,8 +115,10 @@ def load_timestamps(timestamp_file, col=0):
 
 def parse_index(index_file, get_metadata=False):
 
+    yaml = YAML(typ='safe')
+
     with open(index_file, 'r') as f:
-        index = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
+        index = yaml.load(f)
 
     # sort index by uuids
 
@@ -126,7 +130,8 @@ def parse_index(index_file, get_metadata=False):
            for idx in index['files']]
     h5_uuids = [idx['uuid'] for idx in index['files']]
     groups = [idx['group'] for idx in index['files']]
-    metadata = [commented_map_to_dict(idx['metadata']) for idx in index['files']]
+    metadata = [idx['metadata']
+                if 'metadata' in idx.keys() else {} for idx in index['files']]
 
     sorted_index = {
         'files': {},
@@ -169,12 +174,14 @@ def recursive_find_h5s(root_dir=os.getcwd(),
 
 def read_yaml(yaml_file):
 
+    yaml = YAML(typ='safe')
+
     with open(yaml_file, 'r') as f:
         dat = f.read()
         try:
-            return_dict = yaml.load(dat, Loader=yaml.RoundTripLoader)
+            return_dict = yaml.load(dat)
         except yaml.constructor.ConstructorError:
-            return_dict = yaml.load(dat, Loader=yaml.Loader)
+            return_dict = yaml.load(dat)
 
     return return_dict
 

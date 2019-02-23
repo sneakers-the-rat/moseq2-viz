@@ -1,5 +1,5 @@
 from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
-                             parse_index, commented_map_to_dict, h5_to_dict)
+                             parse_index, h5_to_dict)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
                                    results_to_dataframe, parse_model_results,
                                    get_transition_matrix, get_syllable_statistics)
@@ -103,7 +103,7 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
         try:
             new_file = '{}_update.yaml'.format(os.path.basename(tup[1]))
             with open(new_file, 'w+') as f:
-                yaml.dump(commented_map_to_dict(tup[0]), f, Dumper=yaml.RoundTripDumper)
+                yaml.dump(tup[0], f, Dumper=yaml.RoundTripDumper)
             shutil.move(new_file, tup[1])
         except Exception:
             raise Exception
@@ -214,6 +214,18 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
 
     index, sorted_index = parse_index(index_file)
     vid_parameters = check_video_parameters(sorted_index)
+
+    # uuid in both the labels and the index
+    uuid_set = set.intersection(set(label_uuids),
+                                set(sorted_index['files'].keys()))
+
+    # make sure the files exist
+    uuid_set = [uuid for uuid in uuid_set if os.path.exists(sorted_index['files'][uuid]['path'][0])]
+
+    # harmonize everything...
+    labels = [label_arr for label_arr, uuid in zip(labels, label_uuids) if uuid in uuid_set]
+    label_uuids = [uuid for uuid in label_uuids if uuid in uuid_set]
+    sorted_index['files'] = {k: v for k, v in sorted_index['files'].items() if k in uuid_set}
 
     if vid_parameters['resolution'] is not None:
         raw_size = vid_parameters['resolution']
@@ -336,11 +348,11 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 
     print('Creating plot...')
 
-    plt, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
-                                     edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
-                                     difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
-                                     orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
-                                     layout=layout, groups=group, usage_scale=node_scaling, headless=True)
+    plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
+                                        edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
+                                        difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
+                                        orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
+                                        layout=layout, groups=group, usage_scale=node_scaling, headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
 

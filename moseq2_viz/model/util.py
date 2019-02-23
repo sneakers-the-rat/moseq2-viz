@@ -1,5 +1,6 @@
 from collections import defaultdict, OrderedDict
 from copy import deepcopy
+from sklearn.cluster import KMeans
 from moseq2_viz.util import h5_to_dict
 import numpy as np
 import h5py
@@ -73,7 +74,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
 
         for v in labels:
 
-            transitions, _ = _get_transitions(v)
+            transitions = _get_transitions(v)[0]
 
             for (i, j) in zip(transitions, transitions[1:]):
                 if i <= max_syllable and j <= max_syllable:
@@ -82,9 +83,9 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
         if normalize == 'bigram':
             init_matrix /= init_matrix.sum()
         elif normalize == 'rows':
-            init_matrix /= init_matrix.sum(axis=1)
+            init_matrix /= init_matrix.sum(axis=1, keepdims=True)
         elif normalize == 'columns':
-            init_matrix /= init_matrix.sum(axis=0)
+            init_matrix /= init_matrix.sum(axis=0, keepdims=True)
         else:
             pass
 
@@ -95,22 +96,22 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
         for v in tqdm.tqdm(labels, disable=disable_output):
 
             init_matrix = np.zeros((max_syllable + 1, max_syllable + 1), dtype='float32') + smoothing
-            transitions, _ = _get_transitions(v)
+            transitions = _get_transitions(v)[0]
 
             for (i, j) in zip(transitions, transitions[1:]):
                 if i <= max_syllable and j <= max_syllable:
                     init_matrix[i, j] += 1
 
-        if normalize == 'bigram':
-            init_matrix /= init_matrix.sum()
-        elif normalize == 'rows':
-            init_matrix /= init_matrix.sum(axis=1)
-        elif normalize == 'columns':
-            init_matrix /= init_matrix.sum(axis=0)
-        else:
-            pass
+            if normalize == 'bigram':
+                init_matrix /= init_matrix.sum()
+            elif normalize == 'rows':
+                init_matrix /= init_matrix.sum(axis=1, keepdims=True)
+            elif normalize == 'columns':
+                init_matrix /= init_matrix.sum(axis=0, keepdims=True)
+            else:
+                pass
 
-        all_mats.append(init_matrix)
+            all_mats.append(init_matrix)
 
     return all_mats
 
@@ -120,6 +121,9 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
 
     h5s = [v['path'][0] for v in index['files'].values()]
     h5_uuids = list(index['files'].keys())
+
+    # only extract if we have a match in the index
+    # label_uuids = [uuid for uuid in label_uuids if uuid in h5_uuids]
 
     # grab the original indices from the pca file as well...
 
@@ -214,10 +218,10 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
             seq_array, locs = _get_transitions(v)
             to_rem = np.where(np.logical_or(seq_array > max_syllable,
                                             seq_array == fill_value))
-            durs = np.diff(np.insert(locs, len(locs), len(v)))
 
             seq_array = np.delete(seq_array, to_rem)
             locs = np.delete(locs, to_rem)
+            durs = np.diff(np.insert(locs, len(locs), len(v)))
 
             for s, d in zip(seq_array, durs):
                 if use_usage:
@@ -230,10 +234,10 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
 
         seq_array, locs = _get_transitions(data)
         to_rem = np.where(seq_array > max_syllable)[0]
-        durs = np.diff(np.insert(locs, len(locs), len(data)))
 
         seq_array = np.delete(seq_array, to_rem)
         locs = np.delete(locs, to_rem)
+        durs = np.diff(np.insert(locs, len(locs), len(data)))
 
         for s, d in zip(seq_array, durs):
             if use_usage:
@@ -295,7 +299,7 @@ def parse_batch_modeling(filename):
     return results_dict
 
 
-def parse_model_results(model_obj, restart_idx=0,
+def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
                         map_uuid_to_keys=False,
                         sort_labels_by_usage=False,
                         count='usage'):
@@ -327,7 +331,12 @@ def parse_model_results(model_obj, restart_idx=0,
 
     output_dict = deepcopy(model_obj)
     if type(output_dict['labels']) is list and type(output_dict['labels'][0]) is list:
-        output_dict['labels'] = [np.squeeze(tmp) for tmp in output_dict['labels'][restart_idx]]
+        if np.ndim(output_dict['labels'][0][0]) == 2:
+            output_dict['labels'] = [np.squeeze(tmp[resample_idx]) for tmp in output_dict['labels'][restart_idx]]
+        elif np.ndim(output_dict['labels'][0][0]) == 1:
+            output_dict['labels'] = [np.squeeze(tmp) for tmp in output_dict['labels'][restart_idx]]
+        else:
+            raise RuntimeError('Could not parse model labels')
 
     if type(output_dict['model_parameters']) is list:
         output_dict['model_parameters'] = output_dict['model_parameters'][restart_idx]
@@ -335,8 +344,12 @@ def parse_model_results(model_obj, restart_idx=0,
     if sort_labels_by_usage:
         output_dict['labels'], sorting = relabel_by_usage(output_dict['labels'], count=count)
         old_ar_mat = deepcopy(output_dict['model_parameters']['ar_mat'])
+        old_nu = deepcopy(output_dict['model_parameters']['nu'])
         for i, sort_idx in enumerate(sorting):
             output_dict['model_parameters']['ar_mat'][i] = old_ar_mat[sort_idx]
+            if type(output_dict['model_parameters']['nu']) is list:
+                output_dict['model_parameters']['nu'][i] = old_nu[sort_idx]
+
 
     if map_uuid_to_keys:
         if 'train_list' in output_dict.keys():
@@ -573,3 +586,57 @@ def whiten_pcs(pca_scores, method='all', center=True):
             whitened_scores[k] = _whiten_all({k: v})[k]
 
     return whitened_scores
+
+
+def normalize_pcs(pca_scores, method='z'):
+    """Normalize PCs (either de-mean or z-score)
+    """
+
+    norm_scores = deepcopy(pca_scores)
+    if method.lower()[0] == 'z':
+        all_values = np.concatenate(list(norm_scores.values()), axis=0)
+        mu = np.nanmean(all_values, axis=0)
+        sig = np.nanstd(all_values, axis=0)
+        for k, v in norm_scores.items():
+            norm_scores[k] = (v - mu) / sig
+    elif method.lower()[0] == 'm':
+        all_values = np.concatenate(list(norm_scores.values()), axis=0)
+        mu = np.nanmean(all_values, axis=0)
+        for k, v in norm_scores.items():
+            norm_scores[k] = v - mu
+
+    return norm_scores
+
+
+def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60,
+                             max_samples=100, npcs=10, subsampling=None,
+                             remove_offset=False, **kwargs):
+    # pad using zeros, get dtw distances...
+
+    durs = [idx[1] - idx[0] for idx, _, _ in slices]
+    use_slices = [_ for i, _ in enumerate(slices) if durs[i] < max_dur]
+    if max_samples is not None and len(use_slices) > max_samples:
+        choose_samples = np.random.permutation(range(len(use_slices)))[:max_samples]
+        use_slices = [_ for i, _ in enumerate(use_slices) if i in choose_samples]
+
+    syllable_matrix = np.zeros((len(use_slices), max_dur, npcs), 'float32')
+#     syllable_matrix[:] = np.nan
+
+    for i, (idx, uuid, h5) in enumerate(use_slices):
+        syllable_matrix[i, :idx[1]-idx[0], :] = pca_scores[uuid][idx[0]:idx[1], :npcs]
+
+    if remove_offset:
+        syllable_matrix = syllable_matrix - syllable_matrix[:, 0, :][:, None, :]
+
+    if subsampling is not None and subsampling > 0:
+        try:
+            km = KMeans(subsampling)
+            syllable_matrix = syllable_matrix.reshape(syllable_matrix.shape[0], max_dur * npcs)
+            syllable_matrix = syllable_matrix[np.all(~np.isnan(syllable_matrix), axis=1), :]
+            km.fit(syllable_matrix)
+            syllable_matrix = km.cluster_centers_.reshape(subsampling, max_dur, npcs)
+        except Exception:
+            syllable_matrix = np.zeros((subsampling, max_dur, npcs))
+            syllable_matrix[:] = np.nan
+
+    return syllable_matrix

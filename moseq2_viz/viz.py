@@ -55,7 +55,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             plot_differences=True, difference_threshold=.0005,
                             difference_edge_width_scale=500, weights=None,
                             usage_scale=1e5, arrows=False, keep_orphans=False,
-                            orphan_weight=0, **kwargs):
+                            orphan_weight=0, edge_color='k', **kwargs):
 
     if headless:
         plt.switch_backend('agg')
@@ -89,25 +89,31 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
             usage_total = sum(usages[i].values())
             for k, v in usages[i].items():
                 usages[i][k] = v / usage_total
+        usages_anchor = usages[anchor]
+    else:
+        usages_anchor = None
 
     ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
         weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
-        keep_orphans=keep_orphans, usages=usages[anchor],
+        keep_orphans=keep_orphans, usages=usages_anchor,
         usage_threshold=usage_threshold)
     graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
     nnodes = len(graph_anchor.nodes())
 
-    if layout.lower() == 'spring':
+    if type(layout) is str and layout.lower() == 'spring':
         if 'k' not in kwargs.keys():
             kwargs['k'] = 1.5 / np.sqrt(nnodes)
         pos = nx.spring_layout(graph_anchor, **kwargs)
-    elif layout.lower() == 'circular':
+    elif type(layout) is str and layout.lower() == 'circular':
         pos = nx.circular_layout(graph_anchor, **kwargs)
-    elif layout.lower() == 'spectral':
+    elif type(layout) is str and layout.lower() == 'spectral':
         pos = nx.spectral_layout(graph_anchor, **kwargs)
-    elif layout.lower()[:8] == 'graphviz':
+    elif type(layout) is str and layout.lower()[:8] == 'graphviz':
         prog = re.split(r'\:', layout.lower())[1]
         pos = graphviz_layout(graph_anchor, prog=prog, **kwargs)
+    elif type(layout) is dict:
+        # user passed pos directly
+        pos = layout
     else:
         raise RuntimeError('Did not understand layout type')
 
@@ -134,7 +140,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
                                edgecolors=node_edge_color, node_color=node_color,
                                node_size=node_size, ax=ax[i][i])
         nx.draw_networkx_edges(graph, pos, graph.edges(), width=width, ax=ax[i][i],
-                               arrows=arrows)
+                               arrows=arrows, edge_color=edge_color)
         if font_size > 0:
             nx.draw_networkx_labels(graph, pos,
                                     {k: k for k in pos.keys()},
@@ -181,17 +187,18 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
                                             font_size=font_size,
                                             ax=ax[i][j + i + 1])
 
-                ax[i][j + 1].set_title('{} - {}'.format(groups[j + i + 1], groups[i]))
+                ax[i][j + i + 1].set_title('{} - {}'.format(groups[j + i + 1], groups[i]))
 
     for i in range(len(ax)):
         for j in range(len(ax[i])):
             ax[i][j].axis('off')
 
-    plt.show()
+    # plt.show()
 
-    return fig, ax
+    return fig, ax, pos
 
 
+#TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
                       crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
                       center=False, rotate=False):

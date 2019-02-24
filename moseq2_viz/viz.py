@@ -50,7 +50,7 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
 def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             edge_threshold=.0025, anchor=0, usage_threshold=0,
                             node_color='w', node_edge_color='r', layout='spring',
-                            edge_width_scale=100, node_size=400,
+                            edge_width_scale=100, node_size=400, fig=None, ax=None,
                             width_per_group=8, height=8, headless=False, font_size=12,
                             plot_differences=True, difference_threshold=.0005,
                             difference_edge_width_scale=500, weights=None,
@@ -117,9 +117,10 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     else:
         raise RuntimeError('Did not understand layout type')
 
-    fig, ax = plt.subplots(ngraphs, ngraphs,
-                           figsize=(ngraphs*width_per_group,
-                                    ngraphs*width_per_group))
+    if fig is None or ax is None:
+        fig, ax = plt.subplots(ngraphs, ngraphs,
+                               figsize=(ngraphs*width_per_group,
+                                        ngraphs*width_per_group))
 
     if ngraphs == 1:
         ax = [[ax]]

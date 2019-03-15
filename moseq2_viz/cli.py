@@ -1,5 +1,5 @@
 from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
-                             parse_index, h5_to_dict)
+                             parse_index, h5_to_dict, clean_dict)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
                                    results_to_dataframe, parse_model_results,
                                    get_transition_matrix, get_syllable_statistics)
@@ -97,7 +97,7 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
 
     for i, tup in tqdm.tqdm(enumerate(to_load), total=len(to_load), desc='Copying data to yamls'):
         with h5py.File(tup[2], 'r') as f:
-            tmp = h5_to_dict(f, h5_metadata_path)
+            tmp = clean_dict(h5_to_dict(f, h5_metadata_path))
             tup[0]['metadata'] = dict(tmp)
 
         try:

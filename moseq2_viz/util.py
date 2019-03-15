@@ -71,6 +71,24 @@ def check_video_parameters(index):
 #     return new_var
 
 
+def clean_dict(dct):
+
+    new_var = dict()
+
+    if type(dct) is dict:
+        for k, v in dct.items():
+            if type(v) is dict:
+                new_var[k] = clean_dict(v)
+            elif type(v) is np.ndarray:
+                new_var[k] = v.tolist()
+            elif isinstance(v, np.generic):
+                new_var[k] = np.asscalar(v)
+            else:
+                new_var[k] = v
+
+    return new_var
+
+
 def h5_to_dict(h5file, path):
     """
     ....

@@ -204,6 +204,13 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
         # load in h5, use index found using another function
         pass
 
+    info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
+    info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
+    info_file = os.path.join(output_dir, 'info.yaml')
+
+    with open(info_file, 'w+') as f:
+        yaml.dump(info_dict, f, Dumper=yaml.RoundTripDumper)
+
     if sort:
         labels, ordering = relabel_by_usage(labels, count=count)
     else:

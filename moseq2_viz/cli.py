@@ -205,6 +205,8 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
     elif model_fit.endswith('.h5'):
         # load in h5, use index found using another function
         pass
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
     info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
@@ -219,9 +221,6 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
         labels, ordering = relabel_by_usage(labels, count=count)
     else:
         ordering = list(range(max_syllable))
-
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
 
     index, sorted_index = parse_index(index_file)
     vid_parameters = check_video_parameters(sorted_index)

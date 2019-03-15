@@ -190,6 +190,8 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
         proc.cpu_affinity(list(range(cpu_count)))
         # os.system('taskset -p 0xff {:d}'.format(os.getpid()))
 
+    model_path = model_fit
+
     # need to handle h5 intelligently here...
 
     if model_fit.endswith('.p') or model_fit.endswith('.pz'):
@@ -206,7 +208,7 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
 
     info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
     info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
-    info_dict['model_path'] = model_fit
+    info_dict['model_path'] = model_path
     info_dict['index_path'] = index_file
     info_file = os.path.join(output_dir, 'info.yaml')
 

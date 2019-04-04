@@ -89,21 +89,32 @@ def clean_dict(dct):
     return new_var
 
 
-def h5_to_dict(h5file, path):
-    """
-    ....
-    """
+def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
     ans = {}
-
-    if type(h5file) is str:
-        h5file = h5py.File(h5file, 'r')
-
-    for key, item in h5file[path].items():
-        if type(item) is h5py.Dataset:
-            ans[key] = item[...]
-        elif type(item) is h5py.Group:
-            ans[key] = h5_to_dict(h5file, path + key + '/')
+    for key, item in file[path].items():
+        if isinstance(item, h5py._hl.dataset.Dataset):
+            ans[key] = item[()]
+        elif isinstance(item, h5py._hl.group.Group):
+            ans[key] = _load_h5_to_dict(file, '/'.join([path, key]))
     return ans
+
+
+def h5_to_dict(h5file, path: str) -> dict:
+    """
+    Args:
+        h5file (str or h5py.File): file path to the given h5 file or the h5 file handle
+        path: path to the base dataset within the h5 file
+    Returns:
+        a dict with h5 file contents with the same path structure
+    """
+    if isinstance(h5file, str):
+        with h5py.File(h5file, 'r') as f:
+            out = _load_h5_to_dict(f, path)
+    elif isinstance(h5file, h5py.File):
+        out = _load_h5_to_dict(h5file, path)
+    else:
+        raise Exception('file input not understood - need h5 file path or file object')
+    return out
 
 
 def load_changepoints(cpfile):

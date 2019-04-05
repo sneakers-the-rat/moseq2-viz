@@ -166,7 +166,7 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 
 @cli.command(name='make-crowd-movies')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
-@click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
+@click.argument('model-path', type=click.Path(exists=True, resolve_path=True))
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
 @click.option('--max-examples', '-m', type=int, default=40, help="Number of examples to show")
 @click.option('--threads', '-t', type=int, default=-1, help="Number of threads to use for rendering crowd movies")
@@ -180,25 +180,22 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 @click.option('--scale', type=float, default=1, help="Scaling from pixel units to mm")
 @click.option('--cmap', type=str, default='jet', help="Name of valid Matplotlib colormap for false-coloring images")
 @click.option('--dur-clip', default=300, help="Exclude syllables more than this number of frames (None for no limit)")
-def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort, count,
+def make_crowd_movies(index_file, model_path, max_syllable, max_examples, threads, sort, count,
                       output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip):
 
-    if platform == 'linux' or platform == 'linux2':
+    if platform in ['linux', 'linux2']:
         print('Setting CPU affinity to use all CPUs...')
         cpu_count = psutil.cpu_count()
         proc = psutil.Process()
         proc.cpu_affinity(list(range(cpu_count)))
-        # os.system('taskset -p 0xff {:d}'.format(os.getpid()))
-
-    model_path = model_fit
 
     # need to handle h5 intelligently here...
 
-    if model_fit.endswith('.p') or model_fit.endswith('.pz'):
-        model_fit = parse_model_results(joblib.load(model_fit))
+    if model_path.endswith('.p') or model_path.endswith('.pz'):
+        model_fit = parse_model_results(joblib.load(model_path))
         labels = model_fit['labels']
 
-        if 'train_list' in model_fit.keys():
+        if 'train_list' in model_fit:
             label_uuids = model_fit['train_list']
         else:
             label_uuids = model_fit['keys']
@@ -226,8 +223,7 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
     vid_parameters = check_video_parameters(sorted_index)
 
     # uuid in both the labels and the index
-    uuid_set = set.intersection(set(label_uuids),
-                                set(sorted_index['files'].keys()))
+    uuid_set = set(label_uuids) & set(sorted_index['files'].keys()))
 
     # make sure the files exist
     uuid_set = [uuid for uuid in uuid_set if os.path.exists(sorted_index['files'][uuid]['path'][0])]
@@ -254,7 +250,7 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
             warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
             slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
 
-        matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=dur_clip,
+        matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=dur_clip, min_height=min_height,
                              crop_size=vid_parameters['crop_size'], raw_size=raw_size, scale=scale)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)

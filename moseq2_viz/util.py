@@ -100,13 +100,13 @@ def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
 
 
 def h5_to_dict(h5file, path: str) -> dict:
-    """
+    '''
     Args:
         h5file (str or h5py.File): file path to the given h5 file or the h5 file handle
         path: path to the base dataset within the h5 file
     Returns:
         a dict with h5 file contents with the same path structure
-    """
+    '''
     if isinstance(h5file, str):
         with h5py.File(h5file, 'r') as f:
             out = _load_h5_to_dict(f, path)

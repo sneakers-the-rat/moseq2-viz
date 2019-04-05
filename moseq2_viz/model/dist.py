@@ -8,9 +8,10 @@ from moseq2_viz.model.util import (whiten_pcs, parse_model_results,
                                    get_syllable_slices, retrieve_pcs_from_slices,
                                    normalize_pcs)
 from moseq2_viz.util import strided_app, h5_to_dict
-from moseq2_viz.scalars.util import get_scalar_map, get_scalar_triggered_average
+from moseq2_viz.scalars.util import get_scalar_map, get_scalar_triggered_average, process_scalars
 from scipy.spatial.distance import squareform, pdist
 from functools import partial
+from tqdm import tqdm_notebook
 
 
 def get_behavioral_distance(index, model_file, whiten='all',
@@ -22,23 +23,34 @@ def get_behavioral_distance(index, model_file, whiten='all',
     dist_dict = {}
 
     defaults = {
-        'scalars': {'nlags': 10},
-        'ar': {'sim_points': 10},
-        'ar[dtw]': {'sim_points': 60,
-                    'parallel': False},
-        'pca': {'normalize': 'demean',
-                'max_dur': 30,
-                'subsampling': 5,
-                'max_samples': None,
-                'npcs': 10,
-                'remove_offset': False,
-                'parallel': False}
+        'scalars': {
+            'nlags': 10,
+            'zscore': False
+            },
+        'ar[init]': {
+            'sim_points': 10
+            },
+        'ar[dtw]': {
+            'sim_points': 60,
+            'parallel': False
+            },
+        'pca[dtw]': {
+            'normalize': 'demean',
+            'max_dur': 30,
+            'subsampling': 5,
+            'max_samples': None,
+            'npcs': 10,
+            'remove_offset': False,
+            'parallel': False
+            },
+        'combined': {
+            'combiners': ['pca[dtw]', 'scalars'],
+            'include_scalars': ['velocity_3d_mm', 'angle', 'height_ave_mm', 'width_mm', 'length_mm']
+            }
         }
 
-    for k in defaults.keys():
-        if k not in dist_options.keys():
-            dist_options[k] = {}
-        dist_options[k] = {**defaults[k], **dist_options[k]}
+    for k in defaults:
+        dist_options[k] = {**defaults[k], **dist_options.get(k, dict())}
 
     model_fit = parse_model_results(model_file, resample_idx=resample_idx,
                                     map_uuid_to_keys=True,
@@ -48,9 +60,8 @@ def get_behavioral_distance(index, model_file, whiten='all',
     # make sure the index only uses (a) files that exist and (b) files in the model fit
     # master uuid list...uuid exists in PCA file, model file, and index
 
-    uuid_set = set.intersection(set(model_fit['labels'].keys()),
-                                set(index['files'].keys()))
-    #uuid_set = [uuid for uuid in uuid_set if os.path.exists(index['files'][uuid]['path'][0])]
+    uuid_set = set(model_fit['labels'].keys()) & set(index['files'].keys())
+    # uuid_set = [uuid for uuid in uuid_set if os.path.exists(index['files'][uuid]['path'][0])]
 
     index['files'] = {k: v for k, v in index['files'].items() if k in uuid_set}
     model_fit['labels'] = {k: v for k, v in model_fit['labels'].items() if k in uuid_set}
@@ -80,7 +91,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
             if dist.lower() == 'ar[init]':
                 dist_dict['ar[init]'] = get_behavioral_distance_ar(ar_mat,
                                                                    init_point=init,
-                                                                   **dist_options['ar'],
+                                                                   **dist_options['ar[init]'],
                                                                    max_syllable=max_syllable,
                                                                    dist='correlation')
             elif dist.lower() == 'ar[dtw]':
@@ -117,13 +128,13 @@ def get_behavioral_distance(index, model_file, whiten='all',
                                 trim_nans=False)
 
             pca_scores = h5_to_dict(index['pca_path'], 'scores')
-            pca_scores = normalize_pcs(pca_scores, method=dist_options['pca']['normalize'])
-            use_options = deepcopy(dist_options['pca'])
+            pca_scores = normalize_pcs(pca_scores, method=dist_options['pca[dtw]']['normalize'])
+            use_options = deepcopy(dist_options['pca[dtw]'])
             use_options.pop('normalize')
             parallel = use_options.pop('parallel')
 
             pc_slices = []
-            for syllable in tqdm.tqdm(range(max_syllable)):
+            for syllable in tqdm_notebook(range(max_syllable)):
                 pc_slice = retrieve_pcs_from_slices(slice_fun(syllable),
                                                     pca_scores,
                                                     **use_options)
@@ -140,8 +151,47 @@ def get_behavioral_distance(index, model_file, whiten='all',
             else:
                 print('Computing DTW matrix (this may take a minute)...')
                 full_dist_mat = dtw_ndim.distance_matrix(pc_mat, parallel=parallel, show_progress=True)
-                reduced_mat = reformat_dtw_distances(full_dist_mat, len(lens))
+                reduced_mat = reformat_dtw_distances(full_dist_mat, len(pc_slices))
                 dist_dict['pca[dtw]'] = reduced_mat
+        elif dist.lower() == 'combined':
+
+            npcs = dist_options['pca[dtw]'].get('npcs', 10)
+            scalar_map = get_scalar_map(index)
+            incl_keys = dist_options['combined'].pop('include_scalars')
+
+            scalar_dict = process_scalars(scalar_map,
+                                          include_keys=incl_keys,
+                                          zscore=dist_options['scalars'].get('zscore', False))
+
+            pca_scores = h5_to_dict(index['pca_path'], 'scores')
+            pca_scores = normalize_pcs(pca_scores, method=dist_options['pca[dtw]']['normalize'])
+
+            pca_scores = {k: np.concatenate([v[:, :npcs], scalar_dict[k].T], axis=1) for k, v in pca_scores.items() if k in scalar_dict}
+
+            use_options = deepcopy(dist_options['pca[dtw]'])
+            use_options.pop('normalize')
+            parallel = use_options.pop('parallel')
+            use_options['npcs'] += len(incl_keys)
+
+            slice_fun = partial(get_syllable_slices,
+                                labels=[model_fit['labels'][k] for k in pca_scores],
+                                label_uuids=list(pca_scores.keys()),
+                                index=index,
+                                trim_nans=False)
+
+            pc_slices = []
+            for syllable in tqdm_notebook(range(max_syllable)):
+                pc_slice = retrieve_pcs_from_slices(slice_fun(syllable),
+                                                    pca_scores,
+                                                    **use_options)
+                pc_slices.append(pc_slice)
+
+            pc_mat = np.concatenate(pc_slices, axis=0)
+
+            full_dist_mat = dtw_ndim.distance_matrix(pc_mat, parallel=parallel, show_progress=True)
+            reduced_mat = reformat_dtw_distances(full_dist_mat, len(pc_slices))
+            dist_dict['combined'] = reduced_mat
+
 
     return dist_dict
 

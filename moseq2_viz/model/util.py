@@ -604,6 +604,9 @@ def normalize_pcs(pca_scores, method='z'):
         mu = np.nanmean(all_values, axis=0)
         for k, v in norm_scores.items():
             norm_scores[k] = v - mu
+    elif method == 'ind-zscore':
+        for k, v in norm_scores.items():
+            norm_scores[k] = (v - np.nanmean(v)) / np.nanstd(v)
 
     return norm_scores
 

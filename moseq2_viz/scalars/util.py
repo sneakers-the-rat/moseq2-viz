@@ -234,6 +234,23 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
     return syll_average
 
 
+def process_scalars(scalar_map, include_keys, zscore=False):
+    out = {}
+    for k, v in scalar_map.items():
+        for scalar in include_keys:
+            if scalar is 'angle':
+                use_scalar = np.diff(v[scalar])
+                use_scalar = np.insert(use_scalar, 0, 0)
+            if zscore:
+                use_scalar = (v[scalar] - np.nanmean(v[scalar]))  / np.nanstd(v[scalar])
+            else:
+                use_scalar = v[scalar]
+            if k not in out:
+                out[k] = []
+            out[k] += [use_scalar]
+    return {k : np.array(v) for k, v in out.items()}
+
+
 def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'StartTime'],
                          include_model=None, disable_output=False,
                          include_feedback=None, force_conversion=True):

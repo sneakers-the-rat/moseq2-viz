@@ -223,7 +223,7 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
     vid_parameters = check_video_parameters(sorted_index)
 
     # uuid in both the labels and the index
-    uuid_set = set(label_uuids) & set(sorted_index['files'].keys()))
+    uuid_set = set(label_uuids) & set(sorted_index['files'].keys())
 
     # make sure the files exist
     uuid_set = [uuid for uuid in uuid_set if os.path.exists(sorted_index['files'][uuid]['path'][0])]

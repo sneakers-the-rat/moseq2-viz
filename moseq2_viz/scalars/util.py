@@ -244,7 +244,7 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
     # TODO: checks for legacy scalars
 
     uuids = list(index['files'].keys())
-    dset = h5_to_dict(h5py.File(index['files'][uuids[0]]['path'][0], 'r'), 'scalars')
+    dset = h5_to_dict(index['files'][uuids[0]]['path'][0], 'scalars')
 
     tmp = convert_legacy_scalars(dset, force=force_conversion)
 

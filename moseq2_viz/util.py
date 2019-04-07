@@ -131,7 +131,6 @@ def load_changepoints(cpfile):
 def load_timestamps(timestamp_file, col=0):
     """Read timestamps from space delimited text file
     """
-
     ts = np.fromfile(timestamp_file, sep=' ')
     if ts.ndim > 1:
         return ts[:, col]
@@ -169,6 +168,12 @@ def parse_index(index_file: str) -> tuple:
     }
 
     return index, uuid_sorted
+
+
+def get_sorted_index(index_file: str) -> dict:
+    ''' Just return the sorted index from an index_file path'''
+    _, sorted_ind = parse_index(index_file)
+    return sorted_ind
 
 
 def recursive_find_h5s(root_dir=os.getcwd(),

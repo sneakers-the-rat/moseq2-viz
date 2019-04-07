@@ -194,8 +194,6 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
         for j in range(len(ax[i])):
             ax[i][j].axis('off')
 
-    # plt.show()
-
     return fig, ax, pos
 
 

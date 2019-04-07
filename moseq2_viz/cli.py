@@ -1,5 +1,5 @@
 from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
-                             parse_index, h5_to_dict, clean_dict)
+                             parse_index, h5_to_dict, clean_dict, get_sorted_index)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
                                    results_to_dataframe, parse_model_results,
                                    get_transition_matrix, get_syllable_statistics)
@@ -191,7 +191,7 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
 
     # need to handle h5 intelligently here...
 
-    if model_path.endswith('.p') or model_path.endswith('.pz'):
+    if model_path.endswith(('.p', '.pz')):
         model_fit = parse_model_results(joblib.load(model_path))
         labels = model_fit['labels']
 
@@ -199,9 +199,9 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
             label_uuids = model_fit['train_list']
         else:
             label_uuids = model_fit['keys']
-    elif model_fit.endswith('.h5'):
+    elif model_path.endswith('.h5'):
         # load in h5, use index found using another function
-        pass
+        raise NotImplementedError('We do not support using h5 files for model output')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -219,7 +219,7 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
     else:
         ordering = list(range(max_syllable))
 
-    index, sorted_index = parse_index(index_file)
+    sorted_index = get_sorted_index(index_file)
     vid_parameters = check_video_parameters(sorted_index)
 
     # uuid in both the labels and the index
@@ -379,8 +379,8 @@ def plot_usages(index_file, model_fit, sort, count, max_syllable, group, output_
     # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
 
     model_data = parse_model_results(joblib.load(model_fit))
-    index, sorted_index = parse_index(index_file)
+    sorted_index = get_sorted_index(index_file)
     df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
-    plt, _ = usage_plot(df, groups=group, headless=True)
-    plt.savefig('{}.png'.format(output_file))
-    plt.savefig('{}.pdf'.format(output_file))
+    fig, _ = usage_plot(df, groups=group, headless=True)
+    fig.savefig(f'{output_file}.png')
+    fig.savefig(f'{output_file}.pdf')

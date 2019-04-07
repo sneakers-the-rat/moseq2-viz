@@ -1,7 +1,9 @@
 import os
 import h5py
 from ruamel.yaml import YAML
-from cytoolz import peek, pluck, valmap, curry, keyfilter, merge_with, unique, valfilter, first
+from cytoolz import curry
+from cytoolz.itertoolz import peek, pluck, unique, first, groupby
+from cytoolz.dicttoolz import valmap, valfilter, keyfilter, merge_with, dissoc, assoc
 import numpy as np
 import re
 
@@ -145,41 +147,34 @@ def load_timestamps(timestamp_file, col=0):
     return np.array(ts)
 
 
-def parse_index(index_file, get_metadata=False):
+def parse_index(index_file: str) -> tuple:
+    ''' Load an index file, and use extraction UUIDs as entries in a sorted index.
 
-    yaml = YAML(typ='safe')
+    Returns:
+        a tuple containing the loaded index file, and the index with extraction UUIDs as entries
+    '''
 
-    with open(index_file, 'r') as f:
-        index = yaml.load(f)
-
-    # sort index by uuids
-
-    # yaml_dir = os.path.dirname(index_file)
-
+    join = os.path.join
     index_dir = os.path.dirname(index_file)
-    h5s = [(os.path.join(index_dir, idx['path'][0]),
-            os.path.join(index_dir, idx['path'][1]))
-           for idx in index['files']]
-    h5_uuids = [idx['uuid'] for idx in index['files']]
-    groups = [idx['group'] for idx in index['files']]
-    metadata = [idx['metadata']
-                if 'metadata' in idx.keys() else {} for idx in index['files']]
 
-    sorted_index = {
-        'files': {},
-        'pca_path': os.path.join(index_dir, index['pca_path'])
+    index = _load_yaml(index_file)
+    files = index['files']
+
+    sorted_index = groupby('uuid', files)
+    # grab first entry in list
+    sorted_index = valmap(first, sorted_index)
+    # remove redundant uuid entry
+    sorted_index = valmap(lambda d: dissoc(d, 'uuid'), sorted_index)
+    # tuple-ize the path entry, join with the index file dirname
+    sorted_index = valmap(lambda d: assoc(d, 'path', tuple(join(index_dir, x) for x in d['path'])),
+                          sorted_index)
+
+    uuid_sorted = {
+        'files': sorted_index,
+        'pca_path': join(index_dir, index['pca_path'])
     }
 
-    for uuid, h5, group, h5_meta in zip(h5_uuids, h5s, groups, metadata):
-        sorted_index['files'][uuid] = {
-            'path':  h5,
-            'group': group,
-            'metadata': h5_meta
-        }
-
-    # ymls = ['{}.yaml'.format(os.path.splitext(h5)[0]) for h5 in h5s]
-
-    return index, sorted_index
+    return index, uuid_sorted
 
 
 def recursive_find_h5s(root_dir=os.getcwd(),
@@ -190,7 +185,7 @@ def recursive_find_h5s(root_dir=os.getcwd(),
     dicts = []
     h5s = []
     yamls = []
-    for root, dirs, files in os.walk(root_dir):
+    for root, _, files in os.walk(root_dir):
         for file in files:
             yaml_file = yaml_string.format(os.path.splitext(file)[0])
             if file.endswith(ext) and os.path.exists(os.path.join(root, yaml_file)):
@@ -221,6 +216,6 @@ def read_yaml(yaml_file):
 # from https://stackoverflow.com/questions/40084931/taking-subarrays-from-numpy-array-with-given-stride-stepsize/40085052#40085052
 # dang this is fast!
 def strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
-    nrows = ((a.size-L)//S)+1
+    nrows = ((a.size - L) // S) + 1
     n = a.strides[0]
-    return np.lib.stride_tricks.as_strided(a, shape=(nrows, L), strides=(S*n, n))
+    return np.lib.stride_tricks.as_strided(a, shape=(nrows, L), strides=(S * n, n))

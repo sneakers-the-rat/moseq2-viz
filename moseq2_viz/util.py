@@ -1,17 +1,25 @@
 import os
 import h5py
 from ruamel.yaml import YAML
+from cytoolz import peek, pluck, valmap
 import numpy as np
 import re
 
 
 # https://gist.github.com/jaytaylor/3660565
 _underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
-_underscorer2 = re.compile('([a-z0-9])([A-Z])')
+_underscorer2 = re.compile(r'([a-z0-9])([A-Z])')
+
+
+def _load_yaml(yaml_path: str):
+    yaml = YAML(typ='safe')
+    with open(yaml_path, 'r') as f:
+        loaded = yaml.load(f)
+    return loaded
 
 
 def camel_to_snake(s):
-    """Converts CamelCase to snake_case
+    """ Converts CamelCase to snake_case
     """
     subbed = _underscorer1.sub(r'\1_\2', s)
     return _underscorer2.sub(r'\1_\2', subbed).lower()
@@ -19,21 +27,22 @@ def camel_to_snake(s):
 
 def check_video_parameters(index):
 
-    ymls = [v['path'][1] for v in index['files'].values()]
-
-    dicts = []
-
-    yaml = YAML(typ='safe')
-
-    for yml in ymls:
-        with open(yml, 'r') as f:
-            dicts.append(yaml.load(f.read()))
-
+    # define constants
     check_parameters = ['crop_size', 'fps', 'max_height', 'min_height']
 
-    if 'resolution' in list(dicts[0]['parameters'].keys()):
-        check_parameters.append('resolution')
+    ymls = [v['path'][1] for v in index['files'].values()]
 
+    # load yaml config files when needed
+    dicts = map(_load_yaml, ymls)
+    # get the parameters key
+    params = pluck('parameters', dicts)
+
+    first_entry, params = peek(params)
+
+    if 'resolution' in first_entry:
+        check_parameters += ['resolution']
+
+    # TODO: functionalize this
     for chk in check_parameters:
         tmp_list = [dct['parameters'][chk] for dct in dicts]
         if not all(x == tmp_list[0] for x in tmp_list):
@@ -53,40 +62,20 @@ def check_video_parameters(index):
     return vid_parameters
 
 
-# def commented_map_to_dict(cmap):
-#
-#     new_var = dict()
-#
-#     if type(cmap) is CommentedMap or type(cmap) is dict:
-#         for k, v in cmap.items():
-#             if type(v) is CommentedMap or type(v) is dict:
-#                 new_var[k] = commented_map_to_dict(v)
-#             elif type(v) is np.ndarray:
-#                 new_var[k] = v.tolist()
-#             elif isinstance(v, np.generic):
-#                 new_var[k] = np.asscalar(v)
-#             else:
-#                 new_var[k] = v
-#
-#     return new_var
-
-
 def clean_dict(dct):
 
-    new_var = dict()
+    def clean_entry(e):
+        if isinstance(e, dict):
+            out = clean_dict(e)
+        elif isinstance(e, np.ndarray):
+            out = e.tolist()
+        elif isinstance(e, np.generic):
+            out = np.asscalar(e)
+        else:
+            out = e
+        return out
 
-    if type(dct) is dict:
-        for k, v in dct.items():
-            if type(v) is dict:
-                new_var[k] = clean_dict(v)
-            elif type(v) is np.ndarray:
-                new_var[k] = v.tolist()
-            elif isinstance(v, np.generic):
-                new_var[k] = np.asscalar(v)
-            else:
-                new_var[k] = v
-
-    return new_var
+    return valmap(clean_entry, dct)
 
 
 def _load_h5_to_dict(file: h5py.File, path: str) -> dict:

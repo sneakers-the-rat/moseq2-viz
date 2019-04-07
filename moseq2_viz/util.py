@@ -1,7 +1,7 @@
 import os
 import h5py
 from ruamel.yaml import YAML
-from cytoolz import peek, pluck, valmap
+from cytoolz import peek, pluck, valmap, curry, keyfilter, merge_with, unique, valfilter, first
 import numpy as np
 import re
 
@@ -25,7 +25,16 @@ def camel_to_snake(s):
     return _underscorer2.sub(r'\1_\2', subbed).lower()
 
 
-def check_video_parameters(index):
+def check_video_parameters(index: dict) -> dict:
+    ''' Iterates through each extraction parameter file to verify extraction parameters
+    were the same. If they weren't this function raises a RuntimeError. Otherwise, it
+    will return a dictionary containing the following parameters:
+        crop_size, fps, max_height, min_height, resolution
+    Args:
+        index: a `sorted_index` dictionary of extraction parameters
+    Returns:
+        a dictionary with a subset of the used extraction parameters
+    '''
 
     # define constants
     check_parameters = ['crop_size', 'fps', 'max_height', 'min_height']
@@ -34,30 +43,35 @@ def check_video_parameters(index):
 
     # load yaml config files when needed
     dicts = map(_load_yaml, ymls)
-    # get the parameters key
+    # get the parameters key within each dict
     params = pluck('parameters', dicts)
 
     first_entry, params = peek(params)
-
     if 'resolution' in first_entry:
         check_parameters += ['resolution']
+    
+    # filter for only keys in check_parameters
+    params = map(curry(keyfilter)(lambda k: k in check_parameters), params)
+    # turn lists (in the dict values) into tuples
+    params = map(curry(valmap)(lambda x: tuple(x) if isinstance(x, list) else x), params)
 
-    # TODO: functionalize this
-    for chk in check_parameters:
-        tmp_list = [dct['parameters'][chk] for dct in dicts]
-        if not all(x == tmp_list[0] for x in tmp_list):
-            raise RuntimeError('Parameter {} not equal in all extractions'.format(chk))
+    # get unique parameter values
+    vid_parameters = merge_with(set, params)
 
-    vid_parameters = {
-        'crop_size': tuple(dicts[0]['parameters']['crop_size']),
-        'fps': dicts[0]['parameters']['fps'],
-        'max_height': dicts[0]['parameters']['max_height'],
-        'min_height': dicts[0]['parameters']['min_height'],
-        'resolution': None
-    }
+    incorrect_parameters = valfilter(lambda x: len(x) > 1, vid_parameters)
 
-    if 'resolution' in check_parameters:
-        vid_parameters['resolution'] = tuple([tmp+100 for tmp in dicts[0]['parameters']['resolution']])
+    # if there are multiple values for a parameter, raise error
+    if incorrect_parameters:
+        raise RuntimeError(f'The following parameters are not equal across extractions: {incorrect_parameters.keys()}')
+
+    # grab the first value in the set
+    vid_parameters = valmap(first, vid_parameters)
+
+    # update resolution
+    if 'resolution' in vid_parameters:
+        vid_parameters['resolution'] = tuple(x + 100 for x in vid_parameters['resolution'])
+    else:
+        vid_parameters['resolution'] = None
 
     return vid_parameters
 

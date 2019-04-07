@@ -1,23 +1,17 @@
 import os
 import h5py
 from ruamel.yaml import YAML
-from cytoolz import curry
+from cytoolz import curry, compose
 from cytoolz.itertoolz import peek, pluck, unique, first, groupby
 from cytoolz.dicttoolz import valmap, valfilter, keyfilter, merge_with, dissoc, assoc
 import numpy as np
 import re
+from glob import glob
 
 
 # https://gist.github.com/jaytaylor/3660565
 _underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
 _underscorer2 = re.compile(r'([a-z0-9])([A-Z])')
-
-
-def _load_yaml(yaml_path: str):
-    yaml = YAML(typ='safe')
-    with open(yaml_path, 'r') as f:
-        loaded = yaml.load(f)
-    return loaded
 
 
 def camel_to_snake(s):
@@ -44,7 +38,7 @@ def check_video_parameters(index: dict) -> dict:
     ymls = [v['path'][1] for v in index['files'].values()]
 
     # load yaml config files when needed
-    dicts = map(_load_yaml, ymls)
+    dicts = map(read_yaml, ymls)
     # get the parameters key within each dict
     params = pluck('parameters', dicts)
 
@@ -157,11 +151,11 @@ def parse_index(index_file: str) -> tuple:
     join = os.path.join
     index_dir = os.path.dirname(index_file)
 
-    index = _load_yaml(index_file)
+    index = read_yaml(index_file)
     files = index['files']
 
     sorted_index = groupby('uuid', files)
-    # grab first entry in list
+    # grab first entry in list, which is a dict
     sorted_index = valmap(first, sorted_index)
     # remove redundant uuid entry
     sorted_index = valmap(lambda d: dissoc(d, 'uuid'), sorted_index)
@@ -182,35 +176,37 @@ def recursive_find_h5s(root_dir=os.getcwd(),
                        yaml_string='{}.yaml'):
     """Recursively find h5 files, along with yaml files with the same basename
     """
-    dicts = []
-    h5s = []
-    yamls = []
-    for root, _, files in os.walk(root_dir):
-        for file in files:
-            yaml_file = yaml_string.format(os.path.splitext(file)[0])
-            if file.endswith(ext) and os.path.exists(os.path.join(root, yaml_file)):
-                with h5py.File(os.path.join(root, file), 'r') as f:
-                    if 'frames' not in f.keys():
-                        continue
-                h5s.append(os.path.join(root, file))
-                yamls.append(os.path.join(root, yaml_file))
-                dicts.append(read_yaml(os.path.join(root, yaml_file)))
+
+    def has_frames(h5f):
+        '''Checks if the supplied h5 file has a frames key'''
+        with h5py.File(h5f, 'r') as f:
+            return 'frames' in f
+
+    def h5_to_yaml(h5f):
+        return yaml_string.format(os.path.splitext(h5f)[0])
+
+    # make function to test if yaml file with same basename as h5 file exists
+    yaml_exists = compose(os.path.exists, h5_to_yaml)
+
+    # grab all files with ext = .h5
+    files = glob(f'**/*{ext}', recursive=True)
+    # keep h5s that have a yaml file associated with them
+    to_keep = filter(yaml_exists, files)
+    # keep h5s that have a frames key
+    to_keep = filter(has_frames, to_keep)
+
+    h5s = list(to_keep)
+    yamls = list(map(h5_to_yaml, h5s))
+    dicts = list(map(read_yaml, yamls))
 
     return h5s, dicts, yamls
 
 
-def read_yaml(yaml_file):
-
+def read_yaml(yaml_path: str):
     yaml = YAML(typ='safe')
-
-    with open(yaml_file, 'r') as f:
-        dat = f.read()
-        try:
-            return_dict = yaml.load(dat)
-        except yaml.constructor.ConstructorError:
-            return_dict = yaml.load(dat)
-
-    return return_dict
+    with open(yaml_path, 'r') as f:
+        loaded = yaml.load(f)
+    return loaded
 
 
 # from https://stackoverflow.com/questions/40084931/taking-subarrays-from-numpy-array-with-given-stride-stepsize/40085052#40085052

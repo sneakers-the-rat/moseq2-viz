@@ -132,13 +132,13 @@ def load_timestamps(timestamp_file, col=0):
     """Read timestamps from space delimited text file
     """
 
-    ts = []
-    with open(timestamp_file, 'r') as f:
-        for line in f:
-            cols = line.split()
-            ts.append(float(cols[col]))
-
-    return np.array(ts)
+    ts = np.fromfile(timestamp_file, sep=' ')
+    if ts.ndim > 1:
+        return ts[:, col]
+    elif col > 0:
+        raise Exception(f'Timestamp file {timestamp_file} does not have more than one column of data')
+    else:
+        return ts
 
 
 def parse_index(index_file: str) -> tuple:

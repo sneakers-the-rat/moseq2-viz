@@ -45,7 +45,7 @@ def check_video_parameters(index: dict) -> dict:
     first_entry, params = peek(params)
     if 'resolution' in first_entry:
         check_parameters += ['resolution']
-    
+
     # filter for only keys in check_parameters
     params = map(curry(keyfilter)(lambda k: k in check_parameters), params)
     # turn lists (in the dict values) into tuples

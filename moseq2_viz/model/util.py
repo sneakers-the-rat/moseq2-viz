@@ -399,7 +399,7 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 
     """
 
-    if isinstance(labels, (list, np.array, np.ndarray)):
+    if isinstance(labels, (list, np.ndarray)):
         return _relabel_list_by_usage(labels, fill_value=fill_value, count=count)
     elif isinstance(labels, dict):
         # rest assured, in python 3 dicts are ordered by default

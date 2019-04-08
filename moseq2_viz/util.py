@@ -90,11 +90,15 @@ def clean_dict(dct):
 
 def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
     ans = {}
-    for key, item in file[path].items():
-        if isinstance(item, h5py._hl.dataset.Dataset):
-            ans[key] = item[()]
-        elif isinstance(item, h5py._hl.group.Group):
-            ans[key] = _load_h5_to_dict(file, '/'.join([path, key]))
+    if isinstance(file[path], h5py._hl.dataset.Dataset):
+        # only use the final path key to add to `ans`
+        ans[path.split('/')[-1]] = file[path][()]
+    else:
+        for key, item in file[path].items():
+            if isinstance(item, h5py._hl.dataset.Dataset):
+                ans[key] = item[()]
+            elif isinstance(item, h5py._hl.group.Group):
+                ans[key] = _load_h5_to_dict(file, '/'.join([path, key]))
     return ans
 
 
@@ -114,6 +118,16 @@ def h5_to_dict(h5file, path: str) -> dict:
     else:
         raise Exception('file input not understood - need h5 file path or file object')
     return out
+
+
+def get_timestamps_from_h5(h5file: str):
+    with h5py.File(h5file, 'r') as f:
+        # v0.1.3 new data format
+        is_new = 'timestamps' in f
+    if is_new:
+        return h5_to_dict(h5file, 'timestamps')['timestamps']
+    else:
+        return h5_to_dict(h5file, 'metadata/timestamps')['timestamps']
 
 
 def load_changepoints(cpfile):
@@ -174,6 +188,14 @@ def get_sorted_index(index_file: str) -> dict:
     ''' Just return the sorted index from an index_file path'''
     _, sorted_ind = parse_index(index_file)
     return sorted_ind
+
+
+def h5_filepath_from_sorted(sorted_index_entry: dict) -> str:
+    '''Gets the h5 extraction file path from a sorted index entry
+    Returns:
+        a str containing the extraction filepath
+    '''
+    return first(sorted_index_entry['path'])
 
 
 def recursive_find_h5s(root_dir=os.getcwd(),

@@ -305,12 +305,10 @@ def scalars_to_dataframe(index: dict, include_keys: list=['SessionName', 'Subjec
     # instantiate scalar_dict as a defaultdict
     scalar_dict = defaultdict(list)
 
-    # loop through files, load scalars
-
     files = index['files']
     uuids = list(files.keys())
     
-    # use dset from first animal to generate a list scalars
+    # use dset from first animal to generate a list of scalars
     dset = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='scalars')
 
     # only convert if the dataset is legacy and conversion is forced
@@ -320,19 +318,12 @@ def scalars_to_dataframe(index: dict, include_keys: list=['SessionName', 'Subjec
     # generate a list of scalars
     scalar_names = list(dset.keys())
 
-    # for scalar in scalar_names:
-    #     scalar_dict[scalar] = []
-
-    # for key in include_keys:
-    #     scalar_dict[key] = []
-
     # get model labels for UUIDs if a model was supplied
     if include_model and os.path.exists(include_model):
         mdl = parse_model_results(include_model, sort_labels_by_usage=False, map_uuid_to_keys=True)
-        # gets train_list UUIDs if there were held-out sessions
-        # uuids = mdl.get('train_list', mdl['keys'])
 
         labels = mdl['labels']
+        # we need to call these functions here so we don't filter out data before relabelling
         usage, _ = relabel_by_usage(labels, count='usage')
         frames, _ = relabel_by_usage(labels, count='frames')
 
@@ -350,10 +341,6 @@ def scalars_to_dataframe(index: dict, include_keys: list=['SessionName', 'Subjec
 
         # only include extractions that were modeled and fit the above criteria
         files = keyfilter(lambda x: x in labels, files)
-
-
-    scalar_dict['group'] = []
-    scalar_dict['uuid'] = []
 
     for k, v in tqdm.tqdm(files.items(), disable=disable_output):
 

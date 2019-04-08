@@ -60,6 +60,16 @@ def is_legacy(features: dict):
     return any(x in old_features for x in features)
 
 
+def generate_empty_feature_dict(nframes) -> dict:
+    features = ('centroid_x_px', 'centroid_y_px', 'velocity_2d_px', 'velocity_3d_px',
+        'width_px', 'length_px', 'area_px', 'centroid_x_mm', 'centroid_y_mm',
+        'velocity_2d_mm', 'velocity_3d_mm', 'width_mm', 'length_mm', 'area_mm',
+        'height_ave_mm', 'angle', 'velocity_theta')
+    def make_empy_arr():
+        return np.zeros((nframes,), dtype='float32')
+    return {k: make_empy_arr() for k in features}
+
+
 def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
     """Converts scalars in the legacy format to the new format, with explicit units.
     Args:
@@ -70,28 +80,18 @@ def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
         features (dict): dictionary of scalar values
     """
 
-    if type(old_features) is h5py.Group and 'centroid_x' in old_features.keys():
+    if type(old_features) is h5py.Group and 'centroid_x' in old_features:
         print('Loading scalars from h5 dataset')
-        feature_dict = {}
-        for k, v in old_features.items():
-            feature_dict[k] = v[...]
-
-        old_features = feature_dict
+        old_features = h5_to_dict(old_features, '/')
 
     if (type(old_features) is str or type(old_features) is np.str_) and os.path.exists(old_features):
         print('Loading scalars from file')
-        with h5py.File(old_features, 'r') as f:
-            feature_dict = {}
-            for k, v in f['scalars'].items():
-                feature_dict[k] = v[...]
+        old_features = h5_to_dict(old_features, 'scalars')
 
-        old_features = feature_dict
-
-    if 'centroid_x_mm' in old_features.keys() and force:
+    if 'centroid_x_mm' in old_features and force:
         centroid = np.hstack((old_features['centroid_x_px'][:, None],
                               old_features['centroid_y_px'][:, None]))
         nframes = len(old_features['centroid_x_mm'])
-
     elif not force:
         print('Features already converted')
         return None
@@ -100,25 +100,7 @@ def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
                               old_features['centroid_y'][:, None]))
         nframes = len(old_features['centroid_x'])
 
-    features = {
-        'centroid_x_px': np.zeros((nframes,), 'float32'),
-        'centroid_y_px': np.zeros((nframes,), 'float32'),
-        'velocity_2d_px': np.zeros((nframes,), 'float32'),
-        'velocity_3d_px': np.zeros((nframes,), 'float32'),
-        'width_px': np.zeros((nframes,), 'float32'),
-        'length_px': np.zeros((nframes,), 'float32'),
-        'area_px': np.zeros((nframes,)),
-        'centroid_x_mm': np.zeros((nframes,), 'float32'),
-        'centroid_y_mm': np.zeros((nframes,), 'float32'),
-        'velocity_2d_mm': np.zeros((nframes,), 'float32'),
-        'velocity_3d_mm': np.zeros((nframes,), 'float32'),
-        'width_mm': np.zeros((nframes,), 'float32'),
-        'length_mm': np.zeros((nframes,), 'float32'),
-        'area_mm': np.zeros((nframes,)),
-        'height_ave_mm': np.zeros((nframes,), 'float32'),
-        'angle': np.zeros((nframes,), 'float32'),
-        'velocity_theta': np.zeros((nframes,)),
-    }
+    features = generate_empty_feature_dict(nframes)
 
     centroid_mm = convert_pxs_to_mm(centroid, true_depth=true_depth)
     centroid_mm_shift = convert_pxs_to_mm(centroid + 1, true_depth=true_depth)

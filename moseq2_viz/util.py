@@ -95,9 +95,9 @@ def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
         ans[path.split('/')[-1]] = file[path][()]
     else:
         for key, item in file[path].items():
-            if isinstance(item, h5py._hl.dataset.Dataset):
+            if isinstance(item, h5py.Dataset):
                 ans[key] = item[()]
-            elif isinstance(item, h5py._hl.group.Group):
+            elif isinstance(item, h5py.Group):
                 ans[key] = _load_h5_to_dict(file, '/'.join([path, key]))
     return ans
 
@@ -113,7 +113,7 @@ def h5_to_dict(h5file, path: str) -> dict:
     if isinstance(h5file, str):
         with h5py.File(h5file, 'r') as f:
             out = _load_h5_to_dict(f, path)
-    elif isinstance(h5file, h5py.File):
+    elif isinstance(h5file, (h5py.File, h5py.Group)):
         out = _load_h5_to_dict(h5file, path)
     else:
         raise Exception('file input not understood - need h5 file path or file object')

@@ -5,7 +5,6 @@ import pandas as pd
 import numpy as np
 import warnings
 from cytoolz import keyfilter, itemfilter, pluck, itemmap
-from cytoolz.sandbox import unzip
 from itertools import starmap
 from collections import defaultdict
 from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,

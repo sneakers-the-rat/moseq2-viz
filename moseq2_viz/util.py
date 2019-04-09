@@ -145,7 +145,7 @@ def load_changepoints(cpfile):
 def load_timestamps(timestamp_file, col=0):
     """Read timestamps from space delimited text file
     """
-    ts = np.fromfile(timestamp_file, sep=' ')
+    ts = np.loadtxt(timestamp_file, delimiter=' ')
     if ts.ndim > 1:
         return ts[:, col]
     elif col > 0:

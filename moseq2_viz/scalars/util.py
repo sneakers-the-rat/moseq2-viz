@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import numpy as np
 import warnings
-from cytoolz import keyfilter, itemfilter, pluck, itemmap
+from cytoolz import keyfilter, itemfilter, merge_with, curry
 from itertools import starmap
 from collections import defaultdict
 from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
@@ -17,8 +17,8 @@ def _star_itemmap(func, d):
 
 
 def star_valmap(func, d):
-    keys = d.keys()
-    return dict(zip(keys, starmap(func, d.items())))
+    keys = list(d.keys())
+    return dict(zip(keys, starmap(func, d.values())))
 
 
 # http://stackoverflow.com/questions/17832238/kinect-intrinsic-parameters-from-field-of-view/18199938#18199938
@@ -288,7 +288,7 @@ def scalars_to_dataframe(index: dict, include_keys: list=['SessionName', 'Subjec
 
     files = index['files']
     uuids = list(files.keys())
-    
+
     # use dset from first animal to generate a list of scalars
     dset = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='scalars')
 
@@ -312,14 +312,22 @@ def scalars_to_dataframe(index: dict, include_keys: list=['SessionName', 'Subjec
         scores_idx = h5_to_dict(index['pca_path'], 'scores_idx')
         # only include labels with the same number of frames as PCA
         labels = itemfilter(lambda a: _pca_matches_labels(scores_idx[a[0]], a[1]), mdl['labels'])
+
+        labelfilter = curry(keyfilter)(lambda k: k in labels)
         # filter the relabeled dictionaries too
-        usage = keyfilter(lambda k: k in labels, usage)
-        frames = keyfilter(lambda k: k in labels, frames)
+        usage = labelfilter(usage)
+        frames = labelfilter(frames)
+        # filter the pca scores to match labels
+        scores_idx = labelfilter(scores_idx)
 
-        usage = itemmap(lambda item: remove_nans_from_labels(scores_idx[item[0]], item[1]), usage)
-        frames = itemmap(lambda item: remove_nans_from_labels(scores_idx[item[0]], item[1]), frames)
-        labels = itemmap(lambda item: remove_nans_from_labels(scores_idx[item[0]], item[1]), labels)
+        # make function to merge syllables with the syll scores
+        def merger(d):
+            return merge_with(tuple, scores_idx, d)
 
+        # use the scores to remove the nans
+        usage = star_valmap(remove_nans_from_labels, merger(usage))
+        frames = star_valmap(remove_nans_from_labels, merger(frames))
+        labels = star_valmap(remove_nans_from_labels, merger(labels))
         # only include extractions that were modeled and fit the above criteria
         files = keyfilter(lambda x: x in labels, files)
 
@@ -352,7 +360,7 @@ def scalars_to_dataframe(index: dict, include_keys: list=['SessionName', 'Subjec
 
         # add scalar data for this animal
         for scalar in scalar_names:
-            scalar_dict[scalar] += [dset[scalar]]
+            scalar_dict[scalar] += dset[scalar].tolist()
 
         # add metadata from `include_keys`
         for key in include_keys:
@@ -372,15 +380,15 @@ def scalars_to_dataframe(index: dict, include_keys: list=['SessionName', 'Subjec
         elif include_feedback:
             scalar_dict['feedback_status'] += [-1] * nframes
 
-        if os.path.exists(include_model):
-            scalar_dict['model_label'] += labels[k]
-            scalar_dict['model_label (sort=usage)'] += usage[k]
-            scalar_dict['model_label (sort=frames)'] += frames[k]
-
+        if include_model and os.path.exists(include_model):
+            scalar_dict['model_label'] += labels[k].tolist()
+            scalar_dict['model_label (sort=usage)'] += usage[k].tolist()
+            scalar_dict['model_label (sort=frames)'] += frames[k].tolist()
     # turn each key in scalar_names into a numpy array
     for scalar in scalar_names:
         scalar_dict[scalar] = np.array(scalar_dict[scalar])
 
+    # return scalar_dict
     scalar_df = pd.DataFrame(scalar_dict)
 
     return scalar_df

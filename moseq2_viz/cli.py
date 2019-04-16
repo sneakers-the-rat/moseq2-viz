@@ -181,8 +181,10 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 @click.option('--cmap', type=str, default='jet', help="Name of valid Matplotlib colormap for false-coloring images")
 @click.option('--dur-clip', default=300, help="Exclude syllables more than this number of frames (None for no limit)")
 @click.option('--legacy-jitter-fix', default=False, type=bool, help="Set to true if you notice jitter in your crowd movies")
+@click.option('--frame-path', default='frames', type=str, help='Path to depth frames in h5 file')
 def make_crowd_movies(index_file, model_path, max_syllable, max_examples, threads, sort, count,
-                      output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip, legacy_jitter_fix):
+                      output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip,
+                      legacy_jitter_fix, frame_path):
 
     if platform in ['linux', 'linux2']:
         print('Setting CPU affinity to use all CPUs...')
@@ -253,7 +255,7 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
 
         matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=dur_clip, min_height=min_height,
                              crop_size=vid_parameters['crop_size'], raw_size=raw_size, scale=scale,
-                             legacy_jitter_fix=legacy_jitter_fix)
+                             legacy_jitter_fix=legacy_jitter_fix, frame_path=frame_path)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
             crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))

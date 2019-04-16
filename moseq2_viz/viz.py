@@ -198,7 +198,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
 
 #TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
-def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
+def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
                       crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
                       center=False, rotate=False, min_height=10, legacy_jitter_fix=False):
 
@@ -244,7 +244,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         # get the frames, combine in a way that's alpha-aware
 
         h5 = h5py.File(fname, 'r')
-        nframes = h5['frames'].shape[0]
+        nframes = h5[frame_path].shape[0]
         cur_len = idx[1] - idx[0]
         use_idx = (idx[0] - pad, idx[1] + pad + (max_dur - cur_len))
 
@@ -266,7 +266,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             centroid_y += raw_size[1] // 2
 
         angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
-        frames = (h5['frames'][use_idx[0]:use_idx[1]] / scale).astype('uint8')
+        frames = (h5[frame_path][use_idx[0]:use_idx[1]] / scale).astype('uint8')
 
         if 'flips' in h5['metadata/extraction'].keys():
             # h5 format as of v0.1.3

@@ -200,7 +200,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 #TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
                       crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
-                      center=False, rotate=False, min_height=10):
+                      center=False, rotate=False, min_height=10, legacy_jitter_fix=False):
 
     if rotate and not center:
         raise NotImplementedError('Rotating without centering not supported')
@@ -304,8 +304,11 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             new_frame = np.zeros_like(old_frame)
             new_frame_clip = frames[i]
 
-            if flips[i]:
+            # change from fliplr, removes jitter since we now use rot90 in moseq2-extract
+            if flips[i] and legacy_jitter_fix:
                 new_frame_clip = np.fliplr(new_frame_clip)
+            elif flips[i]:
+                new_frame_clip = np.rot90(new_frame_clip, k=-2)
 
             new_frame_clip = cv2.warpAffine(new_frame_clip.astype('float32'),
                                             rot_mat, crop_size).astype(frames.dtype)
@@ -329,7 +332,6 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
 
             new_frame_nz = new_frame > 0
             old_frame_nz = old_frame > 0
-
 
             blend_coords = np.logical_and(new_frame_nz, old_frame_nz)
             overwrite_coords = np.logical_and(new_frame_nz, ~old_frame_nz)

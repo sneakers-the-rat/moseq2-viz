@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import numpy as np
 import warnings
-from cytoolz import keyfilter, itemfilter, merge_with, curry
+from cytoolz import keyfilter, itemfilter, merge_with, curry, valmap
 from itertools import starmap
 from collections import defaultdict
 from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
@@ -192,7 +192,7 @@ def get_scalar_map(index, fill_nans=True, force_conversion=True):
 
 def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlags=20,
                                  include_keys=['velocity_2d_mm', 'velocity_3d_mm', 'width_mm',
-                                             'length_mm', 'height_ave_mm', 'angle'],
+                                               'length_mm', 'height_ave_mm', 'angle'],
                                  zscore=False):
 
     win = int(nlags * 2 + 1)
@@ -225,16 +225,15 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
             count[i] += len(hits)
 
             for scalar in include_keys:
-                if scalar is 'angle':
-                    use_scalar = np.diff(v[scalar])
+                use_scalar = v[scalar]
+                if scalar == 'angle':
+                    use_scalar = np.diff(use_scalar)
                     use_scalar = np.insert(use_scalar, 0, 0)
-
                 if zscore:
-                    use_scalar = (v[scalar] - np.nanmean(v[scalar]))  / np.nanstd(v[scalar])
-                else:
-                    use_scalar = v[scalar]
+                    use_scalar = nanzscore(use_scalar)
+
                 padded_scores = np.pad(use_scalar, (win // 2, win // 2),
-                                   'constant', constant_values = np.nan)
+                                       'constant', constant_values=np.nan)
                 win_scores = strided_app(padded_scores, win, 1)
                 syll_average[scalar][i] += np.nansum(win_scores[hits, :], axis=0)
 
@@ -245,9 +244,26 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
     return syll_average
 
 
+def nanzscore(data):
+    return (data - np.nanmean(data)) / np.nanstd(data)
+
+
+def process_scalars(scalar_map, include_keys, zscore=False):
+    out = defaultdict(list)
+    for k, v in scalar_map.items():
+        for scalar in include_keys:
+            use_scalar = v[scalar]
+            if scalar == 'angle':
+                use_scalar = np.diff(use_scalar)
+                use_scalar = np.insert(use_scalar, 0, 0)
+            if zscore:
+                use_scalar = nanzscore(use_scalar)
+            out[k] += [use_scalar]
+    return valmap(np.array, dict(out))
+
+
 def find_and_load_feedback(extract_path, input_path):
     join = os.path.join
-
     feedback_path = join(os.path.dirname(input_path), 'feedback_ts.txt')
     if not os.path.exists(feedback_path):
         feedback_path = join(os.path.dirname(extract_path), '..', 'feedback_ts.txt')

@@ -60,10 +60,13 @@ def is_legacy(features: dict):
 
 
 def generate_empty_feature_dict(nframes) -> dict:
-    features = ('centroid_x_px', 'centroid_y_px', 'velocity_2d_px', 'velocity_3d_px',
+    features = (
+        'centroid_x_px', 'centroid_y_px', 'velocity_2d_px', 'velocity_3d_px',
         'width_px', 'length_px', 'area_px', 'centroid_x_mm', 'centroid_y_mm',
         'velocity_2d_mm', 'velocity_3d_mm', 'width_mm', 'length_mm', 'area_mm',
-        'height_ave_mm', 'angle', 'velocity_theta')
+        'height_ave_mm', 'angle', 'velocity_theta'
+    )
+
     def make_empy_arr():
         return np.zeros((nframes,), dtype='float32')
     return {k: make_empy_arr() for k in features}
@@ -288,7 +291,7 @@ def remove_nans_from_labels(idx, labels):
     return labels[~np.isnan(idx)]
 
 
-def scalars_to_dataframe(index: dict, include_keys: list=['SessionName', 'SubjectName', 'StartTime'],
+def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'SubjectName', 'StartTime'],
                          include_model=None, disable_output=False,
                          include_feedback=None, force_conversion=True):
     '''Generates a dataframe containing scalar values over the course of a recording session.

@@ -1,4 +1,6 @@
 from collections import defaultdict, OrderedDict
+from cytoolz import curry, compose, get
+from typing import Iterator, Any
 from copy import deepcopy
 from sklearn.cluster import KMeans
 from moseq2_viz.util import h5_to_dict
@@ -413,8 +415,6 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
         raise ValueError(f'processing of datatype {type(labels)} not implemented or recognized')
 
 
-
-
 def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', normalize=True, max_syllable=40,
                          include_meta=['SessionName', 'SubjectName', 'StartTime']):
 
@@ -605,8 +605,16 @@ def whiten_pcs(pca_scores, method='all', center=True):
     return whitened_scores
 
 
-def normalize_pcs(pca_scores, method='z'):
-    """Normalize PCs (either de-mean or z-score)
+def normalize_pcs(pca_scores: dict, method: str ='z') -> dict:
+    """Normalize PC scores. Options are: demean, zscore, ind-zscore.
+    demean: subtract the mean from each score
+    zscore: perform a zscore across all animals. each PC is zscored independently
+    ind-zscore: perform a zscore for each animal and each PC independently 
+    Args:
+        pca_scores: a dictionary of scores where the key is the animal's UUID
+        method: the type of normalization to perform (demean, zscore, ind-zscore)
+    Returns:
+        a dictionary of normalized PC scores
     """
 
     norm_scores = deepcopy(pca_scores)
@@ -628,26 +636,34 @@ def normalize_pcs(pca_scores, method='z'):
     return norm_scores
 
 
-def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60,
+def _gen_to_arr(generator: Iterator[Any]) -> np.ndarray:
+    '''Turn a generator into a numpy array'''
+    return np.array(list(generator))
+
+
+def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3, 
                              max_samples=100, npcs=10, subsampling=None,
                              remove_offset=False, **kwargs):
     # pad using zeros, get dtw distances...
 
-    durs = [idx[1] - idx[0] for idx, _, _ in slices]
-    use_slices = [_ for i, _ in enumerate(slices) if durs[i] < max_dur]
-    if max_samples is not None and len(use_slices) > max_samples:
-        choose_samples = np.random.permutation(range(len(use_slices)))[:max_samples]
-        use_slices = [_ for i, _ in enumerate(use_slices) if i in choose_samples]
+    # make function to filter syll durations
+    filter_dur = compose(lambda dur: (dur < max_dur) & (dur > min_dur),
+                         lambda inds: inds[1] - inds[0],
+                         curry(get)(0))
+    filtered_slices = _gen_to_arr(filter(filter_dur, slices))
+    # select random samples
+    inds = np.random.randint(0, len(filtered_slices), size=max_samples)
+    use_slices = filtered_slices[inds]
 
     syllable_matrix = np.zeros((len(use_slices), max_dur, npcs), 'float32')
-#     syllable_matrix[:] = np.nan
 
-    for i, (idx, uuid, h5) in enumerate(use_slices):
+    for i, (idx, uuid, _) in enumerate(use_slices):
         syllable_matrix[i, :idx[1]-idx[0], :] = pca_scores[uuid][idx[0]:idx[1], :npcs]
 
     if remove_offset:
         syllable_matrix = syllable_matrix - syllable_matrix[:, 0, :][:, None, :]
 
+    # get cluster averages - really good at selecting for different durations of a syllable
     if subsampling is not None and subsampling > 0:
         try:
             km = KMeans(subsampling)

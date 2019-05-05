@@ -12,6 +12,7 @@ from moseq2_viz.scalars.util import get_scalar_map, get_scalar_triggered_average
 from scipy.spatial.distance import squareform, pdist
 from functools import partial
 from tqdm import tqdm_notebook
+from cytoolz import keyfilter, curry
 
 
 def get_behavioral_distance(index, model_file, whiten='all',
@@ -61,10 +62,11 @@ def get_behavioral_distance(index, model_file, whiten='all',
     # master uuid list...uuid exists in PCA file, model file, and index
 
     uuid_set = set(model_fit['labels'].keys()) & set(index['files'].keys())
-    # uuid_set = [uuid for uuid in uuid_set if os.path.exists(index['files'][uuid]['path'][0])]
 
-    index['files'] = {k: v for k, v in index['files'].items() if k in uuid_set}
-    model_fit['labels'] = {k: v for k, v in model_fit['labels'].items() if k in uuid_set}
+    # only keep animals that were modeled and in the files within the sorted_index
+    in_uuid_set = curry(keyfilter)(lambda x: x in uuid_set)
+    index['files'] = in_uuid_set(index['files'])
+    model_fit['labels'] = in_uuid_set(model_fit['labels'])
 
     if max_syllable is None:
         max_syllable = -np.inf

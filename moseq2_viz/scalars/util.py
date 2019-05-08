@@ -308,9 +308,11 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
         if 'timestamps' in h5:
             # h5 format as of v0.1.3
             timestamps = h5['/timestamps'][...]
-        elif timestamps in h5['/metadata']:
+        elif 'timestamps' in h5['/metadata']:
             # h5 format prior to v0.1.3
             timestamps = h5['/metadata/timestamps'][...]
+        else:
+            raise RunTimeError("Could not find timestamps")
 
         dct = read_yaml(v['path'][1])
         parameters = dct['parameters']

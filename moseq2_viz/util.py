@@ -90,7 +90,7 @@ def clean_dict(dct):
 
 def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
     ans = {}
-    if isinstance(file[path], h5py._hl.dataset.Dataset):
+    if isinstance(file[path], h5py.Dataset):
         # only use the final path key to add to `ans`
         ans[path.split('/')[-1]] = file[path][()]
     else:

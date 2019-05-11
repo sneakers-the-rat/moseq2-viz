@@ -70,7 +70,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     else:
         raise RuntimeError("Transition matrix must be a numpy array or list of arrays")
 
-    if type(usages) is list or type(usages) is np.ndarray:
+    if (type(usages[0]) is list) or (type(usages[0]) is np.ndarray):
         from collections import defaultdict
         for i, u in enumerate(usages):
             d = defaultdict(int)

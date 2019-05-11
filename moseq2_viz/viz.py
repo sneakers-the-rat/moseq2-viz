@@ -20,7 +20,7 @@ def convert_ebunch_to_graph(ebunch):
 def convert_transition_matrix_to_ebunch(weights, transition_matrix,
                                         usages=None, usage_threshold=-.1,
                                         edge_threshold=-.1, indices=None,
-                                        keep_orphans=False):
+                                        keep_orphans=False, max_syllable=None):
 
     ebunch = []
     orphans = []
@@ -44,6 +44,9 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     if usages is not None:
         ebunch = [e for e in ebunch if usages[e[0]] > usage_threshold and usages[e[1]] > usage_threshold]
 
+    if max_syllable is not None:
+        ebunch = [e for e in ebunch if e[0] <= max_syllable and e[1] <= max_syllable]
+
     return ebunch, orphans
 
 
@@ -55,7 +58,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             plot_differences=True, difference_threshold=.0005,
                             difference_edge_width_scale=500, weights=None,
                             usage_scale=1e5, arrows=False, keep_orphans=False,
-                            orphan_weight=0, edge_color='k', **kwargs):
+                            max_syllable=None, orphan_weight=0, edge_color='k', **kwargs):
 
     if headless:
         plt.switch_backend('agg')
@@ -96,7 +99,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
         weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
         keep_orphans=keep_orphans, usages=usages_anchor,
-        usage_threshold=usage_threshold)
+        usage_threshold=usage_threshold, max_syllable=max_syllable)
     graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
     nnodes = len(graph_anchor.nodes())
 

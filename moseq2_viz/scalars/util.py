@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import numpy as np
 import warnings
-from cytoolz import keyfilter, itemfilter, merge_with, curry, valmap
+from cytoolz import keyfilter, itemfilter, merge_with, curry, valmap, get
 from itertools import starmap
 from collections import defaultdict
 from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
@@ -72,21 +72,22 @@ def generate_empty_feature_dict(nframes) -> dict:
     return {k: make_empy_arr() for k in features}
 
 
-def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
+def convert_legacy_scalars(old_features, force: bool = False, true_depth: float = 673.1) -> dict:
     """Converts scalars in the legacy format to the new format, with explicit units.
     Args:
-        old_features (str, h5 group, or dictionary of scalars): filename, h5 group, or dictionary of scalar values
-        true_depth (float):  true depth of the floor relative to the camera (673.1 mm by default)
-
+        old_features (str, h5 group, or dictionary of scalars): filename, h5 group,
+            or dictionary of scalar values
+        force: force the conversion of centroid_[xy]_px into mm
+        true_depth:  true depth of the floor relative to the camera (673.1 mm by default)
     Returns:
-        features (dict): dictionary of scalar values
+        features: dictionary of scalar values
     """
 
-    if type(old_features) is h5py.Group and 'centroid_x' in old_features:
+    if isinstance(old_features, h5py.Group) and 'centroid_x' in old_features:
         print('Loading scalars from h5 dataset')
         old_features = h5_to_dict(old_features, '/')
 
-    if (type(old_features) is str or type(old_features) is np.str_) and os.path.exists(old_features):
+    elif isinstance(old_features, (str, np.str_)) and os.path.exists(old_features):
         print('Loading scalars from file')
         old_features = h5_to_dict(old_features, 'scalars')
 
@@ -116,21 +117,9 @@ def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
     features['centroid_y_mm'] = centroid_mm[:, 1]
 
     # based on the centroid of the mouse, get the mm_to_px conversion
-
-    if 'width_px' in old_features.keys():
-        features['width_px'] = old_features['width_px']
-    else:
-        features['width_px'] = old_features['width']
-
-    if 'length_px' in old_features.keys():
-        features['length_px'] = old_features['length_px']
-    else:
-        features['length_px'] = old_features['length']
-
-    if 'area_px' in old_features.keys():
-        features['area_px'] = old_features['area_px']
-    else:
-        features['area_px'] = old_features['area']
+    copy_keys = ('width', 'length', 'area')
+    for key in copy_keys:
+        features[f'{key}_px'] = get(f'{key}_px', old_features, old_features[key])
 
     if 'height_ave_mm' in old_features.keys():
         features['height_ave_mm'] = old_features['height_ave_mm']

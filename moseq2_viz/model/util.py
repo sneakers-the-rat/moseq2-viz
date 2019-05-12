@@ -299,7 +299,7 @@ def parse_batch_modeling(filename):
             'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list'].value]
         }
         results_dict['scan_parameters'] = {k: results_dict['parameters'][k]
-                                           for k in results_dict['scans'].keys()}
+                                           for k in results_dict['scans'].keys() if k in results_dict['parameters'].keys()}
 
     return results_dict
 

@@ -66,14 +66,12 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     if weights is None:
         weights = trans_mats
 
-    if type(trans_mats) is np.ndarray and trans_mats.ndim == 2:
-        trans_mats = [trans_mats]
-    elif type(trans_mats) is list:
-        pass
-    else:
-        raise RuntimeError("Transition matrix must be a numpy array or list of arrays")
+    assert isinstance(trans_mats, (np.ndarray, list)), "Transition matrix must be a numpy array or list of arrays"
 
-    if (type(usages[0]) is list) or (type(usages[0]) is np.ndarray):
+    if isinstance(trans_mats, np.ndarray) and trans_mats.ndim == 2:
+        trans_mats = [trans_mats]
+
+    if usages is not None and isinstance(usages[0], (list, np.ndarray)):
         from collections import defaultdict
         for i, u in enumerate(usages):
             d = defaultdict(int)
@@ -100,6 +98,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
         weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
         keep_orphans=keep_orphans, usages=usages_anchor,
         usage_threshold=usage_threshold, max_syllable=max_syllable)
+
     graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
     nnodes = len(graph_anchor.nodes())
 

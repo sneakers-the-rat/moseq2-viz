@@ -12,6 +12,7 @@ from moseq2_viz.scalars.util import get_scalar_map, get_scalar_triggered_average
 from scipy.spatial.distance import squareform, pdist
 from functools import partial
 from tqdm import tqdm_notebook
+from cytoolz import keyfilter, curry
 
 
 def get_behavioral_distance(index, model_file, whiten='all',
@@ -61,10 +62,11 @@ def get_behavioral_distance(index, model_file, whiten='all',
     # master uuid list...uuid exists in PCA file, model file, and index
 
     uuid_set = set(model_fit['labels'].keys()) & set(index['files'].keys())
-    # uuid_set = [uuid for uuid in uuid_set if os.path.exists(index['files'][uuid]['path'][0])]
 
-    index['files'] = {k: v for k, v in index['files'].items() if k in uuid_set}
-    model_fit['labels'] = {k: v for k, v in model_fit['labels'].items() if k in uuid_set}
+    # only keep animals that were modeled and in the files within the sorted_index
+    in_uuid_set = curry(keyfilter)(lambda x: x in uuid_set)
+    index['files'] = in_uuid_set(index['files'])
+    model_fit['labels'] = in_uuid_set(model_fit['labels'])
 
     if max_syllable is None:
         max_syllable = -np.inf
@@ -121,11 +123,11 @@ def get_behavioral_distance(index, model_file, whiten='all',
 
         elif dist.lower() == 'pca[dtw]':
 
-            slice_fun = partial(get_syllable_slices,
-                                labels=list(model_fit['labels'].values()),
-                                label_uuids=list(model_fit['labels'].keys()),
-                                index=index,
-                                trim_nans=False)
+            slice_fun = get_syllable_slices(
+                labels=list(model_fit['labels'].values()),
+                label_uuids=list(model_fit['labels'].keys()),
+                index=index,
+                trim_nans=False)
 
             pca_scores = h5_to_dict(index['pca_path'], 'scores')
             pca_scores = normalize_pcs(pca_scores, method=dist_options['pca[dtw]']['normalize'])
@@ -173,11 +175,11 @@ def get_behavioral_distance(index, model_file, whiten='all',
             parallel = use_options.pop('parallel')
             use_options['npcs'] += len(incl_keys)
 
-            slice_fun = partial(get_syllable_slices,
-                                labels=[model_fit['labels'][k] for k in pca_scores],
-                                label_uuids=list(pca_scores.keys()),
-                                index=index,
-                                trim_nans=False)
+            slice_fun = get_syllable_slices(
+                labels=[model_fit['labels'][k] for k in pca_scores],
+                label_uuids=list(pca_scores.keys()),
+                index=index,
+                trim_nans=False)
 
             pc_slices = []
             for syllable in tqdm_notebook(range(max_syllable)):

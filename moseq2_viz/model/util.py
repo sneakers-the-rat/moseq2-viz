@@ -118,14 +118,15 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
     return all_mats
 
 
-# return tuples with uuid and syllable indices
+@curry
 def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool =True) -> list:
     '''Get the indices that correspond to a specific syllable for each animal in a modeling run.
     Args:
         trim_nans: flag to use the pca scores file for removing time points that contain NaNs.
             only use if you have not already trimmed NaNs previously (i.e. in `scalars_to_dataframe`)
     Returns:
-        a list of indices for `syllable` in the `labels` array
+        a list of indices for `syllable` in the `labels` array. Each item in the list
+            is a tuple of (slice, uuid, h5_file)
     '''
 
     h5s = [v['path'][0] for v in index['files'].values()]

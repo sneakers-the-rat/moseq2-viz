@@ -123,11 +123,11 @@ def get_behavioral_distance(index, model_file, whiten='all',
 
         elif dist.lower() == 'pca[dtw]':
 
-            slice_fun = partial(get_syllable_slices,
-                                labels=list(model_fit['labels'].values()),
-                                label_uuids=list(model_fit['labels'].keys()),
-                                index=index,
-                                trim_nans=False)
+            slice_fun = get_syllable_slices(
+                labels=list(model_fit['labels'].values()),
+                label_uuids=list(model_fit['labels'].keys()),
+                index=index,
+                trim_nans=False)
 
             pca_scores = h5_to_dict(index['pca_path'], 'scores')
             pca_scores = normalize_pcs(pca_scores, method=dist_options['pca[dtw]']['normalize'])
@@ -175,11 +175,11 @@ def get_behavioral_distance(index, model_file, whiten='all',
             parallel = use_options.pop('parallel')
             use_options['npcs'] += len(incl_keys)
 
-            slice_fun = partial(get_syllable_slices,
-                                labels=[model_fit['labels'][k] for k in pca_scores],
-                                label_uuids=list(pca_scores.keys()),
-                                index=index,
-                                trim_nans=False)
+            slice_fun = get_syllable_slices(
+                labels=[model_fit['labels'][k] for k in pca_scores],
+                label_uuids=list(pca_scores.keys()),
+                index=index,
+                trim_nans=False)
 
             pc_slices = []
             for syllable in tqdm_notebook(range(max_syllable)):

@@ -245,7 +245,7 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
         filename_format = 'syllable_{:d}.mp4'
 
     with mp.Pool() as pool:
-        slice_fun = partial(get_syllable_slices,
+        slice_fun = get_syllable_slices(
                             labels=labels,
                             label_uuids=label_uuids,
                             index=sorted_index)

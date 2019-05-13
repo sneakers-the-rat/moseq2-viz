@@ -119,6 +119,7 @@ def convert_legacy_scalars(old_features, force: bool = False, true_depth: float 
     # based on the centroid of the mouse, get the mm_to_px conversion
     copy_keys = ('width', 'length', 'area')
     for key in copy_keys:
+        # first try to grab _px key, then default to old version name
         features[f'{key}_px'] = get(f'{key}_px', old_features, old_features[key])
 
     if 'height_ave_mm' in old_features.keys():

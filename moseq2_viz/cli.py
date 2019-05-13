@@ -8,6 +8,7 @@ from moseq2_viz.viz import (make_crowd_matrix, usage_plot, graph_transition_matr
 from moseq2_viz.scalars.util import scalars_to_dataframe
 from moseq2_viz.io.video import write_frames_preview
 from functools import partial
+from cytoolz import pluck
 from sys import platform
 import click
 import os
@@ -113,44 +114,42 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
 @click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
 @click.option('--pca-file', '-p', type=click.Path(), default=os.path.join(os.getcwd(), '_pca/pca_scores.h5'), help='Path to PCA results')
 @click.option('--output-file', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'moseq2-index.yaml'), help="Location for storing index")
-@click.option('--filter', '-f', type=(str, str), default=None, help='Regex filter for metadata', multiple=True)
+@click.option('--filter', '-f', '_filter', type=(str, str), default=None, help='Regex filter for metadata', multiple=True)
 @click.option('--all-uuids', '-a', type=bool, default=False, help='Use all uuids')
-def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
+def generate_index(input_dir, pca_file, output_file, _filter, all_uuids):
 
     # gather than h5s and the pca scores file
     # uuids should match keys in the scores file
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)
 
+    if 'metadata' not in yamls[0]:
+        raise RuntimeError('Metadata not present in yaml files, run ' +
+                           'copy-h5-metadata-to-yaml to update yaml files')
+
     if not os.path.exists(pca_file) or all_uuids:
         warnings.warn('Will include all files')
-        pca_uuids = [dct['uuid'] for dct in dicts]
+        pca_uuids = pluck('uuid', dicts)
     else:
         with h5py.File(pca_file, 'r') as f:
-            pca_uuids = list(f['scores'].keys())
+            pca_uuids = list(f['scores'])
 
-    file_with_uuids = [(os.path.relpath(h5), os.path.relpath(yml), meta) for h5, yml, meta in
-                       zip(h5s, yamls, dicts) if meta['uuid'] in pca_uuids]
-
-    if 'metadata' not in file_with_uuids[0][2]:
-        raise RuntimeError('Metadata not present in yaml files, run copy-h5-metadata-to-yaml to update yaml files')
+    relpath = os.path.relpath
+    file_with_uuids = filter(lambda x: x[2]['uuid'] in pca_uuids, zip(h5s, yamls, dicts))
+    file_with_uuids = [(relpath(h5), relpath(yml), meta) for h5, yml, meta in file_with_uuids]
 
     output_dict = {
         'files': [],
-        'pca_path': os.path.relpath(pca_file)
+        'pca_path': relpath(pca_file)
     }
 
+    output_dict['files'] = [dict(path=x[:2], uuid=x[2]['uuid'], group='default') for x in file_with_uuids]
     for i, file_tup in enumerate(file_with_uuids):
-        output_dict['files'].append({
-            'path': (file_tup[0], file_tup[1]),
-            'uuid': file_tup[2]['uuid'],
-            'group': 'default'
-        })
 
         output_dict['files'][i]['metadata'] = {}
 
         for k, v in file_tup[2]['metadata'].items():
-            for filt in filter:
+            for filt in _filter:
                 if k == filt[0]:
                     tmp = re.match(filt[1], v)
                     if tmp is not None:

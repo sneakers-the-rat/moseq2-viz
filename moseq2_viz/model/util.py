@@ -1,7 +1,11 @@
 from collections import defaultdict, OrderedDict
+from itertools import starmap
 from copy import deepcopy
 from sklearn.cluster import KMeans
 from moseq2_viz.util import h5_to_dict
+from cytoolz import curry, valmap, compose, complement, itemmap
+from cytoolz.curried import get
+from typing import Generator, Dict
 import numpy as np
 import h5py
 import pandas as pd
@@ -114,6 +118,40 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
             all_mats.append(init_matrix)
 
     return all_mats
+
+
+def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Generator[slice]:
+    '''Get a generator that contains slices where `syllable` occurs within one mouse'''
+    is_syllable = np.diff(np.insert(np.int32(labels == syllable), 0, 0))
+    starts = np.where(is_syllable == 1)[0]
+    ends = np.where(is_syllable == -1)[0] + 1
+    slices = starmap(slice, zip(starts, ends))
+    return slices
+
+
+any_nan = compose(np.any, np.isnan)
+non_nan = complement(any_nan)
+
+
+def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], index: Dict,
+                              filter_nans: bool = True) -> Dict[str, list]:
+    getter = curry(get_mouse_syllable_slices)(syllable)
+    vals = valmap(getter, labels)
+
+    score_idx = h5_to_dict(index['pca_path'], '/scores_idx')
+
+    def filter_score(uuid, slices):
+        mouse = score_idx[uuid]
+        get_nan = compose(non_nan, get(seq=mouse))
+        return uuid, filter(get_nan, slices)
+
+    # filter out slices with NaNs
+    if filter_nans:
+        vals = itemmap(filter_score, vals)
+
+    vals = valmap(list, vals)
+    # TODO: array length mismatch warnings?
+    return vals
 
 
 # return tuples with uuid and syllable indices

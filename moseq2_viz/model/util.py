@@ -1,19 +1,18 @@
-from collections import defaultdict, OrderedDict
-from itertools import starmap
-from typing import Iterator, Any
-from copy import deepcopy
-from sklearn.cluster import KMeans
-from moseq2_viz.util import h5_to_dict
-from cytoolz import curry, valmap, compose, complement, itemmap
-from cytoolz.curried import get
-from typing import Generator, Dict
-import numpy as np
+import os
 import h5py
-import pandas as pd
-import warnings
 import tqdm
 import joblib
-import os
+import warnings
+import numpy as np
+import pandas as pd
+from copy import deepcopy
+from itertools import starmap
+from cytoolz.curried import get
+from sklearn.cluster import KMeans
+from moseq2_viz.util import h5_to_dict
+from collections import defaultdict, OrderedDict
+from typing import Iterator, Any, Generator, Dict
+from cytoolz import curry, valmap, compose, complement, itemmap
 
 
 def _get_transitions(label_sequence, fill_value=-5):

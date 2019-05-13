@@ -133,6 +133,23 @@ any_nan = compose(np.any, np.isnan)
 non_nan = complement(any_nan)
 
 
+@curry
+def star(f, args):
+    '''Apply a function to a tuple of args, by expanding the tuple into
+    each of the function's parameters. It is curried, which allows one to
+    specify one argument at a time.
+    Args:
+        f: a function that takes multiple arguments
+        args: a tuple to expand into `f`
+    Returns:
+        the output of `f`
+
+    >>> instance_checker = star(isinstance)
+    >>> instance_checker((1, int))
+    True'''
+    return f(*args)
+
+
 def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], index: Dict,
                               filter_nans: bool = True) -> Dict[str, list]:
     getter = curry(get_mouse_syllable_slices)(syllable)
@@ -147,7 +164,7 @@ def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], inde
 
     # filter out slices with NaNs
     if filter_nans:
-        vals = itemmap(filter_score, vals)
+        vals = itemmap(star(filter_score), vals)
 
     vals = valmap(list, vals)
     # TODO: array length mismatch warnings?

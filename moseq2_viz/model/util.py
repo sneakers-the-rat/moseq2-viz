@@ -11,12 +11,13 @@ from cytoolz.curried import get
 from sklearn.cluster import KMeans
 from moseq2_viz.util import h5_to_dict
 from collections import defaultdict, OrderedDict
-from typing import Iterator, Any, Generator, Dict
+from typing import Iterator, Any, Dict
 from cytoolz import curry, valmap, compose, complement, itemmap
 
 
 def _get_transitions(label_sequence):
-    '''
+    '''Computes labels switch to another label. Throws out the first state (usually
+    labeled as -5).
     Returns:
         a tuple of syllable transitions and their indices
     '''
@@ -30,7 +31,7 @@ def _get_transitions(label_sequence):
     return transitions, locs
 
 
-def _whiten_all(pca_scores, center=True):
+def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
 
     valid_scores = np.concatenate([x[~np.isnan(x).any(axis=1), :] for x in pca_scores.values()])
     mu, cov = valid_scores.mean(axis=0), np.cov(valid_scores, rowvar=False, bias=1)
@@ -122,7 +123,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
     return all_mats
 
 
-def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Generator[slice]:
+def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[slice]:
     '''Get a generator that contains slices where `syllable` occurs within one mouse'''
     is_syllable = np.diff(np.insert(np.int32(labels == syllable), 0, 0))
     starts = np.where(is_syllable == 1)[0]

@@ -15,16 +15,18 @@ from typing import Iterator, Any, Generator, Dict
 from cytoolz import curry, valmap, compose, complement, itemmap
 
 
-def _get_transitions(label_sequence, fill_value=-5):
+def _get_transitions(label_sequence):
+    '''
+    Returns:
+        a tuple of syllable transitions and their indices
+    '''
 
-    # to_rem = np.where(label_sequence == fill_value)[0]
     arr = deepcopy(label_sequence)
-    # arr = np.delete(arr, to_rem)
-    # arr = np.insert(arr, len(arr), -10)
-    # arr = np.insert(arr, 0, -10)
 
+    # get syllable transition locations
     locs = np.where(arr[1:] != arr[:-1])[0] + 1
     transitions = arr[locs]
+
     return transitions, locs
 
 

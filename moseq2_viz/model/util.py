@@ -522,7 +522,7 @@ def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
 
     if ar_mat.shape[1] % npcs == 1:
         affine_term = ar_mat[:, -1]
-        ar_mat = np.delete(ar_mat, ar_mat.shape[1] - 1, axis=1)
+        ar_mat = ar_mat[:, :-1]
     else:
         affine_term = np.zeros((ar_mat.shape[0], ), dtype='float32')
 

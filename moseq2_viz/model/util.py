@@ -11,8 +11,8 @@ from cytoolz.curried import get
 from sklearn.cluster import KMeans
 from moseq2_viz.util import h5_to_dict
 from collections import defaultdict, OrderedDict
-from typing import Iterator, Any, Dict
-from cytoolz import curry, valmap, compose, complement, itemmap
+from typing import Iterator, Any, Dict, Union
+from cytoolz import curry, valmap, compose, complement, itemmap, first
 
 
 def _get_transitions(label_sequence):
@@ -124,8 +124,8 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
 
 
 def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[slice]:
-    '''Get a generator that contains slices where `syllable` occurs within one mouse'''
-    is_syllable = np.diff(np.insert(np.int32(labels == syllable), 0, 0))
+    '''Return a generator containing slices of `syllable` indices for a mouse'''
+    is_syllable = np.diff(np.insert(np.int16(labels == syllable), 0, 0))
     starts = np.where(is_syllable == 1)[0]
     ends = np.where(is_syllable == -1)[0] + 1
     slices = starmap(slice, zip(starts, ends))
@@ -235,6 +235,21 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool =T
     return syllable_slices
 
 
+def get_syllable_onsets(label_arr: np.ndarray) -> np.ndarray:
+    inds = np.where(np.diff(label_arr) != 0)[0] + 1
+    return label_arr[inds]
+
+
+def calculate_syllable_usage(labels: Union[dict, pd.DataFrame]):
+    if isinstance(labels, pd.DataFrame):
+        usage_df = labels.syllable.value_counts()
+    elif isinstance(labels, (dict, OrderedDict)):
+        syllables = np.concatenate([get_syllable_onsets(x) for x in labels.values()])
+        print(syllables)
+        usage_df = pd.Series(syllables).value_counts()
+    return dict(zip(usage_df.index.to_numpy(), usage_df.to_numpy()))
+
+
 def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'):
     """Compute the syllable statistics from a set of model labels
 
@@ -256,9 +271,6 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
         >>> usages, durations = get_syllable_statistics(model_results['labels'])
 
     """
-
-    # if type(data) is list and type(data[0]) is np.ndarray:
-    #     data = np.array([np.squeeze(tmp) for tmp in data], dtype='object')
 
     usages = defaultdict(int)
     durations = defaultdict(list)

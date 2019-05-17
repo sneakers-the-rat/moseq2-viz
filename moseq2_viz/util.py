@@ -15,7 +15,7 @@ _underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
 _underscorer2 = re.compile(r'([a-z0-9])([A-Z])')
 
 def np_cache(function):
-    @lru_cache(max_size=None)
+    @lru_cache(maxsize=None)
     def cached_wrapper(hashable_array):
         array = np.array(hashable_array)
         return function(array)

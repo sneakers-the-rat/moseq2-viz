@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from copy import deepcopy
 from itertools import starmap
+from functools import lru_cache
 from cytoolz.curried import get
 from sklearn.cluster import KMeans
 from moseq2_viz.util import h5_to_dict
@@ -70,9 +71,9 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
 
         Load in model results and get the transition matrix combined across sessions.
 
-        >>> from moseq2_viz.model.util import parse_model_results, get_transition_matrix
-        >>> model_results = parse_model_results('mymodel.p')
-        >>> transition_matrix = get_transition_matrix(model_results['labels'], combine=True)
+        >> from moseq2_viz.model.util import parse_model_results, get_transition_matrix
+        >> model_results = parse_model_results('mymodel.p')
+        >> transition_matrix = get_transition_matrix(model_results['labels'], combine=True)
 
     """
 
@@ -235,8 +236,26 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool =T
     return syllable_slices
 
 
-def get_syllable_onsets(label_arr: np.ndarray) -> np.ndarray:
+@lru_cache(maxsize=None)
+def find_label_transitions(label_arr: np.ndarray) -> np.ndarray:
+    '''Finds indices where a label transitions into another label. This
+    function is cached to increase performance because it is called frequently.
+    Returns:
+        indices corresponding to syllable transitions
+    '''
     inds = np.where(np.diff(label_arr) != 0)[0] + 1
+    return inds
+
+
+def compress_label_sequence(label_arr: np.ndarray) -> np.ndarray:
+    '''Removes repeating values from a label sequence. It assumes the first
+    label is '-5', which is unused for behavioral analysis, and removes it.
+    Args:
+        label_arr: an array of labels that contains repeating values
+    Returns:
+        the compressed verion of the label array
+    '''
+    inds = find_label_transitions(label_arr)
     return label_arr[inds]
 
 
@@ -244,8 +263,7 @@ def calculate_syllable_usage(labels: Union[dict, pd.DataFrame]):
     if isinstance(labels, pd.DataFrame):
         usage_df = labels.syllable.value_counts()
     elif isinstance(labels, (dict, OrderedDict)):
-        syllables = np.concatenate([get_syllable_onsets(x) for x in labels.values()])
-        print(syllables)
+        syllables = np.concatenate([compress_label_sequence(x) for x in labels.values()])
         usage_df = pd.Series(syllables).value_counts()
     return dict(zip(usage_df.index.to_numpy(), usage_df.to_numpy()))
 
@@ -262,13 +280,13 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
         usages (defaultdict): default dictionary of usages
         durations (defaultdict): default dictionary of durations
 
-    Examples:
+    Example:
 
         Load in model results and get the transition matrix combined across sessions.
 
-        >>> from moseq2_viz.model.util import parse_model_results, get_syllable_statistics
-        >>> model_results = parse_model_results('mymodel.p')
-        >>> usages, durations = get_syllable_statistics(model_results['labels'])
+        >> from moseq2_viz.model.util import parse_model_results, get_syllable_statistics
+        >> model_results = parse_model_results('mymodel.p')
+        >> usages, durations = get_syllable_statistics(model_results['labels'])
 
     """
 
@@ -340,9 +358,9 @@ def labels_to_changepoints(labels, fs=30.):
 
         Load in model results and get the changepoint distribution
 
-        >>> from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
-        >>> model_results = parse_model_results('mymodel.p')
-        >>> cp_dist = labels_to_changepoints(model_results['labels'])
+        >> from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
+        >> model_results = parse_model_results('mymodel.p')
+        >> cp_dist = labels_to_changepoints(model_results['labels'])
 
     """
 
@@ -392,8 +410,8 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
 
         Load in model results
 
-        >>> from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
-        >>> model_results = parse_model_results('mymodel.p')
+        >> from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
+        >> model_results = parse_model_results('mymodel.p')
 
     """
     # reformat labels into something useful
@@ -467,9 +485,9 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 
         Load in model results and sort labels by usages
 
-        >>> from moseq2_viz.model.util import parse_model_results, relabel_by_usage
-        >>> model_results = parse_model_results('mymodel.p')
-        >>> sorted_labels = relabel_by_usage(model_results['labels'])
+        >> from moseq2_viz.model.util import parse_model_results, relabel_by_usage
+        >> model_results = parse_model_results('mymodel.p')
+        >> sorted_labels = relabel_by_usage(model_results['labels'])
 
     """
 
@@ -657,10 +675,10 @@ def whiten_pcs(pca_scores, method='all', center=True):
 
         Load in pca_scores and whiten
 
-        >>> from moseq2_viz.util import h5_to_dict
-        >>> from moseq2_viz.model.util import whiten_pcs
-        >>> pca_scores = h5_to_dict('pca_scores.h5', '/scores')
-        >>> whitened_scores = whiten_pcs(pca_scores, method='all')
+        >> from moseq2_viz.util import h5_to_dict
+        >> from moseq2_viz.model.util import whiten_pcs
+        >> pca_scores = h5_to_dict('pca_scores.h5', '/scores')
+        >> whitened_scores = whiten_pcs(pca_scores, method='all')
 
     """
 

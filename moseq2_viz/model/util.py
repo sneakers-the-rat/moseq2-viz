@@ -237,7 +237,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool =T
     return syllable_slices
 
 
-@np_cache(maxsize=None)
+@np_cache
 def find_label_transitions(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
     '''Finds indices where a label transitions into another label. This
     function is cached to increase performance because it is called frequently.

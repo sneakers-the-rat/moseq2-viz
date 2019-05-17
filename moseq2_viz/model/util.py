@@ -13,7 +13,7 @@ from sklearn.cluster import KMeans
 from moseq2_viz.util import h5_to_dict
 from collections import defaultdict, OrderedDict
 from typing import Iterator, Any, Dict, Union
-from cytoolz import curry, valmap, compose, complement, itemmap, first
+from cytoolz import curry, valmap, compose, complement, itemmap, first, concat
 
 
 def _get_transitions(label_sequence):
@@ -154,6 +154,7 @@ def star(f, args):
     return f(*args)
 
 
+@curry
 def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], index: Dict,
                               filter_nans: bool = True) -> Dict[str, list]:
     getter = curry(get_mouse_syllable_slices)(syllable)
@@ -237,33 +238,54 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool =T
 
 
 @lru_cache(maxsize=None)
-def find_label_transitions(label_arr: np.ndarray) -> np.ndarray:
+def find_label_transitions(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
     '''Finds indices where a label transitions into another label. This
     function is cached to increase performance because it is called frequently.
     Returns:
         indices corresponding to syllable transitions
     '''
-    inds = np.where(np.diff(label_arr) != 0)[0] + 1
-    return inds
+    if isinstance(label_arr, dict):
+        return valmap(find_label_transitions, label_arr)
+    elif isinstance(label_arr, np.ndarray):
+        inds = np.where(np.diff(label_arr) != 0)[0] + 1
+        return inds
+    else:
+        raise TypeError('passed the wrong datatype')
 
 
-def compress_label_sequence(label_arr: np.ndarray) -> np.ndarray:
+def compress_label_sequence(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
     '''Removes repeating values from a label sequence. It assumes the first
     label is '-5', which is unused for behavioral analysis, and removes it.
     Args:
-        label_arr: an array of labels that contains repeating values
+        label_arr: either an array of labels that contains repeating values, or a
+            dict containing the same
     Returns:
         the compressed verion of the label array
     '''
-    inds = find_label_transitions(label_arr)
-    return label_arr[inds]
+    if isinstance(label_arr, dict):
+        return valmap(compress_label_sequence, label_arr)
+    elif isinstance(label_arr, np.ndarray):
+        inds = find_label_transitions(label_arr)
+        return label_arr[inds]
+    else:
+        raise TypeError('passed the wrong datatype')
+
+
+def calculate_label_durations(label_arr: Union[dict, np.ndarray]) -> Union[dict, np.ndarray]:
+
+    if isinstance(label_arr, dict):
+        return valmap(calculate_label_durations, label_arr)
+    elif isinstance(label_arr, np.ndarray):
+        tmp = np.concatenate(label_arr, [-5])
+        inds = find_label_transitions(tmp)
+        return np.diff(inds)
 
 
 def calculate_syllable_usage(labels: Union[dict, pd.DataFrame]):
     if isinstance(labels, pd.DataFrame):
         usage_df = labels.syllable.value_counts()
     elif isinstance(labels, (dict, OrderedDict)):
-        syllables = np.concatenate([compress_label_sequence(x) for x in labels.values()])
+        syllables = concat(compress_label_sequence(labels).values())
         usage_df = pd.Series(syllables).value_counts()
     return dict(zip(usage_df.index.to_numpy(), usage_df.to_numpy()))
 

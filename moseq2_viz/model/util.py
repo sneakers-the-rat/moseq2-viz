@@ -7,9 +7,9 @@ import numpy as np
 import pandas as pd
 from copy import deepcopy
 from itertools import starmap
-from functools import lru_cache
 from cytoolz.curried import get
 from sklearn.cluster import KMeans
+from moseq2_viz.util import np_cache
 from moseq2_viz.util import h5_to_dict
 from collections import defaultdict, OrderedDict
 from typing import Iterator, Any, Dict, Union
@@ -237,7 +237,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool =T
     return syllable_slices
 
 
-@lru_cache(maxsize=None)
+@np_cache(maxsize=None)
 def find_label_transitions(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
     '''Finds indices where a label transitions into another label. This
     function is cached to increase performance because it is called frequently.

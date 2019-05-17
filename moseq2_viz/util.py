@@ -2,6 +2,7 @@ import os
 import h5py
 from ruamel.yaml import YAML
 from cytoolz import curry, compose
+from functools import lru_cache, wraps
 from cytoolz.itertoolz import peek, pluck, unique, first, groupby
 from cytoolz.dicttoolz import valmap, valfilter, keyfilter, merge_with, dissoc, assoc
 import numpy as np
@@ -12,6 +13,22 @@ from glob import glob
 # https://gist.github.com/jaytaylor/3660565
 _underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
 _underscorer2 = re.compile(r'([a-z0-9])([A-Z])')
+
+def np_cache(function):
+    @lru_cache()
+    def cached_wrapper(hashable_array):
+        array = np.array(hashable_array)
+        return function(array)
+
+    @wraps(function)
+    def wrapper(array):
+        return cached_wrapper(tuple(array))
+
+    # copy lru_cache attributes over too
+    wrapper.cache_info = cached_wrapper.cache_info
+    wrapper.cache_clear = cached_wrapper.cache_clear
+
+    return wrapper
 
 
 def camel_to_snake(s):

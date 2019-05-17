@@ -276,7 +276,7 @@ def calculate_label_durations(label_arr: Union[dict, np.ndarray]) -> Union[dict,
     if isinstance(label_arr, dict):
         return valmap(calculate_label_durations, label_arr)
     elif isinstance(label_arr, np.ndarray):
-        tmp = np.concatenate(label_arr, [-5])
+        tmp = np.concatenate((label_arr, [-5]))
         inds = find_label_transitions(tmp)
         return np.diff(inds)
 

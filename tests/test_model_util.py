@@ -75,7 +75,7 @@ def test_calculate_syllable_usage():
     }
 
     result = calculate_syllable_usage(labels_dict)
-    
+
     assert test_result == result, 'syll usage calculation incorrect for dict'
 
     df = pd.DataFrame({'syllable': true_labels[1:] + true_labels[1:], 'dur': durs[1:] + durs[1:]})

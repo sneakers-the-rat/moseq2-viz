@@ -1,12 +1,16 @@
-from matplotlib import lines, gridspec
-from networkx.drawing.nx_agraph import graphviz_layout
-import matplotlib.pyplot as plt
-import numpy as np
-import h5py
+import re
 import cv2
+import h5py
+import random
+import numpy as np
 import seaborn as sns
 import networkx as nx
-import re
+import matplotlib.pyplot as plt
+from typing import Tuple, Iterable
+from cytoolz import pluck
+from moseq2_viz.util import star
+from matplotlib import lines, gridspec
+from networkx.drawing.nx_agraph import graphviz_layout
 
 
 def convert_ebunch_to_graph(ebunch):
@@ -199,7 +203,32 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     return fig, ax, pos
 
 
-#TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
+def crowd_matrix_from_loaded_data(slices: Iterable[Tuple[int, int]], frames, scalars, nexamples=50,
+                                  pad=30, dur_clip=1000, raw_size=(512, 424), crop_size=(80, 80)):
+    '''This function assumes angles have already been treated for flips, if necessary.'''
+    def dur_filter(slice_):
+        return (slice_[1] - slice_[0]) < dur_clip
+
+    slices = filter(dur_filter, slices)
+    slices = random.choices(slices, k=nexamples)
+    dur = list(s[1] - s[0] for s in slices)
+    max_dur = max(dur)
+    starts = map(lambda x: x - pad, pluck(0, slices))
+
+    def pad_idx(idx, dur):
+        return idx + pad + (max_dur - dur)
+
+    ends = map(star(pad_idx), zip(pluck(1, slices), dur))
+    # turn each tuple of indices into a slice object
+    slices = map(star(slice), zip(starts, ends))
+
+    crowd_mtx = np.zeros((max_dur + 2 * pad, *reversed(raw_size)), dtype='uint8')
+
+    yc0, xc0 = [x // 2 for x in crop_size]
+    # TODO: finish - add the below stuff
+
+
+# TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
                       crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
                       center=False, rotate=False, min_height=10, legacy_jitter_fix=False):
@@ -424,10 +453,11 @@ def scalar_plot(scalar_df, sort_vars=['group', 'SubjectName'], group_var='group'
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8))
 
     # sort scalars into a neat summary using group_vars
+    grp = scalar_df.groupby(sort_vars)[show_scalars]
 
     summary = {
-        'Mean': scalar_df.groupby(sort_vars)[show_scalars].mean(),
-        'STD': scalar_df.groupby(sort_vars)[show_scalars].std()
+        'Mean': grp.mean(),
+        'STD': grp.std()
     }
 
     for i, (k, v) in enumerate(summary.items()):
@@ -437,7 +467,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'SubjectName'], group_var='group'
         ax[i].set_ylabel(k)
         ax[i].set_xlabel('')
 
-    plt.tight_layout()
+    fig.tight_layout()
 
     return fig, ax
 

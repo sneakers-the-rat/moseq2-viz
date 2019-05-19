@@ -3,8 +3,9 @@ import h5py
 from ruamel.yaml import YAML
 from cytoolz import curry, compose
 from functools import lru_cache, wraps
-from cytoolz.itertoolz import peek, pluck, unique, first, groupby
-from cytoolz.dicttoolz import valmap, valfilter, keyfilter, merge_with, dissoc, assoc
+from cytoolz.itertoolz import peek, pluck, first, groupby
+from cytoolz.dicttoolz import valfilter, merge_with, dissoc, assoc
+from cytoolz.curried import get_in, keyfilter, valmap
 import numpy as np
 import re
 from glob import glob
@@ -13,6 +14,7 @@ from glob import glob
 # https://gist.github.com/jaytaylor/3660565
 _underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
 _underscorer2 = re.compile(r'([a-z0-9])([A-Z])')
+
 
 def np_cache(function):
     @lru_cache(maxsize=None)
@@ -52,7 +54,8 @@ def check_video_parameters(index: dict) -> dict:
     # define constants
     check_parameters = ['crop_size', 'fps', 'max_height', 'min_height']
 
-    ymls = [v['path'][1] for v in index['files'].values()]
+    get_yaml = get_in(['path', 1])
+    ymls = list(map(get_yaml, index['files'].values()))
 
     # load yaml config files when needed
     dicts = map(read_yaml, ymls)
@@ -64,9 +67,9 @@ def check_video_parameters(index: dict) -> dict:
         check_parameters += ['resolution']
 
     # filter for only keys in check_parameters
-    params = map(curry(keyfilter)(lambda k: k in check_parameters), params)
+    params = map(keyfilter(lambda k: k in check_parameters), params)
     # turn lists (in the dict values) into tuples
-    params = map(curry(valmap)(lambda x: tuple(x) if isinstance(x, list) else x), params)
+    params = map(valmap(lambda x: tuple(x) if isinstance(x, list) else x), params)
 
     # get unique parameter values
     vid_parameters = merge_with(set, params)
@@ -75,7 +78,8 @@ def check_video_parameters(index: dict) -> dict:
 
     # if there are multiple values for a parameter, raise error
     if incorrect_parameters:
-        raise RuntimeError(f'The following parameters are not equal across extractions: {incorrect_parameters.keys()}')
+        raise RuntimeError('The following parameters are not equal ' +
+                           f'across extractions: {incorrect_parameters.keys()}')
 
     # grab the first value in the set
     vid_parameters = valmap(first, vid_parameters)
@@ -153,10 +157,9 @@ def load_changepoints(cpfile):
 
     cp_dist = []
 
-    for k, v in cps.items():
-        cp_dist.append(np.diff(v.squeeze()))
+    cp_dist = map(compose(np.diff, np.squeeze), cps.values())
 
-    return np.concatenate(cp_dist)
+    return np.concatenate(list(cp_dist))
 
 
 def load_timestamps(timestamp_file, col=0):
@@ -259,3 +262,20 @@ def strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
     nrows = ((a.size - L) // S) + 1
     n = a.strides[0]
     return np.lib.stride_tricks.as_strided(a, shape=(nrows, L), strides=(S * n, n))
+
+
+@curry
+def star(f, args):
+    '''Apply a function to a tuple of args, by expanding the tuple into
+    each of the function's parameters. It is curried, which allows one to
+    specify one argument at a time.
+    Args:
+        f: a function that takes multiple arguments
+        args: a tuple to expand into `f`
+    Returns:
+        the output of `f`
+
+    >>> instance_checker = star(isinstance)
+    >>> instance_checker((1, int))
+    True'''
+    return f(*args)

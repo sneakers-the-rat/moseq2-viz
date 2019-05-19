@@ -1,4 +1,3 @@
-import os
 import h5py
 import tqdm
 import joblib
@@ -9,11 +8,11 @@ from copy import deepcopy
 from itertools import starmap
 from cytoolz.curried import get
 from sklearn.cluster import KMeans
-from moseq2_viz.util import np_cache
-from moseq2_viz.util import h5_to_dict
-from collections import defaultdict, OrderedDict
+from os.path import join, basename, dirname
 from typing import Iterator, Any, Dict, Union
-from cytoolz import curry, valmap, compose, complement, itemmap, first, concat
+from collections import defaultdict, OrderedDict
+from moseq2_viz.util import np_cache, h5_to_dict, star
+from cytoolz import curry, valmap, compose, complement, itemmap, concat
 
 
 def _get_transitions(label_sequence):
@@ -54,7 +53,7 @@ def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
 
 # per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
 def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
-                          smoothing=0.0, combine=False, disable_output=False):
+                          smoothing=0.0, combine=False, disable_output=False) -> list:
     """Compute the transition matrix from a set of model labels
 
     Args:
@@ -62,13 +61,14 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
         max_syllable (int): maximum syllable number to consider
         normalize (str): how to normalize transition matrix, 'bigram' or 'rows' or 'columns'
         smoothing (float): constant to add to transition_matrix pre-normalization to smooth counts
-        combine (bool): compute a separate transition matrix for each element (False) or combine across all arrays in the list (True)
+        combine (bool): compute a separate transition matrix for each element (False)
+            or combine across all arrays in the list (True)
 
     Returns:
-        transition_matrix (list): list of 2d np.arrays that represent the transitions from syllable i (row) to syllable j (column)
+        transition_matrix: list of 2d np.arrays that represent the transitions
+            from syllable i (row) to syllable j (column)
 
-    Examples:
-
+    Example:
         Load in model results and get the transition matrix combined across sessions.
 
         >> from moseq2_viz.model.util import parse_model_results, get_transition_matrix
@@ -138,23 +138,6 @@ non_nan = complement(any_nan)
 
 
 @curry
-def star(f, args):
-    '''Apply a function to a tuple of args, by expanding the tuple into
-    each of the function's parameters. It is curried, which allows one to
-    specify one argument at a time.
-    Args:
-        f: a function that takes multiple arguments
-        args: a tuple to expand into `f`
-    Returns:
-        the output of `f`
-
-    >>> instance_checker = star(isinstance)
-    >>> instance_checker((1, int))
-    True'''
-    return f(*args)
-
-
-@curry
 def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], index: Dict,
                               filter_nans: bool = True) -> Dict[str, list]:
     getter = curry(get_mouse_syllable_slices)(syllable)
@@ -177,7 +160,7 @@ def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], inde
 
 
 @curry
-def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool =True) -> list:
+def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = True) -> list:
     '''Get the indices that correspond to a specific syllable for each animal in a modeling run.
     Args:
         trim_nans: flag to use the pca scores file for removing time points that contain NaNs.
@@ -397,36 +380,40 @@ def labels_to_changepoints(labels, fs=30.):
 def parse_batch_modeling(filename):
 
     with h5py.File(filename, 'r') as f:
+        scans = h5_to_dict(f, 'scans')
+        params = h5_to_dict(f, 'metadata/parameters')
         results_dict = {
-            'heldouts': np.squeeze(f['metadata/heldout_ll'].value),
-            'parameters': h5_to_dict(f, 'metadata/parameters'),
-            'scans': h5_to_dict(f, 'scans'),
-            'filenames': [os.path.join(os.path.dirname(filename), os.path.basename(fname).decode('utf-8'))
-                          for fname in f['filenames'].value],
-            'labels': np.squeeze(f['labels'].value),
-            'loglikes': np.squeeze(f['metadata/loglikes'].value),
-            'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list'].value]
+            'heldouts': np.squeeze(f['metadata/heldout_ll'][()]),
+            'parameters': params,
+            'scans': scans,
+            'filenames': [join(dirname(filename), basename(fname.decode('utf-8')))
+                          for fname in f['filenames']],
+            'labels': np.squeeze(f['labels'][()]),
+            'loglikes': np.squeeze(f['metadata/loglikes'][()]),
+            'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list']]
         }
-        results_dict['scan_parameters'] = {k: results_dict['parameters'][k]
-                                           for k in results_dict['scans'].keys() if k in results_dict['parameters'].keys()}
+
+        results_dict['scan_parameters'] = dict((x, get(x, params, None)) for x in scans)
 
     return results_dict
 
 
 def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
-                        map_uuid_to_keys=False,
-                        sort_labels_by_usage=False,
-                        count='usage'):
+                        map_uuid_to_keys: bool = False,
+                        sort_labels_by_usage: bool = False,
+                        count: str = 'usage') -> dict:
     """Parses a model fit and returns a dictionary of results
 
     Args:
         model_obj (str or results returned from joblib.load): path to the model fit or a loaded model fit
-        map_uuid_to_keys (bool): for labels, make a dictionary where each key, value pair contains the uuid and the labels for that session
-        sort_labels_by_usage (bool): sort labels by their usages
-        count (str): how to count syllable usage, either by number of emissions (usage), or number of frames (frames)
+        map_uuid_to_keys: for labels, make a dictionary where each key, value pair
+            contains the uuid and the labels for that session
+        sort_labels_by_usage: sort labels by their usages
+        count: how to count syllable usage, either by number of emissions (usage),
+            or number of frames (frames)
 
     Returns:
-        output_dict (dict): dictionary with labels and model parameters
+        output_dict: dictionary with labels and model parameters
 
     Examples:
 
@@ -463,7 +450,6 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
             output_dict['model_parameters']['ar_mat'][i] = old_ar_mat[sort_idx]
             if type(output_dict['model_parameters']['nu']) is list:
                 output_dict['model_parameters']['nu'][i] = old_nu[sort_idx]
-
 
     if map_uuid_to_keys:
         if 'train_list' in output_dict.keys():
@@ -714,11 +700,11 @@ def whiten_pcs(pca_scores, method='all', center=True):
     return whitened_scores
 
 
-def normalize_pcs(pca_scores: dict, method: str ='z') -> dict:
+def normalize_pcs(pca_scores: dict, method: str = 'z') -> dict:
     """Normalize PC scores. Options are: demean, zscore, ind-zscore.
     demean: subtract the mean from each score
     zscore: perform a zscore across all animals. each PC is zscored independently
-    ind-zscore: perform a zscore for each animal and each PC independently 
+    ind-zscore: perform a zscore for each animal and each PC independently
     Args:
         pca_scores: a dictionary of scores where the key is the animal's UUID
         method: the type of normalization to perform (demean, zscore, ind-zscore)
@@ -750,7 +736,7 @@ def _gen_to_arr(generator: Iterator[Any]) -> np.ndarray:
     return np.array(list(generator))
 
 
-def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3, 
+def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
                              max_samples=100, npcs=10, subsampling=None,
                              remove_offset=False, **kwargs):
     # pad using zeros, get dtw distances...

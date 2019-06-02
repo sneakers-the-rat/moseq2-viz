@@ -1,5 +1,5 @@
 from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
-                             parse_index, commented_map_to_dict, h5_to_dict)
+                             parse_index, h5_to_dict, clean_dict)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
                                    results_to_dataframe, parse_model_results,
                                    get_transition_matrix, get_syllable_statistics)
@@ -85,7 +85,8 @@ def add_group(index_file, key, value, group, exact, lowercase, negative):
 # and copy the contents to a new directory
 @cli.command(name="copy-h5-metadata-to-yaml")
 @click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
-def copy_h5_metadata_to_yaml(input_dir):
+@click.option('--h5-metadata-path', default='/metadata/acquisition', type=str, help='Path to acquisition metadata in h5 files')
+def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)
     to_load = [(tmp, yml, file) for tmp, yml, file in zip(
@@ -96,13 +97,13 @@ def copy_h5_metadata_to_yaml(input_dir):
 
     for i, tup in tqdm.tqdm(enumerate(to_load), total=len(to_load), desc='Copying data to yamls'):
         with h5py.File(tup[2], 'r') as f:
-            tmp = h5_to_dict(f, '/metadata/extraction')
+            tmp = clean_dict(h5_to_dict(f, h5_metadata_path))
             tup[0]['metadata'] = dict(tmp)
 
         try:
             new_file = '{}_update.yaml'.format(os.path.basename(tup[1]))
             with open(new_file, 'w+') as f:
-                yaml.dump(commented_map_to_dict(tup[0]), f, Dumper=yaml.RoundTripDumper)
+                yaml.dump(tup[0], f, Dumper=yaml.RoundTripDumper)
             shutil.move(new_file, tup[1])
         except Exception:
             raise Exception
@@ -165,7 +166,7 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 
 @cli.command(name='make-crowd-movies')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
-@click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
+@click.argument('model-path', type=click.Path(exists=True, resolve_path=True))
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
 @click.option('--max-examples', '-m', type=int, default=40, help="Number of examples to show")
 @click.option('--threads', '-t', type=int, default=-1, help="Number of threads to use for rendering crowd movies")
@@ -179,44 +180,51 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 @click.option('--scale', type=float, default=1, help="Scaling from pixel units to mm")
 @click.option('--cmap', type=str, default='jet', help="Name of valid Matplotlib colormap for false-coloring images")
 @click.option('--dur-clip', default=300, help="Exclude syllables more than this number of frames (None for no limit)")
-def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads, sort, count,
-                      output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip):
+@click.option('--legacy-jitter-fix', default=False, type=bool, help="Set to true if you notice jitter in your crowd movies")
+def make_crowd_movies(index_file, model_path, max_syllable, max_examples, threads, sort, count,
+                      output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip, legacy_jitter_fix):
 
-    if platform == 'linux' or platform == 'linux2':
+    if platform in ['linux', 'linux2']:
         print('Setting CPU affinity to use all CPUs...')
         cpu_count = psutil.cpu_count()
         proc = psutil.Process()
         proc.cpu_affinity(list(range(cpu_count)))
-        # os.system('taskset -p 0xff {:d}'.format(os.getpid()))
 
     # need to handle h5 intelligently here...
 
-    if model_fit.endswith('.p') or model_fit.endswith('.pz'):
-        model_fit = parse_model_results(joblib.load(model_fit))
+    if model_path.endswith('.p') or model_path.endswith('.pz'):
+        model_fit = parse_model_results(joblib.load(model_path))
         labels = model_fit['labels']
 
-        if 'train_list' in model_fit.keys():
+        if 'train_list' in model_fit:
             label_uuids = model_fit['train_list']
         else:
             label_uuids = model_fit['keys']
     elif model_fit.endswith('.h5'):
         # load in h5, use index found using another function
         pass
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
+    info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
+    info_dict['model_path'] = model_path
+    info_dict['index_path'] = index_file
+    info_file = os.path.join(output_dir, 'info.yaml')
+
+    with open(info_file, 'w+') as f:
+        yaml.dump(info_dict, f, Dumper=yaml.RoundTripDumper)
 
     if sort:
         labels, ordering = relabel_by_usage(labels, count=count)
     else:
         ordering = list(range(max_syllable))
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
     index, sorted_index = parse_index(index_file)
     vid_parameters = check_video_parameters(sorted_index)
 
     # uuid in both the labels and the index
-    uuid_set = set.intersection(set(label_uuids),
-                                set(sorted_index['files'].keys()))
+    uuid_set = set(label_uuids) & set(sorted_index['files'].keys())
 
     # make sure the files exist
     uuid_set = [uuid for uuid in uuid_set if os.path.exists(sorted_index['files'][uuid]['path'][0])]
@@ -243,8 +251,9 @@ def make_crowd_movies(index_file, model_fit, max_syllable, max_examples, threads
             warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
             slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
 
-        matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=dur_clip,
-                             crop_size=vid_parameters['crop_size'], raw_size=raw_size, scale=scale)
+        matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=dur_clip, min_height=min_height,
+                             crop_size=vid_parameters['crop_size'], raw_size=raw_size, scale=scale,
+                             legacy_jitter_fix=legacy_jitter_fix)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
             crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
@@ -347,11 +356,11 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 
     print('Creating plot...')
 
-    plt, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
-                                     edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
-                                     difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
-                                     orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
-                                     layout=layout, groups=group, usage_scale=node_scaling, headless=True)
+    plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
+                                        edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
+                                        difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
+                                        orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
+                                        layout=layout, groups=group, usage_scale=node_scaling, headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
 

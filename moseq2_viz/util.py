@@ -1,6 +1,6 @@
 import os
 import h5py
-import ruamel.yaml as yaml
+from ruamel.yaml import YAML
 import numpy as np
 import re
 
@@ -23,9 +23,11 @@ def check_video_parameters(index):
 
     dicts = []
 
+    yaml = YAML(typ='safe')
+
     for yml in ymls:
         with open(yml, 'r') as f:
-            dicts.append(yaml.load(f.read(), Loader=yaml.RoundTripLoader))
+            dicts.append(yaml.load(f.read()))
 
     check_parameters = ['crop_size', 'fps', 'max_height', 'min_height']
 
@@ -51,14 +53,32 @@ def check_video_parameters(index):
     return vid_parameters
 
 
-def commented_map_to_dict(cmap):
+# def commented_map_to_dict(cmap):
+#
+#     new_var = dict()
+#
+#     if type(cmap) is CommentedMap or type(cmap) is dict:
+#         for k, v in cmap.items():
+#             if type(v) is CommentedMap or type(v) is dict:
+#                 new_var[k] = commented_map_to_dict(v)
+#             elif type(v) is np.ndarray:
+#                 new_var[k] = v.tolist()
+#             elif isinstance(v, np.generic):
+#                 new_var[k] = np.asscalar(v)
+#             else:
+#                 new_var[k] = v
+#
+#     return new_var
+
+
+def clean_dict(dct):
 
     new_var = dict()
 
-    if type(cmap) is yaml.comments.CommentedMap or type(cmap) is dict:
-        for k, v in cmap.items():
-            if type(v) is yaml.comments.CommentedMap or type(v) is dict:
-                new_var[k] = commented_map_to_dict(v)
+    if type(dct) is dict:
+        for k, v in dct.items():
+            if type(v) is dict:
+                new_var[k] = clean_dict(v)
             elif type(v) is np.ndarray:
                 new_var[k] = v.tolist()
             elif isinstance(v, np.generic):
@@ -69,21 +89,32 @@ def commented_map_to_dict(cmap):
     return new_var
 
 
-def h5_to_dict(h5file, path):
-    """
-    ....
-    """
+def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
     ans = {}
-
-    if type(h5file) is str:
-        h5file = h5py.File(h5file, 'r')
-
-    for key, item in h5file[path].items():
-        if type(item) is h5py.Dataset:
-            ans[key] = item.value
-        elif type(item) is h5py.Group:
-            ans[key] = h5_to_dict(h5file, path + key + '/')
+    for key, item in file[path].items():
+        if isinstance(item, h5py._hl.dataset.Dataset):
+            ans[key] = item[()]
+        elif isinstance(item, h5py._hl.group.Group):
+            ans[key] = _load_h5_to_dict(file, '/'.join([path, key]))
     return ans
+
+
+def h5_to_dict(h5file, path: str) -> dict:
+    '''
+    Args:
+        h5file (str or h5py.File): file path to the given h5 file or the h5 file handle
+        path: path to the base dataset within the h5 file
+    Returns:
+        a dict with h5 file contents with the same path structure
+    '''
+    if isinstance(h5file, str):
+        with h5py.File(h5file, 'r') as f:
+            out = _load_h5_to_dict(f, path)
+    elif isinstance(h5file, h5py.File):
+        out = _load_h5_to_dict(h5file, path)
+    else:
+        raise Exception('file input not understood - need h5 file path or file object')
+    return out
 
 
 def load_changepoints(cpfile):
@@ -113,8 +144,10 @@ def load_timestamps(timestamp_file, col=0):
 
 def parse_index(index_file, get_metadata=False):
 
+    yaml = YAML(typ='safe')
+
     with open(index_file, 'r') as f:
-        index = yaml.load(f.read(), Loader=yaml.RoundTripLoader)
+        index = yaml.load(f)
 
     # sort index by uuids
 
@@ -126,7 +159,7 @@ def parse_index(index_file, get_metadata=False):
            for idx in index['files']]
     h5_uuids = [idx['uuid'] for idx in index['files']]
     groups = [idx['group'] for idx in index['files']]
-    metadata = [commented_map_to_dict(idx['metadata'])
+    metadata = [idx['metadata']
                 if 'metadata' in idx.keys() else {} for idx in index['files']]
 
     sorted_index = {
@@ -170,12 +203,14 @@ def recursive_find_h5s(root_dir=os.getcwd(),
 
 def read_yaml(yaml_file):
 
+    yaml = YAML(typ='safe')
+
     with open(yaml_file, 'r') as f:
         dat = f.read()
         try:
-            return_dict = yaml.load(dat, Loader=yaml.RoundTripLoader)
+            return_dict = yaml.load(dat)
         except yaml.constructor.ConstructorError:
-            return_dict = yaml.load(dat, Loader=yaml.Loader)
+            return_dict = yaml.load(dat)
 
     return return_dict
 

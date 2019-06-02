@@ -44,7 +44,7 @@ def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
         print('Loading scalars from h5 dataset')
         feature_dict = {}
         for k, v in old_features.items():
-            feature_dict[k] = v.value
+            feature_dict[k] = v[...]
 
         old_features = feature_dict
 
@@ -53,7 +53,7 @@ def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
         with h5py.File(old_features, 'r') as f:
             feature_dict = {}
             for k, v in f['scalars'].items():
-                feature_dict[k] = v.value
+                feature_dict[k] = v[...]
 
         old_features = feature_dict
 
@@ -302,8 +302,18 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
     for k, v in tqdm.tqdm(index['files'].items(), disable=disable_output):
         if k in skip:
             continue
-        dset = h5_to_dict(h5py.File(v['path'][0], 'r'), 'scalars')
-        timestamps = h5py.File(v['path'][0], 'r')['metadata/timestamps'].value
+
+        h5 = h5py.File(v['path'][0], 'r')
+        dset = h5_to_dict(h5, 'scalars')
+        if 'timestamps' in h5:
+            # h5 format as of v0.1.3
+            timestamps = h5['/timestamps'][...]
+        elif 'timestamps' in h5['/metadata']:
+            # h5 format prior to v0.1.3
+            timestamps = h5['/metadata/timestamps'][...]
+        else:
+            raise RunTimeError("Could not find timestamps")
+
         dct = read_yaml(v['path'][1])
         parameters = dct['parameters']
 
@@ -323,7 +333,8 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
                     feedback_status = load_timestamps(feedback_path, 1)
                 else:
                     warnings.warn('Could not find feedback file for {}'.format(v['path'][0]))
-                    continue
+                    feedback_ts = None
+                    #continue
 
         tmp = convert_legacy_scalars(dset, force=force_conversion)
 

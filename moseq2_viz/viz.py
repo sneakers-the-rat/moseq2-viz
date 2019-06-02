@@ -20,7 +20,7 @@ def convert_ebunch_to_graph(ebunch):
 def convert_transition_matrix_to_ebunch(weights, transition_matrix,
                                         usages=None, usage_threshold=-.1,
                                         edge_threshold=-.1, indices=None,
-                                        keep_orphans=False):
+                                        keep_orphans=False, max_syllable=None):
 
     ebunch = []
     orphans = []
@@ -44,18 +44,21 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     if usages is not None:
         ebunch = [e for e in ebunch if usages[e[0]] > usage_threshold and usages[e[1]] > usage_threshold]
 
+    if max_syllable is not None:
+        ebunch = [e for e in ebunch if e[0] <= max_syllable and e[1] <= max_syllable]
+
     return ebunch, orphans
 
 
 def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             edge_threshold=.0025, anchor=0, usage_threshold=0,
                             node_color='w', node_edge_color='r', layout='spring',
-                            edge_width_scale=100, node_size=400,
+                            edge_width_scale=100, node_size=400, fig=None, ax=None,
                             width_per_group=8, height=8, headless=False, font_size=12,
                             plot_differences=True, difference_threshold=.0005,
                             difference_edge_width_scale=500, weights=None,
                             usage_scale=1e5, arrows=False, keep_orphans=False,
-                            orphan_weight=0, **kwargs):
+                            max_syllable=None, orphan_weight=0, edge_color='k', **kwargs):
 
     if headless:
         plt.switch_backend('agg')
@@ -70,7 +73,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     else:
         raise RuntimeError("Transition matrix must be a numpy array or list of arrays")
 
-    if type(usages) is list or type(usages) is np.ndarray:
+    if (type(usages[0]) is list) or (type(usages[0]) is np.ndarray):
         from collections import defaultdict
         for i, u in enumerate(usages):
             d = defaultdict(int)
@@ -89,34 +92,38 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
             usage_total = sum(usages[i].values())
             for k, v in usages[i].items():
                 usages[i][k] = v / usage_total
-        usage_anchor = usages[anchor]
+        usages_anchor = usages[anchor]
     else:
-        usage_anchor = None
+        usages_anchor = None
 
     ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
         weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
-        keep_orphans=keep_orphans, usages=usage_anchor,
-        usage_threshold=usage_threshold)
+        keep_orphans=keep_orphans, usages=usages_anchor,
+        usage_threshold=usage_threshold, max_syllable=max_syllable)
     graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
     nnodes = len(graph_anchor.nodes())
 
-    if layout.lower() == 'spring':
+    if type(layout) is str and layout.lower() == 'spring':
         if 'k' not in kwargs.keys():
             kwargs['k'] = 1.5 / np.sqrt(nnodes)
         pos = nx.spring_layout(graph_anchor, **kwargs)
-    elif layout.lower() == 'circular':
+    elif type(layout) is str and layout.lower() == 'circular':
         pos = nx.circular_layout(graph_anchor, **kwargs)
-    elif layout.lower() == 'spectral':
+    elif type(layout) is str and layout.lower() == 'spectral':
         pos = nx.spectral_layout(graph_anchor, **kwargs)
-    elif layout.lower()[:8] == 'graphviz':
+    elif type(layout) is str and layout.lower()[:8] == 'graphviz':
         prog = re.split(r'\:', layout.lower())[1]
         pos = graphviz_layout(graph_anchor, prog=prog, **kwargs)
+    elif type(layout) is dict:
+        # user passed pos directly
+        pos = layout
     else:
         raise RuntimeError('Did not understand layout type')
 
-    fig, ax = plt.subplots(ngraphs, ngraphs,
-                           figsize=(ngraphs*width_per_group,
-                                    ngraphs*width_per_group))
+    if fig is None or ax is None:
+        fig, ax = plt.subplots(ngraphs, ngraphs,
+                               figsize=(ngraphs*width_per_group,
+                                        ngraphs*width_per_group))
 
     if ngraphs == 1:
         ax = [[ax]]
@@ -137,7 +144,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
                                edgecolors=node_edge_color, node_color=node_color,
                                node_size=node_size, ax=ax[i][i])
         nx.draw_networkx_edges(graph, pos, graph.edges(), width=width, ax=ax[i][i],
-                               arrows=arrows)
+                               arrows=arrows, edge_color=edge_color)
         if font_size > 0:
             nx.draw_networkx_labels(graph, pos,
                                     {k: k for k in pos.keys()},
@@ -190,15 +197,15 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
         for j in range(len(ax[i])):
             ax[i][j].axis('off')
 
-    plt.show()
+    # plt.show()
 
-    return fig, ax
+    return fig, ax, pos
 
 
 #TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
                       crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
-                      center=False, rotate=False):
+                      center=False, rotate=False, min_height=10, legacy_jitter_fix=False):
 
     if rotate and not center:
         raise NotImplementedError('Rotating without centering not supported')
@@ -266,7 +273,12 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
         frames = (h5['frames'][use_idx[0]:use_idx[1]] / scale).astype('uint8')
 
-        if 'flips' in h5['metadata'].keys():
+        if 'flips' in h5['metadata/extraction'].keys():
+            # h5 format as of v0.1.3
+            flips = h5['metadata/extraction/flips'][use_idx[0]:use_idx[1]]
+            angles[np.where(flips == True)] -= np.pi
+        elif 'flips' in h5['metadata'].keys():
+            # h5 format prior to v0.1.3
             flips = h5['metadata/flips'][use_idx[0]:use_idx[1]]
             angles[np.where(flips == True)] -= np.pi
         else:
@@ -297,8 +309,11 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             new_frame = np.zeros_like(old_frame)
             new_frame_clip = frames[i]
 
-            if flips[i]:
+            # change from fliplr, removes jitter since we now use rot90 in moseq2-extract
+            if flips[i] and legacy_jitter_fix:
                 new_frame_clip = np.fliplr(new_frame_clip)
+            elif flips[i]:
+                new_frame_clip = np.rot90(new_frame_clip, k=-2)
 
             new_frame_clip = cv2.warpAffine(new_frame_clip.astype('float32'),
                                             rot_mat, crop_size).astype(frames.dtype)
@@ -316,11 +331,12 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
                                                   1)
                 new_frame = cv2.warpAffine(new_frame, rot_mat, raw_size).astype(new_frame.dtype)
 
+            # zero out based on min_height before taking the non-zeros
+            new_frame[new_frame < min_height] = 0
+            old_frame[old_frame < min_height] = 0
+
             new_frame_nz = new_frame > 0
             old_frame_nz = old_frame > 0
-
-            new_frame[new_frame < 10] = 0
-            old_frame[old_frame < 10] = 0
 
             blend_coords = np.logical_and(new_frame_nz, old_frame_nz)
             overwrite_coords = np.logical_and(new_frame_nz, ~old_frame_nz)

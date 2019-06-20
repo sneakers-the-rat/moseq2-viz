@@ -69,11 +69,11 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
             from syllable i (row) to syllable j (column)
 
     Example:
-        Load in model results and get the transition matrix combined across sessions.
+        Load in model results and get the transition matrix combined across sessions::
 
-        >> from moseq2_viz.model.util import parse_model_results, get_transition_matrix
-        >> model_results = parse_model_results('mymodel.p')
-        >> transition_matrix = get_transition_matrix(model_results['labels'], combine=True)
+            from moseq2_viz.model.util import parse_model_results, get_transition_matrix
+            model_results = parse_model_results('mymodel.p')
+            transition_matrix = get_transition_matrix(model_results['labels'], combine=True)
 
     """
 
@@ -125,10 +125,16 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
 
 
 def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[slice]:
-    '''Return a generator containing slices of `syllable` indices for a mouse'''
-    is_syllable = np.diff(np.insert(np.int16(labels == syllable), 0, 0))
+    '''Return a generator containing slices of `syllable` indices for a mouse
+    
+    >>> lbls = [1, 1, 1, 2, 2, 2, 3, 3, 3, 2, 2, 2]
+    >>> list(get_mouse_syllable_slices(2, np.array(lbls)))
+    [slice(3, 6, None), slice(9, 12, None)]
+    '''
+    labels = np.concatenate(([-1], labels, [-1]))
+    is_syllable = np.diff(np.int16(labels == syllable))
     starts = np.where(is_syllable == 1)[0]
-    ends = np.where(is_syllable == -1)[0] + 1
+    ends = np.where(is_syllable == -1)[0]
     slices = starmap(slice, zip(starts, ends))
     return slices
 
@@ -162,12 +168,13 @@ def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], inde
 @curry
 def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = True) -> list:
     '''Get the indices that correspond to a specific syllable for each animal in a modeling run.
+
     Args:
         trim_nans: flag to use the pca scores file for removing time points that contain NaNs.
-            only use if you have not already trimmed NaNs previously (i.e. in `scalars_to_dataframe`)
+        only use if you have not already trimmed NaNs previously (i.e. in `scalars_to_dataframe`)
     Returns:
         a list of indices for `syllable` in the `labels` array. Each item in the list
-            is a tuple of (slice, uuid, h5_file)
+        is a tuple of (slice, uuid, h5_file)
     '''
 
     h5s = [v['path'][0] for v in index['files'].values()]
@@ -239,9 +246,10 @@ def find_label_transitions(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
 def compress_label_sequence(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
     '''Removes repeating values from a label sequence. It assumes the first
     label is '-5', which is unused for behavioral analysis, and removes it.
+
     Args:
         label_arr: either an array of labels that contains repeating values, or a
-            dict containing the same
+        dict containing the same
     Returns:
         the compressed verion of the label array
     '''
@@ -350,7 +358,7 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
 
 
 def labels_to_changepoints(labels, fs=30.):
-    """Compute the transition matrix from a set of model labels
+    '''Compute the transition matrix from a set of model labels
 
     Args:
         labels (list of np.array of ints): labels loaded from a model fit
@@ -360,14 +368,13 @@ def labels_to_changepoints(labels, fs=30.):
         cp_dist (list of np.array of floats): list of block durations per element in labels list
 
     Examples:
+        Load in model results and get the changepoint distribution::
 
-        Load in model results and get the changepoint distribution
+            from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
+            model_results = parse_model_results('mymodel.p')
+            cp_dist = labels_to_changepoints(model_results['labels'])
 
-        >> from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
-        >> model_results = parse_model_results('mymodel.p')
-        >> cp_dist = labels_to_changepoints(model_results['labels'])
-
-    """
+    '''
 
     cp_dist = []
 
@@ -402,7 +409,7 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
                         map_uuid_to_keys: bool = False,
                         sort_labels_by_usage: bool = False,
                         count: str = 'usage') -> dict:
-    """Parses a model fit and returns a dictionary of results
+    '''Parses a model fit and returns a dictionary of results
 
     Args:
         model_obj (str or results returned from joblib.load): path to the model fit or a loaded model fit
@@ -416,13 +423,12 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
         output_dict: dictionary with labels and model parameters
 
     Examples:
+        Load in model results::
 
-        Load in model results
+            from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
+            model_results = parse_model_results('mymodel.p')
 
-        >> from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
-        >> model_results = parse_model_results('mymodel.p')
-
-    """
+    '''
     # reformat labels into something useful
 
     if type(model_obj) is str and (model_obj.endswith('.p') or model_obj.endswith('.pz')):
@@ -478,26 +484,25 @@ def _relabel_list_by_usage(labels, fill_value=-5, count='usage'):
     return sorted_labels, sorting
 
 
-def relabel_by_usage(labels, fill_value=-5, count='usage'):
-    """Resort model labels by their usages
+def relabel_by_usage(labels: Union[list, np.ndarray], fill_value: int = -5,
+                     count: str = 'usage') -> Union[list, np.ndarray]:
+    '''Re-sort model labels by their usages
 
     Args:
-        labels (list of np.array of ints): labels loaded from a model fit
-        fill_value (int): value prepended to modeling results to account for nlags
-        count (str): how to count syllable usage, either by number of emissions (usage), or number of frames (frames)
+        labels: labels loaded from a model fit
+        fill_value: value prepended to modeling results to account for nlags
+        count: how to count syllable usage - either by emission number (usage) or number of frames (frames)
 
     Returns:
-        labels (list of np.array of ints): labels resorted by usage
+        labels: labels resorted by usage
 
     Examples:
+        Load in model results and sort labels by usages::
 
-        Load in model results and sort labels by usages
-
-        >> from moseq2_viz.model.util import parse_model_results, relabel_by_usage
-        >> model_results = parse_model_results('mymodel.p')
-        >> sorted_labels = relabel_by_usage(model_results['labels'])
-
-    """
+            from moseq2_viz.model.util import parse_model_results, relabel_by_usage
+            model_results = parse_model_results('mymodel.p')
+            sorted_labels = relabel_by_usage(model_results['labels'], count='usage')
+    '''
 
     if isinstance(labels, (list, np.ndarray)):
         return _relabel_list_by_usage(labels, fill_value=fill_value, count=count)

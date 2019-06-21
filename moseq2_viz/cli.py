@@ -14,6 +14,7 @@ import os
 import ruamel.yaml as yaml
 import h5py
 import multiprocessing as mp
+import numpy as np
 import joblib
 import tqdm
 import warnings
@@ -208,6 +209,12 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
 
     info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
     info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
+
+    # convert numpy dtypes to their corresponding primitives
+    for k, v in info_dict.items():
+        if isinstance(v, (np.ndarray, np.generic)):
+            info_dict[k] = info_dict[k].item()
+
     info_dict['model_path'] = model_path
     info_dict['index_path'] = index_file
     info_file = os.path.join(output_dir, 'info.yaml')

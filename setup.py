@@ -21,7 +21,7 @@ setup(
     packages=find_packages(),
     platforms=['mac', 'unix'],
     install_requires=['tqdm', 'matplotlib', 'click', 'dtaidistance', 'sklearn',
-                      'ruamel.yaml>=0.15.0', 'seaborn',
+                      'ruamel.yaml>=0.15.0', 'seaborn', 'psutil',
                       'pandas', 'networkx', 'numpy'],
     python_requires='>=3.6',
     entry_points={'console_scripts': ['moseq2-viz = moseq2_viz.cli:cli']}

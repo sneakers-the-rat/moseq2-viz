@@ -9,7 +9,7 @@ setup(
     platforms=['mac', 'unix'],
     install_requires=['tqdm', 'matplotlib', 'click', 'dtaidistance', 'scikit-learn',
                       'ruamel.yaml>=0.15.0', 'seaborn', 'opencv-python',
-                      'pandas', 'networkx', 'numpy==1.14.5', 'cytoolz'],
+                      'pandas', 'networkx', 'numpy>=1.14.5', 'cytoolz'],
     python_requires='>=3.6',
     entry_points={'console_scripts': ['moseq2-viz = moseq2_viz.cli:cli']}
 )

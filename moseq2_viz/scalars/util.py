@@ -339,10 +339,10 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
             _df[key] = v["metadata"][key]
 
         _df["group"] = v["group"]
-        _df["uuid"] = v["uuid"]
-        _df["feedback_status"] = -1
+        _df["uuid"] = k
 
         if include_feedback and feedback_ts is not None:
+            _df["feedback_status"] = -1
             _df.loc[feedback_ts.astype('int32'), "feedback_status"] = feedback_status
 
         if include_labels:

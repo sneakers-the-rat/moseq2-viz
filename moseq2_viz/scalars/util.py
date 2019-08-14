@@ -236,7 +236,8 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
 
 def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'StartTime'],
                          include_model=None, disable_output=False,
-                         include_feedback=None, force_conversion=True):
+                         include_pcs=False, npcs=10, include_feedback=None,
+                         force_conversion=True):
 
     #TODO add pcs
     uuids = list(index['files'].keys())
@@ -277,6 +278,10 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
             labels['frames'][uuid] = labels['frames'][uuid][~np.isnan(label_idx[uuid])]
 
         include_labels = True
+
+    if include_pcs and not os.path.exists(index["pca_path"]):
+        warnings.warn("PCA scores not found at {}".format(index["pca_path"]))
+        include_pcs = False
 
     dfs = []
     for k, v in tqdm(index['files'].items(), disable=disable_output):
@@ -351,6 +356,12 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
             _df["model_label (sort=frames)"] = labels["frames"][k]
         else:
             _df["model_label"] = np.nan
+
+        if include_pcs:
+            with h5py.File(index["pca_path"], "r") as f:
+                use_pcs = f["/scores/{}".format(k)][~np.isnan(label_idx[k]), :npcs]
+            for _pc in range(npcs):
+                _df["pc{:02d}".format(_pc)] = use_pcs[:, _pc]
 
         dfs.append(_df)
 

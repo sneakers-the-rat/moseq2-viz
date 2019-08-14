@@ -330,7 +330,7 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
 
         # timestamps are the index
         _df["timestamp"] = timestamps.astype('int32')
-        _df.set_index("timestamp", inplace=True)
+        # _df.set_index("timestamp", inplace=True)
 
         for scalar in scalar_names:
             _df[scalar] = dset[scalar]
@@ -346,15 +346,11 @@ def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'Sta
             _df.loc[feedback_ts.astype('int32'), "feedback_status"] = feedback_status
 
         if include_labels:
-            if k in labels['raw'].keys():
-                for lbl, lbl_usage, lbl_frames in zip(labels['raw'][k],
-                                                      labels['usage'][k],
-                                                      labels['frames'][k]):
-                    _df["model_label"] = lbl
-                    _df["model_label (sort=usage)"] = lbl_usage
-                    _df["model_label (sort=frames)"] = lbl_frames
-            else:
-                _df["model_label"] = np.nan
+            _df["model_label"] = labels["raw"][k]
+            _df["model_label (sort=usage)"] = labels["usage"][k]
+            _df["model_label (sort=frames)"] = labels["frames"][k]
+        else:
+            _df["model_label"] = np.nan
 
         dfs.append(_df)
 

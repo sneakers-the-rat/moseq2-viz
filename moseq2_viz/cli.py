@@ -122,7 +122,6 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
     # uuids should match keys in the scores file
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)
-
     if not os.path.exists(pca_file) or all_uuids:
         warnings.warn('Will include all files')
         pca_uuids = [dct['uuid'] for dct in dicts]
@@ -130,7 +129,7 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
         with h5py.File(pca_file, 'r') as f:
             pca_uuids = list(f['scores'].keys())
 
-    file_with_uuids = [(os.path.relpath(h5), os.path.relpath(yml), meta) for h5, yml, meta in
+    file_with_uuids = [(os.path.relpath(h5), os.path.relpath(yml), metadata.jsonmeta) for h5, yml, meta in
                        zip(h5s, yamls, dicts) if meta['uuid'] in pca_uuids]
 
     if 'metadata' not in file_with_uuids[0][2]:

@@ -7,8 +7,7 @@ from moseq2_viz.viz import (make_crowd_matrix, usage_plot, graph_transition_matr
                             scalar_plot, position_plot)
 from moseq2_viz.scalars.util import scalars_to_dataframe
 from moseq2_viz.io.video import write_frames_preview
-from functools import partial
-from cytoolz import pluck
+from cytoolz import pluck, partial
 from sys import platform
 import click
 import os
@@ -123,7 +122,7 @@ def generate_index(input_dir, pca_file, output_file, _filter, all_uuids):
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)
 
-    if 'metadata' not in yamls[0]:
+    if 'metadata' not in dicts[0]:
         raise RuntimeError('Metadata not present in yaml files, run ' +
                            'copy-h5-metadata-to-yaml to update yaml files')
 

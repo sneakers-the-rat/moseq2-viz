@@ -51,32 +51,53 @@ def test_generate_index():
 def test_plot_scalar_summary():
 
     input_dir = 'tests/test_files/'
+    gen_dir = 'tests/test_files/gen_plots/'
     runner = CliRunner()
 
-    results = runner.invoke(plot_scalar_summary, ['--output-file', input_dir+'scalar',
+    results = runner.invoke(plot_scalar_summary, ['--output-file', gen_dir+'scalar',
                                                   input_dir+'test_index.yaml'])
+
+    #time.sleep(15)
+    assert (os.path.exists(gen_dir + 'scalar_position.png'))
+    assert (os.path.exists(gen_dir + 'scalar_position.pdf'))
+    assert (os.path.exists(gen_dir + 'scalar_summary.png'))
+    assert (os.path.exists(gen_dir + 'scalar_summary.pdf'))
+    os.remove(gen_dir+'scalar_position.png')
+    os.remove(gen_dir + 'scalar_position.pdf')
+    os.remove(gen_dir + 'scalar_summary.png')
+    os.remove(gen_dir + 'scalar_summary.pdf')
     assert (results.exit_code == 0)
 
 def test_plot_transition_graph():
 
     input_dir = 'tests/test_files/'
+    gen_dir = 'tests/test_files/gen_plots/'
     runner = CliRunner()
 
-    results = runner.invoke(plot_transition_graph, ['--output-file', input_dir+'transitions',
+    results = runner.invoke(plot_transition_graph, ['--output-file', gen_dir+'transitions',
                                                     input_dir+'test_index.yaml',
                                                     input_dir+'mock_model.p'])
-    #assert(os.path.exists(input_dir+'transitions.png'))
+    #time.sleep(15)
+    assert(os.path.exists(gen_dir+'transitions.png'))
+    assert (os.path.exists(gen_dir + 'transitions.pdf'))
+    os.remove(gen_dir + 'transitions.png')
+    os.remove(gen_dir + 'transitions.pdf')
     assert (results.exit_code == 0)
 
 def test_plot_usages():
-
     input_dir = 'tests/test_files/'
+    gen_dir = 'tests/test_files/gen_plots/'
+
     runner = CliRunner()
 
-    results = runner.invoke(plot_usages, ['--output-file', input_dir+'test_usages',
+    results = runner.invoke(plot_usages, ['--output-file', gen_dir+'test_usages',
                                           input_dir+'test_index.yaml',
                                           input_dir+'mock_model.p'])
-
+    #time.sleep(15)
+    assert (os.path.exists(gen_dir + 'test_usages.png'))
+    assert (os.path.exists(gen_dir + 'test_usages.pdf'))
+    os.remove(gen_dir + 'test_usages.png')
+    os.remove(gen_dir + 'test_usages.pdf')
     assert (results.exit_code == 0)
 
 def test_make_crowd_movies():
@@ -89,6 +110,7 @@ def test_make_crowd_movies():
                                                 '--max-examples', max_examples,
                                                 input_dir+'test_index.yaml',
                                                 input_dir+'mock_model.p'])
+    #time.sleep(15)
     assert(os.path.exists(crowd_dir))
     assert(len([os.listdir(crowd_dir)][0]) == max_examples+1)
     shutil.rmtree(crowd_dir)

@@ -23,7 +23,16 @@ def test_add_group():
 
     runner = CliRunner()
 
-    results = runner.invoke(add_group, [input_path])
+    group_params = ['-k', 'SubjectName',
+                    '-v', 'Mouse',
+                    '-g', 'Group1',
+                    '-e', # FLAG
+                    '-e', # FLAG
+                    '--lowercase', # FLAG
+                    '-n', # FLAG
+                    input_path]
+
+    results = runner.invoke(add_group, group_params)
     assert(not os.path.samefile(os.path.join(input_dir, 'orig.txt'), input_path))
     assert(results.exit_code == 0)
 

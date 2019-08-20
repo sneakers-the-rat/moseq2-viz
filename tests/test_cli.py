@@ -27,7 +27,6 @@ def test_add_group():
                     '-v', 'Mouse',
                     '-g', 'Group1',
                     '-e', # FLAG
-                    '-e', # FLAG
                     '--lowercase', # FLAG
                     '-n', # FLAG
                     input_path]
@@ -50,10 +49,11 @@ def test_generate_index():
 
     runner = CliRunner()
     results = runner.invoke(generate_index, ['-i', input_dir,
+                                             '-a', True,
                                              '-p', input_dir+'_pca/pca_scores.h5',
                                              '-o', input_dir+'test_gen_index.yaml'])
 
-    assert(os.path.exists(input_dir+'test_gen_index.yaml'))
+    assert(os.path.exists(input_dir+'test_gen_index.yaml') == True)
     os.remove(input_dir+'test_gen_index.yaml')
     assert (results.exit_code == 0)
 
@@ -83,10 +83,25 @@ def test_plot_transition_graph():
     gen_dir = 'tests/test_files/gen_plots/'
     runner = CliRunner()
 
-    results = runner.invoke(plot_transition_graph, ['--output-file', gen_dir+'transitions',
-                                                    input_dir+'test_index.yaml',
-                                                    input_dir+'mock_model.p'])
-    #time.sleep(15)
+    trans_params = ['--output-file', gen_dir+'transitions',
+                    '--max-syllable', 40,
+                    '-g', 'Group1',
+                    #'--keep-orphans', True,
+                    #'--orphan-weight', 0,
+                    '--arrows', # FLAG
+                    '--normalize', 'bigram',
+                    '--layout', 'spring',
+                    '--sort', True,
+                    '--count', 'usage',
+                    '--edge-scaling', 250,
+                    '--node-scaling', 1e4,
+                    '--scale-node-by-usage', True,
+                    '--width-per-group', 8,
+                    input_dir+'test_index.yaml',
+                    input_dir+'mock_model.p']
+
+    results = runner.invoke(plot_transition_graph, trans_params)
+
     assert(os.path.exists(gen_dir+'transitions.png'))
     assert (os.path.exists(gen_dir + 'transitions.pdf'))
     os.remove(gen_dir + 'transitions.png')
@@ -99,9 +114,15 @@ def test_plot_usages():
 
     runner = CliRunner()
 
-    results = runner.invoke(plot_usages, ['--output-file', gen_dir+'test_usages',
-                                          input_dir+'test_index.yaml',
-                                          input_dir+'mock_model.p'])
+    use_params = ['--output-file', gen_dir+'test_usages',
+                  '--sort', True,
+                  '--count', 'usage',
+                  '--max-syllable', 40,
+                  '-g', 'Group1',
+                  input_dir+'test_index.yaml',
+                  input_dir+'mock_model.p']
+
+    results = runner.invoke(plot_usages, use_params)
     #time.sleep(15)
     assert (os.path.exists(gen_dir + 'test_usages.png'))
     assert (os.path.exists(gen_dir + 'test_usages.pdf'))
@@ -115,11 +136,26 @@ def test_make_crowd_movies():
     max_examples = 40
     runner = CliRunner()
 
-    results = runner.invoke(make_crowd_movies, ['-o', crowd_dir,
-                                                '--max-examples', max_examples,
-                                                input_dir+'test_index.yaml',
-                                                input_dir+'mock_model.p'])
-    #time.sleep(15)
+    crowd_params = ['-o', crowd_dir,
+                    '--max-syllable', 40,
+                    #'--t', 2,
+                    #'--sort', True,
+                    '--count', 'frames',
+                    #'--gaussfilter-space', 0, 0,
+                    #'--medfilter-space', 0,
+                    '--min-height', 5,
+                    '--max-height', 80,
+                    '--raw-size', 512, 424,
+                    '--scale', 1,
+                    '--cmap', 'jet',
+                    '--dur-clip', 300,
+                    '--legacy-jitter-fix', False,
+                    '--max-examples', max_examples,
+                    input_dir+'test_index.yaml',
+                    input_dir+'mock_model.p']
+
+    results = runner.invoke(make_crowd_movies, crowd_params)
+
     assert(os.path.exists(crowd_dir))
     assert(len([os.listdir(crowd_dir)][0]) == max_examples+1)
     shutil.rmtree(crowd_dir)

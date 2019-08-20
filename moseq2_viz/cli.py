@@ -174,6 +174,8 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 @click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--output-dir', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'crowd_movies'), help="Path to store files")
 #@click.option('--filename-format', type=str, default='syllable_{:d}.mp4', help="Python 3 string format for filenames")
+@click.option('--gaussfilter-space', default=(0, 0), type=(float, float), help="Spatial filter for data (Gaussian)")
+@click.option('--medfilter-space', default=[0], type=int, help="Median spatial filter", multiple=True)
 @click.option('--min-height', type=int, default=5, help="Minimum height for scaling videos")
 @click.option('--max-height', type=int, default=80, help="Minimum height for scaling videos")
 @click.option('--raw-size', type=(int, int), default=(512, 424), help="Size of original videos")
@@ -181,14 +183,21 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 @click.option('--cmap', type=str, default='jet', help="Name of valid Matplotlib colormap for false-coloring images")
 @click.option('--dur-clip', default=300, help="Exclude syllables more than this number of frames (None for no limit)")
 @click.option('--legacy-jitter-fix', default=False, type=bool, help="Set to true if you notice jitter in your crowd movies")
-def make_crowd_movies(index_file, model_path, max_syllable, max_examples, threads, sort, count,
-                      output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip, legacy_jitter_fix):
+def make_crowd_movies(index_file, model_path, max_syllable, max_examples,
+                      threads, sort, count, gaussfilter_space, medfilter_space,
+                      output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip,
+                      legacy_jitter_fix):
 
     if platform in ['linux', 'linux2']:
         print('Setting CPU affinity to use all CPUs...')
         cpu_count = psutil.cpu_count()
         proc = psutil.Process()
         proc.cpu_affinity(list(range(cpu_count)))
+
+    clean_params = {
+        'gaussfilter_space': gaussfilter_space,
+        'medfilter_space': medfilter_space
+    }
 
     # need to handle h5 intelligently here...
 
@@ -257,9 +266,15 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
             warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
             slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
 
-        matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=dur_clip, min_height=min_height,
-                             crop_size=vid_parameters['crop_size'], raw_size=raw_size, scale=scale,
-                             legacy_jitter_fix=legacy_jitter_fix)
+        matrix_fun = partial(make_crowd_matrix,
+                             nexamples=max_examples,
+                             dur_clip=dur_clip,
+                             min_height=min_height,
+                             crop_size=vid_parameters['crop_size'],
+                             raw_size=raw_size,
+                             scale=scale,
+                             legacy_jitter_fix=legacy_jitter_fix,
+                             **clean_params)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
             crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))

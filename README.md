@@ -11,3 +11,7 @@ then `moseq2-viz make-crowd-movies moseq2-index.yaml testing.p` if `testing.p` c
 ## Documentation
 
 All documentation regarding moseq2-viz can be found in our [github wiki](https://github.com/dattalab/moseq2-viz/wiki).
+
+## Contributing
+
+If you would like to contribute, fork the repository and issue a pull request.  

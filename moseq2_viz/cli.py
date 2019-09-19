@@ -7,15 +7,17 @@ from moseq2_viz.viz import (make_crowd_matrix, usage_plot, graph_transition_matr
                             scalar_plot, position_plot)
 from moseq2_viz.scalars.util import scalars_to_dataframe
 from moseq2_viz.io.video import write_frames_preview
+from tqdm import TqdmSynchronisationWarning
 from cytoolz import pluck, partial
 from sys import platform
+from tqdm.auto import tqdm
 import click
 import os
 import ruamel.yaml as yaml
 import h5py
 import multiprocessing as mp
+import numpy as np
 import joblib
-import tqdm
 import warnings
 import re
 import shutil
@@ -95,7 +97,7 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
     # load in all of the h5 files, grab the extraction metadata, reformat to make nice 'n pretty
     # then stage the copy
 
-    for i, tup in tqdm.tqdm(enumerate(to_load), total=len(to_load), desc='Copying data to yamls'):
+    for i, tup in enumerate(tqdm(to_load, desc='Copying data to yamls')):
         with h5py.File(tup[2], 'r') as f:
             tmp = clean_dict(h5_to_dict(f, h5_metadata_path))
             tup[0]['metadata'] = dict(tmp)
@@ -171,7 +173,8 @@ def generate_index(input_dir, pca_file, output_file, _filter, all_uuids):
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
 @click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--output-dir', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'crowd_movies'), help="Path to store files")
-#@click.option('--filename-format', type=str, default='syllable_{:d}.mp4', help="Python 3 string format for filenames")
+@click.option('--gaussfilter-space', default=(0, 0), type=(float, float), help="Spatial filter for data (Gaussian)")
+@click.option('--medfilter-space', default=[0], type=int, help="Median spatial filter", multiple=True)
 @click.option('--min-height', type=int, default=5, help="Minimum height for scaling videos")
 @click.option('--max-height', type=int, default=80, help="Minimum height for scaling videos")
 @click.option('--raw-size', type=(int, int), default=(512, 424), help="Size of original videos")
@@ -182,13 +185,18 @@ def generate_index(input_dir, pca_file, output_file, _filter, all_uuids):
 @click.option('--frame-path', default='frames', type=str, help='Path to depth frames in h5 file')
 def make_crowd_movies(index_file, model_path, max_syllable, max_examples, threads, sort, count,
                       output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip,
-                      legacy_jitter_fix, frame_path):
+                      legacy_jitter_fix, frame_path, gaussfilter_space, medfilter_space):
 
     if platform in ['linux', 'linux2']:
         print('Setting CPU affinity to use all CPUs...')
         cpu_count = psutil.cpu_count()
         proc = psutil.Process()
         proc.cpu_affinity(list(range(cpu_count)))
+
+    clean_params = {
+        'gaussfilter_space': gaussfilter_space,
+        'medfilter_space': medfilter_space
+    }
 
     # need to handle h5 intelligently here...
 
@@ -208,6 +216,12 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
 
     info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
     info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
+
+    # convert numpy dtypes to their corresponding primitives
+    for k, v in info_dict.items():
+        if isinstance(v, (np.ndarray, np.generic)):
+            info_dict[k] = info_dict[k].item()
+
     info_dict['model_path'] = model_path
     info_dict['index_path'] = index_file
     info_file = os.path.join(output_dir, 'info.yaml')
@@ -248,15 +262,23 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
                             label_uuids=label_uuids,
                             index=sorted_index)
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
-            slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
+            warnings.simplefilter("ignore", TqdmSynchronisationWarning)
+            slices = list(tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
 
-        matrix_fun = partial(make_crowd_matrix, nexamples=max_examples, dur_clip=dur_clip, min_height=min_height,
-                             crop_size=vid_parameters['crop_size'], raw_size=raw_size, scale=scale,
-                             legacy_jitter_fix=legacy_jitter_fix, frame_path=frame_path)
+        matrix_fun = partial(make_crowd_matrix,
+                             nexamples=max_examples,
+                             frame_path=frame_path,
+                             dur_clip=dur_clip,
+                             min_height=min_height,
+                             crop_size=vid_parameters['crop_size'],
+                             raw_size=raw_size,
+                             scale=scale,
+                             legacy_jitter_fix=legacy_jitter_fix,
+                             **clean_params)
+
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
-            crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
+            warnings.simplefilter("ignore", TqdmSynchronisationWarning)
+            crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
 
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=min_height,
                             depth_max=max_height, cmap=cmap)
@@ -277,11 +299,11 @@ def plot_scalar_summary(index_file, output_file):
     plt_scalars, _ = scalar_plot(scalar_df, headless=True)
     plt_position, _ = position_plot(scalar_df, headless=True)
 
-    plt_scalars.savefig('{}_summary.png'.format(output_file))
-    plt_scalars.savefig('{}_summary.pdf'.format(output_file))
+    plt_scalars.savefig(f'{output_file}_summary.png')
+    plt_scalars.savefig(f'{output_file}_summary.pdf')
 
-    plt_position.savefig('{}_position.png'.format(output_file))
-    plt_position.savefig('{}_position.pdf'.format(output_file))
+    plt_position.savefig(f'{output_file}_position.png')
+    plt_position.savefig(f'{output_file}_position.pdf')
 
 
 @cli.command(name='plot-transition-graph')
@@ -361,8 +383,8 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
                                         difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
                                         orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
                                         layout=layout, groups=group, usage_scale=node_scaling, headless=True)
-    plt.savefig('{}.png'.format(output_file))
-    plt.savefig('{}.pdf'.format(output_file))
+    plt.savefig(f'{output_file}.png', dpi=150)
+    plt.savefig(f'{output_file}.pdf')
 
 
 @cli.command(name='plot-usages')

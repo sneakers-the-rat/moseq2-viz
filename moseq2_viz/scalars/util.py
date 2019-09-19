@@ -1,10 +1,10 @@
-import tqdm
 import h5py
 import os
 import pandas as pd
 import numpy as np
 import warnings
 from cytoolz import keyfilter, itemfilter, merge_with, curry, valmap, get
+from tqdm.auto import tqdm
 from itertools import starmap
 from collections import defaultdict
 from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
@@ -241,7 +241,13 @@ def nanzscore(data):
     return (data - np.nanmean(data)) / np.nanstd(data)
 
 
-def process_scalars(scalar_map, include_keys, zscore=False):
+def _pca_matches_labels(pca, labels):
+    '''Make sure that the number of frames in the pca dataset matches the
+    number of frames in the assigned labels'''
+    return len(pca) == len(labels)
+
+
+def process_scalars(scalar_map: dict, include_keys: list, zscore: bool = False) -> dict:
     out = defaultdict(list)
     for k, v in scalar_map.items():
         for scalar in include_keys:
@@ -251,8 +257,8 @@ def process_scalars(scalar_map, include_keys, zscore=False):
                 use_scalar = np.insert(use_scalar, 0, 0)
             if zscore:
                 use_scalar = nanzscore(use_scalar)
-            out[k] += [use_scalar]
-    return valmap(np.array, dict(out))
+            out[k].append(use_scalar)
+    return valmap(np.array, out)
 
 
 def find_and_load_feedback(extract_path, input_path):
@@ -270,20 +276,14 @@ def find_and_load_feedback(extract_path, input_path):
         return None, None
 
 
-def _pca_matches_labels(pca, labels):
-    '''Make sure that the number of frames in the pca dataset matches the
-    number of frames in the assigned labels''' 
-    return len(pca) == len(labels)
-
-
 def remove_nans_from_labels(idx, labels):
     '''Removes the frames from `labels` where `idx` has NaNs in it'''
     return labels[~np.isnan(idx)]
 
 
 def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'SubjectName', 'StartTime'],
-                         include_model=None, disable_output=False,
-                         include_feedback=None, force_conversion=True):
+                         include_model=None, disable_output=False, include_pcs=False, npcs=10,
+                         include_feedback=None, force_conversion=True, include_labels=False):
     '''Generates a dataframe containing scalar values over the course of a recording session.
     If a model string is included, then return only animals that were included in the model
 
@@ -292,8 +292,8 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         include_keys: a list of other moseq related keys to include in the dataframe
         include_model (str): path to an existing moseq model
     '''
-    # instantiate scalar_dict as a defaultdict
     scalar_dict = defaultdict(list)
+    skip = []
 
     files = index['files']
     uuids = list(files.keys())
@@ -313,6 +313,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         mdl = parse_model_results(include_model, sort_labels_by_usage=False, map_uuid_to_keys=True)
 
         labels = mdl['labels']
+
         # we need to call these functions here so we don't filter out data before relabelling
         usage, _ = relabel_by_usage(labels, count='usage')
         frames, _ = relabel_by_usage(labels, count='frames')
@@ -323,6 +324,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         labels = itemfilter(lambda a: _pca_matches_labels(scores_idx[a[0]], a[1]), mdl['labels'])
 
         labelfilter = curry(keyfilter)(lambda k: k in labels)
+
         # filter the relabeled dictionaries too
         usage = labelfilter(usage)
         frames = labelfilter(frames)
@@ -340,7 +342,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         # only include extractions that were modeled and fit the above criteria
         files = keyfilter(lambda x: x in labels, files)
 
-    for k, v in tqdm.tqdm(files.items(), disable=disable_output):
+    for k, v in tqdm(files.items(), disable=disable_output):
 
         pth = h5_filepath_from_sorted(v)
         dset = h5_to_dict(pth, 'scalars')
@@ -400,4 +402,5 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     # return scalar_dict
     scalar_df = pd.DataFrame(scalar_dict)
 
+    scalar_df = pd.concat(dfs, axis=0)
     return scalar_df

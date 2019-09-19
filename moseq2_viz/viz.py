@@ -13,6 +13,29 @@ from matplotlib import lines, gridspec
 from networkx.drawing.nx_agraph import graphviz_layout
 
 
+def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
+                 tail_filter=None, tail_threshold=5):
+
+    out = np.copy(frames)
+
+    if tail_filter is not None:
+        for i in range(frames.shape[0]):
+            mask = cv2.morphologyEx(out[i], cv2.MORPH_OPEN, tail_filter) > tail_threshold
+            out[i] = out[i] * mask.astype(frames.dtype)
+
+    if medfilter_space is not None and np.all(np.array(medfilter_space) > 0):
+        for i in range(frames.shape[0]):
+            for medfilt in medfilter_space:
+                out[i] = cv2.medianBlur(out[i], medfilt)
+
+    if gaussfilter_space is not None and np.all(np.array(gaussfilter_space) > 0):
+        for i in range(frames.shape[0]):
+            out[i] = cv2.GaussianBlur(out[i], (21, 21),
+                                      gaussfilter_space[0], gaussfilter_space[1])
+
+    return out
+
+
 def convert_ebunch_to_graph(ebunch):
 
     g = nx.DiGraph()
@@ -231,7 +254,8 @@ def crowd_matrix_from_loaded_data(slices: Iterable[Tuple[int, int]], frames, sca
 # TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
                       crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
-                      center=False, rotate=False, min_height=10, legacy_jitter_fix=False):
+                      center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
+                      **kwargs):
 
     if rotate and not center:
         raise NotImplementedError('Rotating without centering not supported')
@@ -297,7 +321,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
             centroid_y += raw_size[1] // 2
 
         angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
-        frames = (h5[frame_path][use_idx[0]:use_idx[1]] / scale).astype('uint8')
+        frames = clean_frames((h5[frame_path][use_idx[0]:use_idx[1]] / scale).astype('uint8'), **kwargs)
 
         if 'flips' in h5['metadata/extraction'].keys():
             # h5 format as of v0.1.3

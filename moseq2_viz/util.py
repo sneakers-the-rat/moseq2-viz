@@ -123,11 +123,11 @@ def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
     return ans
 
 
-def h5_to_dict(h5file, path: str) -> dict:
+def h5_to_dict(h5file, path: str = '/') -> dict:
     '''
     Args:
         h5file (str or h5py.File): file path to the given h5 file or the h5 file handle
-        path: path to the base dataset within the h5 file
+        path: path to the base dataset within the h5 file. Default: /
     Returns:
         a dict with h5 file contents with the same path structure
     '''
@@ -152,13 +152,9 @@ def get_timestamps_from_h5(h5file: str):
 
 
 def load_changepoints(cpfile):
-    with h5py.File(cpfile, 'r') as f:
-        cps = h5_to_dict(f, 'cps')
-
-    cp_dist = []
-
+    cps = h5_to_dict(cpfile, 'cps')
     cp_dist = map(compose(np.diff, np.squeeze), cps.values())
-
+    # TODO: make sure that this is correct
     return np.concatenate(list(cp_dist))
 
 
@@ -271,11 +267,13 @@ def star(f, args):
     specify one argument at a time.
     Args:
         f: a function that takes multiple arguments
-        args: a tuple to expand into `f`
+        args: a tuple to expand into ``f``
     Returns:
-        the output of `f`
+        the output of ``f``
 
     >>> instance_checker = star(isinstance)
     >>> instance_checker((1, int))
-    True'''
+    True
+    >>> star(max, (1, 2, 3))
+    3'''
     return f(*args)

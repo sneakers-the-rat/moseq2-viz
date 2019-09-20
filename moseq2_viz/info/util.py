@@ -2,6 +2,7 @@ import numpy as np
 from moseq2_viz.model.util import get_syllable_statistics, get_transition_matrix
 
 
+# TODO: better docstring
 def entropy(labels, truncate_syllable=40, smoothing=1.0):
     """Computes entropy, base 2
     """
@@ -29,6 +30,7 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0):
     return ent
 
 
+# TODO: better docstring
 def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
                  smoothing=1.0, tm_smoothing=1.0):
     """Computes entropy rate, base 2

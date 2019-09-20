@@ -281,6 +281,7 @@ def remove_nans_from_labels(idx, labels):
     return labels[~np.isnan(idx)]
 
 
+# TODO: better docstring
 def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'SubjectName', 'StartTime'],
                          include_model=None, disable_output=False, include_pcs=False, npcs=10,
                          include_feedback=None, force_conversion=True, include_labels=False):

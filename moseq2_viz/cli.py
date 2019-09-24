@@ -129,7 +129,7 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
         with h5py.File(pca_file, 'r') as f:
             pca_uuids = list(f['scores'].keys())
 
-    file_with_uuids = [(os.path.relpath(h5), os.path.relpath(yml), metadata.jsonmeta) for h5, yml, meta in
+    file_with_uuids = [(os.path.relpath(h5), os.path.relpath(yml), meta) for h5, yml, meta in
                        zip(h5s, yamls, dicts) if meta['uuid'] in pca_uuids]
 
     if 'metadata' not in file_with_uuids[0][2]:

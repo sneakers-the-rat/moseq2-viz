@@ -3,9 +3,22 @@ import os
 import pandas as pd
 import numpy as np
 import warnings
+from cytoolz import keyfilter, itemfilter, merge_with, curry, valmap, get
 from tqdm.auto import tqdm
-from moseq2_viz.util import h5_to_dict, strided_app, load_timestamps, read_yaml
+from itertools import starmap
+from collections import defaultdict
+from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
+                             h5_filepath_from_sorted, get_timestamps_from_h5)
 from moseq2_viz.model.util import parse_model_results, _get_transitions, relabel_by_usage
+
+
+def _star_itemmap(func, d):
+    return dict(starmap(func, d.items()))
+
+
+def star_valmap(func, d):
+    keys = list(d.keys())
+    return dict(zip(keys, starmap(func, d.values())))
 
 
 # http://stackoverflow.com/questions/17832238/kinect-intrinsic-parameters-from-field-of-view/18199938#18199938
@@ -30,38 +43,58 @@ def convert_pxs_to_mm(coords, resolution=(512, 424), field_of_view=(70.6, 60), t
     return new_coords
 
 
-def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
-    """Converts scalars in the legacy format to the new format, with explicit units.
-    Args:
-        old_features (str, h5 group, or dictionary of scalars): filename, h5 group, or dictionary of scalar values
-        true_depth (float):  true depth of the floor relative to the camera (673.1 mm by default)
+def is_legacy(features: dict):
+    '''Checks a dictionary of features to see if they correspond with an older version
+    of moseq
 
     Returns:
-        features (dict): dictionary of scalar values
+        true if the dict is from an old dataset
+
+    >>> is_legacy({'centroid_x': [1], 'area': 2})
+    True
+    >>> is_legacy({'centroid_x_mm': [1], 'area_mm': 2})
+    False
+    '''
+    old_features = ('centroid_x', 'centroid_y', 'width', 'length', 'area', 'height_ave')
+    return any(x in old_features for x in features)
+
+
+def generate_empty_feature_dict(nframes) -> dict:
+    features = (
+        'centroid_x_px', 'centroid_y_px', 'velocity_2d_px', 'velocity_3d_px',
+        'width_px', 'length_px', 'area_px', 'centroid_x_mm', 'centroid_y_mm',
+        'velocity_2d_mm', 'velocity_3d_mm', 'width_mm', 'length_mm', 'area_mm',
+        'height_ave_mm', 'angle', 'velocity_theta'
+    )
+
+    def make_empy_arr():
+        return np.zeros((nframes,), dtype='float32')
+    return {k: make_empy_arr() for k in features}
+
+
+def convert_legacy_scalars(old_features, force: bool = False, true_depth: float = 673.1) -> dict:
+    """Converts scalars in the legacy format to the new format, with explicit units.
+    Args:
+        old_features (str, h5 group, or dictionary of scalars): filename, h5 group,
+            or dictionary of scalar values
+        force: force the conversion of centroid_[xy]_px into mm
+        true_depth:  true depth of the floor relative to the camera (673.1 mm by default)
+    Returns:
+        features: dictionary of scalar values
     """
 
-    if type(old_features) is h5py.Group and 'centroid_x' in old_features.keys():
+    if isinstance(old_features, h5py.Group) and 'centroid_x' in old_features:
         print('Loading scalars from h5 dataset')
-        feature_dict = {}
-        for k, v in old_features.items():
-            feature_dict[k] = v[...]
+        old_features = h5_to_dict(old_features, '/')
 
-        old_features = feature_dict
-
-    if (type(old_features) is str or type(old_features) is np.str_) and os.path.exists(old_features):
+    elif isinstance(old_features, (str, np.str_)) and os.path.exists(old_features):
         print('Loading scalars from file')
-        with h5py.File(old_features, 'r') as f:
-            feature_dict = {}
-            for k, v in f['scalars'].items():
-                feature_dict[k] = v[...]
+        old_features = h5_to_dict(old_features, 'scalars')
 
-        old_features = feature_dict
-
-    if 'centroid_x_mm' in old_features.keys() and force:
+    if 'centroid_x_mm' in old_features and force:
         centroid = np.hstack((old_features['centroid_x_px'][:, None],
                               old_features['centroid_y_px'][:, None]))
         nframes = len(old_features['centroid_x_mm'])
-
     elif not force:
         print('Features already converted')
         return None
@@ -70,25 +103,7 @@ def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
                               old_features['centroid_y'][:, None]))
         nframes = len(old_features['centroid_x'])
 
-    features = {
-        'centroid_x_px': np.zeros((nframes,), 'float32'),
-        'centroid_y_px': np.zeros((nframes,), 'float32'),
-        'velocity_2d_px': np.zeros((nframes,), 'float32'),
-        'velocity_3d_px': np.zeros((nframes,), 'float32'),
-        'width_px': np.zeros((nframes,), 'float32'),
-        'length_px': np.zeros((nframes,), 'float32'),
-        'area_px': np.zeros((nframes,)),
-        'centroid_x_mm': np.zeros((nframes,), 'float32'),
-        'centroid_y_mm': np.zeros((nframes,), 'float32'),
-        'velocity_2d_mm': np.zeros((nframes,), 'float32'),
-        'velocity_3d_mm': np.zeros((nframes,), 'float32'),
-        'width_mm': np.zeros((nframes,), 'float32'),
-        'length_mm': np.zeros((nframes,), 'float32'),
-        'area_mm': np.zeros((nframes,)),
-        'height_ave_mm': np.zeros((nframes,), 'float32'),
-        'angle': np.zeros((nframes,), 'float32'),
-        'velocity_theta': np.zeros((nframes,)),
-    }
+    features = generate_empty_feature_dict(nframes)
 
     centroid_mm = convert_pxs_to_mm(centroid, true_depth=true_depth)
     centroid_mm_shift = convert_pxs_to_mm(centroid + 1, true_depth=true_depth)
@@ -102,21 +117,10 @@ def convert_legacy_scalars(old_features, force=False, true_depth=673.1):
     features['centroid_y_mm'] = centroid_mm[:, 1]
 
     # based on the centroid of the mouse, get the mm_to_px conversion
-
-    if 'width_px' in old_features.keys():
-        features['width_px'] = old_features['width_px']
-    else:
-        features['width_px'] = old_features['width']
-
-    if 'length_px' in old_features.keys():
-        features['length_px'] = old_features['length_px']
-    else:
-        features['length_px'] = old_features['length']
-
-    if 'area_px' in old_features.keys():
-        features['area_px'] = old_features['area_px']
-    else:
-        features['area_px'] = old_features['area']
+    copy_keys = ('width', 'length', 'area')
+    for key in copy_keys:
+        # first try to grab _px key, then default to old version name
+        features[f'{key}_px'] = get(f'{key}_px', old_features, old_features[key])
 
     if 'height_ave_mm' in old_features.keys():
         features['height_ave_mm'] = old_features['height_ave_mm']
@@ -181,7 +185,7 @@ def get_scalar_map(index, fill_nans=True, force_conversion=True):
 
 def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlags=20,
                                  include_keys=['velocity_2d_mm', 'velocity_3d_mm', 'width_mm',
-                                             'length_mm', 'height_ave_mm', 'angle'],
+                                               'length_mm', 'height_ave_mm', 'angle'],
                                  zscore=False):
 
     win = int(nlags * 2 + 1)
@@ -214,16 +218,15 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
             count[i] += len(hits)
 
             for scalar in include_keys:
-                if scalar is 'angle':
-                    use_scalar = np.diff(v[scalar])
+                use_scalar = v[scalar]
+                if scalar == 'angle':
+                    use_scalar = np.diff(use_scalar)
                     use_scalar = np.insert(use_scalar, 0, 0)
-
                 if zscore:
-                    use_scalar = (v[scalar] - np.nanmean(v[scalar]))  / np.nanstd(v[scalar])
-                else:
-                    use_scalar = v[scalar]
+                    use_scalar = nanzscore(use_scalar)
+
                 padded_scores = np.pad(use_scalar, (win // 2, win // 2),
-                                   'constant', constant_values = np.nan)
+                                       'constant', constant_values=np.nan)
                 win_scores = strided_app(padded_scores, win, 1)
                 syll_average[scalar][i] += np.nansum(win_scores[hits, :], axis=0)
 
@@ -234,136 +237,171 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
     return syll_average
 
 
-def scalars_to_dataframe(index, include_keys=['SessionName', 'SubjectName', 'StartTime'],
-                         include_model=None, disable_output=False,
-                         include_pcs=False, npcs=10, include_feedback=None,
-                         force_conversion=True):
+def nanzscore(data):
+    return (data - np.nanmean(data)) / np.nanstd(data)
 
-    #TODO add pcs
-    uuids = list(index['files'].keys())
-    dset = h5_to_dict(h5py.File(index['files'][uuids[0]]['path'][0], 'r'), 'scalars')
-    tmp = convert_legacy_scalars(dset, force=force_conversion)
 
-    if tmp is not None:
-        dset = tmp
+def _pca_matches_labels(pca, labels):
+    '''Make sure that the number of frames in the pca dataset matches the
+    number of frames in the assigned labels'''
+    return len(pca) == len(labels)
 
-    scalar_names = list(dset.keys())
 
-    include_labels = False
+def process_scalars(scalar_map: dict, include_keys: list, zscore: bool = False) -> dict:
+    out = defaultdict(list)
+    for k, v in scalar_map.items():
+        for scalar in include_keys:
+            use_scalar = v[scalar]
+            if scalar == 'angle':
+                use_scalar = np.diff(use_scalar)
+                use_scalar = np.insert(use_scalar, 0, 0)
+            if zscore:
+                use_scalar = nanzscore(use_scalar)
+            out[k].append(use_scalar)
+    return valmap(np.array, out)
+
+
+def find_and_load_feedback(extract_path, input_path):
+    join = os.path.join
+    feedback_path = join(os.path.dirname(input_path), 'feedback_ts.txt')
+    if not os.path.exists(feedback_path):
+        feedback_path = join(os.path.dirname(extract_path), '..', 'feedback_ts.txt')
+
+    if os.path.exists(feedback_path):
+        feedback_ts = load_timestamps(feedback_path, 0)
+        feedback_status = load_timestamps(feedback_path, 1)
+        return feedback_ts, feedback_status
+    else:
+        warnings.warn(f'Could not find feedback file for {extract_path}')
+        return None, None
+
+
+def remove_nans_from_labels(idx, labels):
+    '''Removes the frames from `labels` where `idx` has NaNs in it'''
+    return labels[~np.isnan(idx)]
+
+
+# TODO: better docstring
+def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'SubjectName', 'StartTime'],
+                         include_model=None, disable_output=False, include_pcs=False, npcs=10,
+                         include_feedback=None, force_conversion=True, include_labels=False):
+    '''Generates a dataframe containing scalar values over the course of a recording session.
+    If a model string is included, then return only animals that were included in the model
+
+    Args:
+        index: a sorted_index generated by `parse_index` or `get_sorted_index`
+        include_keys: a list of other moseq related keys to include in the dataframe
+        include_model (str): path to an existing moseq model
+    '''
+    scalar_dict = defaultdict(list)
     skip = []
 
-    if include_model is not None and os.path.exists(include_model):
-        labels = {}
-        mdl = parse_model_results(include_model, sort_labels_by_usage=False)
+    files = index['files']
+    uuids = list(files.keys())
 
-        if 'train_list' in mdl.keys():
-            uuids = mdl['train_list']
-        else:
-            uuids = mdl['keys']
+    # use dset from first animal to generate a list of scalars
+    dset = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='scalars')
 
-        labels_usage = relabel_by_usage(mdl['labels'], count='usage')[0]
-        labels_frames = relabel_by_usage(mdl['labels'], count='frames')[0]
+    # only convert if the dataset is legacy and conversion is forced
+    if is_legacy(dset) and force_conversion:
+        dset = convert_legacy_scalars(dset, force=force_conversion)
 
-        labels['raw'] = {k: v for k, v in zip(uuids, mdl['labels'])}
-        labels['usage'] = {k: v for k, v in zip(uuids, labels_usage)}
-        labels['frames'] = {k: v for k, v in zip(uuids, labels_frames)}
+    # generate a list of scalars
+    scalar_names = list(dset.keys())
 
-        label_idx = h5_to_dict(index['pca_path'], 'scores_idx')
-        for uuid, lbl in labels['raw'].items():
-            if len(label_idx[uuid]) != len(lbl):
-                skip.append(uuid)
-                continue
-            labels['raw'][uuid] = lbl[~np.isnan(label_idx[uuid])]
-            labels['usage'][uuid] = labels['usage'][uuid][~np.isnan(label_idx[uuid])]
-            labels['frames'][uuid] = labels['frames'][uuid][~np.isnan(label_idx[uuid])]
+    # get model labels for UUIDs if a model was supplied
+    if include_model and os.path.exists(include_model):
+        mdl = parse_model_results(include_model, sort_labels_by_usage=False, map_uuid_to_keys=True)
 
-        include_labels = True
+        labels = mdl['labels']
 
-    if include_pcs and not os.path.exists(index["pca_path"]):
-        warnings.warn("PCA scores not found at {}".format(index["pca_path"]))
-        include_pcs = False
+        # we need to call these functions here so we don't filter out data before relabelling
+        usage, _ = relabel_by_usage(labels, count='usage')
+        frames, _ = relabel_by_usage(labels, count='frames')
 
-    dfs = []
-    for k, v in tqdm(index['files'].items(), disable=disable_output):
-        if k in skip:
-            continue
+        # get pca score indices
+        scores_idx = h5_to_dict(index['pca_path'], 'scores_idx')
+        # only include labels with the same number of frames as PCA
+        labels = itemfilter(lambda a: _pca_matches_labels(scores_idx[a[0]], a[1]), mdl['labels'])
 
-        _df = pd.DataFrame()
+        labelfilter = curry(keyfilter)(lambda k: k in labels)
 
-        with h5py.File(v['path'][0], 'r') as h5:
-            dset = h5_to_dict(h5, 'scalars')
-            if 'timestamps' in h5:
-                # h5 format as of v0.1.3
-                timestamps = h5['/timestamps'][()]
-            elif 'timestamps' in h5['/metadata']:
-                # h5 format prior to v0.1.3
-                timestamps = h5['/metadata/timestamps'][()]
-            else:
-                raise RunTimeError("Could not find timestamps")
+        # filter the relabeled dictionaries too
+        usage = labelfilter(usage)
+        frames = labelfilter(frames)
+        # filter the pca scores to match labels
+        scores_idx = labelfilter(scores_idx)
 
+        # make function to merge syllables with the syll scores
+        def merger(d):
+            return merge_with(tuple, scores_idx, d)
+
+        # use the scores to remove the nans
+        usage = star_valmap(remove_nans_from_labels, merger(usage))
+        frames = star_valmap(remove_nans_from_labels, merger(frames))
+        labels = star_valmap(remove_nans_from_labels, merger(labels))
+        # only include extractions that were modeled and fit the above criteria
+        files = keyfilter(lambda x: x in labels, files)
+
+    for k, v in tqdm(files.items(), disable=disable_output):
+
+        pth = h5_filepath_from_sorted(v)
+        dset = h5_to_dict(pth, 'scalars')
+
+        timestamps = get_timestamps_from_h5(pth)
+
+        # get extraction parameters for this h5 file
         dct = read_yaml(v['path'][1])
         parameters = dct['parameters']
 
         if include_feedback:
-            if 'feedback_timestamps' in dct.keys():
+            if 'feedback_timestamps' in dct:
                 ts_data = np.array(dct['feedback_timestamps'])
                 feedback_ts, feedback_status = ts_data[:, 0], ts_data[:, 1]
             else:
-                feedback_path = os.path.join(os.path.dirname(parameters['input_file']),
-                                             'feedback_ts.txt')
-                if not os.path.exists(feedback_path):
-                    feedback_path = os.path.join(os.path.dirname(v['path'][0]),
-                                                 '..', 'feedback_ts.txt')
+                feedback_ts, feedback_status = find_and_load_feedback(pth, parameters['input_file'])
 
-                if os.path.exists(feedback_path):
-                    feedback_ts = load_timestamps(feedback_path, 0)
-                    feedback_status = load_timestamps(feedback_path, 1)
-                else:
-                    warnings.warn('Could not find feedback file for {}'.format(v['path'][0]))
-                    feedback_ts = None
-                    #continue
-
-        tmp = convert_legacy_scalars(dset, force=force_conversion)
-
-        if tmp is not None:
-            dset = tmp
+        # convert scalar names into modern format if they are legacy
+        if is_legacy(dset) and force_conversion:
+            dset = convert_legacy_scalars(dset, force=force_conversion)
 
         nframes = len(dset[scalar_names[0]])
         if len(timestamps) != nframes:
-            warnings.warn('Timestamps not equal to number of frames for {}'.format(v['path'][0]))
+            warnings.warn(f'Timestamps not equal to number of frames for {pth}, skipping')
             continue
 
-        # timestamps are the index
-        _df["timestamp"] = timestamps.astype('int32')
-        # _df.set_index("timestamp", inplace=True)
-
+        # add scalar data for this animal
         for scalar in scalar_names:
-            _df[scalar] = dset[scalar]
+            scalar_dict[scalar] += dset[scalar].tolist()
 
+        # add metadata from `include_keys`
         for key in include_keys:
-            _df[key] = v["metadata"][key]
+            # every frame should have the same amount of metadata
+            scalar_dict[key] += [v['metadata'][key]] * nframes
 
-        _df["group"] = v["group"]
-        _df["uuid"] = k
+        scalar_dict['group'] += [v['group']] * nframes
+        scalar_dict['uuid'] += [k] * nframes
 
         if include_feedback and feedback_ts is not None:
-            _df["feedback_status"] = -1
-            _df.loc[feedback_ts.astype('int32'), "feedback_status"] = feedback_status
+            for ts in timestamps:
+                hit = np.where(ts.astype('int32') == feedback_ts.astype('int32'))[0]
+                if len(hit) > 0:
+                    scalar_dict['feedback_status'] += [feedback_status[hit]]
+                else:
+                    scalar_dict['feedback_status'] += [-1]
+        elif include_feedback:
+            scalar_dict['feedback_status'] += [-1] * nframes
 
-        if include_labels:
-            _df["model_label"] = labels["raw"][k]
-            _df["model_label (sort=usage)"] = labels["usage"][k]
-            _df["model_label (sort=frames)"] = labels["frames"][k]
-        else:
-            _df["model_label"] = np.nan
+        if include_model and os.path.exists(include_model):
+            scalar_dict['model_label'] += labels[k].tolist()
+            scalar_dict['model_label (sort=usage)'] += usage[k].tolist()
+            scalar_dict['model_label (sort=frames)'] += frames[k].tolist()
+    # turn each key in scalar_names into a numpy array
+    for scalar in scalar_names:
+        scalar_dict[scalar] = np.array(scalar_dict[scalar])
 
-        if include_pcs:
-            with h5py.File(index["pca_path"], "r") as f:
-                use_pcs = f["/scores/{}".format(k)][~np.isnan(label_idx[k]), :npcs]
-            for _pc in range(npcs):
-                _df["pc{:02d}".format(_pc)] = use_pcs[:, _pc]
-
-        dfs.append(_df)
+    # return scalar_dict
+    scalar_df = pd.DataFrame(scalar_dict)
 
     scalar_df = pd.concat(dfs, axis=0)
     return scalar_df

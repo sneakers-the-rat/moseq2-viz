@@ -1,30 +1,37 @@
-from collections import defaultdict, OrderedDict
-from copy import deepcopy
-from sklearn.cluster import KMeans
-from moseq2_viz.util import h5_to_dict
-import numpy as np
 import h5py
-import pandas as pd
-import warnings
 import tqdm
 import joblib
-import os
+import warnings
+import numpy as np
+import pandas as pd
+from copy import deepcopy
+from itertools import starmap
+from cytoolz.curried import get
+from sklearn.cluster import KMeans
+from os.path import join, basename, dirname
+from typing import Iterator, Any, Dict, Union
+from collections import defaultdict, OrderedDict
+from moseq2_viz.util import np_cache, h5_to_dict, star
+from cytoolz import curry, valmap, compose, complement, itemmap, concat
 
 
-def _get_transitions(label_sequence, fill_value=-5):
+def _get_transitions(label_sequence):
+    '''Computes labels switch to another label. Throws out the first state (usually
+    labeled as -5).
+    Returns:
+        a tuple of syllable transitions and their indices
+    '''
 
-    # to_rem = np.where(label_sequence == fill_value)[0]
     arr = deepcopy(label_sequence)
-    # arr = np.delete(arr, to_rem)
-    # arr = np.insert(arr, len(arr), -10)
-    # arr = np.insert(arr, 0, -10)
 
+    # get syllable transition locations
     locs = np.where(arr[1:] != arr[:-1])[0] + 1
     transitions = arr[locs]
+
     return transitions, locs
 
 
-def _whiten_all(pca_scores, center=True):
+def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
 
     valid_scores = np.concatenate([x[~np.isnan(x).any(axis=1), :] for x in pca_scores.values()])
     mu, cov = valid_scores.mean(axis=0), np.cov(valid_scores, rowvar=False, bias=1)
@@ -46,7 +53,7 @@ def _whiten_all(pca_scores, center=True):
 
 # per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
 def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
-                          smoothing=0.0, combine=False, disable_output=False):
+                          smoothing=0.0, combine=False, disable_output=False) -> list:
     """Compute the transition matrix from a set of model labels
 
     Args:
@@ -54,18 +61,19 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
         max_syllable (int): maximum syllable number to consider
         normalize (str): how to normalize transition matrix, 'bigram' or 'rows' or 'columns'
         smoothing (float): constant to add to transition_matrix pre-normalization to smooth counts
-        combine (bool): compute a separate transition matrix for each element (False) or combine across all arrays in the list (True)
+        combine (bool): compute a separate transition matrix for each element (False)
+            or combine across all arrays in the list (True)
 
     Returns:
-        transition_matrix (list): list of 2d np.arrays that represent the transitions from syllable i (row) to syllable j (column)
+        transition_matrix: list of 2d np.arrays that represent the transitions
+            from syllable i (row) to syllable j (column)
 
-    Examples:
+    Example:
+        Load in model results and get the transition matrix combined across sessions::
 
-        Load in model results and get the transition matrix combined across sessions.
-
-        >>> from moseq2_viz.model.util import parse_model_results, get_transition_matrix
-        >>> model_results = parse_model_results('mymodel.p')
-        >>> transition_matrix = get_transition_matrix(model_results['labels'], combine=True)
+            from moseq2_viz.model.util import parse_model_results, get_transition_matrix
+            model_results = parse_model_results('mymodel.p')
+            transition_matrix = get_transition_matrix(model_results['labels'], combine=True)
 
     """
 
@@ -116,17 +124,63 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
     return all_mats
 
 
-# return tuples with uuid and syllable indices
-def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
+def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[slice]:
+    '''Return a generator containing slices of `syllable` indices for a mouse
+    
+    >>> lbls = [1, 1, 1, 2, 2, 2, 3, 3, 3, 2, 2, 2]
+    >>> list(get_mouse_syllable_slices(2, np.array(lbls)))
+    [slice(3, 6, None), slice(9, 12, None)]
+    '''
+    labels = np.concatenate(([-1], labels, [-1]))
+    is_syllable = np.diff(np.int16(labels == syllable))
+    starts = np.where(is_syllable == 1)[0]
+    ends = np.where(is_syllable == -1)[0]
+    slices = starmap(slice, zip(starts, ends))
+    return slices
+
+
+any_nan = compose(np.any, np.isnan)
+non_nan = complement(any_nan)
+
+
+@curry
+def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], index: Dict,
+                              filter_nans: bool = True) -> Dict[str, list]:
+    getter = curry(get_mouse_syllable_slices)(syllable)
+    vals = valmap(getter, labels)
+
+    score_idx = h5_to_dict(index['pca_path'], '/scores_idx')
+
+    def filter_score(uuid, slices):
+        mouse = score_idx[uuid]
+        get_nan = compose(non_nan, get(seq=mouse))
+        return uuid, filter(get_nan, slices)
+
+    # filter out slices with NaNs
+    if filter_nans:
+        vals = itemmap(star(filter_score), vals)
+
+    vals = valmap(list, vals)
+    # TODO: array length mismatch warnings?
+    return vals
+
+
+@curry
+def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = True) -> list:
+    '''Get the indices that correspond to a specific syllable for each animal in a modeling run.
+
+    Args:
+        trim_nans: flag to use the pca scores file for removing time points that contain NaNs.
+        only use if you have not already trimmed NaNs previously (i.e. in `scalars_to_dataframe`)
+    Returns:
+        a list of indices for `syllable` in the `labels` array. Each item in the list
+        is a tuple of (slice, uuid, h5_file)
+    '''
 
     h5s = [v['path'][0] for v in index['files'].values()]
     h5_uuids = list(index['files'].keys())
 
-    # only extract if we have a match in the index
-    # label_uuids = [uuid for uuid in label_uuids if uuid in h5_uuids]
-
     # grab the original indices from the pca file as well...
-
     if trim_nans:
         with h5py.File(index['pca_path'], 'r') as f:
             score_idx = h5_to_dict(f, 'scores_idx')
@@ -173,6 +227,60 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans=True):
     return syllable_slices
 
 
+@np_cache
+def find_label_transitions(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
+    '''Finds indices where a label transitions into another label. This
+    function is cached to increase performance because it is called frequently.
+    Returns:
+        indices corresponding to syllable transitions
+    '''
+    if isinstance(label_arr, dict):
+        return valmap(find_label_transitions, label_arr)
+    elif isinstance(label_arr, np.ndarray):
+        inds = np.where(np.diff(label_arr) != 0)[0] + 1
+        return inds
+    else:
+        raise TypeError('passed the wrong datatype')
+
+
+def compress_label_sequence(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
+    '''Removes repeating values from a label sequence. It assumes the first
+    label is '-5', which is unused for behavioral analysis, and removes it.
+
+    Args:
+        label_arr: either an array of labels that contains repeating values, or a
+        dict containing the same
+    Returns:
+        the compressed verion of the label array
+    '''
+    if isinstance(label_arr, dict):
+        return valmap(compress_label_sequence, label_arr)
+    elif isinstance(label_arr, np.ndarray):
+        inds = find_label_transitions(label_arr)
+        return label_arr[inds]
+    else:
+        raise TypeError('passed the wrong datatype')
+
+
+def calculate_label_durations(label_arr: Union[dict, np.ndarray]) -> Union[dict, np.ndarray]:
+
+    if isinstance(label_arr, dict):
+        return valmap(calculate_label_durations, label_arr)
+    elif isinstance(label_arr, np.ndarray):
+        tmp = np.concatenate((label_arr, [-5]))
+        inds = find_label_transitions(tmp)
+        return np.diff(inds)
+
+
+def calculate_syllable_usage(labels: Union[dict, pd.DataFrame]):
+    if isinstance(labels, pd.DataFrame):
+        usage_df = labels.syllable.value_counts()
+    elif isinstance(labels, (dict, OrderedDict)):
+        syllables = concat(compress_label_sequence(labels).values())
+        usage_df = pd.Series(syllables).value_counts()
+    return dict(zip(usage_df.index.to_numpy(), usage_df.to_numpy()))
+
+
 def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'):
     """Compute the syllable statistics from a set of model labels
 
@@ -185,18 +293,15 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
         usages (defaultdict): default dictionary of usages
         durations (defaultdict): default dictionary of durations
 
-    Examples:
+    Example:
 
         Load in model results and get the transition matrix combined across sessions.
 
-        >>> from moseq2_viz.model.util import parse_model_results, get_syllable_statistics
-        >>> model_results = parse_model_results('mymodel.p')
-        >>> usages, durations = get_syllable_statistics(model_results['labels'])
+        >> from moseq2_viz.model.util import parse_model_results, get_syllable_statistics
+        >> model_results = parse_model_results('mymodel.p')
+        >> usages, durations = get_syllable_statistics(model_results['labels'])
 
     """
-
-    # if type(data) is list and type(data[0]) is np.ndarray:
-    #     data = np.array([np.squeeze(tmp) for tmp in data], dtype='object')
 
     usages = defaultdict(int)
     durations = defaultdict(list)
@@ -253,7 +358,7 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
 
 
 def labels_to_changepoints(labels, fs=30.):
-    """Compute the transition matrix from a set of model labels
+    '''Compute the transition matrix from a set of model labels
 
     Args:
         labels (list of np.array of ints): labels loaded from a model fit
@@ -263,14 +368,13 @@ def labels_to_changepoints(labels, fs=30.):
         cp_dist (list of np.array of floats): list of block durations per element in labels list
 
     Examples:
+        Load in model results and get the changepoint distribution::
 
-        Load in model results and get the changepoint distribution
+            from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
+            model_results = parse_model_results('mymodel.p')
+            cp_dist = labels_to_changepoints(model_results['labels'])
 
-        >>> from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
-        >>> model_results = parse_model_results('mymodel.p')
-        >>> cp_dist = labels_to_changepoints(model_results['labels'])
-
-    """
+    '''
 
     cp_dist = []
 
@@ -283,45 +387,48 @@ def labels_to_changepoints(labels, fs=30.):
 def parse_batch_modeling(filename):
 
     with h5py.File(filename, 'r') as f:
+        scans = h5_to_dict(f, 'scans')
+        params = h5_to_dict(f, 'metadata/parameters')
         results_dict = {
-            'heldouts': np.squeeze(f['metadata/heldout_ll'].value),
-            'parameters': h5_to_dict(f, 'metadata/parameters'),
-            'scans': h5_to_dict(f, 'scans'),
-            'filenames': [os.path.join(os.path.dirname(filename), os.path.basename(fname).decode('utf-8'))
-                          for fname in f['filenames'].value],
-            'labels': np.squeeze(f['labels'].value),
-            'loglikes': np.squeeze(f['metadata/loglikes'].value),
-            'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list'].value]
+            'heldouts': np.squeeze(f['metadata/heldout_ll'][()]),
+            'parameters': params,
+            'scans': scans,
+            'filenames': [join(dirname(filename), basename(fname.decode('utf-8')))
+                          for fname in f['filenames']],
+            'labels': np.squeeze(f['labels'][()]),
+            'loglikes': np.squeeze(f['metadata/loglikes'][()]),
+            'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list']]
         }
-        results_dict['scan_parameters'] = {k: results_dict['parameters'][k]
-                                           for k in results_dict['scans'].keys() if k in results_dict['parameters'].keys()}
+
+        results_dict['scan_parameters'] = dict((x, get(x, params, None)) for x in scans)
 
     return results_dict
 
 
 def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
-                        map_uuid_to_keys=False,
-                        sort_labels_by_usage=False,
-                        count='usage'):
-    """Parses a model fit and returns a dictionary of results
+                        map_uuid_to_keys: bool = False,
+                        sort_labels_by_usage: bool = False,
+                        count: str = 'usage') -> dict:
+    '''Parses a model fit and returns a dictionary of results
 
     Args:
         model_obj (str or results returned from joblib.load): path to the model fit or a loaded model fit
-        map_uuid_to_keys (bool): for labels, make a dictionary where each key, value pair contains the uuid and the labels for that session
-        sort_labels_by_usage (bool): sort labels by their usages
-        count (str): how to count syllable usage, either by number of emissions (usage), or number of frames (frames)
+        map_uuid_to_keys: for labels, make a dictionary where each key, value pair
+            contains the uuid and the labels for that session
+        sort_labels_by_usage: sort labels by their usages
+        count: how to count syllable usage, either by number of emissions (usage),
+            or number of frames (frames)
 
     Returns:
-        output_dict (dict): dictionary with labels and model parameters
+        output_dict: dictionary with labels and model parameters
 
     Examples:
+        Load in model results::
 
-        Load in model results
+            from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
+            model_results = parse_model_results('mymodel.p')
 
-        >>> from moseq2_viz.model.util import parse_model_results, labels_to_changepoints
-        >>> model_results = parse_model_results('mymodel.p')
-
-    """
+    '''
     # reformat labels into something useful
 
     if type(model_obj) is str and (model_obj.endswith('.p') or model_obj.endswith('.pz')):
@@ -350,7 +457,6 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
             if type(output_dict['model_parameters']['nu']) is list:
                 output_dict['model_parameters']['nu'][i] = old_nu[sort_idx]
 
-
     if map_uuid_to_keys:
         if 'train_list' in output_dict.keys():
             label_uuids = output_dict['train_list']
@@ -363,29 +469,9 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
     return output_dict
 
 
-def relabel_by_usage(labels, fill_value=-5, count='usage'):
-    """Resort model labels by their usages
-
-    Args:
-        labels (list of np.array of ints): labels loaded from a model fit
-        fill_value (int): value prepended to modeling results to account for nlags
-        count (str): how to count syllable usage, either by number of emissions (usage), or number of frames (frames)
-
-    Returns:
-        labels (list of np.array of ints): labels resorted by usage
-
-    Examples:
-
-        Load in model results and sort labels by usages
-
-        >>> from moseq2_viz.model.util import parse_model_results, relabel_by_usage
-        >>> model_results = parse_model_results('mymodel.p')
-        >>> sorted_labels = relabel_by_usage(model_results['labels'])
-
-    """
-
+def _relabel_list_by_usage(labels, fill_value=-5, count='usage'):
     sorted_labels = deepcopy(labels)
-    usages, durations = get_syllable_statistics(labels, fill_value=fill_value, count=count)
+    usages, _ = get_syllable_statistics(labels, fill_value=fill_value, count=count)
     sorting = []
 
     for w in sorted(usages, key=usages.get, reverse=True):
@@ -396,6 +482,37 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
             sorted_labels[i][np.where(v == idx)] = j
 
     return sorted_labels, sorting
+
+
+def relabel_by_usage(labels: Union[list, np.ndarray], fill_value: int = -5,
+                     count: str = 'usage') -> Union[list, np.ndarray]:
+    '''Re-sort model labels by their usages
+
+    Args:
+        labels: labels loaded from a model fit
+        fill_value: value prepended to modeling results to account for nlags
+        count: how to count syllable usage - either by emission number (usage) or number of frames (frames)
+
+    Returns:
+        labels: labels resorted by usage
+
+    Examples:
+        Load in model results and sort labels by usages::
+
+            from moseq2_viz.model.util import parse_model_results, relabel_by_usage
+            model_results = parse_model_results('mymodel.p')
+            sorted_labels = relabel_by_usage(model_results['labels'], count='usage')
+    '''
+
+    if isinstance(labels, (list, np.ndarray)):
+        return _relabel_list_by_usage(labels, fill_value=fill_value, count=count)
+    elif isinstance(labels, dict):
+        # rest assured, in python 3 dicts are ordered by default
+        uuids = list(labels.keys())
+        sorted_labels, sorting = _relabel_list_by_usage(list(labels.values()), fill_value=fill_value, count=count)
+        return dict(zip(uuids, sorted_labels)), sorting
+    else:
+        raise ValueError(f'processing of datatype {type(labels)} not implemented or recognized')
 
 
 def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', normalize=True, max_syllable=40,
@@ -451,7 +568,7 @@ def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
 
     if ar_mat.shape[1] % npcs == 1:
         affine_term = ar_mat[:, -1]
-        ar_mat = np.delete(ar_mat, ar_mat.shape[1] - 1, axis=1)
+        ar_mat = ar_mat[:, :-1]
     else:
         affine_term = np.zeros((ar_mat.shape[0], ), dtype='float32')
 
@@ -571,10 +688,10 @@ def whiten_pcs(pca_scores, method='all', center=True):
 
         Load in pca_scores and whiten
 
-        >>> from moseq2_viz.util import h5_to_dict
-        >>> from moseq2_viz.model.util import whiten_pcs
-        >>> pca_scores = h5_to_dict('pca_scores.h5', '/scores')
-        >>> whitened_scores = whiten_pcs(pca_scores, method='all')
+        >> from moseq2_viz.util import h5_to_dict
+        >> from moseq2_viz.model.util import whiten_pcs
+        >> pca_scores = h5_to_dict('pca_scores.h5', '/scores')
+        >> whitened_scores = whiten_pcs(pca_scores, method='all')
 
     """
 
@@ -588,8 +705,16 @@ def whiten_pcs(pca_scores, method='all', center=True):
     return whitened_scores
 
 
-def normalize_pcs(pca_scores, method='z'):
-    """Normalize PCs (either de-mean or z-score)
+def normalize_pcs(pca_scores: dict, method: str = 'z') -> dict:
+    """Normalize PC scores. Options are: demean, zscore, ind-zscore.
+    demean: subtract the mean from each score
+    zscore: perform a zscore across all animals. each PC is zscored independently
+    ind-zscore: perform a zscore for each animal and each PC independently
+    Args:
+        pca_scores: a dictionary of scores where the key is the animal's UUID
+        method: the type of normalization to perform (demean, zscore, ind-zscore)
+    Returns:
+        a dictionary of normalized PC scores
     """
 
     norm_scores = deepcopy(pca_scores)
@@ -604,30 +729,41 @@ def normalize_pcs(pca_scores, method='z'):
         mu = np.nanmean(all_values, axis=0)
         for k, v in norm_scores.items():
             norm_scores[k] = v - mu
+    elif method == 'ind-zscore':
+        for k, v in norm_scores.items():
+            norm_scores[k] = (v - np.nanmean(v)) / np.nanstd(v)
 
     return norm_scores
 
 
-def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60,
+def _gen_to_arr(generator: Iterator[Any]) -> np.ndarray:
+    '''Turn a generator into a numpy array'''
+    return np.array(list(generator))
+
+
+def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
                              max_samples=100, npcs=10, subsampling=None,
                              remove_offset=False, **kwargs):
     # pad using zeros, get dtw distances...
 
-    durs = [idx[1] - idx[0] for idx, _, _ in slices]
-    use_slices = [_ for i, _ in enumerate(slices) if durs[i] < max_dur]
-    if max_samples is not None and len(use_slices) > max_samples:
-        choose_samples = np.random.permutation(range(len(use_slices)))[:max_samples]
-        use_slices = [_ for i, _ in enumerate(use_slices) if i in choose_samples]
+    # make function to filter syll durations
+    filter_dur = compose(lambda dur: (dur < max_dur) & (dur > min_dur),
+                         lambda inds: inds[1] - inds[0],
+                         get(0))
+    filtered_slices = _gen_to_arr(filter(filter_dur, slices))
+    # select random samples
+    inds = np.random.randint(0, len(filtered_slices), size=max_samples)
+    use_slices = filtered_slices[inds]
 
     syllable_matrix = np.zeros((len(use_slices), max_dur, npcs), 'float32')
-#     syllable_matrix[:] = np.nan
 
-    for i, (idx, uuid, h5) in enumerate(use_slices):
+    for i, (idx, uuid, _) in enumerate(use_slices):
         syllable_matrix[i, :idx[1]-idx[0], :] = pca_scores[uuid][idx[0]:idx[1], :npcs]
 
     if remove_offset:
         syllable_matrix = syllable_matrix - syllable_matrix[:, 0, :][:, None, :]
 
+    # get cluster averages - really good at selecting for different durations of a syllable
     if subsampling is not None and subsampling > 0:
         try:
             km = KMeans(subsampling)

@@ -1,0 +1,1 @@
+from moseq2_viz.util import h5_to_dict

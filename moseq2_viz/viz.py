@@ -1,12 +1,16 @@
-from matplotlib import lines, gridspec
-from networkx.drawing.nx_agraph import graphviz_layout
-import matplotlib.pyplot as plt
-import numpy as np
-import h5py
+import re
 import cv2
+import h5py
+import random
+import numpy as np
 import seaborn as sns
 import networkx as nx
-import re
+import matplotlib.pyplot as plt
+from typing import Tuple, Iterable
+from cytoolz import pluck
+from moseq2_viz.util import star
+from matplotlib import lines, gridspec
+from networkx.drawing.nx_agraph import graphviz_layout
 
 
 def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
@@ -89,14 +93,12 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     if weights is None:
         weights = trans_mats
 
-    if type(trans_mats) is np.ndarray and trans_mats.ndim == 2:
-        trans_mats = [trans_mats]
-    elif type(trans_mats) is list:
-        pass
-    else:
-        raise RuntimeError("Transition matrix must be a numpy array or list of arrays")
+    assert isinstance(trans_mats, (np.ndarray, list)), "Transition matrix must be a numpy array or list of arrays"
 
-    if (type(usages[0]) is list) or (type(usages[0]) is np.ndarray):
+    if isinstance(trans_mats, np.ndarray) and trans_mats.ndim == 2:
+        trans_mats = [trans_mats]
+
+    if usages is not None and isinstance(usages[0], (list, np.ndarray)):
         from collections import defaultdict
         for i, u in enumerate(usages):
             d = defaultdict(int)
@@ -123,6 +125,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
         weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
         keep_orphans=keep_orphans, usages=usages_anchor,
         usage_threshold=usage_threshold, max_syllable=max_syllable)
+
     graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
     nnodes = len(graph_anchor.nodes())
 
@@ -220,13 +223,36 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
         for j in range(len(ax[i])):
             ax[i][j].axis('off')
 
-    # plt.show()
-
     return fig, ax, pos
 
 
-#TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
-def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
+def crowd_matrix_from_loaded_data(slices: Iterable[Tuple[int, int]], frames, scalars, nexamples=50,
+                                  pad=30, dur_clip=1000, raw_size=(512, 424), crop_size=(80, 80)):
+    '''This function assumes angles have already been treated for flips, if necessary.'''
+    def dur_filter(slice_):
+        return (slice_[1] - slice_[0]) < dur_clip
+
+    slices = filter(dur_filter, slices)
+    slices = random.choices(slices, k=nexamples)
+    dur = list(s[1] - s[0] for s in slices)
+    max_dur = max(dur)
+    starts = map(lambda x: x - pad, pluck(0, slices))
+
+    def pad_idx(idx, dur):
+        return idx + pad + (max_dur - dur)
+
+    ends = map(star(pad_idx), zip(pluck(1, slices), dur))
+    # turn each tuple of indices into a slice object
+    slices = map(star(slice), zip(starts, ends))
+
+    crowd_mtx = np.zeros((max_dur + 2 * pad, *reversed(raw_size)), dtype='uint8')
+
+    yc0, xc0 = [x // 2 for x in crop_size]
+    # TODO: finish - add the below stuff
+
+
+# TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
+def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
                       crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
                       center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
                       **kwargs):
@@ -273,7 +299,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         # get the frames, combine in a way that's alpha-aware
 
         h5 = h5py.File(fname, 'r')
-        nframes = h5['frames'].shape[0]
+        nframes = h5[frame_path].shape[0]
         cur_len = idx[1] - idx[0]
         use_idx = (idx[0] - pad, idx[1] + pad + (max_dur - cur_len))
 
@@ -295,7 +321,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             centroid_y += raw_size[1] // 2
 
         angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
-        frames = clean_frames((h5['frames'][use_idx[0]:use_idx[1]] / scale).astype('uint8'), **kwargs)
+        frames = clean_frames((h5[frame_path][use_idx[0]:use_idx[1]] / scale).astype('uint8'), **kwargs)
 
         if 'flips' in h5['metadata/extraction'].keys():
             # h5 format as of v0.1.3
@@ -451,10 +477,11 @@ def scalar_plot(scalar_df, sort_vars=['group', 'SubjectName'], group_var='group'
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8))
 
     # sort scalars into a neat summary using group_vars
+    grp = scalar_df.groupby(sort_vars)[show_scalars]
 
     summary = {
-        'Mean': scalar_df.groupby(sort_vars)[show_scalars].mean(),
-        'STD': scalar_df.groupby(sort_vars)[show_scalars].std()
+        'Mean': grp.mean(),
+        'STD': grp.std()
     }
 
     for i, (k, v) in enumerate(summary.items()):
@@ -464,7 +491,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'SubjectName'], group_var='group'
         ax[i].set_ylabel(k)
         ax[i].set_xlabel('')
 
-    plt.tight_layout()
+    fig.tight_layout()
 
     return fig, ax
 

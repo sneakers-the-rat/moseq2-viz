@@ -132,10 +132,12 @@ def generate_index_command(input_dir, pca_file, output_file, filter, all_uuids):
 
     return True
 
-def make_crowd_movies_command(index_file, model_path, max_syllable, max_examples,
-                      sort, count, gaussfilter_space, medfilter_space,
-                      output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip,
-                      legacy_jitter_fix):
+def make_crowd_movies_command(index_file, model_path, config_file, output_dir, max_syllable, max_examples):
+
+    with open(config_file, 'r') as f:
+        config_data = yaml.safe_load(f)
+
+
     if platform in ['linux', 'linux2']:
         print('Setting CPU affinity to use all CPUs...')
         cpu_count = psutil.cpu_count()
@@ -143,8 +145,8 @@ def make_crowd_movies_command(index_file, model_path, max_syllable, max_examples
         proc.cpu_affinity(list(range(cpu_count)))
 
     clean_params = {
-        'gaussfilter_space': gaussfilter_space,
-        'medfilter_space': medfilter_space
+        'gaussfilter_space': config_data['gaussfilter_space'],
+        'medfilter_space': config_data['medfilter_space']
     }
 
     # need to handle h5 intelligently here...
@@ -178,8 +180,8 @@ def make_crowd_movies_command(index_file, model_path, max_syllable, max_examples
     with open(info_file, 'w+') as f:
         yaml.dump(info_dict, f, Dumper=yaml.RoundTripDumper)
 
-    if sort:
-        labels, ordering = relabel_by_usage(labels, count=count)
+    if config_data['sort']:
+        labels, ordering = relabel_by_usage(labels, count=config_data['count'])
     else:
         ordering = list(range(max_syllable))
 
@@ -200,7 +202,7 @@ def make_crowd_movies_command(index_file, model_path, max_syllable, max_examples
     if vid_parameters['resolution'] is not None:
         raw_size = vid_parameters['resolution']
 
-    if sort:
+    if config_data['sort']:
         filename_format = 'syllable_sorted-id-{:d} ({})_original-id-{:d}.mp4'
     else:
         filename_format = 'syllable_{:d}.mp4'
@@ -216,21 +218,21 @@ def make_crowd_movies_command(index_file, model_path, max_syllable, max_examples
 
         matrix_fun = partial(make_crowd_matrix,
                              nexamples=max_examples,
-                             dur_clip=dur_clip,
-                             min_height=min_height,
+                             dur_clip=config_data['dur_clip'],
+                             min_height=config_data['min_height'],
                              crop_size=vid_parameters['crop_size'],
-                             raw_size=raw_size,
-                             scale=scale,
-                             legacy_jitter_fix=legacy_jitter_fix,
+                             raw_size=config_data['raw_size'],
+                             scale=config_data['scale'],
+                             legacy_jitter_fix=config_data['legacy_jitter_fix'],
                              **clean_params)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
             crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
 
-        write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=min_height,
-                            depth_max=max_height, cmap=cmap)
+        write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],
+                            depth_max=config_data['max_height'], cmap=config_data['cmap'])
         pool.starmap(write_fun,
-                     [(os.path.join(output_dir, filename_format.format(i, count, ordering[i])),
+                     [(os.path.join(output_dir, filename_format.format(i, config_data['count'], ordering[i])),
                        crowd_matrix)
                       for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
 
@@ -262,12 +264,12 @@ def plot_scalar_summary_command(index_file, output_file):
     plt_position.savefig('{}_position.png'.format(output_file))
     plt_position.savefig('{}_position.pdf'.format(output_file))
 
-def plot_transition_graph_command(index_file, model_fit, max_syllable, group, output_file,
-                          normalize, edge_threshold, usage_threshold, layout,
-                          keep_orphans, orphan_weight, arrows, sort, count,
-                          edge_scaling, node_scaling, scale_node_by_usage, width_per_group):
+def plot_transition_graph_command(index_file, model_fit, config_file, max_syllable, group, output_file):
 
-    if layout.lower()[:8] == 'graphviz':
+    with open(config_file, 'r') as f:
+        config_data = yaml.safe_load(f)
+
+    if config_data['layout'].lower()[:8] == 'graphviz':
         try:
             import pygraphviz
         except ImportError:
@@ -278,8 +280,8 @@ def plot_transition_graph_command(index_file, model_fit, max_syllable, group, ou
 
     labels = model_data['labels']
 
-    if sort:
-        labels = relabel_by_usage(labels, count=count)[0]
+    if config_data['sort']:
+        labels = relabel_by_usage(labels, count=config_data['count'])[0]
 
     if 'train_list' in model_data.keys():
         label_uuids = model_data['train_list']
@@ -307,18 +309,18 @@ def plot_transition_graph_command(index_file, model_fit, max_syllable, group, ou
     usages = []
     for plt_group in group:
         use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
-        trans_mats.append(get_transition_matrix(use_labels, normalize=normalize, combine=True, max_syllable=max_syllable))
+        trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True, max_syllable=max_syllable))
         usages.append(get_syllable_statistics(use_labels)[0])
 
-    if not scale_node_by_usage:
+    if not config_data['scale_node_by_usage']:
         usages = None
 
     print('Creating plot...')
 
-    plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
-                                        edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
-                                        difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
-                                        orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
-                                        layout=layout, groups=group, usage_scale=node_scaling, headless=True)
+    plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
+                                        edge_threshold=config_data['edge_threshold'], edge_width_scale=config_data['edge_scaling'],
+                                        difference_edge_width_scale=config_data['edge_scaling'], keep_orphans=config_data['keep_orphans'],
+                                        orphan_weight=config_data['orphan_weight'], arrows=config_data['arrows'], usage_threshold=config_data['usage_threshold'],
+                                        layout=config_data['layout'], groups=group, usage_scale=config_data['node_scaling'], headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))

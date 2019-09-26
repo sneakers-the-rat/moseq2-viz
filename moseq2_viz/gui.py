@@ -22,6 +22,44 @@ import re
 import shutil
 import psutil
 
+def add_group_command(index_file, key, value, group, exact, lowercase, negative):
+
+    index = parse_index(index_file)[0]
+    h5_uuids = [f['uuid'] for f in index['files']]
+    metadata = [f['metadata'] for f in index['files']]
+
+    if type(value) is str:
+        value = [value]
+
+    for v in value:
+        if exact:
+            v = r'\b{}\b'.format(v)
+        if lowercase and negative:
+            hits = [re.search(v, meta[key].lower()) is None for meta in metadata]
+        elif lowercase:
+            hits = [re.search(v, meta[key].lower()) is not None for meta in metadata]
+        elif negative:
+            hits = [re.search(v, meta[key]) is None for meta in metadata]
+        else:
+            hits = [re.search(v, meta[key]) is not None for meta in metadata]
+
+        for uuid, hit in zip(h5_uuids, hits):
+            position = h5_uuids.index(uuid)
+            if hit:
+                index['files'][position]['group'] = group
+
+    new_index = '{}_update.yaml'.format(os.path.basename(index_file))
+
+    try:
+        with open(new_index, 'w+') as f:
+            yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
+        shutil.move(new_index, index_file)
+    except Exception:
+        raise Exception
+
+    return True
+
+
 def copy_h5_metadata_to_yaml_command(input_dir, h5_metadata_path):
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)

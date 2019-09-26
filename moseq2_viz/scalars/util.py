@@ -403,5 +403,4 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     # return scalar_dict
     scalar_df = pd.DataFrame(scalar_dict)
 
-    scalar_df = pd.concat(dfs, axis=0)
     return scalar_df

@@ -22,6 +22,27 @@ import re
 import shutil
 import psutil
 
+def get_groups_command(index_file):
+    with open(index_file, 'r') as f:
+        index_data = yaml.safe_load(f)
+    f.close()
+
+    groups, uuids = [], []
+    subjectNames, sessionNames = [], []
+    for f in index_data['files']:
+        if f['uuid'] not in uuids:
+            uuids.append(f['uuid'])
+            groups.append(f['group'])
+            subjectNames.append(f['metadata']['SubjectName'])
+            sessionNames.append(f['metadata']['SessionName'])
+
+    print('Total number of subjects:', len(set(subjectNames)))
+    print('Total number of sessions:', len(set(sessionNames)))
+    print('Total number of unique groups:', len(set(groups)))
+
+    for i in range(len(subjectNames)):
+        print('Session Name:', sessionNames[i], '; Subject Name:', subjectNames[i], '; group:', groups[i])
+
 def add_group_command(index_file, key, value, group, exact, lowercase, negative):
 
     index = parse_index(index_file)[0]
@@ -96,6 +117,7 @@ def generate_index_command(input_dir, pca_file, output_file, filter, all_uuids):
         with h5py.File(pca_file, 'r') as f:
             pca_uuids = list(f['scores'].keys())
 
+
     file_with_uuids = [(os.path.relpath(h5), os.path.relpath(yml), meta) for h5, yml, meta in
                        zip(h5s, yamls, dicts) if meta['uuid'] in pca_uuids]
 
@@ -107,23 +129,26 @@ def generate_index_command(input_dir, pca_file, output_file, filter, all_uuids):
         'pca_path': os.path.relpath(pca_file)
     }
 
+    index_uuids = []
     for i, file_tup in enumerate(file_with_uuids):
-        output_dict['files'].append({
-            'path': (file_tup[0], file_tup[1]),
-            'uuid': file_tup[2]['uuid'],
-            'group': 'default'
-        })
+        if file_tup[2]['uuid'] not in index_uuids:
+            output_dict['files'].append({
+                'path': (file_tup[0], file_tup[1]),
+                'uuid': file_tup[2]['uuid'],
+                'group': 'default'
+            })
+            index_uuids.append(file_tup[2]['uuid'])
 
-        output_dict['files'][i]['metadata'] = {}
+            output_dict['files'][i]['metadata'] = {}
 
-        for k, v in file_tup[2]['metadata'].items():
-            for filt in filter:
-                if k == filt[0]:
-                    tmp = re.match(filt[1], v)
-                    if tmp is not None:
-                        v = tmp[0]
+            for k, v in file_tup[2]['metadata'].items():
+                for filt in filter:
+                    if k == filt[0]:
+                        tmp = re.match(filt[1], v)
+                        if tmp is not None:
+                            v = tmp[0]
 
-            output_dict['files'][i]['metadata'][k] = v
+                output_dict['files'][i]['metadata'][k] = v
 
     # write out index yaml
 

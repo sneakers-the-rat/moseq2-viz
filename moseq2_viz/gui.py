@@ -43,8 +43,9 @@ def get_groups_command(index_file):
     for i in range(len(subjectNames)):
         print('Session Name:', sessionNames[i], '; Subject Name:', subjectNames[i], '; group:', groups[i])
 
-def add_group_command(index_file, key, value, group, exact, lowercase, negative):
+def add_group_by_session(index_file, value, group, exact, lowercase, negative):
 
+    key = 'SessionName'
     index = parse_index(index_file)[0]
     h5_uuids = [f['uuid'] for f in index['files']]
     metadata = [f['metadata'] for f in index['files']]
@@ -78,8 +79,45 @@ def add_group_command(index_file, key, value, group, exact, lowercase, negative)
     except Exception:
         raise Exception
 
-    return True
+    get_groups_command(index_file)
 
+def add_group_by_subject(index_file, value, group, exact, lowercase, negative):
+
+    key = 'SubjectName'
+    index = parse_index(index_file)[0]
+    h5_uuids = [f['uuid'] for f in index['files']]
+    metadata = [f['metadata'] for f in index['files']]
+
+    if type(value) is str:
+        value = [value]
+
+    for v in value:
+        if exact:
+            v = r'\b{}\b'.format(v)
+        if lowercase and negative:
+            hits = [re.search(v, meta[key].lower()) is None for meta in metadata]
+        elif lowercase:
+            hits = [re.search(v, meta[key].lower()) is not None for meta in metadata]
+        elif negative:
+            hits = [re.search(v, meta[key]) is None for meta in metadata]
+        else:
+            hits = [re.search(v, meta[key]) is not None for meta in metadata]
+
+        for uuid, hit in zip(h5_uuids, hits):
+            position = h5_uuids.index(uuid)
+            if hit:
+                index['files'][position]['group'] = group
+
+    new_index = '{}_update.yaml'.format(os.path.basename(index_file))
+
+    try:
+        with open(new_index, 'w+') as f:
+            yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
+        shutil.move(new_index, index_file)
+    except Exception:
+        raise Exception
+
+    get_groups_command(index_file)
 
 def copy_h5_metadata_to_yaml_command(input_dir, h5_metadata_path):
 
@@ -126,7 +164,7 @@ def generate_index_command(input_dir, pca_file, output_file, filter, all_uuids):
 
     output_dict = {
         'files': [],
-        'pca_path': os.path.relpath(pca_file)
+        'pca_path': pca_file
     }
 
     index_uuids = []

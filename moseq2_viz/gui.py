@@ -193,7 +193,7 @@ def generate_index_command(input_dir, pca_file, output_file, filter, all_uuids):
     with open(output_file, 'w') as f:
         yaml.dump(output_dict, f, Dumper=yaml.RoundTripDumper)
 
-    return True
+    return 'Index file successfully generated.'
 
 def make_crowd_movies_command(index_file, model_path, config_file, output_dir, max_syllable, max_examples):
 
@@ -299,6 +299,8 @@ def make_crowd_movies_command(index_file, model_path, config_file, output_dir, m
                        crowd_matrix)
                       for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
 
+    return 'Successfully generated '+str(max_examples) + ' crowd videos.'
+
 def plot_usages_command(index_file, model_fit, sort, count, max_syllable, group, output_file):
 
     # if the user passes multiple groups, sort and plot against each other
@@ -312,6 +314,7 @@ def plot_usages_command(index_file, model_fit, sort, count, max_syllable, group,
     plt, _ = usage_plot(df, groups=group, headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
+    return 'Usage plots successfully completed.'
 
 def plot_scalar_summary_command(index_file, output_file):
 
@@ -326,6 +329,8 @@ def plot_scalar_summary_command(index_file, output_file):
 
     plt_position.savefig('{}_position.png'.format(output_file))
     plt_position.savefig('{}_position.pdf'.format(output_file))
+
+    return 'Scalar summary plots successfully completed.'
 
 def plot_transition_graph_command(index_file, model_fit, config_file, max_syllable, group, output_file):
 
@@ -387,3 +392,5 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
                                         layout=config_data['layout'], groups=group, usage_scale=config_data['node_scaling'], headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
+
+    return 'Transition graph(s) successfully generated and saved.'

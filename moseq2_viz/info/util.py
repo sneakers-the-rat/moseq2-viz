@@ -2,9 +2,11 @@ import numpy as np
 from moseq2_viz.model.util import get_syllable_statistics, get_transition_matrix
 
 
-# TODO: better docstring
 def entropy(labels, truncate_syllable=40, smoothing=1.0):
-    """Computes entropy, base 2
+    """
+    Entropy calculation function used to decide whether the likelihood for a syllable label to appear is diminishing
+    over a logarithmic number of times having previously appeared.
+    This is used to ensure that the syllable bigrams/n-grams being created in the graphing steps are reliable and not overfit.
     """
 
     ent = []
@@ -30,10 +32,11 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0):
     return ent
 
 
-# TODO: better docstring
 def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
                  smoothing=1.0, tm_smoothing=1.0):
-    """Computes entropy rate, base 2
+    """
+    Computes the entropy rate of the each syllable normalized to a user defined standard, {bigram, rows, columns}.
+    This is used to properly estimate the likelihoods of the syllable tranistions throughout the transition graph.
     """
 
     ent = []

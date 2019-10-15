@@ -330,12 +330,12 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
 
             for s, d in zip(seq_array, durs):
                 if use_usage:
-                    usages[s] += 1
+                    usages[s] = usages[s] + 1
                 else:
-                    usages[s] += d
+                    usages[s] = usages[s] + d
                 durations[s].append(d)
 
-    elif type(data) is np.ndarray and data.dtype == 'int16':
+    else:#elif type(data) is np.ndarray and data.dtype == 'int16':
 
         seq_array, locs = _get_transitions(data)
         to_rem = np.where(seq_array > max_syllable)[0]
@@ -346,13 +346,15 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
 
         for s, d in zip(seq_array, durs):
             if use_usage:
-                usages[s] += 1
+                usages[s] = usages[s] + 1
             else:
-                usages[s] += d
+                usages[s] = usages[s] + d
             durations[s].append(d)
+
 
     usages = OrderedDict(sorted(usages.items()))
     durations = OrderedDict(sorted(durations.items()))
+
 
     return usages, durations
 
@@ -523,7 +525,6 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', norm
 
     if sort:
         model_dict['labels'] = relabel_by_usage(model_dict['labels'], count=count)[0]
-
     # by default the keys are the uuids
 
     if 'train_list' in model_dict.keys():
@@ -548,7 +549,6 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', norm
     for i, label_arr in enumerate(model_dict['labels']):
         tmp_usages, tmp_durations = get_syllable_statistics(label_arr, count=count, max_syllable=max_syllable)
         total_usage = np.sum(list(tmp_usages.values()))
-
         for k, v in tmp_usages.items():
             df_dict['usage'].append(v / total_usage)
             df_dict['syllable'].append(k)

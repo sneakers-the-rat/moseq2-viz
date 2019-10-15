@@ -16,7 +16,7 @@ import h5py
 import multiprocessing as mp
 import numpy as np
 import joblib
-import tqdm
+from tqdm.auto import tqdm
 import warnings
 import re
 import shutil
@@ -142,59 +142,6 @@ def copy_h5_metadata_to_yaml_command(input_dir, h5_metadata_path):
             raise Exception
     return True
 
-def generate_index_command(input_dir, pca_file, output_file, filter, all_uuids):
-
-    # gather than h5s and the pca scores file
-    # uuids should match keys in the scores file
-
-    h5s, dicts, yamls = recursive_find_h5s(input_dir)
-    if not os.path.exists(pca_file) or all_uuids:
-        warnings.warn('Will include all files')
-        pca_uuids = [dct['uuid'] for dct in dicts]
-    else:
-        with h5py.File(pca_file, 'r') as f:
-            pca_uuids = list(f['scores'].keys())
-
-
-    file_with_uuids = [(os.path.relpath(h5), os.path.relpath(yml), meta) for h5, yml, meta in
-                       zip(h5s, yamls, dicts) if meta['uuid'] in pca_uuids]
-
-    if 'metadata' not in file_with_uuids[0][2]:
-        raise RuntimeError('Metadata not present in yaml files, run copy-h5-metadata-to-yaml to update yaml files')
-
-    output_dict = {
-        'files': [],
-        'pca_path': pca_file
-    }
-
-    index_uuids = []
-    for i, file_tup in enumerate(file_with_uuids):
-        if file_tup[2]['uuid'] not in index_uuids:
-            output_dict['files'].append({
-                'path': (file_tup[0], file_tup[1]),
-                'uuid': file_tup[2]['uuid'],
-                'group': 'default'
-            })
-            index_uuids.append(file_tup[2]['uuid'])
-
-            output_dict['files'][i]['metadata'] = {}
-
-            for k, v in file_tup[2]['metadata'].items():
-                for filt in filter:
-                    if k == filt[0]:
-                        tmp = re.match(filt[1], v)
-                        if tmp is not None:
-                            v = tmp[0]
-
-                output_dict['files'][i]['metadata'][k] = v
-
-    # write out index yaml
-
-    with open(output_file, 'w') as f:
-        yaml.dump(output_dict, f, Dumper=yaml.RoundTripDumper)
-
-    return 'Index file successfully generated.'
-
 def make_crowd_movies_command(index_file, model_path, config_file, output_dir, max_syllable, max_examples):
 
     with open(config_file, 'r') as f:
@@ -276,8 +223,8 @@ def make_crowd_movies_command(index_file, model_path, config_file, output_dir, m
                             label_uuids=label_uuids,
                             index=sorted_index)
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
-            slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
+            #warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
+            slices = list(tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
 
         matrix_fun = partial(make_crowd_matrix,
                              nexamples=max_examples,
@@ -289,8 +236,8 @@ def make_crowd_movies_command(index_file, model_path, config_file, output_dir, m
                              legacy_jitter_fix=config_data['legacy_jitter_fix'],
                              **clean_params)
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
-            crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
+            #warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
+            crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
 
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],
                             depth_max=config_data['max_height'], cmap=config_data['cmap'])
@@ -314,7 +261,9 @@ def plot_usages_command(index_file, model_fit, sort, count, max_syllable, group,
     plt, _ = usage_plot(df, groups=group, headless=True)
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
-    return 'Usage plots successfully completed.'
+
+    return plt
+    #return 'Usage plots successfully completed.'
 
 def plot_scalar_summary_command(index_file, output_file):
 
@@ -330,6 +279,7 @@ def plot_scalar_summary_command(index_file, output_file):
     plt_position.savefig('{}_position.png'.format(output_file))
     plt_position.savefig('{}_position.pdf'.format(output_file))
 
+    #return plt_scalars, plt_position
     return 'Scalar summary plots successfully completed.'
 
 def plot_transition_graph_command(index_file, model_fit, config_file, max_syllable, group, output_file):
@@ -393,4 +343,5 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
 
-    return 'Transition graph(s) successfully generated and saved.'
+    return plt
+    #return 'Transition graph(s) successfully generated and saved.'

@@ -16,7 +16,7 @@ import h5py
 import multiprocessing as mp
 import numpy as np
 import joblib
-from tqdm.auto import tqdm
+import tqdm
 import warnings
 import re
 import shutil
@@ -223,8 +223,7 @@ def make_crowd_movies_command(index_file, model_path, config_file, output_dir, m
                             label_uuids=label_uuids,
                             index=sorted_index)
         with warnings.catch_warnings():
-            #warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
-            slices = list(tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
+            slices = list(tqdm.tqdm_notebook(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
 
         matrix_fun = partial(make_crowd_matrix,
                              nexamples=max_examples,
@@ -236,8 +235,7 @@ def make_crowd_movies_command(index_file, model_path, config_file, output_dir, m
                              legacy_jitter_fix=config_data['legacy_jitter_fix'],
                              **clean_params)
         with warnings.catch_warnings():
-            #warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
-            crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
+            crowd_matrices = list(tqdm.tqdm_notebook(pool.imap(matrix_fun, slices), total=max_syllable))
 
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],
                             depth_max=config_data['max_height'], cmap=config_data['cmap'])

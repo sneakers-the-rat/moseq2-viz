@@ -21,8 +21,8 @@ setup(
     packages=find_packages(),
     platforms=['mac', 'unix'],
     install_requires=['tqdm', 'matplotlib', 'click', 'dtaidistance', 'scikit-learn',
-                      'ruamel.yaml>=0.15.0', 'seaborn', 'opencv-python', 'psutil',
-                      'pandas', 'networkx', 'numpy>=1.14.5,<=1.17.2', 'cytoolz'],
+                      'ruamel.yaml', 'seaborn', 'opencv-python', 'psutil',
+                      'pandas', 'networkx', 'numpy', 'cytoolz'],
     python_requires='>=3.6',
     entry_points={'console_scripts': ['moseq2-viz = moseq2_viz.cli:cli']}
 )

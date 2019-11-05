@@ -74,7 +74,7 @@ def add_group_by_session(index_file, value, group, exact, lowercase, negative):
 
     try:
         with open(new_index, 'w+') as f:
-            yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
+            yaml.safe_dump(index, f)
         shutil.move(new_index, index_file)
     except Exception:
         raise Exception
@@ -112,7 +112,7 @@ def add_group_by_subject(index_file, value, group, exact, lowercase, negative):
 
     try:
         with open(new_index, 'w+') as f:
-            yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
+            yaml.safe_dump(index, f)
         shutil.move(new_index, index_file)
     except Exception:
         raise Exception
@@ -136,7 +136,7 @@ def copy_h5_metadata_to_yaml_command(input_dir, h5_metadata_path):
         try:
             new_file = '{}_update.yaml'.format(os.path.basename(tup[1]))
             with open(new_file, 'w+') as f:
-                yaml.dump(tup[0], f, Dumper=yaml.RoundTripDumper)
+                yaml.safe_dump(tup[0], f)
             shutil.move(new_file, tup[1])
         except Exception:
             raise Exception
@@ -188,7 +188,7 @@ def make_crowd_movies_command(index_file, model_path, config_file, output_dir, m
     info_file = os.path.join(output_dir, 'info.yaml')
 
     with open(info_file, 'w+') as f:
-        yaml.dump(info_dict, f, Dumper=yaml.RoundTripDumper)
+        yaml.safe_dump(info_dict, f)
 
     if config_data['sort']:
         labels, ordering = relabel_by_usage(labels, count=config_data['count'])
@@ -260,8 +260,9 @@ def plot_usages_command(index_file, model_fit, sort, count, max_syllable, group,
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
 
+    print('Usage plot successfully generated')
+
     return plt
-    #return 'Usage plots successfully completed.'
 
 def plot_scalar_summary_command(index_file, output_file):
 
@@ -277,7 +278,6 @@ def plot_scalar_summary_command(index_file, output_file):
     plt_position.savefig('{}_position.png'.format(output_file))
     plt_position.savefig('{}_position.pdf'.format(output_file))
 
-    #return plt_scalars, plt_position
     return 'Scalar summary plots successfully completed.'
 
 def plot_transition_graph_command(index_file, model_fit, config_file, max_syllable, group, output_file):
@@ -311,10 +311,7 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
     if 'group' in index['files'][0].keys() and len(group) > 0:
         for uuid in label_uuids:
             label_group.append(sorted_index['files'][uuid]['group'])
-    # elif 'group' in index['files'][0].keys() and (group is None or len(group) == 0):
-    #     for uuid in label_uuids:
-    #         label_group.append(sorted_index['files'][uuid]['group'])
-    #     group = list(set(label_group))
+
     else:
         label_group = ['']*len(model_data['labels'])
         group = list(set(label_group))
@@ -341,5 +338,5 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
 
+    print('Transition graph(s) successfully generated')
     return plt
-    #return 'Transition graph(s) successfully generated and saved.'

@@ -77,7 +77,7 @@ def add_group(index_file, key, value, group, exact, lowercase, negative):
 
     try:
         with open(new_index, 'w+') as f:
-            yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
+            yaml.safe_dump(index, f)
         shutil.move(new_index, index_file)
     except Exception:
         raise Exception
@@ -105,7 +105,7 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
         try:
             new_file = '{}_update.yaml'.format(os.path.basename(tup[1]))
             with open(new_file, 'w+') as f:
-                yaml.dump(tup[0], f, Dumper=yaml.RoundTripDumper)
+                yaml.safe_dump(tup[0], f)
             shutil.move(new_file, tup[1])
         except Exception:
             raise Exception
@@ -161,7 +161,7 @@ def generate_index(input_dir, pca_file, output_file, _filter, all_uuids):
     # write out index yaml
 
     with open(output_file, 'w') as f:
-        yaml.dump(output_dict, f, Dumper=yaml.RoundTripDumper)
+        yaml.safe_dump(output_dict, f)
 
 
 @cli.command(name='make-crowd-movies')
@@ -227,7 +227,7 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
     info_file = os.path.join(output_dir, 'info.yaml')
 
     with open(info_file, 'w+') as f:
-        yaml.dump(info_dict, f, Dumper=yaml.RoundTripDumper)
+        yaml.safe_dump(info_dict, f)
 
     if sort:
         labels, ordering = relabel_by_usage(labels, count=count)

@@ -1,6 +1,6 @@
 import os
 import h5py
-from ruamel.yaml import YAML
+import ruamel.yaml as yaml
 from cytoolz import curry, compose
 from functools import lru_cache, wraps
 from cytoolz.itertoolz import peek, pluck, first, groupby
@@ -246,9 +246,8 @@ def recursive_find_h5s(root_dir=os.getcwd(),
 
 
 def read_yaml(yaml_path: str):
-    yaml = YAML(typ='safe')
     with open(yaml_path, 'r') as f:
-        loaded = yaml.load(f)
+        loaded = yaml.safe_load(f)
     return loaded
 
 

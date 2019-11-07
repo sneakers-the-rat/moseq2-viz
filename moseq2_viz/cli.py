@@ -82,6 +82,8 @@ def add_group(index_file, key, value, group, exact, lowercase, negative):
     except Exception:
         raise Exception
 
+    print('Group(s) added successfully.')
+
 
 # recurse through directories, find h5 files with completed extractions, make a manifest
 # and copy the contents to a new directory
@@ -162,6 +164,8 @@ def generate_index(input_dir, pca_file, output_file, _filter, all_uuids):
 
     with open(output_file, 'w') as f:
         yaml.safe_dump(output_dict, f)
+
+    print(f'Index file {output_dict} successfully generated.')
 
 
 @cli.command(name='make-crowd-movies')
@@ -287,6 +291,8 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
                        crowd_matrix)
                       for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
 
+    print(f'Crowd movies successfully generated in {output_dir}.')
+
 
 @cli.command(name='plot-scalar-summary')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
@@ -296,14 +302,22 @@ def plot_scalar_summary(index_file, output_file):
     index, sorted_index = parse_index(index_file)
     scalar_df = scalars_to_dataframe(sorted_index)
 
-    plt_scalars, _ = scalar_plot(scalar_df, headless=True)
-    plt_position, _ = position_plot(scalar_df, headless=True)
+    try:
+        plt_scalars, _ = scalar_plot(scalar_df, headless=True)
 
-    plt_scalars.savefig(f'{output_file}_summary.png')
-    plt_scalars.savefig(f'{output_file}_summary.pdf')
+        plt_scalars.savefig(f'{output_file}_summary.png')
+        plt_scalars.savefig(f'{output_file}_summary.pdf')
+    except:
+        print('Could not calculate scalars')
+    try:
+        plt_position, _ = position_plot(scalar_df, headless=True)
 
-    plt_position.savefig(f'{output_file}_position.png')
-    plt_position.savefig(f'{output_file}_position.pdf')
+        plt_position.savefig(f'{output_file}_position.png')
+        plt_position.savefig(f'{output_file}_position.pdf')
+    except:
+        print('Could not calculate position summary.')
+
+    print('Successfully graphed scalar plots.')
 
 
 @cli.command(name='plot-transition-graph')
@@ -378,14 +392,18 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 
     print('Creating plot...')
 
-    plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
-                                        edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
-                                        difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
-                                        orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
-                                        layout=layout, groups=group, usage_scale=node_scaling, headless=True)
-    plt.savefig(f'{output_file}.png', dpi=150)
-    plt.savefig(f'{output_file}.pdf')
+    try:
+        plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
+                                            edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
+                                            difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
+                                            orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
+                                            layout=layout, groups=group, usage_scale=node_scaling, headless=True)
+        plt.savefig(f'{output_file}.png', dpi=150)
+        plt.savefig(f'{output_file}.pdf')
 
+        print('Successfully graphed transition matrix.')
+    except:
+        print('Could not graph transition matrix.')
 
 @cli.command(name='plot-usages')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
@@ -404,7 +422,12 @@ def plot_usages(index_file, model_fit, sort, count, max_syllable, group, output_
 
     model_data = parse_model_results(joblib.load(model_fit))
     sorted_index = get_sorted_index(index_file)
-    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
-    fig, _ = usage_plot(df, groups=group, headless=True)
-    fig.savefig(f'{output_file}.png')
-    fig.savefig(f'{output_file}.pdf')
+    try:
+        df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
+        fig, _ = usage_plot(df, groups=group, headless=True)
+        fig.savefig(f'{output_file}.png')
+        fig.savefig(f'{output_file}.pdf')
+    except:
+        print('Could not graph usage plots')
+
+    print('Successfully graphed usage plots')

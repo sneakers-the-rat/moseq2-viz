@@ -515,18 +515,37 @@ def usage_plot(usages, groups=None, headless=False, **kwargs):
     fig, ax = plt.subplots(1, 1, figsize=(10, 5))
     sns.set_style('ticks')
 
-    ax = sns.pointplot(data=usages,
-                       x='syllable',
-                       y='usage',
-                       hue=hue,
-                       hue_order=groups,
-                       join=False,
-                       **kwargs)
+    try:
+        ax = sns.pointplot(data=usages,
+                           x='syllable',
+                           y='usage',
+                           hue=hue,
+                           hue_order=groups,
+                           join=False,
+                           **kwargs)
+        ax.set_xticks([])
+        plt.ylabel('P(syllable)')
+        plt.xlabel('Syllable (sorted by usage)')
 
-    ax.set_xticks([])
-    plt.ylabel('P(syllable)')
-    plt.xlabel('Syllable (sorted by usage)')
+        sns.despine()
 
-    sns.despine()
+        return fig, ax
+    except:
+        print('Invalid inputted groups, graphing default group.')
+        groups, hue = None, None
 
-    return fig, ax
+        ax = sns.pointplot(data=usages,
+                           x='syllable',
+                           y='usage',
+                           hue=hue,
+                           hue_order=groups,
+                           join=False,
+                           **kwargs)
+        ax.set_xticks([])
+        plt.ylabel('P(syllable)')
+        plt.xlabel('Syllable (sorted by usage)')
+
+        sns.despine()
+
+        return fig, ax
+

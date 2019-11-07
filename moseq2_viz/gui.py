@@ -317,26 +317,53 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
         group = list(set(label_group))
 
     print('Computing transition matrices...')
+    try:
+        trans_mats = []
+        usages = []
+        for plt_group in group:
+            use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
+            trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True, max_syllable=max_syllable))
+            usages.append(get_syllable_statistics(use_labels)[0])
 
-    trans_mats = []
-    usages = []
-    for plt_group in group:
-        use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
-        trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True, max_syllable=max_syllable))
-        usages.append(get_syllable_statistics(use_labels)[0])
+        if not config_data['scale_node_by_usage']:
+            usages = None
 
-    if not config_data['scale_node_by_usage']:
-        usages = None
+        print('Creating plot...')
 
-    print('Creating plot...')
+        plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
+                                            edge_threshold=config_data['edge_threshold'], edge_width_scale=config_data['edge_scaling'],
+                                            difference_edge_width_scale=config_data['edge_scaling'], keep_orphans=config_data['keep_orphans'],
+                                            orphan_weight=config_data['orphan_weight'], arrows=config_data['arrows'], usage_threshold=config_data['usage_threshold'],
+                                            layout=config_data['layout'], groups=group, usage_scale=config_data['node_scaling'], headless=True)
+        plt.savefig('{}.png'.format(output_file))
+        plt.savefig('{}.pdf'.format(output_file))
+    except:
+        print('Incorrectly inputted group, plotting default group.')
 
-    plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
-                                        edge_threshold=config_data['edge_threshold'], edge_width_scale=config_data['edge_scaling'],
-                                        difference_edge_width_scale=config_data['edge_scaling'], keep_orphans=config_data['keep_orphans'],
-                                        orphan_weight=config_data['orphan_weight'], arrows=config_data['arrows'], usage_threshold=config_data['usage_threshold'],
-                                        layout=config_data['layout'], groups=group, usage_scale=config_data['node_scaling'], headless=True)
-    plt.savefig('{}.png'.format(output_file))
-    plt.savefig('{}.pdf'.format(output_file))
+        label_group = [''] * len(model_data['labels'])
+        group = list(set(label_group))
+
+        print('Recomputing transition matrices...')
+
+        trans_mats = []
+        usages = []
+        for plt_group in group:
+            use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
+            trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True,
+                                                    max_syllable=max_syllable))
+            usages.append(get_syllable_statistics(use_labels)[0])
+
+        plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
+                                            edge_threshold=config_data['edge_threshold'],
+                                            edge_width_scale=config_data['edge_scaling'],
+                                            difference_edge_width_scale=config_data['edge_scaling'],
+                                            keep_orphans=config_data['keep_orphans'],
+                                            orphan_weight=config_data['orphan_weight'], arrows=config_data['arrows'],
+                                            usage_threshold=config_data['usage_threshold'],
+                                            layout=config_data['layout'], groups=group,
+                                            usage_scale=config_data['node_scaling'], headless=True)
+        plt.savefig('{}.png'.format(output_file))
+        plt.savefig('{}.pdf'.format(output_file))
 
     print('Transition graph(s) successfully generated')
     return plt

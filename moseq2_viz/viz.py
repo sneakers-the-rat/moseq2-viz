@@ -1,4 +1,5 @@
 import re
+import math
 import cv2
 import h5py
 import random
@@ -43,6 +44,16 @@ def convert_ebunch_to_graph(ebunch):
 
     return g
 
+def floatRgb(mag, cmin, cmax):
+    """ Return a tuple of floats between 0 and 1 for R, G, and B. """
+    # Normalize to 0-1
+    try: x = float(mag-cmin)/(cmax-cmin)
+    except ZeroDivisionError: x = 0.5 # cmax == cmin
+    blue  = min((max((4*(0.75-x), 0.)), 1.))
+    red   = min((max((4*(x-0.25), 0.)), 1.))
+    green = min((max((4*math.fabs(x-0.5)-1., 0.)), 1.))
+    return red, green, blue
+
 
 def convert_transition_matrix_to_ebunch(weights, transition_matrix,
                                         usages=None, usage_threshold=-.1,
@@ -77,7 +88,7 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     return ebunch, orphans
 
 
-def graph_transition_matrix(trans_mats, usages=None, groups=None,
+def graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=None, groups=None,
                             edge_threshold=.0025, anchor=0, usage_threshold=0,
                             node_color='w', node_edge_color='r', layout='spring',
                             edge_width_scale=100, node_size=400, fig=None, ax=None,
@@ -165,10 +176,14 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
         if usages is not None:
             node_size = [usages[i][k] * usage_scale for k in pos.keys()]
+            durs = []
+            for k in pos.keys():
+                durs.append(floatRgb(syll_dur_df.loc[syll_dur_df['syll'] == k, 'avg_dur'], minD, maxD))
+            node_color = durs
 
         nx.draw_networkx_nodes(graph, pos,
                                edgecolors=node_edge_color, node_color=node_color,
-                               node_size=node_size, ax=ax[i][i])
+                               node_size=node_size, ax=ax[i][i], cmap='jet')
         nx.draw_networkx_edges(graph, pos, graph.edges(), width=width, ax=ax[i][i],
                                arrows=arrows, edge_color=edge_color)
         if font_size > 0:
@@ -196,6 +211,10 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
                     df_usage = [usages[j + i + 1][k] - usages[i][k] for k in pos.keys()]
                     node_size = list(np.abs(df_usage) * usage_scale)
                     node_edge_color = ['r' if x > 0 else 'b' for x in df_usage]
+                    durs = []
+                    for k in pos.keys():
+                        durs.append(floatRgb(syll_dur_df.loc[syll_dur_df['syll'] == k, 'avg_dur'], minD, maxD))
+                    node_color = durs
 
                 nx.draw_networkx_nodes(graph, pos, edgecolors=node_edge_color, node_color=node_color,
                                        node_size=node_size, ax=ax[i][j + i + 1], linewidths=1.5)
@@ -549,3 +568,34 @@ def usage_plot(usages, groups=None, headless=False, **kwargs):
 
         return fig, ax
 
+def duration_plot(df, groups=None, headless=False):
+    # use a Seaborn pointplot, groups map to hue
+    # make a useful x-axis to orient the user (which side is which)
+
+    if headless:
+        plt.switch_backend('agg')
+
+    if len(groups) == 0:
+        groups = None
+
+    if groups is None:
+        hue = None
+    else:
+        hue = 'group'
+
+    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+    sns.set_style('ticks')
+
+    ax = sns.barplot(data=df,
+                       x=df['syllable'],
+                       y=df['duration'],
+                       hue=hue,
+                       hue_order=groups)
+    ax.set_xticks([])
+    plt.ylabel('Duration in Frames')
+    plt.xlabel('Syllable (sorted by usage)')
+
+    sns.despine()
+
+
+    return fig, ax

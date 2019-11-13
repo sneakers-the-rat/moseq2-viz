@@ -2,9 +2,10 @@ from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
                              parse_index, h5_to_dict, clean_dict)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
                                    results_to_dataframe, parse_model_results,
-                                   get_transition_matrix, get_syllable_statistics)
+                                   get_transition_matrix, get_syllable_statistics, get_average_syllable_durations)
+from moseq2_viz.model.label_util import to_df
 from moseq2_viz.viz import (make_crowd_matrix, usage_plot, graph_transition_matrix,
-                            scalar_plot, position_plot)
+                            scalar_plot, position_plot, duration_plot)
 from moseq2_viz.scalars.util import scalars_to_dataframe
 from moseq2_viz.io.video import write_frames_preview
 from functools import partial
@@ -21,6 +22,7 @@ import warnings
 import re
 import shutil
 import psutil
+import pandas as pd
 
 def get_groups_command(index_file):
     with open(index_file, 'r') as f:
@@ -296,6 +298,8 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
 
     labels = model_data['labels']
 
+    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data, labels)
+
     if config_data['sort']:
         labels = relabel_by_usage(labels, count=config_data['count'])[0]
 
@@ -330,7 +334,7 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
 
         print('Creating plot...')
 
-        plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
+        plt, _, _ = graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=usages, width_per_group=config_data['width_per_group'],
                                             edge_threshold=config_data['edge_threshold'], edge_width_scale=config_data['edge_scaling'],
                                             difference_edge_width_scale=config_data['edge_scaling'], keep_orphans=config_data['keep_orphans'],
                                             orphan_weight=config_data['orphan_weight'], arrows=config_data['arrows'], usage_threshold=config_data['usage_threshold'],
@@ -367,3 +371,40 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
 
     print('Transition graph(s) successfully generated')
     return plt
+
+def plot_syllable_durations_command(model_fit, index_file, output_file, group, max_syllable):
+
+    # if the user passes multiple groups, sort and plot against each other
+    # relabel by usage across the whole dataset, gather usages per session per group
+
+    # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
+
+    model_data = parse_model_results(joblib.load(model_fit))
+
+    labels = model_data['labels']
+
+    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data, labels)
+
+    index, sorted_index = parse_index(index_file)
+    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=True, count='frames')
+    df['duration'] = 0
+
+    g_df = df.groupby('group')
+    p_df = g_df.apply(lambda x: x['syllable'].unique())
+
+    for i, syll in enumerate(syll_dur_df['syll']):
+        dur = list(syll_dur_df.loc[syll_dur_df['syll'] == syll, 'avg_dur'])
+        if len(dur) > 0:
+            df.at[syll,'duration'] = dur[0]
+
+    nonzero = df['duration'] > 0
+    df = df[nonzero]
+
+    fig, _ = duration_plot(df, groups=group, headless=True)
+
+    fig.savefig('{}.png'.format(output_file))
+    fig.savefig('{}.pdf'.format(output_file))
+
+    print('Successfully generated duration plot')
+
+    return fig

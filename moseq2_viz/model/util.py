@@ -12,7 +12,7 @@ from os.path import join, basename, dirname
 from typing import Iterator, Any, Dict, Union
 from collections import defaultdict, OrderedDict
 from moseq2_viz.util import np_cache, h5_to_dict, star
-from moseq2_model.train.label_util import to_df
+from moseq2_viz.model.label_util import to_df
 from cytoolz import curry, valmap, compose, complement, itemmap, concat
 
 def get_average_syllable_durations(model_data, labels):
@@ -22,22 +22,26 @@ def get_average_syllable_durations(model_data, labels):
 
     metadata = model_data['metadata']
 
-    tmp = pd.concat([to_df(l, u) for l, u in zip(labels, metadata['uuids'])])
+    tmp = pd.concat([to_df(l, g) for l, g in zip(labels, metadata['groups'])])
 
-    df = tmp.filter(items=['syll', 'dur'])
+    df = tmp.filter(items=['syll', 'dur', 'group'])
     df = df.sort_values(by=['syll'])
 
     sylls = list(set(df['syll']))
     avg_durs = []
-    plt_df = pd.DataFrame({'syll': [], 'avg_dur': []})
+    plt_df = pd.DataFrame({'syll': [], 'avg_dur': [], 'group': []})
     for syll in sylls:
         durs = list(df.loc[df['syll'] == syll, 'dur'])
+        group = list(set(df.loc[df['syll'] == syll, 'group']))[0]
         avg_dur = sum(durs) / len(durs)
         avg_durs.append(avg_dur)
-        tmp_df = pd.DataFrame({'syll': [int(syll)], 'avg_dur': [avg_dur]})
+        tmp_df = pd.DataFrame({'syll': [int(syll)], 'avg_dur': [avg_dur], 'group': [group]})
         plt_df = plt_df.append(tmp_df, ignore_index=True)
 
-    df = plt_df.sort_values(by=['avg_dur'])
+    df = plt_df.sort_values(by=['syll'])
+    syllindex = df['syll'] >= 0
+    df = df[syllindex]
+
     min_dur = min(avg_durs)
     max_dur = max(avg_durs)
 

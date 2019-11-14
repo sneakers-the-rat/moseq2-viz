@@ -41,7 +41,7 @@ def syll_id(labels: np.ndarray) -> np.ndarray:
     return labels[onsets]
 
 
-def to_df(labels, uuid) -> pd.DataFrame:
+def to_df(labels, group) -> pd.DataFrame:
     if isinstance(labels, pd.Series):
         labels = labels.to_numpy()
     elif isinstance(labels, list):
@@ -51,7 +51,7 @@ def to_df(labels, uuid) -> pd.DataFrame:
         'syll': syll_id(labels),
         'dur': syll_duration(labels),
         'onset': syll_onset(labels),
-        'uuid': uuid
+        'group': group
     })
 
     return df

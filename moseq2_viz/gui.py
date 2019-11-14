@@ -381,24 +381,25 @@ def plot_syllable_durations_command(model_fit, index_file, output_file, group, m
 
     model_data = parse_model_results(joblib.load(model_fit))
 
+    index, sorted_index = parse_index(index_file)
+    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=True, count='frames')
     labels = model_data['labels']
 
     syll_dur_df, minD, maxD = get_average_syllable_durations(model_data, labels)
 
-    index, sorted_index = parse_index(index_file)
-    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=True, count='frames')
     df['duration'] = 0
 
-    g_df = df.groupby('group')
-    p_df = g_df.apply(lambda x: x['syllable'].unique())
+    for syll in syll_dur_df['syll']:
+        dur = list(syll_dur_df.loc[syll_dur_df['syll'] == syll, 'avg_dur'])[0]
+        syll_g = list(syll_dur_df.loc[syll_dur_df['syll'] == syll, 'group'])[0]
+        chg_si = df.index[df['syllable'] == syll].tolist()
+        if len(chg_si) > 0:
+            chg_si = chg_si[0]
+        chg_gi = df.index[df['group'] == syll_g].tolist()
+        if chg_si in chg_gi:
+            df.at[chg_si, 'duration'] = dur
 
-    for i, syll in enumerate(syll_dur_df['syll']):
-        dur = list(syll_dur_df.loc[syll_dur_df['syll'] == syll, 'avg_dur'])
-        if len(dur) > 0:
-            df.at[syll,'duration'] = dur[0]
-
-    nonzero = df['duration'] > 0
-    df = df[nonzero]
+    df = df.sort_values(by=['usage'])
 
     fig, _ = duration_plot(df, groups=group, headless=True)
 

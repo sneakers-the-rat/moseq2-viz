@@ -167,7 +167,7 @@ def generate_index(input_dir, pca_file, output_file, _filter, all_uuids):
     with open(output_file, 'w') as f:
         yaml.safe_dump(output_dict, f)
 
-    print(f'Index file {output_dict} successfully generated.')
+    print(f'Index file {output_file} successfully generated.')
 
 
 @cli.command(name='make-crowd-movies')
@@ -302,24 +302,31 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
 def plot_scalar_summary(index_file, output_file):
 
     index, sorted_index = parse_index(index_file)
-    scalar_df = scalars_to_dataframe(sorted_index)
+    try:
+        scalar_df = scalars_to_dataframe(sorted_index)
+    except:
+        print('Could not create scalar dataframe; timestamps not found.')
+        return
 
     try:
         plt_scalars, _ = scalar_plot(scalar_df, headless=True)
 
         plt_scalars.savefig(f'{output_file}_summary.png')
         plt_scalars.savefig(f'{output_file}_summary.pdf')
+        print('Successfully graphed scalars summary.')
     except:
         print('Could not calculate scalars')
+        return
     try:
         plt_position, _ = position_plot(scalar_df, headless=True)
 
         plt_position.savefig(f'{output_file}_position.png')
         plt_position.savefig(f'{output_file}_position.pdf')
+        print('Successfully graphed position summary.')
     except:
         print('Could not calculate position summary.')
 
-    print('Successfully graphed scalar plots.')
+
 
 
 @cli.command(name='plot-transition-graph')
@@ -357,10 +364,10 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 
     labels = model_data['labels']
 
+    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data)
+
     if sort:
         labels = relabel_by_usage(labels, count=count)[0]
-
-    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data, labels)
 
     if 'train_list' in model_data.keys():
         label_uuids = model_data['train_list']
@@ -453,9 +460,8 @@ def plot_syllable_durations(index_file, model_fit, output_file, group, max_sylla
 
     index, sorted_index = parse_index(index_file)
     df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=True, count='frames')
-    labels = model_data['labels']
 
-    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data, labels)
+    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data)
 
     df['duration'] = 0
 

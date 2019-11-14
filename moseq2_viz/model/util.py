@@ -15,16 +15,17 @@ from moseq2_viz.util import np_cache, h5_to_dict, star
 from moseq2_viz.model.label_util import to_df
 from cytoolz import curry, valmap, compose, complement, itemmap, concat
 
-def get_average_syllable_durations(model_data, labels):
+def get_average_syllable_durations(model_data):
 
-    if labels == None:
-        labels = model_data['labels']
+    labels = model_data['labels']
 
     metadata = model_data['metadata']
 
+    if metadata['groups'] == []:
+        metadata['groups'] = ['default'] * len(labels)
     tmp = pd.concat([to_df(l, g) for l, g in zip(labels, metadata['groups'])])
 
-    df = tmp.filter(items=['syll', 'dur', 'group'])
+    df = tmp.filter(items=['syll', 'dur', 'groups'])
     df = df.sort_values(by=['syll'])
 
     sylls = list(set(df['syll']))
@@ -32,7 +33,7 @@ def get_average_syllable_durations(model_data, labels):
     plt_df = pd.DataFrame({'syll': [], 'avg_dur': [], 'group': []})
     for syll in sylls:
         durs = list(df.loc[df['syll'] == syll, 'dur'])
-        group = list(set(df.loc[df['syll'] == syll, 'group']))[0]
+        group = list(set(df.loc[df['syll'] == syll, 'groups']))[0]
         avg_dur = sum(durs) / len(durs)
         avg_durs.append(avg_dur)
         tmp_df = pd.DataFrame({'syll': [int(syll)], 'avg_dur': [avg_dur], 'group': [group]})

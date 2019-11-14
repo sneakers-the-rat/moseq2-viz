@@ -286,19 +286,27 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
 
     with open(config_file, 'r') as f:
         config_data = yaml.safe_load(f)
-
-    if config_data['layout'].lower()[:8] == 'graphviz':
-        try:
-            import pygraphviz
-        except ImportError:
-            raise ImportError('pygraphviz must be installed to use graphviz layout engines')
+    f.close()
+    try:
+        if config_data['layout'].lower()[:8] == 'graphviz':
+            try:
+                import pygraphviz
+            except ImportError:
+                raise ImportError('pygraphviz must be installed to use graphviz layout engines')
+    except:
+        from moseq2_extract.gui import generate_config_command
+        config_filepath = os.path.join(os.path.dirname(model_fit), 'config.yaml')
+        generate_config_command(config_filepath)
+        with open(config_filepath, 'r') as f:
+            config_data = yaml.safe_load(f)
+        f.close()
 
     model_data = parse_model_results(joblib.load(model_fit))
     index, sorted_index = parse_index(index_file)
 
     labels = model_data['labels']
 
-    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data, labels)
+    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data)
 
     if config_data['sort']:
         labels = relabel_by_usage(labels, count=config_data['count'])[0]
@@ -357,7 +365,7 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
                                                     max_syllable=max_syllable))
             usages.append(get_syllable_statistics(use_labels)[0])
 
-        plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
+        plt, _, _ = graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=usages, width_per_group=config_data['width_per_group'],
                                             edge_threshold=config_data['edge_threshold'],
                                             edge_width_scale=config_data['edge_scaling'],
                                             difference_edge_width_scale=config_data['edge_scaling'],
@@ -383,9 +391,8 @@ def plot_syllable_durations_command(model_fit, index_file, output_file, group, m
 
     index, sorted_index = parse_index(index_file)
     df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=True, count='frames')
-    labels = model_data['labels']
 
-    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data, labels)
+    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data)
 
     df['duration'] = 0
 

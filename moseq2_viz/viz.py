@@ -178,8 +178,12 @@ def graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=None, gr
             node_size = [usages[i][k] * usage_scale for k in pos.keys()]
             durs = []
             for k in pos.keys():
-                durs.append(floatRgb(syll_dur_df.loc[syll_dur_df['syll'] == k, 'avg_dur'], minD, maxD))
+                try:
+                    durs.append(floatRgb(syll_dur_df.loc[syll_dur_df['syll'] == k, 'avg_dur'], minD, maxD))
+                except:
+                    durs.append((0.0, 0.0, 0.0))
             node_color = durs
+
 
         nx.draw_networkx_nodes(graph, pos,
                                edgecolors=node_edge_color, node_color=node_color,

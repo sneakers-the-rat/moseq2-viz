@@ -51,7 +51,7 @@ def to_df(labels, group) -> pd.DataFrame:
         'syll': syll_id(labels),
         'dur': syll_duration(labels),
         'onset': syll_onset(labels),
-        'group': group
+        'groups': group
     })
 
     return df

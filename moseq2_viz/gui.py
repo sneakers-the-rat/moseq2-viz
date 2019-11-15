@@ -24,7 +24,10 @@ import shutil
 import psutil
 import pandas as pd
 
-def get_groups_command(index_file):
+def get_groups_command(index_file, output_directory=None):
+    if output_directory is not None:
+        index_file = os.path.join(output_directory, index_file.split('/')[-1])
+
     with open(index_file, 'r') as f:
         index_data = yaml.safe_load(f)
     f.close()
@@ -45,7 +48,10 @@ def get_groups_command(index_file):
     for i in range(len(subjectNames)):
         print('Session Name:', sessionNames[i], '; Subject Name:', subjectNames[i], '; group:', groups[i])
 
-def add_group_by_session(index_file, value, group, exact, lowercase, negative):
+def add_group_by_session(index_file, value, group, exact, lowercase, negative, output_directory=None):
+
+    if output_directory is not None:
+        index_file = os.path.join(output_directory, index_file.split('/')[-1])
 
     key = 'SessionName'
     index = parse_index(index_file)[0]
@@ -83,7 +89,10 @@ def add_group_by_session(index_file, value, group, exact, lowercase, negative):
 
     get_groups_command(index_file)
 
-def add_group_by_subject(index_file, value, group, exact, lowercase, negative):
+def add_group_by_subject(index_file, value, group, exact, lowercase, negative, output_directory=None):
+
+    if output_directory is not None:
+        index_file = os.path.join(output_directory, index_file.split('/')[-1])
 
     key = 'SubjectName'
     index = parse_index(index_file)[0]
@@ -144,7 +153,7 @@ def copy_h5_metadata_to_yaml_command(input_dir, h5_metadata_path):
             raise Exception
     return True
 
-def make_crowd_movies_command(index_file, model_path, config_file, output_dir, max_syllable, max_examples):
+def make_crowd_movies_command(index_file, model_path, config_file, output_dir, max_syllable, max_examples, output_directory=None):
 
     with open(config_file, 'r') as f:
         config_data = yaml.safe_load(f)
@@ -174,8 +183,14 @@ def make_crowd_movies_command(index_file, model_path, config_file, output_dir, m
     elif model_path.endswith('.h5'):
         # load in h5, use index found using another function
         pass
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+
+    if output_directory is None:
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+    else:
+        output_dir = os.path.join(output_directory, output_dir)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
     info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
     info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}

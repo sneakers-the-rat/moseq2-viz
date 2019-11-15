@@ -194,7 +194,7 @@ def graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=None, gr
             nx.draw_networkx_labels(graph, pos,
                                     {k: k for k in pos.keys()},
                                     font_size=font_size,
-                                    ax=ax[i][i])
+                                    ax=ax[i][i], font_color='w')
 
         if groups is not None:
             ax[i][i].set_title('{}'.format(groups[i]))
@@ -215,10 +215,6 @@ def graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=None, gr
                     df_usage = [usages[j + i + 1][k] - usages[i][k] for k in pos.keys()]
                     node_size = list(np.abs(df_usage) * usage_scale)
                     node_edge_color = ['r' if x > 0 else 'b' for x in df_usage]
-                    durs = []
-                    for k in pos.keys():
-                        durs.append(floatRgb(syll_dur_df.loc[syll_dur_df['syll'] == k, 'avg_dur'], minD, maxD))
-                    node_color = durs
 
                 nx.draw_networkx_nodes(graph, pos, edgecolors=node_edge_color, node_color=node_color,
                                        node_size=node_size, ax=ax[i][j + i + 1], linewidths=1.5)
@@ -238,7 +234,7 @@ def graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=None, gr
                     nx.draw_networkx_labels(graph, pos,
                                             {k: k for k in pos.keys()},
                                             font_size=font_size,
-                                            ax=ax[i][j + i + 1])
+                                            ax=ax[i][j + i + 1], font_color='w')
 
                 ax[i][j + i + 1].set_title('{} - {}'.format(groups[j + i + 1], groups[i]))
 
@@ -591,8 +587,8 @@ def duration_plot(df, groups=None, headless=False):
     sns.set_style('ticks')
 
     ax = sns.barplot(data=df,
-                       x=df['syllable'],
-                       y=df['duration'],
+                       x=df['syll'],
+                       y=df['avg_dur'],
                        hue=hue,
                        hue_order=groups)
     ax.set_xticks([])

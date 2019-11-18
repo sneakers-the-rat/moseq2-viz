@@ -17,7 +17,7 @@ setup(
     name='moseq2-viz',
     author='Jeff Markowitz',
     description='To boldly go where no mouse has gone before',
-    version='0.2.0',
+    version='0.2.2',
     packages=find_packages(),
     platforms=['mac', 'unix'],
     install_requires=['tqdm', 'matplotlib', 'click', 'dtaidistance', 'scikit-learn',

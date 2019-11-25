@@ -1,6 +1,6 @@
 from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
                              parse_index, h5_to_dict, clean_dict, get_sorted_index)
-from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
+from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices, model_datasets_to_df,
                                    results_to_dataframe, parse_model_results,
                                    get_transition_matrix, get_syllable_statistics, get_average_syllable_durations)
 from moseq2_viz.viz import (make_crowd_matrix, usage_plot, graph_transition_matrix,
@@ -458,16 +458,12 @@ def plot_syllable_durations(index_file, model_fit, output_file):
 
     index, sorted_index = parse_index(index_file)
 
-    # validation data dataframe
-    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=50, sort=True, count='frames')
 
-    # training durations
-    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data)
+    df, _ = model_datasets_to_df(model_data, sorted_index, max_syllable=50, sort=True, count='frames')
 
-    #group = list(set(syll_dur_df['group']))
-    group = ['train data']
+    groups = list(set(df['group']))
 
-    fig, _ = duration_plot(syll_dur_df, groups=group, headless=True)
+    fig, _ = duration_plot(df, groups=groups, headless=True)
 
     fig.savefig('{}.png'.format(output_file))
     fig.savefig('{}.pdf'.format(output_file))

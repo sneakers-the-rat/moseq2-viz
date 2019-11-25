@@ -587,8 +587,8 @@ def duration_plot(df, groups=None, headless=False):
     sns.set_style('ticks')
 
     ax = sns.barplot(data=df,
-                       x=df['syll'],
-                       y=df['avg_dur'],
+                       x=df['syllable'],
+                       y=df['duration'],
                        hue=hue,
                        hue_order=groups)
     ax.set_xticks([])

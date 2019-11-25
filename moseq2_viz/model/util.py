@@ -12,6 +12,7 @@ from os.path import join, basename, dirname
 from typing import Iterator, Any, Dict, Union
 from collections import defaultdict, OrderedDict
 from moseq2_viz.util import np_cache, h5_to_dict, star
+from .label_util import syll_duration
 from moseq2_viz.model.label_util import to_df
 from cytoolz import curry, valmap, compose, complement, itemmap, concat
 
@@ -594,6 +595,50 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', norm
 
     return df, df_dict
 
+def model_datasets_to_df(model_dict, index_dict, sort=False, count='usage', normalize=True, max_syllable=40,
+                         include_meta=['SessionName', 'SubjectName', 'StartTime']):
+
+    if type(model_dict) is str:
+        model_dict = parse_model_results(model_dict)
+
+    if sort:
+        model_dict['labels'] = relabel_by_usage(model_dict['labels'], count=count)[0]
+    # by default the keys are the uuids
+
+    label_uuids = model_dict['keys']+model_dict['train_list']
+
+    # durations = []
+
+    df_dict = {
+            'duration': [],
+            'group': [],
+            'syllable': [],
+            'usage': []
+        }
+
+    for key in include_meta:
+        df_dict[key] = []
+
+    groups = [index_dict['files'][uuid]['group'] for uuid in label_uuids]
+    metadata = [index_dict['files'][uuid]['metadata'] for uuid in label_uuids]
+
+    for i, label_arr in enumerate(model_dict['labels']):
+        tmp_usages, tmp_durations = get_syllable_statistics(label_arr, count=count, max_syllable=max_syllable)
+        total_usage = np.sum(list(tmp_usages.values()))
+        durations = syll_duration(label_arr)
+        j = 0
+        for k, v in tmp_usages.items():
+            df_dict['usage'].append(v / total_usage)
+            df_dict['syllable'].append(k)
+            df_dict['group'].append(groups[i])
+            df_dict['duration'].append(durations[j])
+            j += 1
+            for meta_key in include_meta:
+                df_dict[meta_key].append(metadata[i][meta_key])
+
+    df = pd.DataFrame.from_dict(data=df_dict)
+
+    return df, df_dict
 
 def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
 

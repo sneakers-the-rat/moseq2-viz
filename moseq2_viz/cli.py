@@ -447,7 +447,8 @@ def plot_usages(index_file, model_fit, sort, count, max_syllable, group, output_
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'durations'), help="Filename to store plot")
-def plot_syllable_durations(index_file, model_fit, output_file):
+@click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
+def plot_syllable_durations(index_file, model_fit, output_file, max_syllable):
 
     # if the user passes multiple groups, sort and plot against each other
     # relabel by usage across the whole dataset, gather usages per session per group
@@ -459,7 +460,7 @@ def plot_syllable_durations(index_file, model_fit, output_file):
     index, sorted_index = parse_index(index_file)
 
 
-    df, _ = model_datasets_to_df(model_data, sorted_index, max_syllable=50, sort=True, count='frames')
+    df, _ = model_datasets_to_df(model_data, sorted_index, max_syllable=max_syllable, sort=True, count='frames')
 
     groups = list(set(df['group']))
 

@@ -279,7 +279,7 @@ def plot_usages_command(index_file, model_fit, sort, count, max_syllable, group,
 
     print('Usage plot successfully generated')
 
-    #return plt
+    return plt
 
 def plot_scalar_summary_command(index_file, output_file):
 
@@ -393,7 +393,7 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
         plt.savefig('{}.pdf'.format(output_file))
 
     print('Transition graph(s) successfully generated')
-    #return plt
+    return plt
 
 def plot_syllable_durations_command(model_fit, index_file, output_file):
 
@@ -422,4 +422,4 @@ def plot_syllable_durations_command(model_fit, index_file, output_file):
 
     print('Successfully generated duration plot')
 
-    #return fig
+    return fig

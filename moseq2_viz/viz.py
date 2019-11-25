@@ -593,7 +593,7 @@ def duration_plot(df, groups=None, headless=False):
                        hue_order=groups)
     ax.set_xticks([])
     plt.ylabel('Duration in Frames')
-    plt.xlabel('Syllable (sorted by usage)')
+    plt.xlabel('Syllable (sorted by syllable index)')
 
     sns.despine()
 

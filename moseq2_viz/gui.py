@@ -279,7 +279,7 @@ def plot_usages_command(index_file, model_fit, sort, count, max_syllable, group,
 
     print('Usage plot successfully generated')
 
-    return plt
+    #return plt
 
 def plot_scalar_summary_command(index_file, output_file):
 
@@ -393,9 +393,9 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
         plt.savefig('{}.pdf'.format(output_file))
 
     print('Transition graph(s) successfully generated')
-    return plt
+    #return plt
 
-def plot_syllable_durations_command(model_fit, index_file, output_file, max_syllable):
+def plot_syllable_durations_command(model_fit, index_file, output_file):
 
     # if the user passes multiple groups, sort and plot against each other
     # relabel by usage across the whole dataset, gather usages per session per group
@@ -405,11 +405,15 @@ def plot_syllable_durations_command(model_fit, index_file, output_file, max_syll
     model_data = parse_model_results(joblib.load(model_fit))
 
     index, sorted_index = parse_index(index_file)
-    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=True, count='frames')
 
+    # held out data durations
+    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=50, sort=True, count='frames')
+
+    # training durations
     syll_dur_df, minD, maxD = get_average_syllable_durations(model_data)
 
-    group = list(set(syll_dur_df['group']))
+    #group = list(set(syll_dur_df['group']))
+    group = ['train data']
 
     fig, _ = duration_plot(syll_dur_df, groups=group, headless=True)
 
@@ -418,4 +422,4 @@ def plot_syllable_durations_command(model_fit, index_file, output_file, max_syll
 
     print('Successfully generated duration plot')
 
-    return fig
+    #return fig

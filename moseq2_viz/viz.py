@@ -195,7 +195,7 @@ def graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=None, gr
             nx.draw_networkx_labels(graph, pos,
                                     {k: k for k in pos.keys()},
                                     font_size=font_size,
-                                    ax=ax[i][i], font_color='w')
+                                    ax=ax[i][i], font_color='k')
 
         if groups is not None:
             ax[i][i].set_title('{}'.format(groups[i]))
@@ -235,7 +235,7 @@ def graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=None, gr
                     nx.draw_networkx_labels(graph, pos,
                                             {k: k for k in pos.keys()},
                                             font_size=font_size,
-                                            ax=ax[i][j + i + 1], font_color='w')
+                                            ax=ax[i][j + i + 1], font_color='k')
 
                 ax[i][j + i + 1].set_title('{} - {}'.format(groups[j + i + 1], groups[i]))
 

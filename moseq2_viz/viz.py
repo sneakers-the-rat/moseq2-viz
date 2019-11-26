@@ -176,6 +176,7 @@ def graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=None, gr
 
         if usages is not None:
             node_size = [usages[i][k] * usage_scale for k in pos.keys()]
+            '''
             durs = []
             for k in pos.keys():
                 try:
@@ -183,7 +184,7 @@ def graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=None, gr
                 except:
                     durs.append((0.0, 0.0, 0.0))
             node_color = durs
-
+            '''
 
         nx.draw_networkx_nodes(graph, pos,
                                edgecolors=node_edge_color, node_color=node_color,

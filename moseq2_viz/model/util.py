@@ -583,6 +583,8 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', norm
     for i, label_arr in enumerate(model_dict['labels']):
         tmp_usages, tmp_durations = get_syllable_statistics(label_arr, count=count, max_syllable=max_syllable)
         total_usage = np.sum(list(tmp_usages.values()))
+        if total_usage <= 0:
+            total_usage = 1.0
         for k, v in tmp_usages.items():
             df_dict['usage'].append(v / total_usage)
             df_dict['syllable'].append(k)

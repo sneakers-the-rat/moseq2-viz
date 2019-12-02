@@ -569,7 +569,7 @@ def usage_plot(usages, groups=None, headless=False, **kwargs):
 
         return fig, ax
 
-def duration_plot(df, groups=None, headless=False):
+def duration_plot(df, groups=None, headless=False, **kwargs):
     # use a Seaborn pointplot, groups map to hue
     # make a useful x-axis to orient the user (which side is which)
 
@@ -587,11 +587,13 @@ def duration_plot(df, groups=None, headless=False):
     fig, ax = plt.subplots(1, 1, figsize=(10, 5))
     sns.set_style('ticks')
 
-    ax = sns.barplot(data=df,
+    ax = sns.pointplot(data=df,
                        x=df['syllable'],
                        y=df['duration'],
                        hue=hue,
-                       hue_order=groups)
+                       hue_order=groups,
+                       join=False,
+                       **kwargs)
     ax.set_xticks([])
     plt.ylabel('Duration in Frames')
     plt.xlabel('Syllable (sorted by usage)')

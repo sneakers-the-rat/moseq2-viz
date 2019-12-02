@@ -635,7 +635,7 @@ def model_datasets_to_df(model_dict, index_dict, sort=False, count='usage', norm
             df_dict['usage'].append(v / total_usage)
             df_dict['syllable'].append(k)
             df_dict['group'].append(groups[i])
-            df_dict['duration'].append(sum([d for d in durations])/len(durations))
+            df_dict['duration'].append([d for d in durations])
             for meta_key in include_meta:
                 df_dict[meta_key].append(metadata[i][meta_key])
 

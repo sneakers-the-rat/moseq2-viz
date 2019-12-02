@@ -629,11 +629,16 @@ def model_datasets_to_df(model_dict, index_dict, sort=False, count='usage', norm
         total_usage = np.sum(list(tmp_usages.values()))
         durations = syll_duration(label_arr)
         j = 0
+        if total_usage <= 0:
+            total_usage = 1.0
         for k, v in tmp_usages.items():
             df_dict['usage'].append(v / total_usage)
             df_dict['syllable'].append(k)
             df_dict['group'].append(groups[i])
-            df_dict['duration'].append(durations[j])
+            try:
+                df_dict['duration'].append(durations[j])
+            except:
+                pass
             j += 1
             for meta_key in include_meta:
                 df_dict[meta_key].append(metadata[i][meta_key])

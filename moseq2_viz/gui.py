@@ -407,14 +407,20 @@ def plot_syllable_durations_command(model_fit, index_file, max_syllable, groups,
 
     df, _ = model_datasets_to_df(model_data, sorted_index, max_syllable=max_syllable, sort=True, count='usage')
 
-    if groups == None:
-        groups = ('default')
+    try:
+        fig, _ = duration_plot(df, groups=groups, headless=True)
+        
+        fig.savefig('{}.png'.format(output_file))
+        fig.savefig('{}.pdf'.format(output_file))
 
-    fig, _ = duration_plot(df, groups=groups, headless=True)
+        print('Successfully generated duration plot')
+    except:
+        groups = ()
+        fig, _ = duration_plot(df, groups=groups, headless=True)
+        
+        fig.savefig('{}.png'.format(output_file))
+        fig.savefig('{}.pdf'.format(output_file))
 
-    fig.savefig('{}.png'.format(output_file))
-    fig.savefig('{}.pdf'.format(output_file))
-
-    print('Successfully generated duration plot')
-
+        print('Successfully generated duration plot')
+        
     return fig

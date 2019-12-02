@@ -394,7 +394,7 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
     print('Transition graph(s) successfully generated')
     return plt
 
-def plot_syllable_durations_command(model_fit, index_file, output_file, max_syllable):
+def plot_syllable_durations_command(model_fit, index_file, max_syllable, groups, output_file):
 
     # if the user passes multiple groups, sort and plot against each other
     # relabel by usage across the whole dataset, gather usages per session per group
@@ -405,9 +405,10 @@ def plot_syllable_durations_command(model_fit, index_file, output_file, max_syll
 
     index, sorted_index = parse_index(index_file)
 
-    df, _ = model_datasets_to_df(model_data, sorted_index, max_syllable=max_syllable, sort=True, count='frames')
+    df, _ = model_datasets_to_df(model_data, sorted_index, max_syllable=max_syllable, sort=True, count='usage')
 
-    groups = list(set(df['group']))
+    if groups == None:
+        groups = ('default')
 
     fig, _ = duration_plot(df, groups=groups, headless=True)
 

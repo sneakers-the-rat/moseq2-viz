@@ -88,7 +88,7 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     return ebunch, orphans
 
 
-def graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=None, groups=None,
+def graph_transition_matrix(trans_mats, syll_dur_df=None, minD=None, maxD=None, usages=None, groups=None,
                             edge_threshold=.0025, anchor=0, usage_threshold=0,
                             node_color='w', node_edge_color='r', layout='spring',
                             edge_width_scale=100, node_size=400, fig=None, ax=None,
@@ -593,6 +593,7 @@ def duration_plot(df, groups=None, headless=False, **kwargs):
                        hue=hue,
                        hue_order=groups,
                        join=False,
+                       ci=None,
                        **kwargs)
     ax.set_xticks([])
     plt.ylabel('Duration in Frames')

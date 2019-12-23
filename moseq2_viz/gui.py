@@ -40,8 +40,8 @@ def get_groups_command(index_file, output_directory=None):
             subjectNames.append(f['metadata']['SubjectName'])
             sessionNames.append(f['metadata']['SessionName'])
 
-    print('Total number of subjects:', len(set(subjectNames)))
-    print('Total number of sessions:', len(set(sessionNames)))
+    print('Total number of unique subject names:', len(set(subjectNames)))
+    print('Total number of unique session names:', len(set(sessionNames)))
     print('Total number of unique groups:', len(set(groups)))
 
     for i in range(len(subjectNames)):

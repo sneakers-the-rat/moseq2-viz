@@ -403,10 +403,41 @@ def plot_syllable_durations_command(model_fit, index_file, max_syllable, groups,
 
     model_data = parse_model_results(joblib.load(model_fit))
 
+
+
     index, sorted_index = parse_index(index_file)
+    label_uuids = model_data['keys'] + model_data['train_list']
+    i_groups = [sorted_index['files'][uuid]['group'] for uuid in label_uuids]
+    lbl_dict = {}
 
-    df, _ = model_datasets_to_df(model_data, sorted_index, max_syllable=max_syllable, sort=True, count='usage')
+    df_dict = {
+        'duration': [],
+        'group': [],
+        'syllable': []
+    }
 
+    for i in range(len(model_data['labels'])):
+        labels = list(filter(lambda a: a != -5, model_data['labels'][i]))
+        curr = labels[0]
+        lbl_dict[curr] = []
+        curr_dur = 1
+        df_dict['group'].append(i_groups[i])
+        for li in range(1, len(labels)):
+            if labels[li] == curr:
+                curr_dur += 1
+            else:
+                lbl_dict[curr].append(curr_dur)
+                curr = labels[li]
+                curr_dur = 1
+            if labels[li] not in list(lbl_dict.keys()):
+                lbl_dict[labels[li]] = []
+                df_dict['group'].append(i_groups[i])
+
+    df_dict['syllable'] = list(lbl_dict.keys())
+    for syll in df_dict['syllable']:
+        df_dict['duration'].append(sum(lbl_dict[syll])/len(lbl_dict[syll]))
+
+    df = pd.DataFrame.from_dict(data=df_dict)
     try:
         fig, _ = duration_plot(df, groups=groups, headless=True)
         

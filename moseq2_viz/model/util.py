@@ -637,7 +637,7 @@ def model_datasets_to_df(model_dict, index_dict, sort=False, count='usage', norm
             try:
                 df_dict['duration'].append(durations[i])
             except:
-                df_dict['duration'].append(0.0)
+                df_dict['duration'].append(durations)
             for meta_key in include_meta:
                 df_dict[meta_key].append(metadata[i][meta_key])
 

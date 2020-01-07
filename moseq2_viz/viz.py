@@ -595,9 +595,10 @@ def duration_plot(df, groups=None, headless=False, **kwargs):
                        join=False,
                        ci=None,
                        **kwargs)
-    ax.set_xticks([])
+    plt.xticks(np.arange(len(df['syllable'])), df['syllable'])
     plt.ylabel('Duration in Frames')
-    plt.xlabel('Syllable (sorted by usage)')
+    plt.xlabel('Syllables')
+
 
     sns.despine()
 

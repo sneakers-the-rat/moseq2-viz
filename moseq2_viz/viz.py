@@ -543,7 +543,8 @@ def usage_plot(usages, groups=None, headless=False, **kwargs):
                            hue_order=groups,
                            join=False,
                            **kwargs)
-        ax.set_xticks([])
+        #ax.set_xticks([])
+        plt.xticks(np.arange(max(usages['syllable'])), usages['syllable'])
         plt.ylabel('P(syllable)')
         plt.xlabel('Syllable (sorted by usage)')
 
@@ -561,7 +562,8 @@ def usage_plot(usages, groups=None, headless=False, **kwargs):
                            hue_order=groups,
                            join=False,
                            **kwargs)
-        ax.set_xticks([])
+        #ax.set_xticks([])
+        plt.xticks(np.arange(max(usages['syllable'])), usages['syllable'])
         plt.ylabel('P(syllable)')
         plt.xlabel('Syllable (sorted by usage)')
 
@@ -595,7 +597,9 @@ def duration_plot(df, groups=None, headless=False, **kwargs):
                        join=False,
                        ci=None,
                        **kwargs)
-    plt.xticks(np.arange(len(df['syllable'])), df['syllable'])
+    #plt.xticks(np.arange(max(df['syllable'])), df['syllable'])
+    ax.set_xticks([])
+
     plt.ylabel('Duration in Frames')
     plt.xlabel('Syllables')
 

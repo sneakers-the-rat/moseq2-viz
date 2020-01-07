@@ -394,7 +394,7 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
     print('Transition graph(s) successfully generated')
     return plt
 
-def plot_syllable_durations_command(model_fit, index_file, max_syllable, groups, output_file):
+def plot_syllable_durations_command(model_fit, index_file, groups, output_file):
 
     # if the user passes multiple groups, sort and plot against each other
     # relabel by usage across the whole dataset, gather usages per session per group
@@ -403,7 +403,7 @@ def plot_syllable_durations_command(model_fit, index_file, max_syllable, groups,
 
     model_data = parse_model_results(joblib.load(model_fit))
 
-
+    max_syllable = 100
 
     index, sorted_index = parse_index(index_file)
     label_uuids = model_data['keys'] + model_data['train_list']
@@ -413,16 +413,19 @@ def plot_syllable_durations_command(model_fit, index_file, max_syllable, groups,
     df_dict = {
         'duration': [],
         'group': [],
-        'syllable': []
+        'syllable': [],
+        #'usage': []
     }
-
+    
+    min_length = min([len(x) for x in model_data['labels']]) - 3
+    print(min_length, len(model_data['labels']))
     for i in range(len(model_data['labels'])):
         labels = list(filter(lambda a: a != -5, model_data['labels'][i]))
+        #labels = list(model_data['labels'][i])
         curr = labels[0]
         lbl_dict[curr] = []
         curr_dur = 1
-        df_dict['group'].append(i_groups[i])
-        for li in range(1, len(labels)):
+        for li in range(1, min_length):
             if labels[li] == curr:
                 curr_dur += 1
             else:
@@ -431,12 +434,27 @@ def plot_syllable_durations_command(model_fit, index_file, max_syllable, groups,
                 curr_dur = 1
             if labels[li] not in list(lbl_dict.keys()):
                 lbl_dict[labels[li]] = []
-                df_dict['group'].append(i_groups[i])
+        '''
+        tmp_usages, _ = get_syllable_statistics([model_data['labels'][i]], count='usage', max_syllable=max_syllable)
+        total_usage = np.sum(list(tmp_usages.values()))
+        if total_usage <= 0:
+            total_usage = 1.0
 
-    df_dict['syllable'] = list(lbl_dict.keys())
-    for syll in df_dict['syllable']:
-        df_dict['duration'].append(sum(lbl_dict[syll])/len(lbl_dict[syll]))
-
+        for k, v in tmp_usages.items():
+            df_dict['usage'].append(v / total_usage)
+            df_dict['syllable'].append(k)
+            df_dict['group'].append(i_groups[i])
+            try:
+                df_dict['duration'].append(sum(lbl_dict[k])/len(lbl_dict[k]))
+            except:
+                df_dict['duration'].append(1.0)
+        '''     
+        for syll in list(lbl_dict.keys()):
+            df_dict['duration'].append(sum(lbl_dict[syll]) / len(lbl_dict[syll]))
+            df_dict['group'].append(i_groups[i])
+            df_dict['syllable'].append(syll)
+        lbl_dict = {}
+    print(len(df_dict['syllable']), len(df_dict['group']), len(df_dict['duration']))
     df = pd.DataFrame.from_dict(data=df_dict)
     try:
         fig, _ = duration_plot(df, groups=groups, headless=True)

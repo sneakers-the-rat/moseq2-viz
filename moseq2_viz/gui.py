@@ -1,5 +1,5 @@
 from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
-                             parse_index, h5_to_dict, clean_dict)
+                             parse_index, h5_to_dict, clean_dict, merge_models)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
                                    results_to_dataframe, parse_model_results, model_datasets_to_df,
                                    get_transition_matrix, get_syllable_statistics, get_average_syllable_durations)
@@ -262,14 +262,14 @@ def make_crowd_movies_command(index_file, model_path, config_file, output_dir, m
 
     return 'Successfully generated '+str(max_examples) + ' crowd videos.'
 
-def plot_usages_command(index_file, model_fit, sort, count, max_syllable, group, output_file):
+def plot_usages_command(index_file, model_fits, sort, count, max_syllable, group, output_file):
 
     # if the user passes multiple groups, sort and plot against each other
     # relabel by usage across the whole dataset, gather usages per session per group
 
     # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
-
-    model_data = parse_model_results(joblib.load(model_fit))
+    model_data = merge_models(model_fits, 'p')
+    #model_data = parse_model_results(joblib.load(model_fit))
     index, sorted_index = parse_index(index_file)
     df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
     plt, _ = usage_plot(df, groups=group, headless=True)

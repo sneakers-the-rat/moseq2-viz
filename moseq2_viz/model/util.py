@@ -577,8 +577,24 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', norm
     for key in include_meta:
         df_dict[key] = []
 
-    groups = [index_dict['files'][uuid]['group'] for uuid in label_uuids]
-    metadata = [index_dict['files'][uuid]['metadata'] for uuid in label_uuids]
+    try:
+        groups = [index_dict['files'][uuid]['group'] for uuid in label_uuids]
+    except:
+        groups = []
+        for uuid in label_uuids:
+            try:
+                groups.append(index_dict['files'][uuid]['group'])
+            except:
+                print('skipping ', uuid, ', uuid not found in index file.')
+    try:
+        metadata = [index_dict['files'][uuid]['metadata'] for uuid in label_uuids]
+    except:
+        metadata = []
+        for uuid in label_uuids:
+            try:
+                metadata.append(index_dict['files'][uuid]['metadata'])
+            except:
+                print('skipping', uuid, ', metadata not found in index file.')
 
     for i, label_arr in enumerate(model_dict['labels']):
         tmp_usages, tmp_durations = get_syllable_statistics(label_arr, count=count, max_syllable=max_syllable)

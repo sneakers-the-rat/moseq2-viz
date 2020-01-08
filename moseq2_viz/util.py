@@ -6,8 +6,6 @@ from functools import lru_cache, wraps
 from cytoolz.itertoolz import peek, pluck, first, groupby
 from cytoolz.dicttoolz import valfilter, merge_with, dissoc, assoc
 from cytoolz.curried import get_in, keyfilter, valmap
-from moseq2_viz.model.util import parse_model_results
-import joblib
 import numpy as np
 import re
 from glob import glob
@@ -277,14 +275,3 @@ def star(f, args):
     >>> star(max, (1, 2, 3))
     3'''
     return f(*args)
-
-def merge_models(model_dir, ext):
-
-    model_paths = [m for m in os.path.join(glob.glob(model_dir), '*.',ext)]
-    print(model_paths)
-
-    for model_fit in model_paths:
-        model_data = parse_model_results(joblib.load(model_fit))
-        print(model_data)
-        break
-    return model_data

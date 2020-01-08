@@ -1,5 +1,5 @@
 from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
-                             parse_index, h5_to_dict, clean_dict, merge_models)
+                             parse_index, h5_to_dict, clean_dict)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
                                    results_to_dataframe, parse_model_results, model_datasets_to_df,
                                    get_transition_matrix, get_syllable_statistics, get_average_syllable_durations)
@@ -22,6 +22,46 @@ import re
 import shutil
 import psutil
 import pandas as pd
+import glob
+
+def merge_models(model_dir, ext):
+
+    tmp = os.path.join(model_dir, '*.'+ext)
+    model_paths = [m for m in glob.glob(tmp)]
+    print(model_paths)
+
+    model_data = {}
+    for model_fit in model_paths:
+        unit_data = parse_model_results(joblib.load(model_fit))
+        for k,v in unit_data.items():
+            if k not in list(model_data.keys()):
+                model_data[k] = v
+            else:
+                if type(v) == type([]):
+                    temp = model_data[k]
+                    for i in v:
+                        temp.append(i)
+                    model_data[k] = temp
+                elif type(v) == dict:
+                    for k1,v1 in v.items():
+                        if type(v1) == type([]):
+                            temp = model_data[k][k1]
+                            for i in v1:
+                                temp.append(i)
+                            model_data[k][k1] = temp
+                        else:
+                            temp = [model_data[k][k1]]
+                            if v1 is not None:
+                                for i in [v1]:
+                                    temp.append(i)
+                            model_data[k][k1] = temp
+                else:
+                    temp = [model_data[k]]
+                    if v is not None:
+                        for i in [v]:
+                            temp.append(i)
+                    model_data[k] = temp
+    return model_data
 
 def get_groups_command(index_file, output_directory=None):
     if output_directory is not None:
@@ -269,7 +309,9 @@ def plot_usages_command(index_file, model_fits, sort, count, max_syllable, group
 
     # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
     model_data = merge_models(model_fits, 'p')
+
     #model_data = parse_model_results(joblib.load(model_fit))
+
     index, sorted_index = parse_index(index_file)
     df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
     plt, _ = usage_plot(df, groups=group, headless=True)

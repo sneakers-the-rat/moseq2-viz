@@ -9,7 +9,8 @@ from moseq2_viz.scalars.util import scalars_to_dataframe
 from moseq2_viz.io.video import write_frames_preview
 from functools import partial
 from sys import platform
-import click
+from numpy import linalg as LA
+from scipy.optimize import linear_sum_assignment
 import os
 import ruamel.yaml as yaml
 import h5py
@@ -28,14 +29,24 @@ def merge_models(model_dir, ext):
 
     tmp = os.path.join(model_dir, '*.'+ext)
     model_paths = [m for m in glob.glob(tmp)]
-    print(model_paths)
 
     model_data = {}
-    for model_fit in model_paths:
+    for m, model_fit in enumerate(model_paths):
+        if m >= 2:
+            break
         unit_data = parse_model_results(joblib.load(model_fit))
+        print(model_fit)
         for k,v in unit_data.items():
             if k not in list(model_data.keys()):
-                model_data[k] = v
+                if k == 'model_parameters':
+                    try:
+                        temp_AR = v['ar_mat']
+                        model_data[k] = v
+                        print('AR', 1)
+                    except:
+                        pass
+                else:
+                    model_data[k] = v
             else:
                 if type(v) == type([]):
                     temp = model_data[k]
@@ -44,7 +55,33 @@ def merge_models(model_dir, ext):
                     model_data[k] = temp
                 elif type(v) == dict:
                     for k1,v1 in v.items():
-                        if type(v1) == type([]):
+                        if k1 == 'ar_mat':
+                            curr_arrays = v[k1]
+                            prev = model_data[k][k1]
+                            state_mapping = {}
+                            cost_mapping = {}
+                            for i, state1 in enumerate(prev):
+                                norm1 = LA.norm(state1)
+                                for j, state2 in enumerate(curr_arrays):
+                                    distance = abs(norm1 - LA.norm(state2))
+                                    if i not in cost_mapping.keys():
+                                        cost_mapping[i] = [distance]
+                                    else:
+                                        cost_mapping[i].append(distance)
+                            cost = np.zeros((len(prev), len(curr_arrays)))
+                            for i in range(len(cost_mapping.keys())):
+                                for j in range(100):
+                                    cost[i][j] = cost_mapping[i][j]
+                            row_ind, col_ind = linear_sum_assignment(cost)
+                            for r, c in zip(row_ind, col_ind):
+                                state_mapping[r] = c
+                            print(state_mapping)
+                            temp = prev
+                            for i in state_mapping.keys():
+                                temp.append(curr_arrays[state_mapping[i]])
+                            model_data[k][k1] = temp
+
+                        elif type(v1) == type([]):
                             temp = model_data[k][k1]
                             for i in v1:
                                 temp.append(i)
@@ -55,6 +92,7 @@ def merge_models(model_dir, ext):
                                 for i in [v1]:
                                     temp.append(i)
                             model_data[k][k1] = temp
+
                 else:
                     temp = [model_data[k]]
                     if v is not None:

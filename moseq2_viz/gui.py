@@ -61,16 +61,16 @@ def merge_models(model_dir, ext):
                             state_mapping = {}
                             cost_mapping = {}
                             for i, state1 in enumerate(prev):
-                                norm1 = LA.norm(state1)
+
                                 for j, state2 in enumerate(curr_arrays):
-                                    distance = abs(norm1 - LA.norm(state2))
+                                    distance = LA.norm(abs(state1 - state2))
                                     if i not in cost_mapping.keys():
                                         cost_mapping[i] = [distance]
                                     else:
                                         cost_mapping[i].append(distance)
                             cost = np.zeros((len(prev), len(curr_arrays)))
                             for i in range(len(cost_mapping.keys())):
-                                for j in range(100):
+                                for j in range(len(cost_mapping.values())):
                                     cost[i][j] = cost_mapping[i][j]
                             row_ind, col_ind = linear_sum_assignment(cost)
                             for r, c in zip(row_ind, col_ind):

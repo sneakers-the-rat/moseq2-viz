@@ -35,70 +35,35 @@ def merge_models(model_dir, ext):
         if m >= 2:
             break
         unit_data = parse_model_results(joblib.load(model_fit))
-        print(model_fit)
         for k,v in unit_data.items():
             if k not in list(model_data.keys()):
-                if k == 'model_parameters':
-                    try:
-                        temp_AR = v['ar_mat']
-                        model_data[k] = v
-                        print('AR', 1)
-                    except:
-                        pass
-                else:
-                    model_data[k] = v
+                model_data[k] = v
             else:
-                if type(v) == type([]):
-                    temp = model_data[k]
+                if k == 'model_parameters':
+                    prev = model_data[k]['ar_mat']
+                    curr_arrays = v['ar_mat']
+                    #arr = np.arange(0,100)
+                    #np.random.shuffle(arr)
+                    #curr_arrays = []
+                    #for a in arr:
+                    #    curr_arrays.append(temp[a])
+                    cost = np.zeros((len(prev), len(curr_arrays)))
+                    for i, state1 in enumerate(prev):
+                        for j, state2 in enumerate(curr_arrays):
+                            distance = LA.norm(abs(state1 - state2))
+                            cost[i][j] = distance
+                    row_ind, col_ind = linear_sum_assignment(cost)
+                    mapping = {c:r for r,c in zip(row_ind, col_ind)}
+                    adjusted_labels = []
+                    for newlbl in unit_data['labels'][0]:
+                        try:
+                            adjusted_labels.append(mapping[newlbl])
+                        except:
+                            pass
+                    model_data['labels'].append(np.array(adjusted_labels))
+                elif k == 'keys' or k == 'train_list':
                     for i in v:
-                        temp.append(i)
-                    model_data[k] = temp
-                elif type(v) == dict:
-                    for k1,v1 in v.items():
-                        if k1 == 'ar_mat':
-                            curr_arrays = v[k1]
-                            prev = model_data[k][k1]
-                            state_mapping = {}
-                            cost_mapping = {}
-                            for i, state1 in enumerate(prev):
-
-                                for j, state2 in enumerate(curr_arrays):
-                                    distance = LA.norm(abs(state1 - state2))
-                                    if i not in cost_mapping.keys():
-                                        cost_mapping[i] = [distance]
-                                    else:
-                                        cost_mapping[i].append(distance)
-                            cost = np.zeros((len(prev), len(curr_arrays)))
-                            for i in range(len(cost_mapping.keys())):
-                                for j in range(len(cost_mapping.values())):
-                                    cost[i][j] = cost_mapping[i][j]
-                            row_ind, col_ind = linear_sum_assignment(cost)
-                            for r, c in zip(row_ind, col_ind):
-                                state_mapping[r] = c
-                            print(state_mapping)
-                            temp = prev
-                            for i in state_mapping.keys():
-                                temp.append(curr_arrays[state_mapping[i]])
-                            model_data[k][k1] = temp
-
-                        elif type(v1) == type([]):
-                            temp = model_data[k][k1]
-                            for i in v1:
-                                temp.append(i)
-                            model_data[k][k1] = temp
-                        else:
-                            temp = [model_data[k][k1]]
-                            if v1 is not None:
-                                for i in [v1]:
-                                    temp.append(i)
-                            model_data[k][k1] = temp
-
-                else:
-                    temp = [model_data[k]]
-                    if v is not None:
-                        for i in [v]:
-                            temp.append(i)
-                    model_data[k] = temp
+                        model_data[k].append(i)
     return model_data
 
 def get_groups_command(index_file, output_directory=None):
@@ -404,8 +369,6 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
 
     labels = model_data['labels']
 
-    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data)
-
     if config_data['sort']:
         labels = relabel_by_usage(labels, count=config_data['count'])[0]
 
@@ -421,7 +384,6 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
     if 'group' in index['files'][0].keys() and len(group) > 0:
         for uuid in label_uuids:
             label_group.append(sorted_index['files'][uuid]['group'])
-
     else:
         label_group = ['']*len(model_data['labels'])
         group = list(set(label_group))
@@ -440,7 +402,7 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
 
         print('Creating plot...')
 
-        plt, _, _ = graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=usages, width_per_group=config_data['width_per_group'],
+        plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
                                             edge_threshold=config_data['edge_threshold'], edge_width_scale=config_data['edge_scaling'],
                                             difference_edge_width_scale=config_data['edge_scaling'], keep_orphans=config_data['keep_orphans'],
                                             orphan_weight=config_data['orphan_weight'], arrows=config_data['arrows'], usage_threshold=config_data['usage_threshold'],
@@ -463,7 +425,7 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
                                                     max_syllable=max_syllable))
             usages.append(get_syllable_statistics(use_labels)[0])
 
-        plt, _, _ = graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=usages, width_per_group=config_data['width_per_group'],
+        plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
                                             edge_threshold=config_data['edge_threshold'],
                                             edge_width_scale=config_data['edge_scaling'],
                                             difference_edge_width_scale=config_data['edge_scaling'],
@@ -488,7 +450,6 @@ def plot_syllable_durations_command(model_fit, index_file, groups, output_file):
         model_data = merge_models(model_fit, 'p')
     else:
         model_data = parse_model_results(joblib.load(model_fit))
-    max_syllable = 100
 
     index, sorted_index = parse_index(index_file)
     label_uuids = model_data['keys'] + model_data['train_list']

@@ -88,7 +88,7 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     return ebunch, orphans
 
 
-def graph_transition_matrix(trans_mats, syll_dur_df=None, minD=None, maxD=None, usages=None, groups=None,
+def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             edge_threshold=.0025, anchor=0, usage_threshold=0,
                             node_color='w', node_edge_color='r', layout='spring',
                             edge_width_scale=100, node_size=400, fig=None, ax=None,
@@ -485,7 +485,7 @@ def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
     return fig, ax
 
 
-def scalar_plot(scalar_df, sort_vars=['group', 'SubjectName'], group_var='group',
+def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
                 show_scalars=['velocity_2d_mm', 'velocity_3d_mm',
                               'height_ave_mm', 'width_mm', 'length_mm'],
                 headless=False,
@@ -571,7 +571,7 @@ def usage_plot(usages, groups=None, headless=False, **kwargs):
 
         return fig, ax
 
-def duration_plot(df, groups=None, headless=False, **kwargs):
+def duration_plot(df, groups=None, headless=False, ylim=None, **kwargs):
     # use a Seaborn pointplot, groups map to hue
     # make a useful x-axis to orient the user (which side is which)
 
@@ -597,11 +597,12 @@ def duration_plot(df, groups=None, headless=False, **kwargs):
                        join=False,
                        ci=None,
                        **kwargs)
-    #plt.xticks(np.arange(max(df['syllable'])), df['syllable'])
+    plt.xticks(np.arange(max(df['syllable'])), df['syllable'])
     ax.set_xticks([])
+    ax.set_ylim((0, ylim))
 
     plt.ylabel('Duration in Frames')
-    plt.xlabel('Syllables')
+    plt.xlabel('Syllables (Sorted by Usage)')
 
 
     sns.despine()

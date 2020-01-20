@@ -32,38 +32,42 @@ def merge_models(model_dir, ext):
 
     model_data = {}
     for m, model_fit in enumerate(model_paths):
-        if m >= 2:
-            break
         unit_data = parse_model_results(joblib.load(model_fit))
         for k,v in unit_data.items():
             if k not in list(model_data.keys()):
                 model_data[k] = v
             else:
-                if k == 'model_parameters':
-                    prev = model_data[k]['ar_mat']
-                    curr_arrays = v['ar_mat']
-                    #arr = np.arange(0,100)
-                    #np.random.shuffle(arr)
-                    #curr_arrays = []
-                    #for a in arr:
-                    #    curr_arrays.append(temp[a])
-                    cost = np.zeros((len(prev), len(curr_arrays)))
-                    for i, state1 in enumerate(prev):
-                        for j, state2 in enumerate(curr_arrays):
-                            distance = LA.norm(abs(state1 - state2))
-                            cost[i][j] = distance
-                    row_ind, col_ind = linear_sum_assignment(cost)
-                    mapping = {c:r for r,c in zip(row_ind, col_ind)}
-                    adjusted_labels = []
-                    for newlbl in unit_data['labels'][0]:
-                        try:
-                            adjusted_labels.append(mapping[newlbl])
-                        except:
-                            pass
-                    model_data['labels'].append(np.array(adjusted_labels))
-                elif k == 'keys' or k == 'train_list':
-                    for i in v:
-                        model_data[k].append(i)
+                try:
+                    if k == 'model_parameters':
+                        prev = model_data[k]['ar_mat']
+                        curr_arrays = v['ar_mat']
+                        ## UNIT TEST
+                        #temp = v['ar_mat']
+                        #arr = np.arange(0,100)
+                        #np.random.shuffle(arr)
+                        #curr_arrays = []
+                        #for a in arr:
+                        #    curr_arrays.append(temp[a])
+                        cost = np.zeros((len(prev), len(curr_arrays)))
+                        for i, state1 in enumerate(prev):
+                            for j, state2 in enumerate(curr_arrays):
+                                distance = LA.norm(abs(state1 - state2))
+                                cost[i][j] = distance
+                        row_ind, col_ind = linear_sum_assignment(cost)
+                        mapping = {c:r for r,c in zip(row_ind, col_ind)}
+                        adjusted_labels = []
+                        for oldlbl in unit_data['labels'][0]:
+                            try:
+                                adjusted_labels.append(mapping[oldlbl])
+                            except:
+                                pass
+                        model_data['labels'].append(np.array(adjusted_labels))
+                    elif k == 'keys' or k == 'train_list':
+                        for i in v:
+                            model_data[k].append(i)
+                except:
+                    print('Error, trying to merge models with unequal number of PCs.')
+                    pass
     return model_data
 
 def get_groups_command(index_file, output_directory=None):
@@ -365,8 +369,8 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
         model_data = merge_models(model_fit, 'p')
     else:
         model_data = parse_model_results(joblib.load(model_fit))
-    index, sorted_index = parse_index(index_file)
 
+    index, sorted_index = parse_index(index_file)
     labels = model_data['labels']
 
     if config_data['sort']:
@@ -396,7 +400,6 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
             use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
             trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True, max_syllable=max_syllable))
             usages.append(get_syllable_statistics(use_labels)[0])
-
         if not config_data['scale_node_by_usage']:
             usages = None
 
@@ -440,7 +443,7 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
     print('Transition graph(s) successfully generated')
     return plt
 
-def plot_syllable_durations_command(model_fit, index_file, groups, output_file):
+def plot_syllable_durations_command(model_fit, index_file, groups, count, max_syllable, output_file, ylim=None):
 
     # if the user passes multiple groups, sort and plot against each other
     # relabel by usage across the whole dataset, gather usages per session per group
@@ -457,17 +460,23 @@ def plot_syllable_durations_command(model_fit, index_file, groups, output_file):
     lbl_dict = {}
 
     df_dict = {
+        'usage': [],
         'duration': [],
         'group': [],
         'syllable': []
     }
-    
+
+    model_data['labels'] = relabel_by_usage(model_data['labels'], count=count)[0]
     min_length = min([len(x) for x in model_data['labels']]) - 3
     for i in range(len(model_data['labels'])):
         labels = list(filter(lambda a: a != -5, model_data['labels'][i]))
+        tmp_usages, tmp_durations = get_syllable_statistics(model_data['labels'][i], count=count, max_syllable=max_syllable)
+        total_usage = np.sum(list(tmp_usages.values()))
         curr = labels[0]
         lbl_dict[curr] = []
         curr_dur = 1
+        if total_usage <= 0:
+            total_usage = 1.0
         for li in range(1, min_length):
             if labels[li] == curr:
                 curr_dur += 1
@@ -478,15 +487,21 @@ def plot_syllable_durations_command(model_fit, index_file, groups, output_file):
             if labels[li] not in list(lbl_dict.keys()):
                 lbl_dict[labels[li]] = []
 
-        for syll in list(lbl_dict.keys()):
-            df_dict['duration'].append(sum(lbl_dict[syll]) / len(lbl_dict[syll]))
+        for k, v in tmp_usages.items():
+            df_dict['usage'].append(v/total_usage)
+            #df_dict['duration'].append(sum(lbl_dict[k]) / len(lbl_dict[k]))
+            try:
+                df_dict['duration'].append(sum(tmp_durations[k])/len(tmp_durations[k]))
+            except:
+                df_dict['duration'].append(sum(tmp_durations[k]) / 1)
             df_dict['group'].append(i_groups[i])
-            df_dict['syllable'].append(syll)
+            df_dict['syllable'].append(k)
         lbl_dict = {}
 
     df = pd.DataFrame.from_dict(data=df_dict)
+    
     try:
-        fig, _ = duration_plot(df, groups=groups, headless=True)
+        fig, _ = duration_plot(df, groups=groups, ylim=ylim, headless=True)
         
         fig.savefig('{}.png'.format(output_file))
         fig.savefig('{}.pdf'.format(output_file))
@@ -494,7 +509,7 @@ def plot_syllable_durations_command(model_fit, index_file, groups, output_file):
         print('Successfully generated duration plot')
     except:
         groups = ()
-        fig, _ = duration_plot(df, groups=groups, headless=True)
+        fig, _ = duration_plot(df, groups=groups, ylim=ylim, headless=True)
         
         fig.savefig('{}.png'.format(output_file))
         fig.savefig('{}.pdf'.format(output_file))

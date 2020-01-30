@@ -7,7 +7,7 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0,
     """Computes entropy, base 2
     """
 
-    labels = relabel_by_usage(labels, count=relabel_by)
+    labels, _ = relabel_by_usage(labels, count=relabel_by)
 
     ent = []
     for v in labels:
@@ -49,7 +49,7 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
         relabel_by (str): how to re-order labels. Options are: 'usage' and 'frames'.
     """
 
-    labels = relabel_by_usage(labels, count=relabel_by)
+    labels, _ = relabel_by_usage(labels, count=relabel_by)
 
     ent = []
     for v in labels:

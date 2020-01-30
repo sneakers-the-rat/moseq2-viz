@@ -373,6 +373,8 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 
     Returns:
         labels (list of np.array of ints): labels resorted by usage
+        sorting (list): the new label sorting. The index corresponds to the new label,
+            while the value corresponds to the old label
 
     Examples:
 

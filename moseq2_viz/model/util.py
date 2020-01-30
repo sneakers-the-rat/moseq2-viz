@@ -380,12 +380,12 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 
         >>> from moseq2_viz.model.util import parse_model_results, relabel_by_usage
         >>> model_results = parse_model_results('mymodel.p')
-        >>> sorted_labels = relabel_by_usage(model_results['labels'])
+        >>> sorted_labels, sorting = relabel_by_usage(model_results['labels'])
 
     """
 
     sorted_labels = deepcopy(labels)
-    usages, durations = get_syllable_statistics(labels, fill_value=fill_value, count=count)
+    usages, _ = get_syllable_statistics(labels, fill_value=fill_value, count=count)
     sorting = []
 
     for w in sorted(usages, key=usages.get, reverse=True):

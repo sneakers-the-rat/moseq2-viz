@@ -4,8 +4,7 @@ from moseq2_viz.model.util import get_syllable_statistics, get_transition_matrix
 
 def entropy(labels, truncate_syllable=40, smoothing=1.0,
             relabel_by='usage'):
-    """Computes entropy, base 2
-    """
+    """Computes entropy, base 2"""
 
     labels, _ = relabel_by_usage(labels, count=relabel_by)
 
@@ -47,7 +46,7 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
         tm_smoothing (float): a constant added to label transtition counts before
             normalization 
         relabel_by (str): how to re-order labels. Options are: 'usage' and 'frames'.
-    """
+        """
 
     labels, _ = relabel_by_usage(labels, count=relabel_by)
 

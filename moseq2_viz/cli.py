@@ -1,14 +1,17 @@
 from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
-                             parse_index, h5_to_dict, clean_dict)
-from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
+                             parse_index, h5_to_dict, clean_dict, get_sorted_index)
+from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices, model_datasets_to_df,
                                    results_to_dataframe, parse_model_results,
-                                   get_transition_matrix, get_syllable_statistics)
+                                   get_transition_matrix, get_syllable_statistics, get_average_syllable_durations)
 from moseq2_viz.viz import (make_crowd_matrix, usage_plot, graph_transition_matrix,
-                            scalar_plot, position_plot)
+                            scalar_plot, position_plot, duration_plot)
 from moseq2_viz.scalars.util import scalars_to_dataframe
 from moseq2_viz.io.video import write_frames_preview
-from functools import partial
+from moseq2_viz.model.label_util import to_df
+from tqdm import TqdmSynchronisationWarning
+from cytoolz import pluck, partial
 from sys import platform
+from tqdm.auto import tqdm
 import click
 import os
 import ruamel.yaml as yaml
@@ -16,11 +19,11 @@ import h5py
 import multiprocessing as mp
 import numpy as np
 import joblib
-import tqdm
 import warnings
 import re
 import shutil
 import psutil
+import pandas as pd
 
 orig_init = click.core.Option.__init__
 
@@ -76,10 +79,12 @@ def add_group(index_file, key, value, group, exact, lowercase, negative):
 
     try:
         with open(new_index, 'w+') as f:
-            yaml.dump(index, f, Dumper=yaml.RoundTripDumper)
+            yaml.safe_dump(index, f)
         shutil.move(new_index, index_file)
     except Exception:
         raise Exception
+
+    print('Group(s) added successfully.')
 
 
 # recurse through directories, find h5 files with completed extractions, make a manifest
@@ -96,7 +101,7 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
     # load in all of the h5 files, grab the extraction metadata, reformat to make nice 'n pretty
     # then stage the copy
 
-    for i, tup in tqdm.tqdm(enumerate(to_load), total=len(to_load), desc='Copying data to yamls'):
+    for i, tup in enumerate(tqdm(to_load, desc='Copying data to yamls')):
         with h5py.File(tup[2], 'r') as f:
             tmp = clean_dict(h5_to_dict(f, h5_metadata_path))
             tup[0]['metadata'] = dict(tmp)
@@ -104,7 +109,7 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
         try:
             new_file = '{}_update.yaml'.format(os.path.basename(tup[1]))
             with open(new_file, 'w+') as f:
-                yaml.dump(tup[0], f, Dumper=yaml.RoundTripDumper)
+                yaml.safe_dump(tup[0], f)
             shutil.move(new_file, tup[1])
         except Exception:
             raise Exception
@@ -114,44 +119,42 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
 @click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
 @click.option('--pca-file', '-p', type=click.Path(), default=os.path.join(os.getcwd(), '_pca/pca_scores.h5'), help='Path to PCA results')
 @click.option('--output-file', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'moseq2-index.yaml'), help="Location for storing index")
-@click.option('--filter', '-f', type=(str, str), default=None, help='Regex filter for metadata', multiple=True)
+@click.option('--filter', '-f', '_filter', type=(str, str), default=None, help='Regex filter for metadata', multiple=True)
 @click.option('--all-uuids', '-a', type=bool, default=False, help='Use all uuids')
-def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
+def generate_index(input_dir, pca_file, output_file, _filter, all_uuids):
 
     # gather than h5s and the pca scores file
     # uuids should match keys in the scores file
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)
 
+    if 'metadata' not in dicts[0]:
+        raise RuntimeError('Metadata not present in yaml files, run ' +
+                           'copy-h5-metadata-to-yaml to update yaml files')
+
     if not os.path.exists(pca_file) or all_uuids:
         warnings.warn('Will include all files')
-        pca_uuids = [dct['uuid'] for dct in dicts]
+        pca_uuids = pluck('uuid', dicts)
     else:
         with h5py.File(pca_file, 'r') as f:
-            pca_uuids = list(f['scores'].keys())
+            pca_uuids = list(f['scores'])
 
-    file_with_uuids = [(os.path.relpath(h5), os.path.relpath(yml), meta) for h5, yml, meta in
-                       zip(h5s, yamls, dicts) if meta['uuid'] in pca_uuids]
-
-    if 'metadata' not in file_with_uuids[0][2]:
-        raise RuntimeError('Metadata not present in yaml files, run copy-h5-metadata-to-yaml to update yaml files')
+    relpath = os.path.relpath
+    file_with_uuids = filter(lambda x: x[2]['uuid'] in pca_uuids, zip(h5s, yamls, dicts))
+    file_with_uuids = [(relpath(h5), relpath(yml), meta) for h5, yml, meta in file_with_uuids]
 
     output_dict = {
         'files': [],
-        'pca_path': os.path.relpath(pca_file)
+        'pca_path': relpath(pca_file)
     }
 
+    output_dict['files'] = [dict(path=x[:2], uuid=x[2]['uuid'], group='default') for x in file_with_uuids]
     for i, file_tup in enumerate(file_with_uuids):
-        output_dict['files'].append({
-            'path': (file_tup[0], file_tup[1]),
-            'uuid': file_tup[2]['uuid'],
-            'group': 'default'
-        })
 
         output_dict['files'][i]['metadata'] = {}
 
         for k, v in file_tup[2]['metadata'].items():
-            for filt in filter:
+            for filt in _filter:
                 if k == filt[0]:
                     tmp = re.match(filt[1], v)
                     if tmp is not None:
@@ -162,7 +165,9 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
     # write out index yaml
 
     with open(output_file, 'w') as f:
-        yaml.dump(output_dict, f, Dumper=yaml.RoundTripDumper)
+        yaml.safe_dump(output_dict, f)
+
+    print(f'Index file {output_file} successfully generated.')
 
 
 @cli.command(name='make-crowd-movies')
@@ -174,7 +179,6 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
 @click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--output-dir', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'crowd_movies'), help="Path to store files")
-#@click.option('--filename-format', type=str, default='syllable_{:d}.mp4', help="Python 3 string format for filenames")
 @click.option('--gaussfilter-space', default=(0, 0), type=(float, float), help="Spatial filter for data (Gaussian)")
 @click.option('--medfilter-space', default=[0], type=int, help="Median spatial filter", multiple=True)
 @click.option('--min-height', type=int, default=5, help="Minimum height for scaling videos")
@@ -184,10 +188,10 @@ def generate_index(input_dir, pca_file, output_file, filter, all_uuids):
 @click.option('--cmap', type=str, default='jet', help="Name of valid Matplotlib colormap for false-coloring images")
 @click.option('--dur-clip', default=300, help="Exclude syllables more than this number of frames (None for no limit)")
 @click.option('--legacy-jitter-fix', default=False, type=bool, help="Set to true if you notice jitter in your crowd movies")
-def make_crowd_movies(index_file, model_path, max_syllable, max_examples,
-                      threads, sort, count, gaussfilter_space, medfilter_space,
+@click.option('--frame-path', default='frames', type=str, help='Path to depth frames in h5 file')
+def make_crowd_movies(index_file, model_path, max_syllable, max_examples, threads, sort, count,
                       output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip,
-                      legacy_jitter_fix):
+                      legacy_jitter_fix, frame_path, gaussfilter_space, medfilter_space):
 
     if platform in ['linux', 'linux2']:
         print('Setting CPU affinity to use all CPUs...')
@@ -202,7 +206,7 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples,
 
     # need to handle h5 intelligently here...
 
-    if model_path.endswith('.p') or model_path.endswith('.pz'):
+    if model_path.endswith(('.p', '.pz')):
         model_fit = parse_model_results(joblib.load(model_path))
         labels = model_fit['labels']
 
@@ -210,9 +214,9 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples,
             label_uuids = model_fit['train_list']
         else:
             label_uuids = model_fit['keys']
-    elif model_fit.endswith('.h5'):
+    elif model_path.endswith('.h5'):
         # load in h5, use index found using another function
-        pass
+        raise NotImplementedError('We do not support using h5 files for model output')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -229,14 +233,14 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples,
     info_file = os.path.join(output_dir, 'info.yaml')
 
     with open(info_file, 'w+') as f:
-        yaml.dump(info_dict, f, Dumper=yaml.RoundTripDumper)
+        yaml.safe_dump(info_dict, f)
 
     if sort:
         labels, ordering = relabel_by_usage(labels, count=count)
     else:
         ordering = list(range(max_syllable))
 
-    index, sorted_index = parse_index(index_file)
+    sorted_index = get_sorted_index(index_file)
     vid_parameters = check_video_parameters(sorted_index)
 
     # uuid in both the labels and the index
@@ -259,16 +263,17 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples,
         filename_format = 'syllable_{:d}.mp4'
 
     with mp.Pool() as pool:
-        slice_fun = partial(get_syllable_slices,
+        slice_fun = get_syllable_slices(
                             labels=labels,
                             label_uuids=label_uuids,
                             index=sorted_index)
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
-            slices = list(tqdm.tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
+            warnings.simplefilter("ignore", TqdmSynchronisationWarning)
+            slices = list(tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
 
         matrix_fun = partial(make_crowd_matrix,
                              nexamples=max_examples,
+                             frame_path=frame_path,
                              dur_clip=dur_clip,
                              min_height=min_height,
                              crop_size=vid_parameters['crop_size'],
@@ -276,9 +281,10 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples,
                              scale=scale,
                              legacy_jitter_fix=legacy_jitter_fix,
                              **clean_params)
+
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", tqdm.TqdmSynchronisationWarning)
-            crowd_matrices = list(tqdm.tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
+            warnings.simplefilter("ignore", TqdmSynchronisationWarning)
+            crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
 
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=min_height,
                             depth_max=max_height, cmap=cmap)
@@ -287,6 +293,8 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples,
                        crowd_matrix)
                       for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
 
+    print(f'Crowd movies successfully generated in {output_dir}.')
+
 
 @cli.command(name='plot-scalar-summary')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
@@ -294,16 +302,31 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples,
 def plot_scalar_summary(index_file, output_file):
 
     index, sorted_index = parse_index(index_file)
-    scalar_df = scalars_to_dataframe(sorted_index)
+    try:
+        scalar_df = scalars_to_dataframe(sorted_index)
+    except:
+        print('Could not create scalar dataframe; timestamps not found.')
+        return
 
-    plt_scalars, _ = scalar_plot(scalar_df, headless=True)
-    plt_position, _ = position_plot(scalar_df, headless=True)
+    try:
+        plt_scalars, _ = scalar_plot(scalar_df, headless=True)
 
-    plt_scalars.savefig('{}_summary.png'.format(output_file))
-    plt_scalars.savefig('{}_summary.pdf'.format(output_file))
+        plt_scalars.savefig(f'{output_file}_summary.png')
+        plt_scalars.savefig(f'{output_file}_summary.pdf')
+        print('Successfully graphed scalars summary.')
+    except:
+        print('Could not calculate scalars')
+        return
+    try:
+        plt_position, _ = position_plot(scalar_df, headless=True)
 
-    plt_position.savefig('{}_position.png'.format(output_file))
-    plt_position.savefig('{}_position.pdf'.format(output_file))
+        plt_position.savefig(f'{output_file}_position.png')
+        plt_position.savefig(f'{output_file}_position.pdf')
+        print('Successfully graphed position summary.')
+    except:
+        print('Could not calculate position summary.')
+
+
 
 
 @cli.command(name='plot-transition-graph')
@@ -340,6 +363,8 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
     index, sorted_index = parse_index(index_file)
 
     labels = model_data['labels']
+
+    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data)
 
     if sort:
         labels = relabel_by_usage(labels, count=count)[0]
@@ -378,14 +403,18 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 
     print('Creating plot...')
 
-    plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
-                                        edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
-                                        difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
-                                        orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
-                                        layout=layout, groups=group, usage_scale=node_scaling, headless=True)
-    plt.savefig('{}.png'.format(output_file))
-    plt.savefig('{}.pdf'.format(output_file))
+    try:
+        plt, _, _ = graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=usages, width_per_group=width_per_group,
+                                            edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
+                                            difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
+                                            orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
+                                            layout=layout, groups=group, usage_scale=node_scaling, headless=True)
+        plt.savefig(f'{output_file}.png', dpi=150)
+        plt.savefig(f'{output_file}.pdf')
 
+        print('Successfully graphed transition matrix.')
+    except:
+        print('Could not graph transition matrix.')
 
 @cli.command(name='plot-usages')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
@@ -403,8 +432,41 @@ def plot_usages(index_file, model_fit, sort, count, max_syllable, group, output_
     # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
 
     model_data = parse_model_results(joblib.load(model_fit))
+    sorted_index = get_sorted_index(index_file)
+    try:
+        df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
+        fig, _ = usage_plot(df, groups=group, headless=True)
+        fig.savefig(f'{output_file}.png')
+        fig.savefig(f'{output_file}.pdf')
+    except:
+        print('Could not graph usage plots')
+
+    print('Successfully graphed usage plots')
+
+@cli.command(name='plot-syllable-durations')
+@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
+@click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
+@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'durations'), help="Filename to store plot")
+@click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
+def plot_syllable_durations(index_file, model_fit, output_file, max_syllable):
+
+    # if the user passes multiple groups, sort and plot against each other
+    # relabel by usage across the whole dataset, gather usages per session per group
+
+    # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
+
+    model_data = parse_model_results(joblib.load(model_fit))
+
     index, sorted_index = parse_index(index_file)
-    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
-    plt, _ = usage_plot(df, groups=group, headless=True)
-    plt.savefig('{}.png'.format(output_file))
-    plt.savefig('{}.pdf'.format(output_file))
+
+
+    df, _ = model_datasets_to_df(model_data, sorted_index, max_syllable=max_syllable, sort=True, count='frames')
+
+    groups = list(set(df['group']))
+
+    fig, _ = duration_plot(df, groups=groups, headless=True)
+
+    fig.savefig('{}.png'.format(output_file))
+    fig.savefig('{}.pdf'.format(output_file))
+
+    print('Successfully generated duration plot')

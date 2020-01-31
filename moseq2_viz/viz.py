@@ -1,12 +1,17 @@
-from matplotlib import lines, gridspec
-from networkx.drawing.nx_agraph import graphviz_layout
-import matplotlib.pyplot as plt
-import numpy as np
-import h5py
+import re
+import math
 import cv2
+import h5py
+import random
+import numpy as np
 import seaborn as sns
 import networkx as nx
-import re
+import matplotlib.pyplot as plt
+from typing import Tuple, Iterable
+from cytoolz import pluck
+from moseq2_viz.util import star
+from matplotlib import lines, gridspec
+from networkx.drawing.nx_agraph import graphviz_layout
 
 
 def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
@@ -38,6 +43,16 @@ def convert_ebunch_to_graph(ebunch):
     g.add_weighted_edges_from(ebunch)
 
     return g
+
+def floatRgb(mag, cmin, cmax):
+    """ Return a tuple of floats between 0 and 1 for R, G, and B. """
+    # Normalize to 0-1
+    try: x = float(mag-cmin)/(cmax-cmin)
+    except ZeroDivisionError: x = 0.5 # cmax == cmin
+    blue  = min((max((4*(0.75-x), 0.)), 1.))
+    red   = min((max((4*(x-0.25), 0.)), 1.))
+    green = min((max((4*math.fabs(x-0.5)-1., 0.)), 1.))
+    return red, green, blue
 
 
 def convert_transition_matrix_to_ebunch(weights, transition_matrix,
@@ -89,14 +104,12 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     if weights is None:
         weights = trans_mats
 
-    if type(trans_mats) is np.ndarray and trans_mats.ndim == 2:
-        trans_mats = [trans_mats]
-    elif type(trans_mats) is list:
-        pass
-    else:
-        raise RuntimeError("Transition matrix must be a numpy array or list of arrays")
+    assert isinstance(trans_mats, (np.ndarray, list)), "Transition matrix must be a numpy array or list of arrays"
 
-    if (type(usages[0]) is list) or (type(usages[0]) is np.ndarray):
+    if isinstance(trans_mats, np.ndarray) and trans_mats.ndim == 2:
+        trans_mats = [trans_mats]
+
+    if usages is not None and isinstance(usages[0], (list, np.ndarray)):
         from collections import defaultdict
         for i, u in enumerate(usages):
             d = defaultdict(int)
@@ -123,6 +136,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
         weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
         keep_orphans=keep_orphans, usages=usages_anchor,
         usage_threshold=usage_threshold, max_syllable=max_syllable)
+
     graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
     nnodes = len(graph_anchor.nodes())
 
@@ -162,17 +176,26 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
         if usages is not None:
             node_size = [usages[i][k] * usage_scale for k in pos.keys()]
+            '''
+            durs = []
+            for k in pos.keys():
+                try:
+                    durs.append(floatRgb(syll_dur_df.loc[syll_dur_df['syll'] == k, 'avg_dur'], minD, maxD))
+                except:
+                    durs.append((0.0, 0.0, 0.0))
+            node_color = durs
+            '''
 
         nx.draw_networkx_nodes(graph, pos,
                                edgecolors=node_edge_color, node_color=node_color,
-                               node_size=node_size, ax=ax[i][i])
+                               node_size=node_size, ax=ax[i][i], cmap='jet')
         nx.draw_networkx_edges(graph, pos, graph.edges(), width=width, ax=ax[i][i],
                                arrows=arrows, edge_color=edge_color)
         if font_size > 0:
             nx.draw_networkx_labels(graph, pos,
                                     {k: k for k in pos.keys()},
                                     font_size=font_size,
-                                    ax=ax[i][i])
+                                    ax=ax[i][i], font_color='k')
 
         if groups is not None:
             ax[i][i].set_title('{}'.format(groups[i]))
@@ -212,7 +235,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
                     nx.draw_networkx_labels(graph, pos,
                                             {k: k for k in pos.keys()},
                                             font_size=font_size,
-                                            ax=ax[i][j + i + 1])
+                                            ax=ax[i][j + i + 1], font_color='k')
 
                 ax[i][j + i + 1].set_title('{} - {}'.format(groups[j + i + 1], groups[i]))
 
@@ -220,13 +243,36 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
         for j in range(len(ax[i])):
             ax[i][j].axis('off')
 
-    # plt.show()
-
     return fig, ax, pos
 
 
-#TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
-def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
+def crowd_matrix_from_loaded_data(slices: Iterable[Tuple[int, int]], frames, scalars, nexamples=50,
+                                  pad=30, dur_clip=1000, raw_size=(512, 424), crop_size=(80, 80)):
+    '''This function assumes angles have already been treated for flips, if necessary.'''
+    def dur_filter(slice_):
+        return (slice_[1] - slice_[0]) < dur_clip
+
+    slices = filter(dur_filter, slices)
+    slices = random.choices(slices, k=nexamples)
+    dur = list(s[1] - s[0] for s in slices)
+    max_dur = max(dur)
+    starts = map(lambda x: x - pad, pluck(0, slices))
+
+    def pad_idx(idx, dur):
+        return idx + pad + (max_dur - dur)
+
+    ends = map(star(pad_idx), zip(pluck(1, slices), dur))
+    # turn each tuple of indices into a slice object
+    slices = map(star(slice), zip(starts, ends))
+
+    crowd_mtx = np.zeros((max_dur + 2 * pad, *reversed(raw_size)), dtype='uint8')
+
+    yc0, xc0 = [x // 2 for x in crop_size]
+    # TODO: finish - add the below stuff
+
+
+# TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
+def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
                       crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
                       center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
                       **kwargs):
@@ -273,7 +319,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
         # get the frames, combine in a way that's alpha-aware
 
         h5 = h5py.File(fname, 'r')
-        nframes = h5['frames'].shape[0]
+        nframes = h5[frame_path].shape[0]
         cur_len = idx[1] - idx[0]
         use_idx = (idx[0] - pad, idx[1] + pad + (max_dur - cur_len))
 
@@ -295,7 +341,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424),
             centroid_y += raw_size[1] // 2
 
         angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
-        frames = clean_frames((h5['frames'][use_idx[0]:use_idx[1]] / scale).astype('uint8'), **kwargs)
+        frames = clean_frames((h5[frame_path][use_idx[0]:use_idx[1]] / scale).astype('uint8'), **kwargs)
 
         if 'flips' in h5['metadata/extraction'].keys():
             # h5 format as of v0.1.3
@@ -439,7 +485,7 @@ def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
     return fig, ax
 
 
-def scalar_plot(scalar_df, sort_vars=['group', 'SubjectName'], group_var='group',
+def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
                 show_scalars=['velocity_2d_mm', 'velocity_3d_mm',
                               'height_ave_mm', 'width_mm', 'length_mm'],
                 headless=False,
@@ -451,10 +497,11 @@ def scalar_plot(scalar_df, sort_vars=['group', 'SubjectName'], group_var='group'
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8))
 
     # sort scalars into a neat summary using group_vars
+    grp = scalar_df.groupby(sort_vars)[show_scalars]
 
     summary = {
-        'Mean': scalar_df.groupby(sort_vars)[show_scalars].mean(),
-        'STD': scalar_df.groupby(sort_vars)[show_scalars].std()
+        'Mean': grp.mean(),
+        'STD': grp.std()
     }
 
     for i, (k, v) in enumerate(summary.items()):
@@ -464,7 +511,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'SubjectName'], group_var='group'
         ax[i].set_ylabel(k)
         ax[i].set_xlabel('')
 
-    plt.tight_layout()
+    fig.tight_layout()
 
     return fig, ax
 
@@ -488,18 +535,77 @@ def usage_plot(usages, groups=None, headless=False, **kwargs):
     fig, ax = plt.subplots(1, 1, figsize=(10, 5))
     sns.set_style('ticks')
 
-    ax = sns.pointplot(data=usages,
-                       x='syllable',
-                       y='usage',
+    try:
+        ax = sns.pointplot(data=usages,
+                           x='syllable',
+                           y='usage',
+                           hue=hue,
+                           hue_order=groups,
+                           join=False,
+                           **kwargs)
+        #ax.set_xticks([])
+        plt.xticks(np.arange(max(usages['syllable'])), usages['syllable'])
+        plt.ylabel('P(syllable)')
+        plt.xlabel('Syllable (sorted by usage)')
+
+        sns.despine()
+
+        return fig, ax
+    except:
+        print('Invalid inputted groups, graphing default group.')
+        groups, hue = None, None
+
+        ax = sns.pointplot(data=usages,
+                           x='syllable',
+                           y='usage',
+                           hue=hue,
+                           hue_order=groups,
+                           join=False,
+                           **kwargs)
+        #ax.set_xticks([])
+        plt.xticks(np.arange(max(usages['syllable'])), usages['syllable'])
+        plt.ylabel('P(syllable)')
+        plt.xlabel('Syllable (sorted by usage)')
+
+        sns.despine()
+
+        return fig, ax
+
+def duration_plot(df, groups=None, headless=False, ylim=None, **kwargs):
+    # use a Seaborn pointplot, groups map to hue
+    # make a useful x-axis to orient the user (which side is which)
+
+    if headless:
+        plt.switch_backend('agg')
+
+    if len(groups) == 0:
+        groups = None
+
+    if groups is None:
+        hue = None
+    else:
+        hue = 'group'
+
+    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+    sns.set_style('ticks')
+
+    ax = sns.pointplot(data=df,
+                       x=df['syllable'],
+                       y=df['duration'],
                        hue=hue,
                        hue_order=groups,
                        join=False,
+                       ci=None,
                        **kwargs)
-
+    plt.xticks(np.arange(max(df['syllable'])), df['syllable'])
     ax.set_xticks([])
-    plt.ylabel('P(syllable)')
-    plt.xlabel('Syllable (sorted by usage)')
+    ax.set_ylim((0, ylim))
+
+    plt.ylabel('Duration in Frames')
+    plt.xlabel('Syllables (Sorted by Usage)')
+
 
     sns.despine()
+
 
     return fig, ax

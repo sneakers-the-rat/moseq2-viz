@@ -505,7 +505,29 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
     return output_dict
 
 
-def _relabel_list_by_usage(labels, fill_value=-5, count='usage'):
+def relabel_by_usage(labels, fill_value=-5, count='usage'):
+    """Resort model labels by their usages
+
+    Args:
+        labels (list of np.array of ints): labels loaded from a model fit
+        fill_value (int): value prepended to modeling results to account for nlags
+        count (str): how to count syllable usage, either by number of emissions (usage), or number of frames (frames)
+
+    Returns:
+        labels (list of np.array of ints): labels resorted by usage
+        sorting (list): the new label sorting. The index corresponds to the new label,
+            while the value corresponds to the old label
+
+    Examples:
+
+        Load in model results and sort labels by usages
+
+        >>> from moseq2_viz.model.util import parse_model_results, relabel_by_usage
+        >>> model_results = parse_model_results('mymodel.p')
+        >>> sorted_labels, sorting = relabel_by_usage(model_results['labels'])
+
+    """
+
     sorted_labels = deepcopy(labels)
     usages, _ = get_syllable_statistics(labels, fill_value=fill_value, count=count)
     sorting = []

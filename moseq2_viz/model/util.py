@@ -541,7 +541,7 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 
     return sorted_labels, sorting
 
-
+'''
 def relabel_by_usage(labels: Union[list, np.ndarray], fill_value: int = -5,
                      count: str = 'usage') -> Union[list, np.ndarray]:
     '''Re-sort model labels by their usages
@@ -571,7 +571,7 @@ def relabel_by_usage(labels: Union[list, np.ndarray], fill_value: int = -5,
         return dict(zip(uuids, sorted_labels)), sorting
     else:
         raise ValueError(f'processing of datatype {type(labels)} not implemented or recognized')
-
+'''
 
 def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', normalize=True, max_syllable=40,
                          include_meta=['SessionName', 'SubjectName', 'StartTime']):

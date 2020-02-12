@@ -544,7 +544,7 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 '''
 def relabel_by_usage(labels: Union[list, np.ndarray], fill_value: int = -5,
                      count: str = 'usage') -> Union[list, np.ndarray]:
-    '''Re-sort model labels by their usages
+    Re-sort model labels by their usages
 
     Args:
         labels: labels loaded from a model fit
@@ -560,7 +560,7 @@ def relabel_by_usage(labels: Union[list, np.ndarray], fill_value: int = -5,
             from moseq2_viz.model.util import parse_model_results, relabel_by_usage
             model_results = parse_model_results('mymodel.p')
             sorted_labels = relabel_by_usage(model_results['labels'], count='usage')
-    '''
+    
 
     if isinstance(labels, (list, np.ndarray)):
         return _relabel_list_by_usage(labels, fill_value=fill_value, count=count)

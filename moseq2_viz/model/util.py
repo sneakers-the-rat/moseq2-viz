@@ -1,4 +1,6 @@
+import os
 import h5py
+import glob
 import tqdm
 import joblib
 import warnings
@@ -6,15 +8,18 @@ import numpy as np
 import pandas as pd
 from copy import deepcopy
 from itertools import starmap
+from numpy import linalg as LA
 from cytoolz.curried import get
 from sklearn.cluster import KMeans
 from os.path import join, basename, dirname
 from typing import Iterator, Any, Dict, Union
 from collections import defaultdict, OrderedDict
+from scipy.optimize import linear_sum_assignment
 from moseq2_viz.util import np_cache, h5_to_dict, star
 from .label_util import syll_duration
 from moseq2_viz.model.label_util import to_df
 from cytoolz import curry, valmap, compose, complement, itemmap, concat
+
 
 def get_average_syllable_durations(model_data):
 
@@ -48,6 +53,51 @@ def get_average_syllable_durations(model_data):
     max_dur = max(avg_durs)
 
     return df, min_dur, max_dur
+
+def merge_models(model_dir, ext):
+
+    tmp = os.path.join(model_dir, '*.'+ext)
+    model_paths = [m for m in glob.glob(tmp)]
+
+    model_data = {}
+    for m, model_fit in enumerate(model_paths):
+        unit_data = parse_model_results(joblib.load(model_fit))
+        for k,v in unit_data.items():
+            if k not in list(model_data.keys()):
+                model_data[k] = v
+            else:
+                try:
+                    if k == 'model_parameters':
+                        prev = model_data[k]['ar_mat']
+                        curr_arrays = v['ar_mat']
+                        ## UNIT TEST
+                        #temp = v['ar_mat']
+                        #arr = np.arange(0,100)
+                        #np.random.shuffle(arr)
+                        #curr_arrays = []
+                        #for a in arr:
+                        #    curr_arrays.append(temp[a])
+                        cost = np.zeros((len(prev), len(curr_arrays)))
+                        for i, state1 in enumerate(prev):
+                            for j, state2 in enumerate(curr_arrays):
+                                distance = LA.norm(abs(state1 - state2))
+                                cost[i][j] = distance
+                        row_ind, col_ind = linear_sum_assignment(cost)
+                        mapping = {c:r for r,c in zip(row_ind, col_ind)}
+                        adjusted_labels = []
+                        for oldlbl in unit_data['labels'][0]:
+                            try:
+                                adjusted_labels.append(mapping[oldlbl])
+                            except:
+                                pass
+                        model_data['labels'].append(np.array(adjusted_labels))
+                    elif k == 'keys' or k == 'train_list':
+                        for i in v:
+                            model_data[k].append(i)
+                except:
+                    print('Error, trying to merge models with unequal number of PCs.')
+                    pass
+    return model_data
 
 def _get_transitions(label_sequence):
     '''Computes labels switch to another label. Throws out the first state (usually

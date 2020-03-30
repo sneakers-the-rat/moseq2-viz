@@ -1,7 +1,7 @@
 from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
                              parse_index, h5_to_dict, clean_dict)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
-                                   results_to_dataframe, parse_model_results, model_datasets_to_df,
+                                   results_to_dataframe, parse_model_results, model_datasets_to_df, merge_models,
                                    get_transition_matrix, get_syllable_statistics, get_average_syllable_durations)
 from moseq2_viz.viz import (make_crowd_matrix, usage_plot, graph_transition_matrix,
                             scalar_plot, position_plot, duration_plot)
@@ -9,8 +9,6 @@ from moseq2_viz.scalars.util import scalars_to_dataframe
 from moseq2_viz.io.video import write_frames_preview
 from functools import partial
 from sys import platform
-from numpy import linalg as LA
-from scipy.optimize import linear_sum_assignment
 import os
 import ruamel.yaml as yaml
 import h5py
@@ -23,52 +21,7 @@ import re
 import shutil
 import psutil
 import pandas as pd
-import glob
 
-def merge_models(model_dir, ext):
-
-    tmp = os.path.join(model_dir, '*.'+ext)
-    model_paths = [m for m in glob.glob(tmp)]
-
-    model_data = {}
-    for m, model_fit in enumerate(model_paths):
-        unit_data = parse_model_results(joblib.load(model_fit))
-        for k,v in unit_data.items():
-            if k not in list(model_data.keys()):
-                model_data[k] = v
-            else:
-                try:
-                    if k == 'model_parameters':
-                        prev = model_data[k]['ar_mat']
-                        curr_arrays = v['ar_mat']
-                        ## UNIT TEST
-                        #temp = v['ar_mat']
-                        #arr = np.arange(0,100)
-                        #np.random.shuffle(arr)
-                        #curr_arrays = []
-                        #for a in arr:
-                        #    curr_arrays.append(temp[a])
-                        cost = np.zeros((len(prev), len(curr_arrays)))
-                        for i, state1 in enumerate(prev):
-                            for j, state2 in enumerate(curr_arrays):
-                                distance = LA.norm(abs(state1 - state2))
-                                cost[i][j] = distance
-                        row_ind, col_ind = linear_sum_assignment(cost)
-                        mapping = {c:r for r,c in zip(row_ind, col_ind)}
-                        adjusted_labels = []
-                        for oldlbl in unit_data['labels'][0]:
-                            try:
-                                adjusted_labels.append(mapping[oldlbl])
-                            except:
-                                pass
-                        model_data['labels'].append(np.array(adjusted_labels))
-                    elif k == 'keys' or k == 'train_list':
-                        for i in v:
-                            model_data[k].append(i)
-                except:
-                    print('Error, trying to merge models with unequal number of PCs.')
-                    pass
-    return model_data
 
 def get_groups_command(index_file, output_directory=None):
     if output_directory is not None:
@@ -344,7 +297,7 @@ def plot_scalar_summary_command(index_file, output_file):
     plt_position.savefig('{}_position.png'.format(output_file))
     plt_position.savefig('{}_position.pdf'.format(output_file))
 
-    return 'Scalar summary plots successfully completed.'
+    return scalar_df
 
 def plot_transition_graph_command(index_file, model_fit, config_file, max_syllable, group, output_file):
 

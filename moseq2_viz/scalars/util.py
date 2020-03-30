@@ -349,7 +349,11 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         pth = h5_filepath_from_sorted(v)
         dset = h5_to_dict(pth, 'scalars')
 
-        timestamps = get_timestamps_from_h5(pth)
+        try:
+            timestamps = get_timestamps_from_h5(pth)
+        except:
+            print(f'timestamps for {pth} were not found, skipping')
+            continue
 
         # get extraction parameters for this h5 file
         dct = read_yaml(v['path'][1])
@@ -397,6 +401,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
             scalar_dict['model_label'] += labels[k].tolist()
             scalar_dict['model_label (sort=usage)'] += usage[k].tolist()
             scalar_dict['model_label (sort=frames)'] += frames[k].tolist()
+
     # turn each key in scalar_names into a numpy array
     for scalar in scalar_names:
         scalar_dict[scalar] = np.array(scalar_dict[scalar])

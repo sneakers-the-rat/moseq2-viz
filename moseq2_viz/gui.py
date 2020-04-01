@@ -71,12 +71,13 @@ def copy_h5_metadata_to_yaml_command(input_dir, h5_metadata_path):
 
 
 def make_crowd_movies_command(index_file, model_path, config_file, output_dir, max_syllable, max_examples, output_directory=None):
-    with open(config_file, 'r') as f:
-        config_data = yaml.safe_load(f)
 
-    config_data['max_syllable'] = max_syllable
-    config_data['max_examples'] = max_examples
-    make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir, output_directory)
+    if output_directory != None:
+        output_dir = os.path.join(output_directory, output_dir)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+    os.system(f'moseq2-viz make-crowd-movies --max-syllable {max_syllable} -m {max_examples} -o {output_dir} {index_file} {model_path}')
 
     return 'Successfully generated '+str(max_examples) + ' crowd videos.'
 

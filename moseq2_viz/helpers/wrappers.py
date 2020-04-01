@@ -276,7 +276,7 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
     if gui:
         return plt
 
-def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir, output_directory=None):
+def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
 
     max_syllable = config_data['max_syllable']
     max_examples = config_data['max_examples']
@@ -306,13 +306,9 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir, o
         # load in h5, use index found using another function
         pass
 
-    if output_directory is None:
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-    else:
-        output_dir = os.path.join(output_directory, output_dir)
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
     info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
@@ -349,7 +345,7 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir, o
     sorted_index['files'] = {k: v for k, v in sorted_index['files'].items() if k in uuid_set}
 
     if vid_parameters['resolution'] is not None:
-        raw_size = vid_parameters['resolution']
+        config_data['raw_size'] = vid_parameters['resolution']
 
     if config_data['sort']:
         filename_format = 'syllable_sorted-id-{:d} ({})_original-id-{:d}.mp4'
@@ -357,12 +353,13 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir, o
         filename_format = 'syllable_{:d}.mp4'
 
     with mp.Pool() as pool:
+
         slice_fun = partial(get_syllable_slices,
                             labels=labels,
                             label_uuids=label_uuids,
                             index=sorted_index)
         with warnings.catch_warnings():
-            slices = list(tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
+            slices = list(tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable, desc='Getting Syllable Slices'))
 
         matrix_fun = partial(make_crowd_matrix,
                              nexamples=max_examples,
@@ -374,14 +371,14 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir, o
                              legacy_jitter_fix=config_data['legacy_jitter_fix'],
                              **clean_params)
         with warnings.catch_warnings():
-            crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
+            crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=max_syllable, desc='Getting Crowd Matrices'))
 
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],
                             depth_max=config_data['max_height'], cmap=config_data['cmap'])
         pool.starmap(write_fun,
                      [(os.path.join(output_dir, filename_format.format(i, config_data['count'], ordering[i])),
                        crowd_matrix)
-                      for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
+                      for i, crowd_matrix in tqdm(enumerate(crowd_matrices), total=max_syllable, desc='Writing Movies') if crowd_matrix is not None])
 
 
 def copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path):

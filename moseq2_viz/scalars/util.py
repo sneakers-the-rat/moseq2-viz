@@ -1,12 +1,12 @@
-import h5py
 import os
-import pandas as pd
-import numpy as np
+import h5py
 import warnings
-from cytoolz import keyfilter, itemfilter, merge_with, curry, valmap, get
+import numpy as np
+import pandas as pd
 from tqdm.auto import tqdm
 from itertools import starmap
 from collections import defaultdict
+from cytoolz import keyfilter, itemfilter, merge_with, curry, valmap, get
 from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
                              h5_filepath_from_sorted, get_timestamps_from_h5)
 from moseq2_viz.model.util import parse_model_results, _get_transitions, relabel_by_usage
@@ -21,12 +21,26 @@ def star_valmap(func, d):
     return dict(zip(keys, starmap(func, d.values())))
 
 
-# http://stackoverflow.com/questions/17832238/kinect-intrinsic-parameters-from-field-of-view/18199938#18199938
-# http://www.imaginativeuniversal.com/blog/post/2014/03/05/quick-reference-kinect-1-vs-kinect-2.aspx
-# http://smeenk.com/kinect-field-of-view-comparison/
+
 def convert_pxs_to_mm(coords, resolution=(512, 424), field_of_view=(70.6, 60), true_depth=673.1):
-    """Converts x, y coordinates in pixel space to mm
-    """
+    '''
+    Converts x, y coordinates in pixel space to mm
+    # http://stackoverflow.com/questions/17832238/kinect-intrinsic-parameters-from-field-of-view/18199938#18199938
+    # http://www.imaginativeuniversal.com/blog/post/2014/03/05/quick-reference-kinect-1-vs-kinect-2.aspx
+    # http://smeenk.com/kinect-field-of-view-comparison/
+
+    Parameters
+    ----------
+    coords (list): list of [x,y] pixel coordinate lists.
+    resolution (tuple): video frame size.
+    field_of_view (tuple): camera focal lengths.
+    true_depth (float): detected distance between depth camera and bucket floor.
+
+    Returns
+    -------
+    new_coords (list): list of same [x,y] coordinates in millimeters.
+    '''
+
     cx = resolution[0] // 2
     cy = resolution[1] // 2
 
@@ -44,22 +58,37 @@ def convert_pxs_to_mm(coords, resolution=(512, 424), field_of_view=(70.6, 60), t
 
 
 def is_legacy(features: dict):
-    '''Checks a dictionary of features to see if they correspond with an older version
-    of moseq
-
-    Returns:
-        true if the dict is from an old dataset
-
-    >>> is_legacy({'centroid_x': [1], 'area': 2})
-    True
-    >>> is_legacy({'centroid_x_mm': [1], 'area_mm': 2})
-    False
     '''
+    Checks a dictionary of features to see if they correspond with an older version
+    of moseq.
+
+    Parameters
+    ----------
+    features
+
+    Returns
+    -------
+    (bool): true if the dict is from an old dataset
+    '''
+
     old_features = ('centroid_x', 'centroid_y', 'width', 'length', 'area', 'height_ave')
     return any(x in old_features for x in features)
 
 
 def generate_empty_feature_dict(nframes) -> dict:
+    '''
+    Generates a dict of numpy array of zeros of
+    length nframes for each feature parameter.
+
+    Parameters
+    ----------
+    nframes (int): length of video
+
+    Returns
+    -------
+    (dict): dictionary feature to numpy 0 arrays of length nframes key-value pairs.
+    '''
+
     features = (
         'centroid_x_px', 'centroid_y_px', 'velocity_2d_px', 'velocity_3d_px',
         'width_px', 'length_px', 'area_px', 'centroid_x_mm', 'centroid_y_mm',
@@ -68,20 +97,25 @@ def generate_empty_feature_dict(nframes) -> dict:
     )
 
     def make_empy_arr():
-        return np.zeros((nframes,), dtype='float32')
+        return np.zeros((abs(nframes),), dtype='float32')
     return {k: make_empy_arr() for k in features}
 
 
 def convert_legacy_scalars(old_features, force: bool = False, true_depth: float = 673.1) -> dict:
-    """Converts scalars in the legacy format to the new format, with explicit units.
-    Args:
-        old_features (str, h5 group, or dictionary of scalars): filename, h5 group,
-            or dictionary of scalar values
-        force: force the conversion of centroid_[xy]_px into mm
-        true_depth:  true depth of the floor relative to the camera (673.1 mm by default)
-    Returns:
-        features: dictionary of scalar values
-    """
+    '''
+    Converts scalars in the legacy format to the new format, with explicit units.
+
+    Parameters
+    ----------
+    old_features (str, h5 group, or dictionary of scalars): filename, h5 group,
+    or dictionary of scalar values.
+    force (bool): force the conversion of centroid_[xy]_px into mm.
+    true_depth (float): true depth of the floor relative to the camera (673.1 mm by default)
+
+    Returns
+    -------
+    features (dict): dictionary of scalar values
+    '''
 
     if isinstance(old_features, h5py.Group) and 'centroid_x' in old_features:
         print('Loading scalars from h5 dataset')
@@ -97,7 +131,7 @@ def convert_legacy_scalars(old_features, force: bool = False, true_depth: float 
         nframes = len(old_features['centroid_x_mm'])
     elif not force:
         print('Features already converted')
-        return None
+        return old_features
     else:
         centroid = np.hstack((old_features['centroid_x'][:, None],
                               old_features['centroid_y'][:, None]))
@@ -156,12 +190,34 @@ def convert_legacy_scalars(old_features, force: bool = False, true_depth: float 
     return features
 
 
-def get_scalar_map(index, fill_nans=True, force_conversion=True):
+def get_scalar_map(index, fill_nans=True, force_conversion=False):
+    '''
+    Returns a dictionary of scalar values loaded from an index dictionary.
+
+    Parameters
+    ----------
+    index (dict): dictionary of index file contents.
+    fill_nans (bool): indicate whether to replace NaN values with 0.
+    force_conversion (bool): force the conversion of centroid_[xy]_px into mm.
+
+    Returns
+    -------
+    scalar_map (dict): dictionary of all the scalar values acquired after extraction.
+    '''
 
     scalar_map = {}
     score_idx = h5_to_dict(index['pca_path'], 'scores_idx')
 
-    for uuid, v in index['files'].items():
+    try:
+        iter_items = index['files'].items()
+    except:
+        iter_items = enumerate(index['files'])
+
+    for i, v in iter_items:
+        if isinstance(index['files'], list):
+            uuid = index['files'][i]['uuid']
+        elif isinstance(index['files'], dict):
+            uuid = i
 
         scalars = h5_to_dict(v['path'][0], 'scalars')
         conv_scalars = convert_legacy_scalars(scalars, force=force_conversion)
@@ -187,6 +243,22 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
                                  include_keys=['velocity_2d_mm', 'velocity_3d_mm', 'width_mm',
                                                'length_mm', 'height_ave_mm', 'angle'],
                                  zscore=False):
+    '''
+    Get averages of selected scalar keys for each syllable.
+
+    Parameters
+    ----------
+    scalar_map (dict): dictionary of all the scalar values acquired after extraction.
+    model_labels (dict): dictionary of uuid to syllable label array pairs.
+    max_syllable (int): maximum number of syllables to use.
+    nlags (int): number of lags to use when averaging over a series of PCs.
+    include_keys (list): list of scalar values to load averages of.
+    zscore (bool): indicate whether to z-score loaded values.
+
+    Returns
+    -------
+    syll_average (dict): dictionary of scalars for each syllable sequence.
+    '''
 
     win = int(nlags * 2 + 1)
 
@@ -238,16 +310,52 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
 
 
 def nanzscore(data):
+    '''
+    Z-score numpy array that may contain NaN values.
+
+    Parameters
+    ----------
+    data (np.ndarray): array of scalar values.
+
+    Returns
+    -------
+    data (np.ndarray): z-scored data.
+    '''
+
     return (data - np.nanmean(data)) / np.nanstd(data)
 
 
 def _pca_matches_labels(pca, labels):
-    '''Make sure that the number of frames in the pca dataset matches the
-    number of frames in the assigned labels'''
+    '''
+    Make sure that the number of frames in the pca dataset matches the
+    number of frames in the assigned labels.
+
+    Parameters
+    ----------
+    pca (np.array): array of session PC scores.
+    labels (np.array): array of session syllable labels
+
+    Returns
+    -------
+    (bool): indicates whether the PC scores length matches the corresponding assigned labels.
+    '''
     return len(pca) == len(labels)
 
 
 def process_scalars(scalar_map: dict, include_keys: list, zscore: bool = False) -> dict:
+    '''
+    Fill NaNs and possibly zscore scalar values.
+
+    Parameters
+    ----------
+    scalar_map (dict): dictionary of all the scalar values acquired after extraction.
+    include_keys (list): scalar keys to process.
+    zscore (bool): indicate whether to z-score loaded values.
+
+    Returns
+    -------
+
+    '''
     out = defaultdict(list)
     for k, v in scalar_map.items():
         for scalar in include_keys:
@@ -277,7 +385,19 @@ def find_and_load_feedback(extract_path, input_path):
 
 
 def remove_nans_from_labels(idx, labels):
-    '''Removes the frames from `labels` where `idx` has NaNs in it'''
+    '''
+    Removes the frames from `labels` where `idx` has NaNs in it.
+
+    Parameters
+    ----------
+    idx (list): indices to remove NaN values at.
+    labels (list): label list containing NaN values.
+
+    Returns
+    -------
+    (list): label list excluding NaN values at given indices
+    '''
+
     return labels[~np.isnan(idx)]
 
 
@@ -287,21 +407,39 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     '''
     Generates a dataframe containing scalar values over the course of a recording session.
     If a model string is included, then return only animals that were included in the model
+    Called to sort scalar metadata information when graphing in plot-scalar-summary.
 
-    Called to sort scalar metadata information when graphing in plot-scalar-summary
-    Args:
-        index: a sorted_index generated by `parse_index` or `get_sorted_index`
-        include_keys: a list of other moseq related keys to include in the dataframe
-        include_model (str): path to an existing moseq model
+    Parameters
+    ----------
+    index (dict): a sorted_index generated by `parse_index` or `get_sorted_index`
+    include_keys (list): a list of other moseq related keys to include in the dataframe
+    include_model (str): path to an existing moseq model
+    disable_output (bool): indicate whether to show tqdm output.
+    include_pcs (bool): UNUSED
+    npcs (int): UNUSED
+    include_feedback (bool): indicate whether to include timestamp data
+    force_conversion (bool): force the conversion of centroid_[xy]_px into mm.
+    include_labels (bool): UNUSED
+
+    Returns
+    -------
+    scalar_df (pandas DataFrame): DataFrame of loaded scalar values with their selected metadata.
     '''
+
     scalar_dict = defaultdict(list)
     skip = []
 
     files = index['files']
-    uuids = list(files.keys())
+    try:
+        uuids = list(files.keys())
+        # use dset from first animal to generate a list of scalars
+        dset = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='scalars')
+    except:
+        uuids = [f['uuid'] for f in index['files']]
+        # use dset from first animal to generate a list of scalars
+        dset = h5_to_dict(h5_filepath_from_sorted(files[0]), path='scalars')
 
-    # use dset from first animal to generate a list of scalars
-    dset = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='scalars')
+
 
     # only convert if the dataset is legacy and conversion is forced
     if is_legacy(dset) and force_conversion:
@@ -344,7 +482,12 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         # only include extractions that were modeled and fit the above criteria
         files = keyfilter(lambda x: x in labels, files)
 
-    for k, v in tqdm(files.items(), disable=disable_output):
+    try:
+        iter_items = files.items()
+    except:
+        iter_items = enumerate(files)
+
+    for k, v in tqdm(iter_items, disable=disable_output):
 
         pth = h5_filepath_from_sorted(v)
         dset = h5_to_dict(pth, 'scalars')

@@ -26,7 +26,6 @@ cytoolz = "*"
 networkx = "*"
 setuptools = "*"
 ipywidgets = "*"
-moseq2-viz = {editable = true, path = "."}
 matplotlib = "*"
 statsmodels = "*"
 hdf5storage = "*"
@@ -35,6 +34,3 @@ scikit-image = "*"
 scikit-learn = "*"
 dtaidistance = "*"
 opencv-python = "*"
-
-[requires]
-python_version = "3.6"

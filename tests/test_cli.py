@@ -35,26 +35,13 @@ def test_add_group():
     assert(not os.path.samefile(os.path.join(input_dir, 'orig.txt'), input_path))
     assert(results.exit_code == 0)
 
-def test_copy_h5_metadata_to_yaml():
-    input_dir = 'tests/test_files/_pca/'
+def copy_h5_metadata_to_yaml():
+    input_dir = 'tests/test_files/'
 
     runner = CliRunner()
     results = runner.invoke(copy_h5_metadata_to_yaml, ['--h5-metadata-path', input_dir+'pca_scores.h5',
                                                        '-i', input_dir])
 
-    assert (results.exit_code == 0)
-
-def test_generate_index():
-    input_dir = 'tests/test_files/'
-
-    runner = CliRunner()
-    results = runner.invoke(generate_index, ['-i', input_dir,
-                                             '-a', True,
-                                             '-p', input_dir+'_pca/pca_scores.h5',
-                                             '-o', input_dir+'test_gen_index.yaml'])
-
-    assert(os.path.exists(input_dir+'test_gen_index.yaml') == True)
-    os.remove(input_dir+'test_gen_index.yaml')
     assert (results.exit_code == 0)
 
 def test_plot_scalar_summary():
@@ -66,7 +53,6 @@ def test_plot_scalar_summary():
     results = runner.invoke(plot_scalar_summary, ['--output-file', gen_dir+'scalar',
                                                   input_dir+'test_index.yaml'])
 
-    #time.sleep(15)
     assert (os.path.exists(gen_dir + 'scalar_position.png'))
     assert (os.path.exists(gen_dir + 'scalar_position.pdf'))
     assert (os.path.exists(gen_dir + 'scalar_summary.png'))
@@ -123,7 +109,7 @@ def test_plot_usages():
                   input_dir+'mock_model.p']
 
     results = runner.invoke(plot_usages, use_params)
-    #time.sleep(15)
+
     assert (os.path.exists(gen_dir + 'test_usages.png'))
     assert (os.path.exists(gen_dir + 'test_usages.pdf'))
     os.remove(gen_dir + 'test_usages.png')

@@ -475,6 +475,7 @@ def copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path):
     # then stage the copy
 
     for i, tup in tqdm(enumerate(to_load), total=len(to_load), desc='Copying data to yamls'):
+        if os.path.isfile(tup[2]):
         with h5py.File(tup[2], 'r') as f:
             tmp = clean_dict(h5_to_dict(f, h5_metadata_path))
             tup[0]['metadata'] = dict(tmp)

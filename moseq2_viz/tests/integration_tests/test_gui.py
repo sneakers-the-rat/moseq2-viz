@@ -1,6 +1,5 @@
 import os
 import shutil
-import pandas as pd
 import ruamel.yaml as yaml
 from unittest import TestCase
 from moseq2_viz.gui import get_groups_command, add_group_by_session, add_group_by_subject, make_crowd_movies_command,\
@@ -27,7 +26,7 @@ class TestGUI(TestCase):
 
         num_groups = get_groups_command(index_path)
 
-        assert num_groups == len(set(groups))
+        assert num_groups == len(set(groups)), "Number of returned groups is incorrect"
 
     def test_add_group_by_session(self):
         index_path = 'data/test_index.yaml'
@@ -49,7 +48,7 @@ class TestGUI(TestCase):
 
         add_group_by_session(tmp_yaml, value, group, exact, lowercase, negative)
 
-        assert not os.path.samefile(index_path, tmp_yaml)
+        assert not os.path.samefile(index_path, tmp_yaml), "Index file was not updated."
         os.remove(tmp_yaml)
 
 
@@ -72,7 +71,7 @@ class TestGUI(TestCase):
 
         add_group_by_subject(tmp_yaml, value, group, exact, lowercase, negative)
 
-        assert not os.path.samefile(index_path, tmp_yaml)
+        assert not os.path.samefile(index_path, tmp_yaml), "Index file was not updated"
         os.remove(tmp_yaml)
 
     def test_make_crowd_movies_command(self):
@@ -84,9 +83,9 @@ class TestGUI(TestCase):
 
         out = make_crowd_movies_command(index_file, model_path, crowd_dir, max_syllable, max_examples)
 
-        assert 'Success' in out
-        assert (os.path.exists(crowd_dir))
-        assert (len(os.listdir(crowd_dir)) == max_syllable + 1)
+        assert 'Success' in out, "Crowd movies command did not complete successfully"
+        assert (os.path.exists(crowd_dir)), "Crowd movies directory does not exist"
+        assert (len(os.listdir(crowd_dir)) == max_syllable + 1), "Number of generated crowd movies is incorrect."
         shutil.rmtree(crowd_dir)
 
 
@@ -102,8 +101,8 @@ class TestGUI(TestCase):
 
         plot_usages_command(index_file, model_path, sort, count, max_syllable, group, output_file)
 
-        assert (os.path.exists(gen_dir + 'test_usages.png'))
-        assert (os.path.exists(gen_dir + 'test_usages.pdf'))
+        assert (os.path.exists(gen_dir + 'test_usages.png')), "Usages PNG plot was not saved"
+        assert (os.path.exists(gen_dir + 'test_usages.pdf')), "Usages PDF plot was not saved"
         os.remove(gen_dir + 'test_usages.png')
         os.remove(gen_dir + 'test_usages.pdf')
         os.removedirs(gen_dir)
@@ -114,11 +113,11 @@ class TestGUI(TestCase):
         output_file = gen_dir + 'test_scalar'
 
         df = plot_scalar_summary_command(index_file, output_file)
-        assert not df.empty
-        assert (os.path.exists(gen_dir + 'test_scalar_position.png'))
-        assert (os.path.exists(gen_dir + 'test_scalar_position.pdf'))
-        assert (os.path.exists(gen_dir + 'test_scalar_summary.png'))
-        assert (os.path.exists(gen_dir + 'test_scalar_summary.pdf'))
+        assert not df.empty, "Scalar DataFrame was not return correctly; is empty."
+        assert (os.path.exists(gen_dir + 'test_scalar_position.png')), "Position Summary PNG plot was not saved"
+        assert (os.path.exists(gen_dir + 'test_scalar_position.pdf')), "Position Summary PDF plot was not saved"
+        assert (os.path.exists(gen_dir + 'test_scalar_summary.png')), "Scalar Summary PNG plot was not saved"
+        assert (os.path.exists(gen_dir + 'test_scalar_summary.pdf')), "Scalar Summary PDF plot was not saved"
         shutil.rmtree(gen_dir)
 
     def test_plot_transition_graph_command(self):
@@ -131,8 +130,8 @@ class TestGUI(TestCase):
         output_file = gen_dir+'test_transitions'
 
         plot_transition_graph_command(index_file, model_path, config_file, max_syllable, group, output_file)
-        assert (os.path.exists(output_file + '.png'))
-        assert (os.path.exists(output_file + '.pdf'))
+        assert (os.path.exists(output_file + '.png')), "Transition PNG graph was not saved"
+        assert (os.path.exists(output_file + '.pdf')), "Transition PDF graph was not saved"
         shutil.rmtree(gen_dir)
 
 
@@ -146,8 +145,8 @@ class TestGUI(TestCase):
         output_file = gen_dir + 'test_durations'
 
         plot_syllable_durations_command(model_path, index_file, group, count, max_syllable, output_file)
-        assert (os.path.exists(output_file + '.png'))
-        assert (os.path.exists(output_file + '.pdf'))
+        assert (os.path.exists(output_file + '.png')), "Durations PNG graph was not saved"
+        assert (os.path.exists(output_file + '.pdf')), "Durations PNG graph was not saved"
         shutil.rmtree(gen_dir)
 
     def test_copy_h5_metadata_to_yaml_command(self):

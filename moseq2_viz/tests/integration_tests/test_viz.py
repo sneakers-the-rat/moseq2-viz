@@ -117,7 +117,7 @@ class TestViz(TestCase):
         frames = get_fake_movie()
         medfilter_space = [0]
         gaussfilter_space = [0, 0]
-        tail_filter = None#[9, 9]
+        tail_filter = None
 
         out = clean_frames(frames, medfilter_space, gaussfilter_space, tail_filter)
         np.testing.assert_array_equal(frames, out)
@@ -144,21 +144,22 @@ class TestViz(TestCase):
         max_syllable = 40
         ebunch_anchor, orphans = get_ebunch(max_syllable=max_syllable)
 
-        assert all([isinstance(v, tuple) for v in ebunch_anchor])
-        assert len(ebunch_anchor) == (max_syllable + 1) * (max_syllable + 1)
-        assert len(orphans) == 0
+        assert all([isinstance(v, tuple) for v in ebunch_anchor]), "Ebunch return types != tuple"
+        assert len(ebunch_anchor) == (max_syllable + 1) * (max_syllable + 1), \
+            "Incorrect Number of transition matrix nodes"
+        assert len(orphans) == 0, "Unwanted orphan nodes were generated"
 
     def test_convert_ebunch_to_graph(self):
         ebunch_anchor, orphans = get_ebunch()
         g = convert_ebunch_to_graph(ebunch_anchor)
-        assert isinstance(g, nx.DiGraph)
+        assert isinstance(g, nx.DiGraph), "Return type is not a networkx Digraph"
 
 
     def test_floatRgb(self):
         for i in range(0, 10):
             x = float(i)/10
-            r,g,b = floatRgb(x, x, x)
-            assert all((r,g,b)) >= 0 and all((r,g,b)) <= 1.0
+            r, g, b = floatRgb(x, x, x)
+            assert all((r,g,b)) >= 0 and all((r,g,b)) <= 1.0, "floatRgb value is invalid."
 
     def test_graph_transition_matrix(self):
         trans_mats, usages = get_ebunch(ret_trans=True)
@@ -167,7 +168,7 @@ class TestViz(TestCase):
 
         outfile = 'data/test_transition.png'
         plt.savefig(outfile)
-        assert os.path.exists(outfile)
+        assert os.path.exists(outfile), "Transition graph was not saved."
         os.remove(outfile)
 
     def test_make_crowd_matrix(self):
@@ -190,7 +191,8 @@ class TestViz(TestCase):
         syllable_slices = get_syllable_slices(2, labels, label_uuids, index_data)
 
         crowd_matrix = make_crowd_matrix(syllable_slices)
-        assert crowd_matrix.shape == (62, 424, 512)
+        assert crowd_matrix.shape[0] == 62, "Crowd movie number of frames is incorrect"
+        assert crowd_matrix.shape == (62, 424, 512), "Crowd movie resolution is incorrect"
 
     def test_position_plot(self):
         index_file = 'data/test_index_crowd.yaml'
@@ -206,7 +208,8 @@ class TestViz(TestCase):
         plt, ax = position_plot(scalar_df)
         outfile = 'data/test_position.png'
         plt.savefig(outfile)
-        assert os.path.exists(outfile)
+
+        assert os.path.exists(outfile), "Position graph was not saved."
         os.remove(outfile)
 
     def test_scalar_plot(self):
@@ -223,7 +226,8 @@ class TestViz(TestCase):
         plt, ax = scalar_plot(scalar_df)
         outfile = 'data/test_scalars.png'
         plt.savefig(outfile)
-        assert os.path.exists(outfile)
+
+        assert os.path.exists(outfile), "Scalars plot was not saved."
         os.remove(outfile)
 
     def test_usage_plot(self):
@@ -246,10 +250,12 @@ class TestViz(TestCase):
         plt, ax = usage_plot(df)
         outfile = 'data/test_usages.png'
         plt.savefig(outfile)
-        assert os.path.exists(outfile)
+
+        assert os.path.exists(outfile), "Usages plot was not saved."
         os.remove(outfile)
 
     def test_duration_plot(self):
+        # REFACTOR THIS TEST
         index_file = 'data/test_index.yaml'
         model_fit = 'data/test_model.p'
         max_syllable = 40
@@ -314,7 +320,8 @@ class TestViz(TestCase):
         plt, ax = duration_plot(df, groups=None)
         outfile = 'data/test_duration.png'
         plt.savefig(outfile)
-        assert os.path.exists(outfile)
+
+        assert os.path.exists(outfile), "Durations plot not saved."
         os.remove(outfile)
 
 

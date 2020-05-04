@@ -27,8 +27,8 @@ class TestCLI(TestCase):
                         input_path]
 
         results = runner.invoke(add_group, group_params)
-        assert (results.exit_code == 0)
-        assert (not os.path.samefile(os.path.join(input_dir, 'orig.txt'), input_path))
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (not os.path.samefile(os.path.join(input_dir, 'orig.txt'), input_path)), "Index file was not updated."
         os.remove(original_file)
 
     def test_copy_h5_metadata_to_yaml(self):
@@ -48,11 +48,11 @@ class TestCLI(TestCase):
         results = runner.invoke(plot_scalar_summary, ['--output-file', gen_dir + 'scalar',
                                                       input_dir + 'test_index.yaml'])
 
-        assert (results.exit_code == 0)
-        assert (os.path.exists(gen_dir + 'scalar_position.png'))
-        assert (os.path.exists(gen_dir + 'scalar_position.pdf'))
-        assert (os.path.exists(gen_dir + 'scalar_summary.png'))
-        assert (os.path.exists(gen_dir + 'scalar_summary.pdf'))
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(gen_dir + 'scalar_position.png')), "Position summary PNG not found"
+        assert (os.path.exists(gen_dir + 'scalar_position.pdf')), "Position summary PDF not found"
+        assert (os.path.exists(gen_dir + 'scalar_summary.png')), "Scalar summary PNG not found"
+        assert (os.path.exists(gen_dir + 'scalar_summary.pdf')), "Scalar summary PDF not found"
         shutil.rmtree(gen_dir)
 
     def test_plot_transition_graph(self):
@@ -77,9 +77,9 @@ class TestCLI(TestCase):
 
         results = runner.invoke(plot_transition_graph, trans_params)
 
-        assert (results.exit_code == 0)
-        assert (os.path.exists(gen_dir + 'transitions.png'))
-        assert (os.path.exists(gen_dir + 'transitions.pdf'))
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(gen_dir + 'transitions.png')), "Transition graph PNG not found"
+        assert (os.path.exists(gen_dir + 'transitions.pdf')), "Transition graph PDF not found"
         shutil.rmtree(gen_dir)
 
     def test_plot_usages(self):
@@ -97,9 +97,9 @@ class TestCLI(TestCase):
 
         results = runner.invoke(plot_usages, use_params)
 
-        assert (results.exit_code == 0)
-        assert (os.path.exists(gen_dir + 'test_usages.png'))
-        assert (os.path.exists(gen_dir + 'test_usages.pdf'))
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(gen_dir + 'test_usages.png')), "Usage plot PNG not found"
+        assert (os.path.exists(gen_dir + 'test_usages.pdf')), "Usage plot PDF not found"
         os.remove(gen_dir + 'test_usages.png')
         os.remove(gen_dir + 'test_usages.pdf')
         os.removedirs(gen_dir)
@@ -127,7 +127,7 @@ class TestCLI(TestCase):
 
         results = runner.invoke(make_crowd_movies, crowd_params)
 
-        assert (results.exit_code == 0)
-        assert (os.path.exists(crowd_dir))
-        assert (len(os.listdir(crowd_dir)) == max_syllable + 1)
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(crowd_dir)), "Crowd movies directory was not found"
+        assert (len(os.listdir(crowd_dir)) == max_syllable + 1), "Number of crowd movies does not match max syllables"
         shutil.rmtree(crowd_dir)

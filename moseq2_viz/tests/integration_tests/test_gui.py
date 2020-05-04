@@ -74,21 +74,6 @@ class TestGUI(TestCase):
         assert not os.path.samefile(index_path, tmp_yaml), "Index file was not updated"
         os.remove(tmp_yaml)
 
-    def test_make_crowd_movies_command(self):
-        index_file = 'data/test_index_crowd.yaml'
-        model_path = 'data/mock_model.p'
-        crowd_dir = 'data/crowd_movies/'
-        max_examples = 40
-        max_syllable = 5
-
-        out = make_crowd_movies_command(index_file, model_path, crowd_dir, max_syllable, max_examples)
-
-        assert 'Success' in out, "Crowd movies command did not complete successfully"
-        assert (os.path.exists(crowd_dir)), "Crowd movies directory does not exist"
-        assert (len(os.listdir(crowd_dir)) == max_syllable + 1), "Number of generated crowd movies is incorrect."
-        shutil.rmtree(crowd_dir)
-
-
     def test_plot_usages_command(self):
         gen_dir = 'data/gen_plots/'
         index_file = 'data/test_index.yaml'

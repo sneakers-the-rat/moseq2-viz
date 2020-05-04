@@ -31,9 +31,7 @@ def cli():
 def add_group(index_file, key, value, group, exact, lowercase, negative):
 
     click_data = click.get_current_context().params
-    cli_data = {k: v for k, v in click_data.items()}
-
-    add_group_wrapper(index_file, cli_data)
+    add_group_wrapper(index_file, click_data)
 
 
 
@@ -70,8 +68,7 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
                       legacy_jitter_fix, frame_path, gaussfilter_space, medfilter_space):
 
     click_data = click.get_current_context().params
-    cli_data = {k: v for k, v in click_data.items()}
-    make_crowd_movies_wrapper(index_file, model_path, cli_data, output_dir)
+    make_crowd_movies_wrapper(index_file, model_path, click_data, output_dir)
 
     print(f'Crowd movies successfully generated in {output_dir}.')
 
@@ -110,8 +107,7 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
                           edge_scaling, node_scaling, scale_node_by_usage, width_per_group):
 
     click_data = click.get_current_context().params
-    cli_data = {k: v for k, v in click_data.items()}
-    plot_transition_graph_wrapper(index_file, model_fit, cli_data, output_file)
+    plot_transition_graph_wrapper(index_file, model_fit, click_data, output_file)
 
 
 @cli.command(name='plot-usages')

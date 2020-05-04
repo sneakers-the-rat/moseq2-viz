@@ -33,6 +33,7 @@ def write_crowd_movies(sorted_index, config_data, filename_format, vid_parameter
     -------
     None
     '''
+
     from tqdm.auto import tqdm
     with mp.Pool() as pool:
         slice_fun = partial(get_syllable_slices,
@@ -100,6 +101,7 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
     -------
     (subProcess.Pipe object): if there are more slices/chunks to write to, otherwise None.
     '''
+
     if not np.mod(frames.shape[1], 2) == 0:
         frames = np.pad(frames, ((0, 0), (0, 1), (0, 0)), 'constant', constant_values=0)
 

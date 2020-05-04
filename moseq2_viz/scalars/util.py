@@ -339,6 +339,7 @@ def _pca_matches_labels(pca, labels):
     -------
     (bool): indicates whether the PC scores length matches the corresponding assigned labels.
     '''
+
     return len(pca) == len(labels)
 
 
@@ -356,6 +357,7 @@ def process_scalars(scalar_map: dict, include_keys: list, zscore: bool = False) 
     -------
 
     '''
+
     out = defaultdict(list)
     for k, v in scalar_map.items():
         for scalar in include_keys:

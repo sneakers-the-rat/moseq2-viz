@@ -19,6 +19,7 @@ before_install:
   - if [ "$TRAVIS_OS_NAME" == "linux" ]; then sudo apt-get update; fi
   - if [ "$TRAVIS_OS_NAME" == "linux" ]; then sudo apt-get install -y ffmpeg --allow-unauthenticated; fi
 # script for tests
+before_script: make
 script:
   - pytest --cov=./moseq2_viz
 after_success:

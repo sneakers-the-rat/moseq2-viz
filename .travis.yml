@@ -12,6 +12,8 @@ install:
 # ffmpeg from https://gist.github.com/kevinGodell/bd52cd74c8c2d66fb69f108ef223c356
 # maybe os x support, seems super flaky though, https://github.com/travis-ci/travis-ci/issues/2312#issuecomment-195620855
 before_install:
+  - pip install -U pip
+  - pip install awscli
   - pip install pytest codecov
   - pip install "pytest-cov>=2.4.0,<2.6"
   - export PYTHONPATH=$PYTHONPATH:$(pwd)

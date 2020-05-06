@@ -71,7 +71,7 @@ def add_group_wrapper(index_file, config_data):
     print('Group(s) added successfully.')
 
 
-def plot_scalar_summary_wrapper(index_file, output_file, gui=False):
+def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', gui=False):
     '''
     Wrapper function that plots scalar summary graphs.
 
@@ -93,8 +93,8 @@ def plot_scalar_summary_wrapper(index_file, output_file, gui=False):
     index, sorted_index = parse_index(index_file)
     scalar_df = scalars_to_dataframe(sorted_index)
 
-    plt_scalars, _ = scalar_plot(scalar_df, headless=True)
-    plt_position, _ = position_plot(scalar_df, headless=True)
+    plt_scalars, _ = scalar_plot(scalar_df, group_var=groupby, headless=True)
+    plt_position, _ = position_plot(scalar_df, group_var=groupby, headless=True)
 
     plt_scalars.savefig('{}_summary.png'.format(output_file))
     plt_scalars.savefig('{}_summary.pdf'.format(output_file))

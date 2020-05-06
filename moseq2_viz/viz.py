@@ -618,8 +618,12 @@ def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
             ax.set_ylim(lims)
             ax.axis('off')
 
-            if j == 0:
+            if group_var == 'group':
+                if j == 0:
+                    ax.set_title(name)
+            else:
                 ax.set_title(name)
+
 
             if i == 0 and j == len(group_session) - 1:
                 y_line = lines.Line2D([lims[0], lims[0]],

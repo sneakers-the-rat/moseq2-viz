@@ -270,7 +270,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
 
     Parameters
     ----------
-    syllable (list): list of syllables to get slices from.
+    syllable (int): syllable number to get slices of.
     labels (np.ndarrary): list of label predictions for each session.
     label_uuids (list): list of uuid keys corresponding to each session.
     index (dict): index file contents contained in a dict.
@@ -735,8 +735,8 @@ def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
 
     Parameters
     ----------
-    ar_mat (np.ndarray): numpy array representing the autoregressive matrix of each model state.
-    init_points (np.ndarray): pre-initialzed array of the same shape as the ar-matrices.
+    ar_mat (3D np.ndarray): numpy array representing the autoregressive matrix of each model state.
+    init_points (2D np.ndarray): pre-initialzed array of the same shape as the ar-matrices.
     sim_points (int): number of trajectories to simulate.
 
     Returns
@@ -792,8 +792,8 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
 
     Returns
     -------
-    new_matrix (np.ndarray):
-    param_dict (dict):
+    new_matrix (np.ndarray): either average of all AR-matrices, or top sorted matrix
+    param_dict (dict): model parameter dict
     filename_index (list): list of filenames associated with each model.
     '''
 

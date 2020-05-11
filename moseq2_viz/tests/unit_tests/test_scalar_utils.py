@@ -84,6 +84,22 @@ class TestScalarUtils(TestCase):
         assert is_legacy(out_feat) == False
         self.assertRaises(KeyError, convert_legacy_scalars, test_file, force=True)
 
+        # setting up values to convert
+        out_feat['height_ave_mm'] = [1]
+        out_feat['width'] = [1]
+        out_feat['width_mm'] = [1]
+        out_feat['width_px'] = [1]
+        out_feat['length'] = [1]
+        out_feat['length_mm'] = [1]
+        out_feat['length_px'] = [1]
+        out_feat['area'] = [1]
+        out_feat['area_mm'] = [1]
+        out_feat['area_px'] = [1]
+
+        feats = convert_legacy_scalars(out_feat, force=True)
+
+        assert feats != out_feat
+
     def test_get_scalar_map(self):
         index_file = 'data/test_index_crowd.yaml'
 
@@ -206,7 +222,9 @@ class TestScalarUtils(TestCase):
         assert all(out == [1,2,3,4,5,1,2,3,4,5])
 
     def test_scalars_to_dataframe(self):
-        index_file = 'data/test_index_crowd.yaml'
+        index_file = 'data/test_index.yaml'
+        model_file = 'data/mock_model.p'
+
         df_cols = ['angle', 'area_mm', 'area_px', 'centroid_x_mm', 'centroid_x_px',
        'centroid_y_mm', 'centroid_y_px', 'height_ave_mm', 'length_mm',
        'length_px', 'velocity_2d_mm', 'velocity_2d_px', 'velocity_3d_mm',
@@ -227,6 +245,15 @@ class TestScalarUtils(TestCase):
         assert isinstance(scalar_df, pd.DataFrame)
         assert all(scalar_df.columns == df_cols)
         assert scalar_df.shape == (total_frames, len(df_cols))
+
+        scalar_df2 = scalars_to_dataframe(index_data, include_model=model_file, include_feedback=True)
+
+        assert isinstance(scalar_df, pd.DataFrame)
+        assert scalar_df2.shape == (total_frames, len(df_cols)+4)
+
+        assert len(scalar_df.columns) != len(scalar_df2.columns)
+
+
 
 if __name__ == '__main__':
     unittest.main()

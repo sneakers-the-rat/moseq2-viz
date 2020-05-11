@@ -456,9 +456,19 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 
         labels = mdl['labels']
 
+        if isinstance(labels, dict):
+            keys = list(labels.keys())
+            labels = np.array(list(labels.values()))
+
         # we need to call these functions here so we don't filter out data before relabelling
         usage, _ = relabel_by_usage(labels, count='usage')
         frames, _ = relabel_by_usage(labels, count='frames')
+
+        if isinstance(usage, list) or isinstance(usage, np.ndarray):
+            usage = {k:v for k,v in zip(keys, usage)}
+            frames = {k: v for k, v in zip(keys, frames)}
+            labels = {k: v for k, v in zip(keys, labels)}
+            files = {k: v for k, v in zip(keys, files)}
 
         # get pca score indices
         scores_idx = h5_to_dict(index['pca_path'], 'scores_idx')
@@ -481,6 +491,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         usage = star_valmap(remove_nans_from_labels, merger(usage))
         frames = star_valmap(remove_nans_from_labels, merger(frames))
         labels = star_valmap(remove_nans_from_labels, merger(labels))
+
         # only include extractions that were modeled and fit the above criteria
         files = keyfilter(lambda x: x in labels, files)
 

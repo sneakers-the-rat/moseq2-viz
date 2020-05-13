@@ -111,3 +111,4 @@ venv.bak/
 # VS Code
 .vscode
 data/
+.doctrees/

@@ -184,7 +184,7 @@ def plot_usages_command(index_file, model_fit, sort, count, max_syllable, group,
     print('Usage plot successfully generated')
     return fig
 
-def plot_scalar_summary_command(index_file, output_file):
+def plot_scalar_summary_command(index_file, output_file, groupby='group'):
     '''
     Creates a scalar summary graph and a position summary graph
 
@@ -198,7 +198,7 @@ def plot_scalar_summary_command(index_file, output_file):
     scalar_df (pandas DataFrame): DataFrame containing all of scalar values for debugging.
     '''
 
-    scalar_df = plot_scalar_summary_wrapper(index_file, output_file, gui=True)
+    scalar_df = plot_scalar_summary_wrapper(index_file, output_file, groupby=groupby, gui=True)
     return scalar_df
 
 def plot_transition_graph_command(index_file, model_fit, config_file, max_syllable, group, output_file):

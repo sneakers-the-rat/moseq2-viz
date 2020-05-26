@@ -687,6 +687,8 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, sessions, groups, 
     lbl_df = label_df.T
     gk = ['group', 'uuid']
 
+    scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
+
     centroid_speeds = scalar_df[['centroid_speed_mm'] + gk]
 
     all_sessions = []
@@ -719,4 +721,3 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, sessions, groups, 
     complete_df = pd.merge(complete_df, all_speeds_df, on=['uuid', 'syllable'])
 
     return complete_df
-

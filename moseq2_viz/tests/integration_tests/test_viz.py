@@ -12,8 +12,7 @@ from moseq2_viz.scalars.util import scalars_to_dataframe
 from moseq2_viz.model.util import parse_model_results, get_transition_matrix, \
     get_syllable_statistics, relabel_by_usage, get_syllable_slices, results_to_dataframe
 from moseq2_viz.viz import clean_frames, convert_ebunch_to_graph, floatRgb, convert_transition_matrix_to_ebunch, \
-    graph_transition_matrix, make_crowd_matrix, \
-    position_plot, scalar_plot
+    graph_transition_matrix, make_crowd_matrix, position_plot, scalar_plot, plot_syll_stats_with_sem
 
 def get_fake_movie():
     edge_size = 40
@@ -230,7 +229,39 @@ class TestViz(TestCase):
         assert os.path.exists(outfile), "Scalars plot was not saved."
         os.remove(outfile)
 
+    def test_plot_syll_stats_with_sem(self):
+        test_index = 'data/test_index.yaml'
+        test_model = 'data/test_model.p'
 
+        _, sorted_index = parse_index(test_index)
+
+        for i, (k, v) in enumerate(sorted_index['files'].items()):
+            if i == 1:
+                sorted_index['files'][k]['group'] = 'Group2'
+
+        complete_df, _ = results_to_dataframe(test_model, sorted_index)
+
+        # mutation order plot with correct parameters
+        fig = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='m', max_sylls=None, groups=None,
+                                       ctrl_group='Group1', exp_group='Group2', colors=['red', 'orange'], fmt='o-')
+
+        assert fig != None
+
+        # different stat selected, len(colors) < len(groups)
+        fig = plot_syll_stats_with_sem(complete_df, stat='dur', ordering='dur', max_sylls=40, groups=['Group1', 'Group2'],
+                                       ctrl_group=None, exp_group=None, colors=['red'], fmt='o-')
+
+        assert fig != None
+
+        # incorrect groups, and empty colors, descending order sorting
+        fig = plot_syll_stats_with_sem(complete_df, stat='dur', ordering='dur', max_sylls=None,
+                                       groups=['Group', 'Group2'], ctrl_group=None, exp_group=None, colors=[], fmt='o-')
+
+        assert fig != None
+
+        # currently raises error if user inputs incorrect ctrl_group/exp_group name
+        self.assertRaises(BaseException, plot_syll_stats_with_sem, complete_df, stat='usage', ordering='m', max_sylls=None, groups=None,
+                                       ctrl_group='Grou1', exp_group='Group2', colors=['red', 'orange'], fmt='o-')
 
 if __name__ == '__main__':
     unittest.main()

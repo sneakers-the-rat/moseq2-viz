@@ -1,15 +1,16 @@
-import os
 import joblib
 import unittest
 import numpy as np
 import pandas as pd
 import ruamel.yaml as yaml
 from unittest import TestCase
-from cytoolz import merge_with, keyfilter
-from moseq2_viz.model.util import parse_model_results, h5_to_dict
+from cytoolz import merge_with
+from moseq2_viz.util import parse_index
+from moseq2_viz.model.util import parse_model_results, h5_to_dict, results_to_dataframe
 from moseq2_viz.scalars.util import star_valmap, remove_nans_from_labels, convert_pxs_to_mm, is_legacy, \
     generate_empty_feature_dict, convert_legacy_scalars, get_scalar_map, get_scalar_triggered_average, \
-    nanzscore, _pca_matches_labels, process_scalars, find_and_load_feedback, scalars_to_dataframe
+    nanzscore, _pca_matches_labels, process_scalars, find_and_load_feedback, scalars_to_dataframe, \
+    make_a_heatmap, compute_all_pdf_data, compute_session_centroid_speeds, compute_mean_syll_speed
 
 
 class TestScalarUtils(TestCase):
@@ -253,7 +254,61 @@ class TestScalarUtils(TestCase):
 
         assert len(scalar_df.columns) != len(scalar_df2.columns)
 
+    def test_make_a_heatmap(self):
 
+        index_file = 'data/test_index.yaml'
+
+        index, sorted_index = parse_index(index_file)
+        scalar_df = scalars_to_dataframe(sorted_index)
+
+        sess = list(set(scalar_df.uuid))[0]
+        centroid_vars = ['centroid_x_mm', 'centroid_y_mm']
+
+        position = scalar_df[scalar_df['uuid'] == sess][centroid_vars].dropna(how='all').to_numpy()
+
+        test_pdf = make_a_heatmap(position)
+        assert test_pdf.shape == (50, 50)
+        assert test_pdf.all() != 0
+
+    def test_compute_all_pdf_data(self):
+
+        index_file = 'data/test_index.yaml'
+
+        index, sorted_index = parse_index(index_file)
+        scalar_df = scalars_to_dataframe(sorted_index)
+
+        test_pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df)
+
+        assert len(test_pdfs) == len(groups) == len(sessions) == len(subjectNames)
+        for i in range(len(test_pdfs)):
+            assert test_pdfs[i].shape == (50, 50)
+
+    def test_compute_session_centroid_speeds(self):
+        index_file = 'data/test_index.yaml'
+
+        index, sorted_index = parse_index(index_file)
+        scalar_df = scalars_to_dataframe(sorted_index)
+
+        new_col = compute_session_centroid_speeds(scalar_df)
+
+        assert str(new_col.iloc[0]) == 'nan' # no speed recorded in first frame of recording
+        assert len(new_col) == len(scalar_df)
+
+    def test_compute_mean_syll_speed(self):
+        test_index = 'data/test_index.yaml'
+        test_model = 'data/test_model.p'
+
+        _, sorted_index = parse_index(test_index)
+        scalar_df = scalars_to_dataframe(sorted_index)
+        complete_df, label_df = results_to_dataframe(test_model, sorted_index)
+
+        sessions = list(set(scalar_df.uuid))
+        groups = list(set(scalar_df.group))
+
+        complete_df = compute_mean_syll_speed(complete_df, scalar_df, label_df, sessions, groups, max_sylls=40)
+
+        assert 'speed' in complete_df.columns
+        assert not complete_df.speed.isnull().all()
 
 if __name__ == '__main__':
     unittest.main()

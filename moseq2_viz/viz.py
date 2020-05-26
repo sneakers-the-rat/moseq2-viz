@@ -843,7 +843,8 @@ def plot_syll_stats_with_sem(complete_df, stat='usage', ordering=None, max_sylls
         ylabel = 'Mean Syllable Speed (mm/s)'
         xlabel = 'speed'
 
-    plt.legend(loc='upper center')
+    plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1.05),
+               ncol=1, fancybox=True, shadow=True, fontsize=16)
     plt.xticks(range(max_sylls), ordering)
     plt.ylabel(ylabel, fontsize=12)
     plt.ylim()

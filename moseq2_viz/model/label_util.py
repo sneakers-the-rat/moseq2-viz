@@ -114,6 +114,7 @@ def get_syllable_muteness_ordering(complete_df, ctrl_group, exp_group, max_sylls
         .sub(control_df.groupby('syllable', as_index=True).mean(), fill_value=0)
     if max_sylls == None:
         max_sylls = len(diff_df)
+
     # sort them from most mutant to least mutant
     muteness_ordering = diff_df.sort_values(by=stat, ascending=False).index[:max_sylls]
 

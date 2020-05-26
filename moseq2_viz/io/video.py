@@ -6,6 +6,7 @@ import numpy as np
 from tqdm.auto import tqdm
 import multiprocessing as mp
 from functools import partial
+import matplotlib.pyplot as plt
 from moseq2_viz.viz import make_crowd_matrix
 from moseq2_viz.model.util import get_syllable_slices
 
@@ -139,8 +140,6 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    import matplotlib.pyplot as plt
-
     use_cmap = plt.get_cmap(cmap)
 
     for i in tqdm(range(frames.shape[0]), desc="Writing frames", disable=~progress_bar):
@@ -149,10 +148,10 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
         disp_img[disp_img < 0] = 0
         disp_img[disp_img > 1] = 1
         disp_img = np.delete(use_cmap(disp_img), 3, 2)*255
-        #if text is not None:
-        #    disp_img = cv2.putText(disp_img, text, txt_pos, font,
-        #                           text_scale, white, text_thickness, cv2.LINE_AA)
-        #pipe.stdin.write(disp_img.astype('uint8').tostring())
+        if text is not None:
+            disp_img = cv2.putText(disp_img, text, txt_pos, font,
+                                   text_scale, white, text_thickness, cv2.LINE_AA)
+        pipe.stdin.write(disp_img.astype('uint8').tostring())
 
     if close_pipe:
         pipe.stdin.close()

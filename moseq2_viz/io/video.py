@@ -1,16 +1,15 @@
 import os
 import cv2
-import tqdm
 import warnings
 import subprocess
 import numpy as np
-from cytoolz import partial
+from tqdm.auto import tqdm
 import multiprocessing as mp
-import matplotlib.pyplot as plt
+from functools import partial
 from moseq2_viz.viz import make_crowd_matrix
 from moseq2_viz.model.util import get_syllable_slices
 
-def write_crowd_movies(sorted_index, config_data, filename_format, vid_parameters, clean_params, ordering,\
+def write_crowd_movies(sorted_index, config_data, filename_format, vid_parameters, clean_params, ordering, \
                        labels, label_uuids, max_syllable, max_examples, output_dir):
     '''
     Creates syllable slices for crowd movies and writes them to files.
@@ -34,7 +33,6 @@ def write_crowd_movies(sorted_index, config_data, filename_format, vid_parameter
     None
     '''
 
-    from tqdm.auto import tqdm
     with mp.Pool() as pool:
         slice_fun = partial(get_syllable_slices,
                             labels=labels,
@@ -141,20 +139,20 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    # scale frames d00d
+    import matplotlib.pyplot as plt
 
     use_cmap = plt.get_cmap(cmap)
 
-    for i in tqdm.tqdm(range(frames.shape[0]), desc="Writing frames", disable=~progress_bar):
+    for i in tqdm(range(frames.shape[0]), desc="Writing frames", disable=~progress_bar):
         disp_img = frames[i, ...].copy().astype('float32')
         disp_img = (disp_img-depth_min)/(depth_max-depth_min)
         disp_img[disp_img < 0] = 0
         disp_img[disp_img > 1] = 1
         disp_img = np.delete(use_cmap(disp_img), 3, 2)*255
-        if text is not None:
-            disp_img = cv2.putText(disp_img, text, txt_pos, font,
-                                   text_scale, white, text_thickness, cv2.LINE_AA)
-        pipe.stdin.write(disp_img.astype('uint8').tostring())
+        #if text is not None:
+        #    disp_img = cv2.putText(disp_img, text, txt_pos, font,
+        #                           text_scale, white, text_thickness, cv2.LINE_AA)
+        #pipe.stdin.write(disp_img.astype('uint8').tostring())
 
     if close_pipe:
         pipe.stdin.close()

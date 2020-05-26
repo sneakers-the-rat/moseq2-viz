@@ -1,8 +1,9 @@
 import os
 import ruamel.yaml as yaml
-from .cli import plot_usages, plot_scalar_summary, plot_transition_graph, plot_syllable_durations
+from .cli import plot_transition_graph
 from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_usages_wrapper, plot_scalar_summary_wrapper, \
-        plot_syllable_durations_wrapper, plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper
+        plot_syllable_durations_wrapper, plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, \
+    plot_syllable_speeds_wrapper, plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper
 
 def get_groups_command(index_file, output_directory=None):
     '''
@@ -158,47 +159,60 @@ def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, 
 
     os.system(f'moseq2-viz make-crowd-movies --max-syllable {max_syllable} -m {max_examples} -o {output_dir} {index_file} {model_path}')
 
-    return 'Successfully generated '+str(max_examples) + ' crowd videos.'
+    if len(os.listdir(output_dir)) >= max_syllable:
+        return 'Successfully generated '+str(max_examples) + ' crowd videos.'
 
-def plot_usages_command(index_file, model_fit, sort, count, max_syllable, group, output_file):
+def plot_usages_command(model_fit, index_file, output_file, max_syllable=40, count='usage', group=None, sort=True,
+                        ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-'):
     '''
     Graph syllable usages from fit model data.
 
     Parameters
     ----------
-    index_file (str): path to index file
     model_fit (str): path to fit model.
-    sort (bool): sort by usages.
-    count (str): method to calculate syllable usages, either by 'frames' or 'usage'
-    max_syllable (int): max number of syllables to plot.
-    group (tuple): groups to include in usage plot. If empty, plots default average of all groups.
+    index_file (str): path to index file
     output_file (str): name of saved usages graph.
-
+    max_syllable (int): max number of syllables to plot.
+    count (str): method to calculate syllable usages, either by 'frames' or 'usage'
+    group (tuple): groups to include in usage plot. If empty, plots default average of all groups.
+    sort (bool): sort by usages.
+    ordering (list, range, str, None): order to list syllables. Default is None to graph syllables [0-max_syllable).
+     Setting ordering to "m" will graph mutated syllable usage difference between ctrl_group and exp_group.
+     None to graph default [0,max_syllable] in order. "usage" to plot descending order of usage values.
+    ctrl_group (str): Control group to graph when plotting mutation differences via setting ordering to 'm'.
+    exp_group (str): Experimental group to directly compare with control group.
+    colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
+    fmt (str): scatter plot format. "o-" for line plot with vertices at corresponding usages. "o" for just points.
     Returns
     -------
     fig (pyplot figure): figure to graph in Jupyter Notebook.
     '''
 
 
-    fig = plot_syllable_usages_wrapper(index_file, model_fit, max_syllable, sort, count, group, output_file, gui=True)
+    fig = plot_syllable_usages_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
+                                        count=count, group=group, gui=True, fmt=fmt, ordering=ordering,
+                                        ctrl_group=ctrl_group, exp_group=exp_group, colors=colors)
+
     print('Usage plot successfully generated')
     return fig
 
-def plot_scalar_summary_command(index_file, output_file, groupby='group'):
+def plot_scalar_summary_command(index_file, output_file, colors=None, groupby='group'):
     '''
-    Creates a scalar summary graph and a position summary graph
+    Creates a scalar summary graph and a position summary graph.
 
     Parameters
     ----------
     index_file (str): path to index file
     output_file (str): prefix name of scalar summary images
+    colors (list): list of colors to serve as the sns palette in the scalar summary
+    groupby (str): scalar_df column to group sessions by when graphing scalar and position summaries
 
     Returns
     -------
     scalar_df (pandas DataFrame): DataFrame containing all of scalar values for debugging.
     '''
 
-    scalar_df = plot_scalar_summary_wrapper(index_file, output_file, groupby=groupby, gui=True)
+    scalar_df = plot_scalar_summary_wrapper(index_file, output_file, groupby=groupby, colors=colors, gui=True)
     return scalar_df
 
 def plot_transition_graph_command(index_file, model_fit, config_file, max_syllable, group, output_file):
@@ -239,25 +253,101 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
     print('Transition graph(s) successfully generated')
     return fig
 
-def plot_syllable_durations_command(model_fit, index_file, groups, count, max_syllable, output_file, ylim=None):
+def plot_syllable_durations_command(model_fit, index_file, output_file, max_syllable=40, count='usage', groups=None,
+                                    ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-'):
     '''
-    Plot average syllable durations.
+    Plot average syllable durations over different sortings.
+    default ordering is by descending syllable usage. For descending order of durations, set ordering='duration'.
+    For ordering by mutated behavior between a specific experimental and control group, set ordering='m'
 
     Parameters
     ----------
     model_fit (str): path to fit model.
     index_file (str): path to index file.
-    groups (tuple): tuple groups to separately plot.
-    count (str): method to calculate syllable usages, either by 'frames' or 'usage'.
-    max_syllable (int): number of syllables to plot durations for.
     output_file (str): name of saved image of durations plot.
-    ylim (int): y-axis limit of graph.
+    max_syllable (int): number of syllables to plot durations for.
+    count (str): method to calculate syllable usages, either by 'frames' or 'usage'.
+    groups (tuple): tuple groups to separately plot.
+    ordering (list, range, str, None): order to list syllables. Default is None to graph syllables [0-max_syllable).
+     Setting ordering to "m" will graph mutated syllable usage difference between ctrl_group and exp_group.
+     None to graph default [0,max_syllable] in order. "durations" to plot descending order of duration values.
+    ctrl_group (str): Control group to graph when plotting mutation differences via setting ordering to 'm'.
+    exp_group (str): Experimental group to directly compare with control group.
+    colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
+    fmt (str): scatter plot format. "o-" for line plot with vertices at corresponding usages. "o" for just points.
 
     Returns
     -------
     fig (pyplot figure): figure to graph in Jupyter Notebook.
     '''
 
-    fig = plot_syllable_durations_wrapper(index_file, model_fit, groups, count, max_syllable, output_file, ylim=ylim, gui=True)
+    fig = plot_syllable_durations_wrapper(model_fit, index_file, output_file, count=count, max_syllable=max_syllable, group=groups, fmt=fmt,
+                                          ordering=ordering, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, gui=True)
+
+    return fig
+
+def plot_mean_syllable_speeds_command(model_fit, index_file, output_file, max_syllable=40, groups=None, fmt='o-',
+                                          ordering=None, ctrl_group=None, exp_group=None, colors=None):
+    '''
+    Computes the average syllable speed according to the rodent's centroid speed
+     at the frames with that respective syllable label.
+
+    Parameters
+    ----------
+    model_fit (str): path to fit model.
+    index_file (str): path to index file.
+    output_file (str): filename for syllable duration graph.
+    max_syllable (int): maximum number of syllables to plot.
+    groups (tuple): tuple groups to separately plot.
+    fmt (str): scatter plot format. "o-" for line plot with vertices at corresponding usages. "o" for just points.
+    ordering (list, range, str, None): order to list syllables. Default is None to graph syllables [0-max_syllable).
+     Setting ordering to "m" will graph mutated syllable usage difference between ctrl_group and exp_group.
+     None to graph default [0,max_syllable] in order. "durations" to plot descending order of duration values.
+    ctrl_group (str): Control group to graph when plotting mutation differences via setting ordering to 'm'.
+    exp_group (str): Experimental group to directly compare with control group.
+    colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
+
+    Returns
+    -------
+    fig (pyplot figure): figure to graph in Jupyter Notebook.
+    '''
+
+    fig = plot_syllable_speeds_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, group=groups, fmt=fmt,
+                                       ordering=ordering, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, gui=True)
+
+    return fig
+
+def plot_mean_group_position_heatmaps_command(index_file, output_file):
+    '''
+    Plots the average mouse position in a PDF-derived heatmap for each group found in the inputted index file.
+    Parameters
+    ----------
+    index_file (str): path to index file.
+    output_file (str): filename for syllable duration graph.
+
+    Returns
+    -------
+    fig (pyplot figure): figure to graph in Jupyter Notebook.
+    '''
+
+    fig = plot_mean_group_position_pdf_wrapper(index_file, output_file, gui=True)
+
+    return fig
+
+def plot_verbose_position_heatmaps(index_file, output_file):
+    '''
+    Plots a PDF-derived heatmap of each session found in the index file titled with the session name and group.
+
+    Parameters
+    ----------
+    index_file (str): path to index file.
+    output_file (str): filename for syllable duration graph.
+
+    Returns
+    -------
+    fig (pyplot figure): figure to graph in Jupyter Notebook.
+    '''
+
+    fig = plot_verbose_pdfs_wrapper(index_file, output_file, gui=True)
 
     return fig

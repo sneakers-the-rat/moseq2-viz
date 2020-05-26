@@ -5,7 +5,9 @@ import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 from itertools import starmap
+from multiprocessing import Pool
 from collections import defaultdict
+from sklearn.neighbors import KernelDensity
 from cytoolz import keyfilter, itemfilter, merge_with, curry, valmap, get
 from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
                              h5_filepath_from_sorted, get_timestamps_from_h5)
@@ -441,8 +443,6 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         # use dset from first animal to generate a list of scalars
         dset = h5_to_dict(h5_filepath_from_sorted(files[0]), path='scalars')
 
-
-
     # only convert if the dataset is legacy and conversion is forced
     if is_legacy(dset) and force_conversion:
         dset = convert_legacy_scalars(dset, force=force_conversion)
@@ -505,12 +505,6 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         pth = h5_filepath_from_sorted(v)
         dset = h5_to_dict(pth, 'scalars')
 
-        try:
-            timestamps = get_timestamps_from_h5(pth)
-        except:
-            print(f'timestamps for {pth} were not found, skipping')
-            continue
-
         # get extraction parameters for this h5 file
         dct = read_yaml(v['path'][1])
         parameters = dct['parameters']
@@ -527,9 +521,15 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
             dset = convert_legacy_scalars(dset, force=force_conversion)
 
         nframes = len(dset[scalar_names[0]])
-        if len(timestamps) != nframes:
-            warnings.warn(f'Timestamps not equal to number of frames for {pth}, skipping')
-            continue
+        if include_feedback:
+            try:
+                timestamps = get_timestamps_from_h5(pth)
+            except: #h5 file path exception, maybe Attribute or KeyError
+                print(f'timestamps for {pth} were not found')
+                pass
+            if len(timestamps) != nframes:
+                warnings.warn(f'Timestamps not equal to number of frames for {pth}, skipping')
+                continue
 
         # add scalar data for this animal
         for scalar in scalar_names:
@@ -566,3 +566,157 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     scalar_df = pd.DataFrame(scalar_dict)
 
     return scalar_df
+
+
+def make_a_heatmap(position):
+    '''
+    Uses a kernel density function to create a heatmap representing the mouse position throughout a single session.
+
+    Parameters
+    ----------
+    position (2d numpy array): 2d array of mouse centroid coordinates (for a single session),
+     computed from compute_session_centroid_speeds.
+
+
+    Returns
+    -------
+    pdf (2d numpy array): shape (50, 50) representing the PDF for the mouse position over the whole session.
+
+    '''
+
+    n_grid = 50
+
+    # Set up the bounds over which to build the KDE
+    X, Y = np.meshgrid(* \
+                           [np.linspace(*np.percentile(d, [0.01, 99.99]), num=n_grid)
+                            for d in (position[:, 0], position[:, 1])
+                            ])
+    position_grid = np.hstack((X.ravel()[:, None], Y.ravel()[:, None]))
+    bandwidth = (X.max() - X.min()) / 25.0
+
+    # Set up the KDE
+    kde = KernelDensity(bandwidth=bandwidth)
+    kde.fit(position)
+    pdf = np.exp(kde.score_samples(position_grid)).reshape(n_grid, n_grid)
+    return pdf
+
+
+def compute_all_pdf_data(scalar_df, normalize=True, centroid_vars=['centroid_x_mm', 'centroid_y_mm']):
+    '''
+    Computes a position PDF for all sessions and returns the pdfs with corresponding lists of
+     groups, session uuids, and subjectNames.
+
+    Parameters
+    ----------
+    scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
+    normalize (bool): Indicates whether normalize the pdfs.
+    centroid_vars (list): list of strings for column values to use when computing mouse position.
+
+    Returns
+    -------
+    pdfs (list): list of 2d np.arrays of PDFs for each session.
+    groups (list): list of strings of groups corresponding to pdfs index.
+    sessions (list): list of strings of session uuids corresponding to pdfs index.
+    subjectNames (list): list of strings of subjectNames corresponding to pdfs index.
+    '''
+
+    sessions = list(set(scalar_df.uuid))
+    groups, positions, subjectNames = [], [], []
+
+    for sess in tqdm(sessions):
+        groups.append(scalar_df[scalar_df['uuid'] == sess][['group']].iloc[0][0])
+        positions.append(scalar_df[scalar_df['uuid'] == sess][centroid_vars].dropna(how='all').to_numpy())
+        subjectNames.append(scalar_df[scalar_df['uuid'] == sess][['SubjectName']].iloc[0][0])
+
+    pool_ = Pool()
+    pdfs = pool_.map(make_a_heatmap, np.array(positions))
+    pdfs = np.stack(pdfs).copy()
+    pool_.close()
+
+    clim_ = 0, pdfs[0].max()
+
+    if normalize:
+        return np.stack([p / p.sum() for p in pdfs]), groups, sessions, subjectNames
+
+    return pdfs, groups, sessions, subjectNames
+
+
+def compute_session_centroid_speeds(scalar_df, grouping_keys=['uuid', 'group'],
+                                    centroid_keys=['centroid_x_mm', 'centroid_y_mm']):
+    '''
+    Computes the centroid speed float value of the mouse given the Series of  mm x and y coordinates
+     from the scalar_df DataFrame.
+
+    Parameters
+    ----------
+    scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
+    grouping_keys (list): list of column names to group the df keys by
+    centroid_keys (list): list of column names containing the centroid values.
+
+    Returns
+    -------
+    sc_speed (pd.DataFrame): single column of a DataFrame containing centroid value to be appended
+    as new column to scalar_df
+
+    '''
+
+    use_df = scalar_df[centroid_keys + grouping_keys]
+    sc_speed = (use_df.centroid_x_mm * 2.0).diff() ** 2 + (use_df.centroid_y_mm * 2.0).diff() ** 2
+
+    return sc_speed
+
+def compute_mean_syll_speed(complete_df, scalar_df, label_df, sessions, groups, max_sylls=40):
+    '''
+    Computes the mean syllable speed based on the centroid speed of the mouse at the frame indices
+     with corresponding label values.
+
+    Parameters
+    ----------
+    complete_df (pd.DataFrame): DataFrame containing syllable statistic results for each uuid.
+    scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
+    label_df (pd.DataFrame): DataFrame containing syllable labels at each frame (nsessions rows x max(nframes) cols)
+    sessions (list): list of strings of session uuids corresponding to pdfs index.
+    groups (list): list of strings of groups corresponding to pdfs index.
+    max_sylls (int): maximum amount of syllables to include in output.
+
+    Returns
+    -------
+    complete_df (pd.DataFrame): updated input dataframe with a speed value for each syllable merge in as a new column.
+    '''
+
+    lbl_df = label_df.T
+    gk = ['group', 'uuid']
+
+    centroid_speeds = scalar_df[['centroid_speed_mm'] + gk]
+
+    all_sessions = []
+    for group, sess in tqdm(zip(groups, sessions), total=len(groups), desc='Computing Per Session Syll Speeds'):
+        index = (group, sess)
+        sess_lbls = lbl_df[index].iloc[3:].reset_index().dropna(axis=0, how='all')
+        sess_speeds = centroid_speeds[centroid_speeds['uuid'] == sess].iloc[3:].reset_index()
+
+        sess_dict = {
+            'uuid': [],
+            'syllable': [],
+            'speed': []
+        }
+        for lbl in range(max_sylls):
+            indices = (sess_lbls[index] == lbl)
+
+            mean_lbl_speed = sess_speeds[indices].centroid_speed_mm.mean(skipna=True)
+
+            sess_dict['uuid'].append(sess)
+            sess_dict['syllable'].append(lbl)
+            sess_dict['speed'].append(mean_lbl_speed)
+
+        all_sessions.append(sess_dict)
+
+    all_speeds_df = pd.DataFrame.from_dict(all_sessions[0])
+
+    for i in tqdm(range(1, len(all_sessions))):
+        all_speeds_df = all_speeds_df.append(pd.DataFrame.from_dict(all_sessions[i]))
+
+    complete_df = pd.merge(complete_df, all_speeds_df, on=['uuid', 'syllable'])
+
+    return complete_df
+

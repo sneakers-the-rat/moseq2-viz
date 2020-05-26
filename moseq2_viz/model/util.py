@@ -440,8 +440,8 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
 
     Returns
     -------
-    usages (defaultdict): default dictionary of usages
-    durations (defaultdict): default dictionary of durations
+    usages (OrderedDict): default dictionary of usages
+    durations (OrderedDict): default dictionary of durations
     '''
 
     usages = defaultdict(int)
@@ -652,11 +652,34 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 
     return sorted_labels, sorting
 
+def get_frame_label_df(labels, uuids, groups):
+    '''
+    Returns a DataFrame with rows for each session, frame indices as columns,
+    and values corresponding to these frames+sessions for each frame.
+
+    Parameters
+    ----------
+    labels (2D np.array): list of np arrays containing syllable labels with respect to individually labeled frames.
+     Index by uuids.
+    uuids (list): list of uuid strings corresponding to each "row" in labels.
+    groups (list): list of group strings corresponding to each "row" in labels.
+
+    Returns
+    -------
+    label_df (pd.DataFrame): Dataframe of shape (nsessions x max(len(labels))). At columns exceeding session's labeled frame
+    count, values will be np.NaN. Rows are indexed by Multi-Index([['group', 'uuid'],...)
+
+    '''
+
+    total_columns = len(max(labels, key=len))
+    label_df = pd.DataFrame(labels, columns=range(total_columns), index=[groups, uuids])
+    return label_df
 
 def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', normalize=True, max_syllable=40,
                          include_meta=['SessionName', 'SubjectName', 'StartTime']):
     '''
     Converts inputted model dictionary to DataFrame with user specified metadata columns.
+    Also generates a DataFrame containing frame-by-frame syllable labels for all sessions.
 
     Parameters
     ----------
@@ -671,7 +694,7 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', norm
     Returns
     -------
     df (pd.DataFrame): DataFrame containing model results and metadata.
-    df_dict (dict): dictionary representation of the DataFrame.
+    label_df (pd.DataFrame): DataFrame containing syllable labels at each frame (nsessions rows x max(nframes) cols)
     '''
 
     if type(model_dict) is str:
@@ -679,6 +702,7 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', norm
 
     if sort:
         model_dict['labels'] = relabel_by_usage(model_dict['labels'], count=count)[0]
+
     # by default the keys are the uuids
 
     if 'train_list' in model_dict.keys():
@@ -686,19 +710,19 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', norm
     else:
         label_uuids = model_dict['keys']
 
-    # durations = []
-
     df_dict = {
-            'usage': [],
-            'group': [],
-            'syllable': []
-        }
+        'usage': [],
+        'duration': [],
+        'uuid': [],
+        'group': [],
+        'syllable': []
+    }
 
     for key in include_meta:
         df_dict[key] = []
 
     try:
-        groups = [index_dict['files'][uuid]['group'] for uuid in label_uuids]
+        groups = [index_dict['files'][uuid].get('group', 'default') for uuid in label_uuids]
     except:
         groups = []
         for i, uuid in enumerate(label_uuids):
@@ -711,22 +735,33 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', norm
         for i, uuid in enumerate(label_uuids):
             metadata.append(index_dict['files'][i].get('metadata'))
 
+    # get frame-by-frame label DataFrame
+    label_df = get_frame_label_df(model_dict['labels'], label_uuids, groups)
+
     for i, label_arr in enumerate(model_dict['labels']):
         tmp_usages, tmp_durations = get_syllable_statistics(label_arr, count=count, max_syllable=max_syllable)
         total_usage = np.sum(list(tmp_usages.values()))
         if total_usage <= 0:
             total_usage = 1.0
         for k, v in tmp_usages.items():
+            # average syll duration will be sum of all syllable durations divided by number of total sequences
+            durs = tmp_durations[k]
+            num_seqs = len(durs)
+            if len(durs) == 0:
+                num_seqs = 1.0
+
+            df_dict['duration'].append(sum(durs) / num_seqs)
             df_dict['usage'].append(v / total_usage)
             df_dict['syllable'].append(k)
             df_dict['group'].append(groups[i])
+            df_dict['uuid'].append(label_uuids[i])
 
             for meta_key in include_meta:
                 df_dict[meta_key].append(metadata[i][meta_key])
 
     df = pd.DataFrame.from_dict(data=df_dict)
 
-    return df, df_dict
+    return df, label_df
 
 def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
     '''

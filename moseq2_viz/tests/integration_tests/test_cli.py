@@ -1,7 +1,9 @@
+import os
 import shutil
-from moseq2_viz.cli import *
 from unittest import TestCase
 from click.testing import CliRunner
+from moseq2_viz.cli import add_group, copy_h5_metadata_to_yaml, plot_scalar_summary, plot_group_position_heatmaps, \
+    plot_verbose_position_heatmaps, plot_transition_graph, plot_usages, plot_syllable_durations, make_crowd_movies
 
 
 class TestCLI(TestCase):
@@ -55,6 +57,32 @@ class TestCLI(TestCase):
         assert (os.path.exists(gen_dir + 'scalar_summary.pdf')), "Scalar summary PDF not found"
         shutil.rmtree(gen_dir)
 
+    def plot_group_position_heatmaps(self):
+        input_dir = 'data/'
+        gen_dir = 'data/gen_plots/'
+        runner = CliRunner()
+
+        results = runner.invoke(plot_group_position_heatmaps, ['--output-file', gen_dir + 'group_heatmap',
+                                                      input_dir + 'test_index.yaml'])
+
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(gen_dir + 'group_heatmap.png')), "Position Heatmap PNG not found"
+        assert (os.path.exists(gen_dir + 'group_heatmap.pdf')), "Position Heatmap PDF file not found"
+        shutil.rmtree(gen_dir)
+
+    def test_plot_verbose_position_heatmaps(self):
+        input_dir = 'data/'
+        gen_dir = 'data/gen_plots/'
+        runner = CliRunner()
+
+        results = runner.invoke(plot_verbose_position_heatmaps, ['--output-file', gen_dir + 'heatmaps',
+                                                      input_dir + 'test_index.yaml'])
+
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(gen_dir + 'heatmaps.png')), "Position Heatmap PNG not found"
+        assert (os.path.exists(gen_dir + 'heatmaps.pdf')), "Position Heatmap PDF file not found"
+        shutil.rmtree(gen_dir)
+
     def test_plot_transition_graph(self):
         input_dir = 'data/'
         gen_dir = 'data/gen_plots/'
@@ -87,13 +115,9 @@ class TestCLI(TestCase):
 
         runner = CliRunner()
 
-        use_params = ['data/test_index.yaml',
-                      'data/test_model.p',
-                      '--output-file', gen_dir + 'test_usages',
-                      '--sort', True,
-                      '--count', 'usage',
-                      '--max-syllable', 40,
-                      '-g', 'Group1']
+        use_params = ['data/test_model.p',
+                      'data/test_index.yaml',
+                      '--output-file', gen_dir + 'test_usages']
 
         results = runner.invoke(plot_usages, use_params)
 
@@ -102,6 +126,24 @@ class TestCLI(TestCase):
         assert (os.path.exists(gen_dir + 'test_usages.pdf')), "Usage plot PDF not found"
         os.remove(gen_dir + 'test_usages.png')
         os.remove(gen_dir + 'test_usages.pdf')
+        os.removedirs(gen_dir)
+
+    def test_plot_durations(self):
+        gen_dir = 'data/gen_plots/'
+
+        runner = CliRunner()
+
+        use_params = ['data/test_model.p',
+                      'data/test_index.yaml',
+                      '--output-file', gen_dir + 'test_durations']
+
+        results = runner.invoke(plot_syllable_durations, use_params)
+
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(gen_dir + 'test_durations.png')), "Duration plot PNG not found"
+        assert (os.path.exists(gen_dir + 'test_durations.pdf')), "Duration plot PDF not found"
+        os.remove(gen_dir + 'test_durations.png')
+        os.remove(gen_dir + 'test_durations.pdf')
         os.removedirs(gen_dir)
 
     def test_make_crowd_movies(self):

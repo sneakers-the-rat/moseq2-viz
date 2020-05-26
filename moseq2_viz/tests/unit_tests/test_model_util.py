@@ -267,14 +267,14 @@ class TestModelUtils(TestCase):
             index_data['pca_path'] = 'data/test_scores.h5'
 
         model_dict = parse_model_results(model_fit)
-        df, df_dict = results_to_dataframe(model_dict, index_data, sort=True, max_syllable=max_syllable)
+        df, label_df = results_to_dataframe(model_dict, index_data, sort=True, max_syllable=max_syllable)
 
-        assert isinstance(df_dict, dict)
+        assert isinstance(label_df, pd.DataFrame)
         assert isinstance(df, pd.DataFrame)
 
-        columns = ['usage', 'group', 'syllable', 'SessionName', 'SubjectName', 'StartTime']
+        columns = ['duration', 'usage', 'uuid', 'group', 'syllable', 'SessionName', 'SubjectName', 'StartTime']
+        assert set(columns) == set(df.columns)
         assert df.shape == ((max_syllable+1)*2, len(columns))
-        assert all(columns == df.columns)
 
     def test_normalize_pcs(self):
         index_file = 'data/test_index.yaml'

@@ -13,7 +13,7 @@ from moseq2_viz.model.util import parse_model_results, get_transition_matrix, \
     get_syllable_statistics, relabel_by_usage, get_syllable_slices, results_to_dataframe
 from moseq2_viz.viz import clean_frames, convert_ebunch_to_graph, floatRgb, convert_transition_matrix_to_ebunch, \
     graph_transition_matrix, make_crowd_matrix, \
-    position_plot, scalar_plot, usage_plot, duration_plot
+    position_plot, scalar_plot
 
 def get_fake_movie():
     edge_size = 40
@@ -230,99 +230,6 @@ class TestViz(TestCase):
         assert os.path.exists(outfile), "Scalars plot was not saved."
         os.remove(outfile)
 
-    def test_usage_plot(self):
-        index_file = 'data/test_index.yaml'
-        model_data = 'data/test_model.p'
-        max_syllable = 40
-        sort = True
-        count = 'usage'
-
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
-            for i, f in enumerate(index_data['files']):
-                index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
-                index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
-
-        index, sorted_index = parse_index(index_file)
-        df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
-
-        plt, ax = usage_plot(df)
-        outfile = 'data/test_usages.png'
-        plt.savefig(outfile)
-
-        assert os.path.exists(outfile), "Usages plot was not saved."
-        os.remove(outfile)
-
-    def test_duration_plot(self):
-        # REFACTOR THIS TEST
-        index_file = 'data/test_index.yaml'
-        model_fit = 'data/test_model.p'
-        max_syllable = 40
-        sort = True
-        count = 'usage'
-
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
-            for i, f in enumerate(index_data['files']):
-                index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
-                index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
-
-        model_data = parse_model_results(joblib.load(model_fit))
-        index, sorted_index = parse_index(index_file)
-
-        label_uuids = model_data['keys'] + model_data['train_list']
-        i_groups = [sorted_index['files'][uuid]['group'] for uuid in label_uuids]
-        lbl_dict = {}
-
-        df_dict = {
-            'usage': [],
-            'duration': [],
-            'group': [],
-            'syllable': []
-        }
-
-        model_data['labels'] = relabel_by_usage(model_data['labels'], count=count)[0]
-        min_length = min([len(x) for x in model_data['labels']]) - 3
-        for i in range(len(model_data['labels'])):
-            labels = list(filter(lambda a: a != -5, model_data['labels'][i]))
-            tmp_usages, tmp_durations = get_syllable_statistics(model_data['labels'][i], count=count,
-                                                                max_syllable=max_syllable)
-            total_usage = np.sum(list(tmp_usages.values()))
-            curr = labels[0]
-            lbl_dict[curr] = []
-            curr_dur = 1
-            if total_usage <= 0:
-                total_usage = 1.0
-            for li in range(1, min_length):
-                if labels[li] == curr:
-                    curr_dur += 1
-                else:
-                    lbl_dict[curr].append(curr_dur)
-                    curr = labels[li]
-                    curr_dur = 1
-                if labels[li] not in list(lbl_dict.keys()):
-                    lbl_dict[labels[li]] = []
-
-            for k, v in tmp_usages.items():
-                df_dict['usage'].append(v / total_usage)
-                # df_dict['duration'].append(sum(lbl_dict[k]) / len(lbl_dict[k]))
-                try:
-                    df_dict['duration'].append(sum(tmp_durations[k]) / len(tmp_durations[k]))
-                except:
-                    df_dict['duration'].append(sum(tmp_durations[k]) / 1)
-                df_dict['group'].append(i_groups[i])
-                df_dict['syllable'].append(k)
-            lbl_dict = {}
-
-        df = pd.DataFrame.from_dict(data=df_dict)
-        plt, ax = duration_plot(df, groups=None)
-        outfile = 'data/test_duration.png'
-        plt.savefig(outfile)
-
-        assert os.path.exists(outfile), "Durations plot not saved."
-        os.remove(outfile)
 
 
 if __name__ == '__main__':

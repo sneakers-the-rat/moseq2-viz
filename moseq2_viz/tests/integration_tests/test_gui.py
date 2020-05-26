@@ -4,7 +4,8 @@ import ruamel.yaml as yaml
 from unittest import TestCase
 from moseq2_viz.gui import get_groups_command, add_group_by_session, add_group_by_subject, make_crowd_movies_command,\
                 plot_usages_command, plot_scalar_summary_command, plot_transition_graph_command, \
-                plot_syllable_durations_command
+                plot_syllable_durations_command, plot_mean_group_position_heatmaps_command, \
+                plot_verbose_position_heatmaps, plot_mean_syllable_speeds_command
 
 class TestGUI(TestCase):
 
@@ -78,19 +79,37 @@ class TestGUI(TestCase):
         gen_dir = 'data/gen_plots/'
         index_file = 'data/test_index.yaml'
         model_path = 'data/test_model.p'
-        sort = True
-        count = 'usage'
-        max_syllable = 40
-        group = ('default', 'Group1')
         output_file = gen_dir+'test_usages'
 
-        plot_usages_command(index_file, model_path, sort, count, max_syllable, group, output_file)
+        plot_usages_command(model_path, index_file, output_file)
 
         assert (os.path.exists(gen_dir + 'test_usages.png')), "Usages PNG plot was not saved"
         assert (os.path.exists(gen_dir + 'test_usages.pdf')), "Usages PDF plot was not saved"
-        os.remove(gen_dir + 'test_usages.png')
-        os.remove(gen_dir + 'test_usages.pdf')
-        os.removedirs(gen_dir)
+        shutil.rmtree(gen_dir)
+
+    def test_plot_durations_command(self):
+        gen_dir = 'data/gen_plots/'
+        index_file = 'data/test_index.yaml'
+        model_path = 'data/test_model.p'
+        output_file = gen_dir+'test_durations'
+
+        plot_syllable_durations_command(model_path, index_file, output_file)
+
+        assert (os.path.exists(gen_dir + 'test_durations.png')), "Duration PNG plot was not saved"
+        assert (os.path.exists(gen_dir + 'test_durations.pdf')), "Duration PDF plot was not saved"
+        shutil.rmtree(gen_dir)
+
+    def test_plot_mean_syllable_speeds_command(self):
+        gen_dir = 'data/gen_plots/'
+        index_file = 'data/test_index.yaml'
+        model_path = 'data/test_model.p'
+        output_file = gen_dir+'test_speeds'
+
+        plot_mean_syllable_speeds_command(model_path, index_file, output_file)
+
+        assert (os.path.exists(gen_dir + 'test_speeds.png')), "Duration PNG plot was not saved"
+        assert (os.path.exists(gen_dir + 'test_speeds.pdf')), "Duration PDF plot was not saved"
+        shutil.rmtree(gen_dir)
 
     def test_plot_scalar_summary_command(self):
         index_file = 'data/test_index.yaml'
@@ -98,11 +117,34 @@ class TestGUI(TestCase):
         output_file = gen_dir + 'test_scalar'
 
         df = plot_scalar_summary_command(index_file, output_file)
+
         assert not df.empty, "Scalar DataFrame was not return correctly; is empty."
         assert (os.path.exists(gen_dir + 'test_scalar_position.png')), "Position Summary PNG plot was not saved"
         assert (os.path.exists(gen_dir + 'test_scalar_position.pdf')), "Position Summary PDF plot was not saved"
         assert (os.path.exists(gen_dir + 'test_scalar_summary.png')), "Scalar Summary PNG plot was not saved"
         assert (os.path.exists(gen_dir + 'test_scalar_summary.pdf')), "Scalar Summary PDF plot was not saved"
+        shutil.rmtree(gen_dir)
+
+    def test_plot_mean_group_position_heatmaps_command(self):
+        index_file = 'data/test_index.yaml'
+        gen_dir = 'data/gen_plots/'
+        output_file = gen_dir + 'test_gHeatmaps'
+
+        _ = plot_mean_group_position_heatmaps_command(index_file, output_file)
+
+        assert (os.path.exists(gen_dir + 'test_gHeatmaps.png')), "Position Summary PNG plot was not saved"
+        assert (os.path.exists(gen_dir + 'test_gHeatmaps.pdf')), "Position Summary PDF plot was not saved"
+        shutil.rmtree(gen_dir)
+
+    def test_plot_verbose_position_heatmaps(self):
+        index_file = 'data/test_index.yaml'
+        gen_dir = 'data/gen_plots/'
+        output_file = gen_dir + 'test_vHeatmaps'
+
+        _ = plot_verbose_position_heatmaps(index_file, output_file)
+
+        assert (os.path.exists(gen_dir + 'test_vHeatmaps.png')), "Position Summary PNG plot was not saved"
+        assert (os.path.exists(gen_dir + 'test_vHeatmaps.pdf')), "Position Summary PDF plot was not saved"
         shutil.rmtree(gen_dir)
 
     def test_plot_transition_graph_command(self):
@@ -124,12 +166,9 @@ class TestGUI(TestCase):
         gen_dir = 'data/gen_plots/'
         index_file = 'data/test_index.yaml'
         model_path = 'data/test_model.p'
-        group = ('Group1', 'default')
-        count = 'usage'
-        max_syllable = 40
         output_file = gen_dir + 'test_durations'
 
-        plot_syllable_durations_command(model_path, index_file, group, count, max_syllable, output_file)
+        plot_syllable_durations_command(model_path, index_file, output_file)
         assert (os.path.exists(output_file + '.png')), "Durations PNG graph was not saved"
         assert (os.path.exists(output_file + '.pdf')), "Durations PNG graph was not saved"
         shutil.rmtree(gen_dir)

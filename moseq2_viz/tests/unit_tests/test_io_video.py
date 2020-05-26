@@ -73,7 +73,7 @@ class TestIOVideo(TestCase):
         frame_size=None
         depth_min=0
         depth_max=80
-        get_cmd=False
+        get_cmd=True
         cmap='jet'
         text=None
         text_scale=1

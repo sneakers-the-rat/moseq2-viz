@@ -154,7 +154,7 @@ def plot_syllable_usages_wrapper(model_fit, index_file, output_file, sort=True, 
 
     plt, _ = plot_syll_stats_with_sem(df, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,
                                       fmt=fmt, ordering=ordering, stat='usage', max_sylls=max_syllable)
-    plt.savefig('{}.png'.format(output_file))
+    plt.savefig('{}.png'.format(output_file), )
     plt.savefig('{}.pdf'.format(output_file))
 
     if gui:
@@ -202,9 +202,9 @@ def plot_syllable_durations_wrapper(model_fit, index_file, output_file, count='u
     # relabel by usage across the whole dataset, gather usages per session per group
     index, sorted_index = parse_index(index_file)
     df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
-    plt, _ = plot_syll_stats_with_sem(df, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,
+    plt, lgd = plot_syll_stats_with_sem(df, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,
                                       ordering=ordering, fmt=fmt, stat='dur', max_sylls=max_syllable)
-    plt.savefig('{}.png'.format(output_file))
+    plt.savefig('{}.png'.format(output_file), bbox_inches='tight',bbox_extra_artists=(lgd,))
     plt.savefig('{}.pdf'.format(output_file))
 
     if gui:

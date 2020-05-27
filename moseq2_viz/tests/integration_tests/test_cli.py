@@ -115,8 +115,8 @@ class TestCLI(TestCase):
 
         runner = CliRunner()
 
-        use_params = ['data/test_model.p',
-                      'data/test_index.yaml',
+        use_params = ['data/test_index.yaml',
+                      'data/test_model.p',
                       '--output-file', gen_dir + 'test_usages']
 
         results = runner.invoke(plot_usages, use_params)
@@ -133,8 +133,8 @@ class TestCLI(TestCase):
 
         runner = CliRunner()
 
-        use_params = ['data/test_model.p',
-                      'data/test_index.yaml',
+        use_params = ['data/test_index.yaml',
+                      'data/test_model.p',
                       '--output-file', gen_dir + 'test_durations']
 
         results = runner.invoke(plot_syllable_durations, use_params)

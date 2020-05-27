@@ -150,7 +150,7 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 def plot_usages(index_file, model_fit, output_file, sort, count, max_syllable, group,
                 ordering, ctrl_group, exp_group, colors, fmt):
 
-    plot_syllable_usages_wrapper(index_file, model_fit, output_file, max_syllable=max_syllable, sort=sort,
+    plot_syllable_usages_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
                                  count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
                                  exp_group=exp_group, colors=colors, fmt=fmt)
 
@@ -165,7 +165,7 @@ def plot_usages(index_file, model_fit, output_file, sort, count, max_syllable, g
 def plot_syllable_durations(index_file, model_fit, output_file, sort, count, max_syllable, group,
                 ordering, ctrl_group, exp_group, colors, fmt):
 
-    plot_syllable_durations_wrapper(index_file, model_fit, output_file, max_syllable=max_syllable, sort=sort,
+    plot_syllable_durations_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
                                  count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
                                  exp_group=exp_group, colors=colors, fmt=fmt)
 
@@ -179,7 +179,7 @@ def plot_syllable_durations(index_file, model_fit, output_file, sort, count, max
 def plot_mean_syllable_speed(index_file, model_fit, output_file, sort, count, max_syllable, group,
                 ordering, ctrl_group, exp_group, colors, fmt):
 
-    plot_mean_group_position_pdf_wrapper(index_file, model_fit, output_file, max_syllable=max_syllable, sort=sort,
+    plot_mean_group_position_pdf_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
                                  count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
                                  exp_group=exp_group, colors=colors, fmt=fmt)
 

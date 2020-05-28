@@ -203,7 +203,7 @@ def plot_syllable_durations_wrapper(model_fit, index_file, output_file, count='u
     plt, lgd = plot_syll_stats_with_sem(df, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,
                                       ordering=ordering, fmt=fmt, stat='dur', max_sylls=max_syllable)
 
-    plt.savefig('{}.pdf'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')
+    plt.savefig('{}.png'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')
     plt.savefig('{}.pdf'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')
 
     if gui:
@@ -252,7 +252,7 @@ def plot_syllable_speeds_wrapper(model_fit, index_file, output_file, group=None,
     fig, lgd = plot_syll_stats_with_sem(df, ordering=ordering, fmt=fmt, stat='speed', max_sylls=max_syllable,
                                        groups=group, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors)
 
-    fig.savefig('{}.pdf'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')
+    fig.savefig('{}.png'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')
     fig.savefig('{}.pdf'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')
 
     if gui:

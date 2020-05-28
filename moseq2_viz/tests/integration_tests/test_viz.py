@@ -242,26 +242,28 @@ class TestViz(TestCase):
         complete_df, _ = results_to_dataframe(test_model, sorted_index)
 
         # mutation order plot with correct parameters
-        fig = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='m', max_sylls=None, groups=None,
+        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='m', max_sylls=None, groups=None,
                                        ctrl_group='Group1', exp_group='Group2', colors=['red', 'orange'], fmt='o-')
 
         assert fig != None
 
         # different stat selected, len(colors) < len(groups)
-        fig = plot_syll_stats_with_sem(complete_df, stat='dur', ordering='dur', max_sylls=40, groups=['Group1', 'Group2'],
+        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='dur', ordering='dur', max_sylls=40, groups=['Group1', 'Group2'],
                                        ctrl_group=None, exp_group=None, colors=['red'], fmt='o-')
 
         assert fig != None
 
         # incorrect groups, and empty colors, descending order sorting
-        fig = plot_syll_stats_with_sem(complete_df, stat='dur', ordering='dur', max_sylls=None,
+        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='dur', ordering='dur', max_sylls=None,
                                        groups=['Group', 'Group2'], ctrl_group=None, exp_group=None, colors=[], fmt='o-')
 
         assert fig != None
 
         # currently raises error if user inputs incorrect ctrl_group/exp_group name
-        self.assertRaises(BaseException, plot_syll_stats_with_sem, complete_df, stat='usage', ordering='m', max_sylls=None, groups=None,
+        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='m', max_sylls=None, groups=None,
                                        ctrl_group='Grou1', exp_group='Group2', colors=['red', 'orange'], fmt='o-')
+
+        assert fig != None
 
 if __name__ == '__main__':
     unittest.main()

@@ -743,7 +743,8 @@ def check_types(function):
             groups = list(set(complete_df.group))
         elif isinstance(groups, str):
             groups = [groups]
-        elif isinstance(groups, list) or isinstance(groups, tuple):
+
+        if isinstance(groups, list) or isinstance(groups, tuple):
             uniq_groups = set(complete_df.group)
             if not set(groups).issubset(uniq_groups):
                 print('Invalid group entered. Displaying all groups.')
@@ -779,6 +780,7 @@ def check_types(function):
                                                                            stat=stat)
                 else:
                     print('You must enter valid control and experimental group names found in your inputted DataFrame.\nPlotting descending order.')
+                    ordering, _ = get_sorted_syllable_stat_ordering(complete_df, stat=stat)
 
         if colors == None or len(colors) == 0:
             colors = [None] * len(groups)
@@ -843,7 +845,7 @@ def plot_syll_stats_with_sem(complete_df, stat='usage', ordering=None, max_sylls
         ylabel = 'Mean Syllable Speed (mm/s)'
         xlabel = 'speed'
 
-    lgd = plt.legend(loc='upper right', bbox_to_anchor=(0, 1.05),
+    lgd = plt.legend(bbox_to_anchor=(1.1, 1.05),
                ncol=1, fancybox=True, shadow=True, fontsize=16)
     plt.xticks(range(max_sylls), ordering)
     plt.ylabel(ylabel, fontsize=12)

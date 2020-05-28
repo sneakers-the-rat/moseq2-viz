@@ -253,7 +253,7 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
     print('Transition graph(s) successfully generated')
     return fig
 
-def plot_syllable_durations_command(model_fit, index_file, output_file, max_syllable=40, count='usage', groups=None,
+def plot_syllable_durations_command(model_fit, index_file, output_file, max_syllable=40, count='usage', group=None,
                                     ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-'):
     '''
     Plot average syllable durations over different sortings.
@@ -281,12 +281,12 @@ def plot_syllable_durations_command(model_fit, index_file, output_file, max_syll
     fig (pyplot figure): figure to graph in Jupyter Notebook.
     '''
 
-    fig = plot_syllable_durations_wrapper(model_fit, index_file, output_file, count=count, max_syllable=max_syllable, group=groups, fmt=fmt,
+    fig = plot_syllable_durations_wrapper(model_fit, index_file, output_file, count=count, max_syllable=max_syllable, group=group, fmt=fmt,
                                           ordering=ordering, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, gui=True)
 
     return fig
 
-def plot_mean_syllable_speeds_command(model_fit, index_file, output_file, max_syllable=40, groups=None, fmt='o-',
+def plot_mean_syllable_speeds_command(model_fit, index_file, output_file, max_syllable=40, group=None, fmt='o-',
                                           ordering=None, ctrl_group=None, exp_group=None, colors=None):
     '''
     Computes the average syllable speed according to the rodent's centroid speed
@@ -312,7 +312,7 @@ def plot_mean_syllable_speeds_command(model_fit, index_file, output_file, max_sy
     fig (pyplot figure): figure to graph in Jupyter Notebook.
     '''
 
-    fig = plot_syllable_speeds_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, group=groups, fmt=fmt,
+    fig = plot_syllable_speeds_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, group=group, fmt=fmt,
                                        ordering=ordering, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, gui=True)
 
     return fig

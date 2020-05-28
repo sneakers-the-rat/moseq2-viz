@@ -19,6 +19,12 @@ click.core.Option.__init__ = new_init
 def cli():
     pass
 
+@cli.command('version', help='Print version number')
+def version():
+    import moseq2_viz
+    click.echo(moseq2_viz.__version__)
+
+
 def common_syll_plot_options(function):
     function = click.option('--sort', type=bool, default=True, help="Sort syllables by usage")(function)
     function = click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')(function)
@@ -34,7 +40,7 @@ def common_syll_plot_options(function):
     return function
 
 
-@cli.command(name="add-group")
+@cli.command(name="add-group", help='Change group name in index file given a key-value pair')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.option('--key', '-k', type=str, default='SubjectName', help='Key to search for value')
 @click.option('--value', '-v', type=str, default='Mouse', help='Value to search for', multiple=True)
@@ -51,14 +57,14 @@ def add_group(index_file, key, value, group, exact, lowercase, negative):
 
 # recurse through directories, find h5 files with completed extractions, make a manifest
 # and copy the contents to a new directory
-@cli.command(name="copy-h5-metadata-to-yaml")
+@cli.command(name="copy-h5-metadata-to-yaml", help='Copies metadata within an h5 file to a yaml file.')
 @click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
 @click.option('--h5-metadata-path', default='/metadata/acquisition', type=str, help='Path to acquisition metadata in h5 files')
 def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
     copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path)
 
 
-@cli.command(name='make-crowd-movies')
+@cli.command(name='make-crowd-movies', help='Writes movies of overlaid examples of the rodent perform a given syllable')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-path', type=click.Path(exists=True, resolve_path=True))
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
@@ -87,7 +93,7 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
     print(f'Crowd movies successfully generated in {output_dir}.')
 
 
-@cli.command(name='plot-scalar-summary')
+@cli.command(name='plot-scalar-summary', help="Plots a scalar summary of the index file data.")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'scalars'))
 @click.option('-c', '--colors', type=str, default=None, help="Colors to plot groups with.", multiple=True)
@@ -97,7 +103,7 @@ def plot_scalar_summary(index_file, output_file, colors):
     print('Sucessfully plotted scalar summary')
 
 
-@cli.command(name='plot-group-position-heatmaps')
+@cli.command(name='plot-group-position-heatmaps', help="Plots position heatmaps for each group in the index file")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'scalars'))
 def plot_group_position_heatmaps(index_file, output_file):
@@ -105,7 +111,7 @@ def plot_group_position_heatmaps(index_file, output_file):
     plot_mean_group_position_pdf_wrapper(index_file, output_file)
     print('Sucessfully plotted mean group heatmaps')
 
-@cli.command(name='plot-verbose-position-heatmaps')
+@cli.command(name='plot-verbose-position-heatmaps', help="Plots a position heatmap for each session in the index file.")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'scalars'))
 def plot_verbose_position_heatmaps(index_file, output_file):
@@ -114,7 +120,7 @@ def plot_verbose_position_heatmaps(index_file, output_file):
     print('Sucessfully plotted mean group heatmaps')
 
 
-@cli.command(name='plot-transition-graph')
+@cli.command(name='plot-transition-graph', help="Plots the transition graph depicting the transition probabilities between syllables.")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
@@ -142,7 +148,7 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
     plot_transition_graph_wrapper(index_file, model_fit, click_data, output_file)
 
 
-@cli.command(name='plot-usages')
+@cli.command(name='plot-usages', help="Plots syllable usages with different sorting,coloring and grouping capabilities")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'usages'), help="Filename to store plot")
@@ -157,7 +163,7 @@ def plot_usages(index_file, model_fit, output_file, sort, count, max_syllable, g
     print('Successfully graphed usage plots')
 
 
-@cli.command(name='plot-syllable-durations')
+@cli.command(name='plot-syllable-durations', help="Plots syllable durations with different sorting,coloring and grouping capabilities")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'durations'), help="Filename to store plot")
@@ -171,7 +177,7 @@ def plot_syllable_durations(index_file, model_fit, output_file, sort, count, max
 
     print('Successfully graphed duration plots')
 
-@cli.command(name='plot-syllable-speeds')
+@cli.command(name='plot-syllable-speeds', help="Plots syllable centroid speeds with different sorting,coloring and grouping capabilities")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'speeds'), help="Filename to store plot")

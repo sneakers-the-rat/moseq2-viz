@@ -1,1 +1,1 @@
-from moseq2_viz.util import h5_to_dict
+__version__ = '0.3.0'

@@ -10,7 +10,8 @@ import ruamel.yaml as yaml
 from tqdm.auto import tqdm
 from moseq2_viz.util import parse_index
 from moseq2_viz.io.video import write_crowd_movies
-from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data
+from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
+                            compute_session_centroid_speeds
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot, graph_transition_matrix, \
                             plot_mean_group_heatmap, plot_verbose_heatmap)
 from moseq2_viz.util import (recursive_find_h5s, check_video_parameters, h5_to_dict, clean_dict)
@@ -246,6 +247,8 @@ def plot_syllable_speeds_wrapper(model_fit, index_file, output_file, group=None,
 
     sessions = list(set(scalar_df.uuid))
     df_groups = [scalar_df[scalar_df['uuid'] == sess][['group']].iloc[0][0] for sess in sessions]
+
+    scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
 
     df = compute_mean_syll_speed(df, scalar_df, label_df, sessions, df_groups, max_sylls=max_syllable)
 

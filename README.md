@@ -26,6 +26,8 @@ Commands:
   version                         Print version number
 ```
 
+Run any command with the `--help` flag to display all available options and their descriptions.
+
 ## Documentation
 
 All documentation regarding moseq2-model can be found in the `Documentation.pdf` file in the root directory.
@@ -60,7 +62,6 @@ To use this package, you must already have computed a `pca_scores.h5` files, a t
 ##### Sorting Syllable Statistic in Descending Order (Speed shown)
 
 <img src="https://drive.google.com/uc?export=view&id=14bJ7JZ9pSPgEtnJs6i7zfXW3GsS5IPAf">
-
 
 #### Scalar Summary Example:
 

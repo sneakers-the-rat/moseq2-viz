@@ -687,8 +687,6 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, sessions, groups, 
     lbl_df = label_df.T
     gk = ['group', 'uuid']
 
-    scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
-
     centroid_speeds = scalar_df[['centroid_speed_mm'] + gk]
 
     all_sessions = []
@@ -705,7 +703,7 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, sessions, groups, 
         for lbl in range(max_sylls):
             indices = (sess_lbls[index] == lbl)
 
-            mean_lbl_speed = sess_speeds[indices].centroid_speed_mm.mean(skipna=True)
+            mean_lbl_speed = np.nanmean(sess_speeds[indices].centroid_speed_mm)
 
             sess_dict['uuid'].append(sess)
             sess_dict['syllable'].append(lbl)
@@ -714,9 +712,15 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, sessions, groups, 
         all_sessions.append(sess_dict)
 
     all_speeds_df = pd.DataFrame.from_dict(all_sessions[0])
+    y = all_speeds_df['speed']
+    all_speeds_df['speed'] = np.where(y.between(0, 250), y, 0)
 
     for i in tqdm(range(1, len(all_sessions))):
-        all_speeds_df = all_speeds_df.append(pd.DataFrame.from_dict(all_sessions[i]))
+        tmp_df = pd.DataFrame.from_dict(all_sessions[i])
+        y = tmp_df['speed']
+        tmp_df['speed'] = np.where(y.between(0, 250), tmp_df['speed'], 0)
+
+        all_speeds_df = all_speeds_df.append(tmp_df)
 
     complete_df = pd.merge(complete_df, all_speeds_df, on=['uuid', 'syllable'])
 

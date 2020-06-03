@@ -344,12 +344,37 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         # only include extractions that were modeled and fit the above criteria
         files = keyfilter(lambda x: x in labels, files)
 
-    for k, v in tqdm(files.items(), disable=disable_output):
+    try:
+        iter_items = files.items()
+    except:
+        iter_items = enumerate(files)
+
+    for k, v in tqdm(iter_items, disable=disable_output):
 
         pth = h5_filepath_from_sorted(v)
         dset = h5_to_dict(pth, 'scalars')
 
-        timestamps = get_timestamps_from_h5(pth)
+        if include_feedback:
+            try:
+                timestamps = get_timestamps_from_h5(pth)
+                if len(timestamps) != nframes:
+                    warnings.warn(f'Timestamps not equal to number of frames for {pth}, skipping')
+                    continue
+            except:  # h5 file path exception, maybe Attribute or KeyError
+                timestamps = range(nframes)
+                print(f'timestamps for {pth} were not found')
+                pass
+            if len(timestamps) != nframes:
+                warnings.warn(f'Timestamps not equal to number of frames for {pth}, skipping')
+                continue
+        else:
+            try:
+                timestamps = get_timestamps_from_h5(pth)
+            except:
+                timestamps = range(nframes)
+                print(f'timestamps for {pth} were not found')
+                pass
+
 
         # get extraction parameters for this h5 file
         dct = read_yaml(v['path'][1])
@@ -367,9 +392,6 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
             dset = convert_legacy_scalars(dset, force=force_conversion)
 
         nframes = len(dset[scalar_names[0]])
-        if len(timestamps) != nframes:
-            warnings.warn(f'Timestamps not equal to number of frames for {pth}, skipping')
-            continue
 
         # add scalar data for this animal
         for scalar in scalar_names:
@@ -397,6 +419,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
             scalar_dict['model_label'] += labels[k].tolist()
             scalar_dict['model_label (sort=usage)'] += usage[k].tolist()
             scalar_dict['model_label (sort=frames)'] += frames[k].tolist()
+
     # turn each key in scalar_names into a numpy array
     for scalar in scalar_names:
         scalar_dict[scalar] = np.array(scalar_dict[scalar])

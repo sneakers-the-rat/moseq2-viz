@@ -110,3 +110,4 @@ venv.bak/
 
 # VS Code
 .vscode
+*.xml

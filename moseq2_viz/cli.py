@@ -400,18 +400,16 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 
     print('Creating plot...')
 
-    try:
-        plt, _, _ = graph_transition_matrix(trans_mats, syll_dur_df, minD, maxD, usages=usages, width_per_group=width_per_group,
-                                            edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
-                                            difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
-                                            orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
-                                            layout=layout, groups=group, usage_scale=node_scaling, headless=True)
-        plt.savefig(f'{output_file}.png', dpi=150)
-        plt.savefig(f'{output_file}.pdf')
+    plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
+                                        edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
+                                        difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
+                                        orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
+                                        layout=layout, groups=group, usage_scale=node_scaling, headless=True)
+    plt.savefig(f'{output_file}.png', dpi=150)
+    plt.savefig(f'{output_file}.pdf')
 
-        print('Successfully graphed transition matrix.')
-    except:
-        print('Could not graph transition matrix.')
+    print('Successfully graphed transition matrix.')
+
 
 @cli.command(name='plot-usages')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))

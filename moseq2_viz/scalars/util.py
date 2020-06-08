@@ -524,8 +524,11 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         if include_feedback:
             try:
                 timestamps = get_timestamps_from_h5(pth)
+                scalar_dict['timestamp'] = timestamps.astype('int32')
             except: #h5 file path exception, maybe Attribute or KeyError
-                print(f'timestamps for {pth} were not found')
+                warnings.warn(f'timestamps for {pth} were not found')
+                warnings.warn('This could be due to a missing/incorrectly named timestamp file in that session directory.')
+                warnings.warn('If the file does exist, ensure it has the correct name/location and re-extract the session.')
                 pass
             if len(timestamps) != nframes:
                 warnings.warn(f'Timestamps not equal to number of frames for {pth}, skipping')

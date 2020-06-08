@@ -655,7 +655,7 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 def get_frame_label_df(labels, uuids, groups):
     '''
     Returns a DataFrame with rows for each session, frame indices as columns,
-    and values corresponding to these frames+sessions for each frame.
+    and syllable label values corresponding to these frames+sessions for each frame.
 
     Parameters
     ----------

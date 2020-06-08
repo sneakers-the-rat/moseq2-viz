@@ -46,34 +46,33 @@ To use this package, you must already have computed a `pca_scores.h5` files, a t
 ## Example Outputs
 
 #### Crowd Movie Example:
-
-<img src="https://drive.google.com/uc?export=view&id=1WB-H-3dqmFhEJbP9LCBAkkYldTmwpI7E" width=350 height=350>
+<img src="https://github.com/dattalab/moseq2-viz/blob/test-suite/media/rear_up_wall.gif" width=350 height=350>
 
 #### Usage Plot Example:
 
-<img src="https://drive.google.com/uc?export=view&id=1JiEdBL-sbi6DWw2jykrX4KUuH8RWKEFT">
+<img src="https://github.com/dattalab/moseq2-viz/blob/test-suite/media/usages.png">
 
 #### Alternative Sorting Examples:
 
 ##### Usages by Mutated Behaviors (most mutated to least)
 
-<img src="https://drive.google.com/uc?export=view&id=1VUACpHMTaNx1hqXtkkjCOJ6uQeo4ImhX">
+<img src="https://github.com/dattalab/moseq2-viz/blob/test-suite/media/u_mute.png">
 
 ##### Sorting Syllable Statistic in Descending Order (Speed shown)
 
-<img src="https://drive.google.com/uc?export=view&id=14bJ7JZ9pSPgEtnJs6i7zfXW3GsS5IPAf">
+<img src="https://github.com/dattalab/moseq2-viz/blob/test-suite/media/speeds.png">
 
 #### Scalar Summary Example:
 
-<img src="https://drive.google.com/uc?export=view&id=11XljpSbU_2Kx_3FTKvGQ00xz-rHwWZu2">
+<img src="https://github.com/dattalab/moseq2-viz/blob/test-suite/media/scalars.png">
 
 #### Position Heatmap Example:
 
-<img src="https://drive.google.com/uc?export=view&id=1NR3EfhOx2JMTZeQdprVisIcHSHMv-0sb">
+<img src="https://github.com/dattalab/moseq2-viz/blob/test-suite/media/heatmaps.png">
 
 #### Transition Graph Example:
 
-<img src="https://drive.google.com/uc?export=view&id=1j-ub8CfbHY5MKksL-PiwLhBLz-q2MiTQ" width=500 height=500>
+<img src="https://github.com/dattalab/moseq2-viz/blob/test-suite/media/transitions2.png" height=500 width=500>
 
 
 ## Contributing

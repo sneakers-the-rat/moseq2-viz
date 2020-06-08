@@ -729,7 +729,8 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', norm
             for i, uuid in enumerate(label_uuids):
                 groups.append(index_dict['files'][i].get('group', 'default'))
         except:
-            print()
+            print('WARNING: model results uuids do not match index file uuids.')
+            groups.append('default')
 
     try:
         metadata = [index_dict['files'][uuid]['metadata'] for uuid in label_uuids]

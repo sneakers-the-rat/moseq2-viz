@@ -726,7 +726,7 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', norm
     except:
         groups = []
         for i, uuid in enumerate(label_uuids):
-            groups.append(index_dict['files'][i].get('group'))
+            groups.append(index_dict['files'][uuid].get('group'))
 
     try:
         metadata = [index_dict['files'][uuid]['metadata'] for uuid in label_uuids]

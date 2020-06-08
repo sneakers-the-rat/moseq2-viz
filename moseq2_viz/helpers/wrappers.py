@@ -60,7 +60,7 @@ def add_group_wrapper(index_file, config_data):
             if hit:
                 index['files'][position]['group'] = config_data['group']
 
-    new_index = '{}_update.yaml'.format(os.path.basename(index_file))
+    new_index = '{}_update.yaml'.format(index_file.replace('.yaml', ''))
 
     try:
         with open(new_index, 'w+') as f:

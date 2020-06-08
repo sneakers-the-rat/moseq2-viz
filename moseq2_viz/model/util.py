@@ -725,15 +725,18 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', norm
         groups = [index_dict['files'][uuid].get('group', 'default') for uuid in label_uuids]
     except:
         groups = []
-        for i, uuid in enumerate(label_uuids):
-            groups.append(index_dict['files'][uuid].get('group'))
+        try:
+            for i, uuid in enumerate(label_uuids):
+                groups.append(index_dict['files'][i].get('group', 'default'))
+        except:
+            print()
 
     try:
         metadata = [index_dict['files'][uuid]['metadata'] for uuid in label_uuids]
     except:
         metadata = []
         for i, uuid in enumerate(label_uuids):
-            metadata.append(index_dict['files'][i].get('metadata'))
+            metadata.append(index_dict['files'][i].get('metadata', {}))
 
     # get frame-by-frame label DataFrame
     label_df = get_frame_label_df(model_dict['labels'], label_uuids, groups)

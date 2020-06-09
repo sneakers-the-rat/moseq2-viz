@@ -378,7 +378,11 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
 
     if 'group' in index['files'][0].keys() and len(group) > 0:
         for uuid in label_uuids:
-            label_group.append(sorted_index['files'][uuid]['group'])
+            if uuid in sorted_index['files'].keys( d):
+                label_group.append(sorted_index['files'][uuid]['group'])
+            else:
+                print('WARNING: UUIDs in model results do not match the index file!')
+                label_group.append('default')
     else:
         label_group = [''] * len(model_data['labels'])
         group = list(set(label_group))
@@ -409,9 +413,9 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
         plt.savefig('{}.png'.format(output_file))
         plt.savefig('{}.pdf'.format(output_file))
     except:
-        print('Incorrectly inputted group, plotting default group.')
+        print('Incorrectly inputted group, plotting all groups.')
 
-        label_group = [''] * len(model_data['labels'])
+        label_group = [f['group'] for f in sorted_index['files'].values()]
         group = list(set(label_group))
 
         print('Recomputing transition matrices...')

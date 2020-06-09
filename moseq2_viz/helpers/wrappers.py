@@ -378,7 +378,7 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
 
     if 'group' in index['files'][0].keys() and len(group) > 0:
         for uuid in label_uuids:
-            if uuid in sorted_index['files'].keys( d):
+            if uuid in sorted_index['files'].keys():
                 label_group.append(sorted_index['files'][uuid]['group'])
             else:
                 print('WARNING: UUIDs in model results do not match the index file!')

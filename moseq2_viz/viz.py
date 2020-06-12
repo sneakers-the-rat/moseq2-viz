@@ -730,12 +730,12 @@ def check_types(function):
         ctrl_group (str): name of control group to base mutation sorting on.
         exp_group (str): name of experimental group to base mutation sorting on.
         colors (list): list of user-selected colors to represent the data
+        figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
         args
         kwargs
 
         Returns
         -------
-
         function: executes function with validated input parameters
         '''
 
@@ -818,6 +818,7 @@ def plot_syll_stats_with_sem(complete_df, stat='usage', ordering=None, max_sylls
     exp_group (str): name of experimental group to base mutation sorting on.
     colors (list): list of user-selected colors to represent the data
     fmt (str): str to indicate the kind of plot to make. "o-", "o", "--', etc.
+    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
 
     Returns
     -------

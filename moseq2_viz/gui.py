@@ -183,6 +183,7 @@ def plot_usages_command(model_fit, index_file, output_file, max_syllable=40, cou
     exp_group (str): Experimental group to directly compare with control group.
     colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
     fmt (str): scatter plot format. "o-" for line plot with vertices at corresponding usages. "o" for just points.
+    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
     Returns
     -------
     fig (pyplot figure): figure to graph in Jupyter Notebook.
@@ -275,6 +276,7 @@ def plot_syllable_durations_command(model_fit, index_file, output_file, max_syll
     exp_group (str): Experimental group to directly compare with control group.
     colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
     fmt (str): scatter plot format. "o-" for line plot with vertices at corresponding usages. "o" for just points.
+    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
 
     Returns
     -------
@@ -306,6 +308,7 @@ def plot_mean_syllable_speeds_command(model_fit, index_file, output_file, max_sy
     ctrl_group (str): Control group to graph when plotting mutation differences via setting ordering to 'm'.
     exp_group (str): Experimental group to directly compare with control group.
     colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
+    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
 
     Returns
     -------

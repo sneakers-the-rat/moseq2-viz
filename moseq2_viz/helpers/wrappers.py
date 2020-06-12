@@ -129,6 +129,7 @@ def plot_syllable_usages_wrapper(model_fit, index_file, output_file, sort=True, 
     ctrl_group (str): Control group to graph when plotting mutation differences via setting ordering to 'm'.
     exp_group (str): Experimental group to directly compare with control group.
     colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
+    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
     gui (bool): indicate whether GUI is plotting the graphs.
 
     Returns
@@ -180,6 +181,7 @@ def plot_syllable_durations_wrapper(model_fit, index_file, output_file, count='u
     exp_group (str): Experimental group to directly compare with control group.
     colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
     fmt (str): scatter plot format. "o-" for line plot with vertices at corresponding usages. "o" for just points.
+    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
     gui (bool): indicate whether GUI is plotting the graphs.
 
     Returns
@@ -230,6 +232,7 @@ def plot_syllable_speeds_wrapper(model_fit, index_file, output_file, group=None,
     exp_group (str): Experimental group to directly compare with control group.
     max_syllable (int): maximum number of syllables to plot.
     fmt (str): scatter plot format. "o-" for line plot with vertices at corresponding usages. "o" for just points.
+    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
     gui (bool): indicate whether GUI is plotting the graphs.
 
     Returns
@@ -243,7 +246,7 @@ def plot_syllable_speeds_wrapper(model_fit, index_file, output_file, group=None,
     index, sorted_index = parse_index(index_file)
     scalar_df = scalars_to_dataframe(sorted_index)
 
-    df, label_df = results_to_dataframe(model_fit, sorted_index)
+    df, label_df = results_to_dataframe(model_fit, sorted_index, max_syllable=max_syllable, sort=True)
 
     sessions = list(set(scalar_df.uuid))
     df_groups = [scalar_df[scalar_df['uuid'] == sess][['group']].iloc[0][0] for sess in sessions]

@@ -715,7 +715,7 @@ def check_types(function):
 
     @wraps(function)
     def wrapped(complete_df, stat='usage', ordering=None, max_sylls=None, groups=None, ctrl_group=None, exp_group=None,
-                colors=None, *args, **kwargs):
+                colors=None, figsize=(10, 5), *args, **kwargs):
         '''
         Wrapper function to validate input parameters and adjust parameters according to any user errors to run the
         plotting function with some respective defaulting parameters.
@@ -738,6 +738,10 @@ def check_types(function):
 
         function: executes function with validated input parameters
         '''
+
+        if not isinstance(figsize, tuple) or isinstance(figsize, list):
+            print('Invalid figsize. Input a integer-tuple or list of len(figsize) = 2')
+            figsize = (10, 5)
 
         if groups == None or len(groups) == 0:
             groups = list(set(complete_df.group))
@@ -779,7 +783,7 @@ def check_types(function):
                                                                            exp_group=exp_group, max_sylls=max_sylls,
                                                                            stat=stat)
                 else:
-                    print('You must enter valid control and experimental group names found in your inputted DataFrame.\nPlotting descending order.')
+                    print('You must enter valid control and experimental group names found in your trained model and index file.\nPlotting descending order.')
                     ordering, _ = get_sorted_syllable_stat_ordering(complete_df, stat=stat)
 
         if colors == None or len(colors) == 0:
@@ -789,14 +793,14 @@ def check_types(function):
                 print(f'Number of inputted colors {len(colors)} does not match number of groups {len(groups)}. Using default.')
                 colors = [None] * len(groups)
 
-        return function(complete_df, stat=stat, ordering=ordering, max_sylls=max_sylls, groups=groups, colors=colors,
+        return function(complete_df, stat=stat, ordering=ordering, max_sylls=max_sylls, groups=groups, colors=colors, figsize=figsize,
                         *args, **kwargs)
 
     return wrapped
 
 @check_types
 def plot_syll_stats_with_sem(complete_df, stat='usage', ordering=None, max_sylls=None, groups=None, ctrl_group=None,
-                             exp_group=None, colors=None, fmt='o-'):
+                             exp_group=None, colors=None, fmt='o-', figsize=(10, 5)):
     '''
     Plots a line and/or point-plot of a given pre-computed syllable statistic (usage, duration, or speed),
     with a SEM error bar with respect to the group.
@@ -821,7 +825,7 @@ def plot_syll_stats_with_sem(complete_df, stat='usage', ordering=None, max_sylls
     ax (pyplot axis): plotted scalar axis
     '''
 
-    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
 
     # separates each group's usage data into a separate array element, and computes their respective group-marginalized SEM
     # also reorders data if using mutant ordering

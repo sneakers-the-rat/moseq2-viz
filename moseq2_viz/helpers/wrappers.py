@@ -109,7 +109,7 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
         return scalar_df
 
 def plot_syllable_usages_wrapper(model_fit, index_file, output_file, sort=True, count='usage', group=None, max_syllable=40,
-                                 fmt='o-', ordering=None, ctrl_group=None, exp_group=None, colors=None, gui=False):
+                                 fmt='o-', ordering=None, ctrl_group=None, exp_group=None, colors=None, figsize=(10, 5), gui=False):
     '''
     Wrapper function to plot syllable usages.
 
@@ -152,7 +152,7 @@ def plot_syllable_usages_wrapper(model_fit, index_file, output_file, sort=True, 
     df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
 
     plt, lgd = plot_syll_stats_with_sem(df, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,
-                                      fmt=fmt, ordering=ordering, stat='usage', max_sylls=max_syllable)
+                                      fmt=fmt, ordering=ordering, stat='usage', max_sylls=max_syllable, figsize=figsize)
     plt.savefig('{}.png'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')
     plt.savefig('{}.pdf'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')
 
@@ -160,7 +160,7 @@ def plot_syllable_usages_wrapper(model_fit, index_file, output_file, sort=True, 
         return plt
 
 def plot_syllable_durations_wrapper(model_fit, index_file, output_file, count='usage', max_syllable=40, sort=True, group=None,
-                                    ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-', gui=False):
+                                    ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-', figsize=(10, 5), gui=False):
     '''
     Wrapper function that plots syllable durations.
 
@@ -202,7 +202,7 @@ def plot_syllable_durations_wrapper(model_fit, index_file, output_file, count='u
     index, sorted_index = parse_index(index_file)
     df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
     plt, lgd = plot_syll_stats_with_sem(df, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,
-                                      ordering=ordering, fmt=fmt, stat='dur', max_sylls=max_syllable)
+                                      ordering=ordering, fmt=fmt, stat='dur', max_sylls=max_syllable, figsize=figsize)
 
     plt.savefig('{}.png'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')
     plt.savefig('{}.pdf'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')
@@ -211,7 +211,7 @@ def plot_syllable_durations_wrapper(model_fit, index_file, output_file, count='u
         return plt
 
 def plot_syllable_speeds_wrapper(model_fit, index_file, output_file, group=None, ordering=None, colors=None,
-                                 ctrl_group=None, exp_group=None, max_syllable=40, fmt='o-', gui=False):
+                                 ctrl_group=None, exp_group=None, max_syllable=40, fmt='o-', figsize=(10, 5), gui=False):
     '''
     Wrapper function that computes the average syllable speed by averaging the speed at all occurrences
     of each syllable in [0, max_syllable) in each session. Then plots the results in the desired ordering.
@@ -253,7 +253,7 @@ def plot_syllable_speeds_wrapper(model_fit, index_file, output_file, group=None,
     df = compute_mean_syll_speed(df, scalar_df, label_df, sessions, df_groups, max_sylls=max_syllable)
 
     fig, lgd = plot_syll_stats_with_sem(df, ordering=ordering, fmt=fmt, stat='speed', max_sylls=max_syllable,
-                                       groups=group, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors)
+                               groups=group, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, figsize=figsize)
 
     fig.savefig('{}.png'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')
     fig.savefig('{}.pdf'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')

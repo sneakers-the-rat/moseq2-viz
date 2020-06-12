@@ -163,7 +163,7 @@ def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, 
         return 'Successfully generated '+str(max_examples) + ' crowd videos.'
 
 def plot_usages_command(model_fit, index_file, output_file, max_syllable=40, count='usage', group=None, sort=True,
-                        ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-'):
+                        ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-', figsize=(10, 5)):
     '''
     Graph syllable usages from fit model data.
 
@@ -191,7 +191,7 @@ def plot_usages_command(model_fit, index_file, output_file, max_syllable=40, cou
 
     fig = plot_syllable_usages_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
                                         count=count, group=group, gui=True, fmt=fmt, ordering=ordering,
-                                        ctrl_group=ctrl_group, exp_group=exp_group, colors=colors)
+                                        ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, figsize=figsize)
 
     print('Usage plot successfully generated')
     return fig
@@ -254,7 +254,7 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
     return fig
 
 def plot_syllable_durations_command(model_fit, index_file, output_file, max_syllable=40, count='usage', group=None,
-                                    ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-'):
+                                    ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-', figsize=(10, 5)):
     '''
     Plot average syllable durations over different sortings.
     default ordering is by descending syllable usage. For descending order of durations, set ordering='duration'.
@@ -282,12 +282,12 @@ def plot_syllable_durations_command(model_fit, index_file, output_file, max_syll
     '''
 
     fig = plot_syllable_durations_wrapper(model_fit, index_file, output_file, count=count, max_syllable=max_syllable, group=group, fmt=fmt,
-                                          ordering=ordering, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, gui=True)
+                                  ordering=ordering, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, figsize=figsize, gui=True)
 
     return fig
 
 def plot_mean_syllable_speeds_command(model_fit, index_file, output_file, max_syllable=40, group=None, fmt='o-',
-                                          ordering=None, ctrl_group=None, exp_group=None, colors=None):
+                                          ordering=None, ctrl_group=None, exp_group=None, colors=None, figsize=(10, 5)):
     '''
     Computes the average syllable speed according to the rodent's centroid speed
      at the frames with that respective syllable label.
@@ -313,7 +313,7 @@ def plot_mean_syllable_speeds_command(model_fit, index_file, output_file, max_sy
     '''
 
     fig = plot_syllable_speeds_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, group=group, fmt=fmt,
-                                       ordering=ordering, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, gui=True)
+                   ordering=ordering, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, figsize=figsize, gui=True)
 
     return fig
 

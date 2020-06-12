@@ -36,7 +36,8 @@ def common_syll_plot_options(function):
     function = click.option('--exp-group', type=str, default=None, help="Name of experimental group. Only if ordering = 'm'")(function)
     function = click.option('-c', '--colors', type=str, default=None, help="Colors to plot groups with.", multiple=True)(function)
     function = click.option('-f', '--fmt', type=str, default='o-', help="Format the scatter plot data.")(function)
-
+    function = click.option('-s', '--figsize', type=tuple, default=(10, 5), help="Size dimensions of the plotted figure.")(function)
+    
     return function
 
 
@@ -154,11 +155,11 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'usages'), help="Filename to store plot")
 @common_syll_plot_options
 def plot_usages(index_file, model_fit, output_file, sort, count, max_syllable, group,
-                ordering, ctrl_group, exp_group, colors, fmt):
+                ordering, ctrl_group, exp_group, colors, fmt, figsize):
 
     plot_syllable_usages_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
                                  count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
-                                 exp_group=exp_group, colors=colors, fmt=fmt)
+                                 exp_group=exp_group, colors=colors, fmt=fmt, figsize=figsize)
 
     print('Successfully graphed usage plots')
 
@@ -169,11 +170,11 @@ def plot_usages(index_file, model_fit, output_file, sort, count, max_syllable, g
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'durations'), help="Filename to store plot")
 @common_syll_plot_options
 def plot_syllable_durations(index_file, model_fit, output_file, sort, count, max_syllable, group,
-                ordering, ctrl_group, exp_group, colors, fmt):
+                ordering, ctrl_group, exp_group, colors, fmt, figsize):
 
     plot_syllable_durations_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
                                  count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
-                                 exp_group=exp_group, colors=colors, fmt=fmt)
+                                 exp_group=exp_group, colors=colors, fmt=fmt, figsize=figsize)
 
     print('Successfully graphed duration plots')
 
@@ -183,10 +184,10 @@ def plot_syllable_durations(index_file, model_fit, output_file, sort, count, max
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'speeds'), help="Filename to store plot")
 @common_syll_plot_options
 def plot_mean_syllable_speed(index_file, model_fit, output_file, sort, count, max_syllable, group,
-                ordering, ctrl_group, exp_group, colors, fmt):
+                ordering, ctrl_group, exp_group, colors, fmt, figsize):
 
     plot_mean_group_position_pdf_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
                                  count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
-                                 exp_group=exp_group, colors=colors, fmt=fmt)
+                                 exp_group=exp_group, colors=colors, fmt=fmt, figsize=figsize)
 
     print('Successfully graphed speed plots')

@@ -137,6 +137,8 @@ def plot_syllable_usages_wrapper(model_fit, index_file, output_file, sort=True, 
     plt (pyplot figure): graph to show in Jupyter Notebook.
     '''
 
+    max_syllable += 1  # accounting for last syllable in list
+
     # if the user passes model directory, merge model states by
     # minimum distance between them relative to first model in list
     if not os.path.exists(os.path.dirname(output_file)):
@@ -199,6 +201,8 @@ def plot_syllable_durations_wrapper(model_fit, index_file, output_file, count='u
     else:
         model_data = parse_model_results(joblib.load(model_fit))
 
+    max_syllable += 1  # accounting for last syllable in list
+
     # if the user passes multiple groups, sort and plot against each other
     # relabel by usage across the whole dataset, gather usages per session per group
     index, sorted_index = parse_index(index_file)
@@ -245,6 +249,8 @@ def plot_syllable_speeds_wrapper(model_fit, index_file, output_file, group=None,
 
     index, sorted_index = parse_index(index_file)
     scalar_df = scalars_to_dataframe(sorted_index)
+
+    max_syllable += 1  # accounting for last syllable in list
 
     df, label_df = results_to_dataframe(model_fit, sorted_index, max_syllable=max_syllable, sort=True, compute_labels=True)
 

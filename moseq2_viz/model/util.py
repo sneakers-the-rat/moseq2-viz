@@ -46,8 +46,6 @@ def merge_models(model_dir, ext='p'):
         for k,v in unit_data.items():
             if k not in list(model_data.keys()):
                 model_data[k] = v
-                if k == 'metadata':
-                    print(len(model_data[k]['uuids']), len(model_data[k]['groups']))
             else:
                 if k == 'model_parameters':
                     try:

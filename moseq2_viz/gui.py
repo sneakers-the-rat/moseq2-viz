@@ -160,7 +160,7 @@ def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, 
     os.system(f'moseq2-viz make-crowd-movies --max-syllable {max_syllable} -m {max_examples} -o {output_dir} {index_file} {model_path}')
 
     if len(os.listdir(output_dir)) >= max_syllable:
-        return 'Successfully generated '+str(max_examples) + ' crowd videos.'
+        return 'Successfully generated '+str(max_syllable) + ' crowd videos.'
 
 def plot_usages_command(model_fit, index_file, output_file, max_syllable=40, count='usage', group=None, sort=True,
                         ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-', figsize=(10, 5)):

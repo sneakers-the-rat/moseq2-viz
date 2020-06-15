@@ -716,12 +716,12 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, sessions, groups, 
 
     all_speeds_df = pd.DataFrame.from_dict(all_sessions[0])
     y = all_speeds_df['speed']
-    all_speeds_df['speed'] = np.where(y.between(0, 250), y, 0)
+    all_speeds_df['speed'] = np.where(y.between(0, 300), y, 0)
 
-    for i in tqdm(range(1, len(all_sessions))):
+    for i in range(1, len(all_sessions)):
         tmp_df = pd.DataFrame.from_dict(all_sessions[i])
         y = tmp_df['speed']
-        tmp_df['speed'] = np.where(y.between(0, 250), tmp_df['speed'], 0)
+        tmp_df['speed'] = np.where(y.between(0, 300), tmp_df['speed'], 0)
 
         all_speeds_df = all_speeds_df.append(tmp_df)
 

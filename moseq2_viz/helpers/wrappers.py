@@ -250,12 +250,17 @@ def plot_syllable_speeds_wrapper(model_fit, index_file, output_file, group=None,
     index, sorted_index = parse_index(index_file)
     scalar_df = scalars_to_dataframe(sorted_index)
 
+    if os.path.isdir(model_fit):
+        model_data = merge_models(model_fit, 'p')
+    else:
+        model_data = parse_model_results(joblib.load(model_fit))
+
     max_syllable += 1  # accounting for last syllable in list
 
-    df, label_df = results_to_dataframe(model_fit, sorted_index, max_syllable=max_syllable, sort=True, compute_labels=True)
+    df, label_df = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=True, compute_labels=True)
 
     sessions = list(set(scalar_df.uuid))
-    df_groups = [scalar_df[scalar_df['uuid'] == sess][['group']].iloc[0][0] for sess in sessions]
+    df_groups = [i[0] for i in list(df.groupby('uuid').group.unique())]
 
     scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
 

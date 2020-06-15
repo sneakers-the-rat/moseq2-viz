@@ -42,7 +42,7 @@ def merge_models(model_dir, ext='p'):
     model_data = {}
 
     for m, model_fit in enumerate(model_paths):
-        unit_data = parse_model_results(joblib.load(model_fit))
+        unit_data = parse_model_results(joblib.load(model_fit), sort_labels_by_usage=True)
         for k,v in unit_data.items():
             if k not in list(model_data.keys()):
                 model_data[k] = v
@@ -60,6 +60,7 @@ def merge_models(model_dir, ext='p'):
 
                         row_ind, col_ind = linear_sum_assignment(cost)
                         mapping = {c:r for r,c in zip(row_ind, col_ind)}
+
                         adjusted_labels = []
                         for session in unit_data['labels']:
                             for oldlbl in session:

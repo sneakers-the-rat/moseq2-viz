@@ -18,7 +18,7 @@ from scipy.optimize import linear_sum_assignment
 from moseq2_viz.util import np_cache, h5_to_dict, star
 from cytoolz import curry, valmap, compose, complement, itemmap, concat
 
-def merge_models(model_dir, ext):
+def merge_models(model_dir, ext='p'):
     '''
     Merges model states by using the Hungarian Algorithm:
     a minimum distance state matching algorithm. User inputs a
@@ -40,14 +40,17 @@ def merge_models(model_dir, ext):
     model_paths = [m for m in glob.glob(tmp)]
 
     model_data = {}
+
     for m, model_fit in enumerate(model_paths):
         unit_data = parse_model_results(joblib.load(model_fit))
         for k,v in unit_data.items():
             if k not in list(model_data.keys()):
                 model_data[k] = v
+                if k == 'metadata':
+                    print(len(model_data[k]['uuids']), len(model_data[k]['groups']))
             else:
-                try:
-                    if k == 'model_parameters':
+                if k == 'model_parameters':
+                    try:
                         prev = model_data[k]['ar_mat']
                         curr_arrays = v['ar_mat']
                         cost = np.zeros((len(prev), len(curr_arrays)))
@@ -60,20 +63,26 @@ def merge_models(model_dir, ext):
                         row_ind, col_ind = linear_sum_assignment(cost)
                         mapping = {c:r for r,c in zip(row_ind, col_ind)}
                         adjusted_labels = []
-
-                        for oldlbl in unit_data['labels'][0]:
-                            try:
-                                adjusted_labels.append(mapping[oldlbl])
-                            except:
-                                pass
-
-                        model_data['labels'].append(np.array(adjusted_labels))
-                    elif k == 'keys' or k == 'train_list':
-                        for i in v:
+                        for session in unit_data['labels']:
+                            for oldlbl in session:
+                                try:
+                                    adjusted_labels.append(mapping[oldlbl])
+                                except:
+                                    pass
+                            model_data['labels'].append(np.array(adjusted_labels))
+                    except:
+                        print('Error, trying to merge models with unequal number of PCs. Skipping.')
+                        pass
+                elif k == 'keys' or k == 'train_list':
+                    for i in v:
+                        if i not in model_data[k]:
                             model_data[k].append(i)
-                except:
-                    print('Error, trying to merge models with unequal number of PCs.')
-                    pass
+                elif k == 'metadata':
+                    for k1, v1 in unit_data[k].items():
+                        for val in v1:
+                            if k1 == 'groups':
+                                model_data[k][k1].append(val)
+
     return model_data
 
 def _get_transitions(label_sequence):
@@ -676,7 +685,7 @@ def get_frame_label_df(labels, uuids, groups):
     return label_df
 
 def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', normalize=True, max_syllable=40,
-                         include_meta=['SessionName', 'SubjectName', 'StartTime']):
+                         include_meta=['SessionName', 'SubjectName', 'StartTime'], compute_labels=False):
     '''
     Converts inputted model dictionary to DataFrame with user specified metadata columns.
     Also generates a DataFrame containing frame-by-frame syllable labels for all sessions.
@@ -740,7 +749,14 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', norm
             metadata.append(index_dict['files'][i].get('metadata', {}))
 
     # get frame-by-frame label DataFrame
-    label_df = get_frame_label_df(model_dict['labels'], label_uuids, groups)
+    if compute_labels:
+        try:
+            label_df = get_frame_label_df(model_dict['labels'], label_uuids, groups)
+        except:
+            label_df = []
+            print('Could not compute frame-label dataframe.')
+    else:
+        label_df = []
 
     for i, label_arr in enumerate(model_dict['labels']):
         tmp_usages, tmp_durations = get_syllable_statistics(label_arr, count=count, max_syllable=max_syllable)

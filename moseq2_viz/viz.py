@@ -755,7 +755,7 @@ def check_types(function):
                 groups = uniq_groups
 
         if max_sylls == None:
-            max_sylls = 40
+            max_sylls = 41
 
         if set(stat).issubset(set('usage')):
             stat = 'usage'
@@ -827,6 +827,8 @@ def plot_syll_stats_with_sem(complete_df, stat='usage', ordering=None, max_sylls
     '''
 
     fig, ax = plt.subplots(1, 1, figsize=figsize)
+
+    max_sylls += 1 # accounting for last syllable in list
 
     # separates each group's usage data into a separate array element, and computes their respective group-marginalized SEM
     # also reorders data if using mutant ordering

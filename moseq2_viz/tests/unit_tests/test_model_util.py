@@ -26,7 +26,7 @@ class TestModelUtils(TestCase):
         model_data = merge_models(model_paths, ext)
 
         assert len(model_data.keys()) > 0
-        assert len(model_data['keys']) == 4
+        assert len(model_data['keys']) == 2
 
     def test_get_transitions(self):
         true_labels = [1, 2, 4, 1, 5]
@@ -267,7 +267,7 @@ class TestModelUtils(TestCase):
             index_data['pca_path'] = 'data/test_scores.h5'
 
         model_dict = parse_model_results(model_fit)
-        df, label_df = results_to_dataframe(model_dict, index_data, sort=True, max_syllable=max_syllable)
+        df, label_df = results_to_dataframe(model_dict, index_data, sort=True, max_syllable=max_syllable, compute_labels=True)
 
         assert isinstance(label_df, pd.DataFrame)
         assert isinstance(df, pd.DataFrame)

@@ -246,7 +246,7 @@ def plot_syllable_speeds_wrapper(model_fit, index_file, output_file, group=None,
     index, sorted_index = parse_index(index_file)
     scalar_df = scalars_to_dataframe(sorted_index)
 
-    df, label_df = results_to_dataframe(model_fit, sorted_index, max_syllable=max_syllable, sort=True)
+    df, label_df = results_to_dataframe(model_fit, sorted_index, max_syllable=max_syllable, sort=True, compute_labels=True)
 
     sessions = list(set(scalar_df.uuid))
     df_groups = [scalar_df[scalar_df['uuid'] == sess][['group']].iloc[0][0] for sess in sessions]
@@ -489,6 +489,13 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     elif model_path.endswith('.h5'):
         # load in h5, use index found using another function
         pass
+    elif os.path.isdir(model_path):
+        model_fit = merge_models(model_path, 'p')
+        labels = model_fit['labels']
+        if 'train_list' in model_fit:
+            label_uuids = model_fit['train_list']
+        else:
+            label_uuids = model_fit['keys']
 
 
     if not os.path.exists(output_dir):

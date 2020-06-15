@@ -296,7 +296,7 @@ class TestScalarUtils(TestCase):
 
         _, sorted_index = parse_index(test_index)
         scalar_df = scalars_to_dataframe(sorted_index)
-        complete_df, label_df = results_to_dataframe(test_model, sorted_index)
+        complete_df, label_df = results_to_dataframe(test_model, sorted_index, compute_labels=True)
 
         sessions = list(set(scalar_df.uuid))
         groups = list(set(scalar_df.group))

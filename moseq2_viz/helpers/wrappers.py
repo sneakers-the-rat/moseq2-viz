@@ -259,12 +259,9 @@ def plot_syllable_speeds_wrapper(model_fit, index_file, output_file, group=None,
 
     df, label_df = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=True, compute_labels=True)
 
-    sessions = list(set(scalar_df.uuid))
-    df_groups = [i[0] for i in list(df.groupby('uuid').group.unique())]
-
     scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
 
-    df = compute_mean_syll_speed(df, scalar_df, label_df, sessions, df_groups, max_sylls=max_syllable)
+    df = compute_mean_syll_speed(df, scalar_df, label_df, max_sylls=max_syllable)
 
     fig, lgd = plot_syll_stats_with_sem(df, ordering=ordering, fmt=fmt, stat='speed', max_sylls=max_syllable,
                                groups=group, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, figsize=figsize)
@@ -297,7 +294,7 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file, gui=False):
     index, sorted_index = parse_index(index_file)
     scalar_df = scalars_to_dataframe(sorted_index)
 
-    pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df)
+    pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df, normalize=True)
 
     fig = plot_mean_group_heatmap(pdfs, groups)
 

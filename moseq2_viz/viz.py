@@ -935,6 +935,6 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
             plt.xticks([])
             plt.yticks([])
 
-            plt.title(f'{groups[i]}: {names[j]}', fontsize=10)
+            plt.title(f'{group}: {names[j]}', fontsize=10)
 
     return fig

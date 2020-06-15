@@ -604,7 +604,7 @@ def make_a_heatmap(position):
     return pdf
 
 
-def compute_all_pdf_data(scalar_df, normalize=True, centroid_vars=['centroid_x_mm', 'centroid_y_mm']):
+def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_mm', 'centroid_y_mm']):
     '''
     Computes a position PDF for all sessions and returns the pdfs with corresponding lists of
      groups, session uuids, and subjectNames.
@@ -668,7 +668,7 @@ def compute_session_centroid_speeds(scalar_df, grouping_keys=['uuid', 'group'],
 
     return sc_speed
 
-def compute_mean_syll_speed(complete_df, scalar_df, label_df, sessions, groups, max_sylls=40):
+def compute_mean_syll_speed(complete_df, scalar_df, label_df, max_sylls=40):
     '''
     Computes the mean syllable speed based on the centroid speed of the mouse at the frame indices
      with corresponding label values.
@@ -688,15 +688,16 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, sessions, groups, 
     '''
 
     lbl_df = label_df.T
+    columns = lbl_df.columns
     gk = ['group', 'uuid']
 
     centroid_speeds = scalar_df[['centroid_speed_mm'] + gk]
 
     all_sessions = []
-    for group, sess in tqdm(zip(groups, sessions), total=len(groups), desc='Computing Per Session Syll Speeds'):
-        index = (group, sess)
-        sess_lbls = lbl_df[index].iloc[3:].reset_index().dropna(axis=0, how='all')
-        sess_speeds = centroid_speeds[centroid_speeds['uuid'] == sess].iloc[3:].reset_index()
+    for col in tqdm(columns, total=len(columns), desc='Computing Per Session Syll Speeds'):
+
+        sess_lbls = lbl_df[col].iloc[3:].reset_index().dropna(axis=0, how='all')
+        sess_speeds = centroid_speeds[centroid_speeds['uuid'] == col[1]].iloc[3:].reset_index()
 
         sess_dict = {
             'uuid': [],
@@ -704,11 +705,11 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, sessions, groups, 
             'speed': []
         }
         for lbl in range(max_sylls):
-            indices = (sess_lbls[index] == lbl)
+            indices = (sess_lbls[col] == lbl)
 
             mean_lbl_speed = np.nanmean(sess_speeds[indices].centroid_speed_mm)
 
-            sess_dict['uuid'].append(sess)
+            sess_dict['uuid'].append(col[1])
             sess_dict['syllable'].append(lbl)
             sess_dict['speed'].append(mean_lbl_speed)
 

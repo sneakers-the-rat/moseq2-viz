@@ -2,7 +2,7 @@ import os
 import shutil
 import ruamel.yaml as yaml
 from unittest import TestCase
-from moseq2_viz.gui import get_groups_command, add_group_by_session, add_group_by_subject, make_crowd_movies_command,\
+from moseq2_viz.gui import get_groups_command, add_group, make_crowd_movies_command,\
                 plot_usages_command, plot_scalar_summary_command, plot_transition_graph_command, \
                 plot_syllable_durations_command, plot_mean_group_position_heatmaps_command, \
                 plot_verbose_position_heatmaps, plot_mean_syllable_speeds_command
@@ -29,7 +29,8 @@ class TestGUI(TestCase):
 
         assert num_groups == len(set(groups)), "Number of returned groups is incorrect"
 
-    def test_add_group_by_session(self):
+
+    def test_add_group(self):
         index_path = 'data/test_index.yaml'
         tmp_yaml = 'data/tmp_copy.yaml'
 
@@ -40,37 +41,14 @@ class TestGUI(TestCase):
         with open(tmp_yaml, 'w') as g:
             yaml.safe_dump(index_data, g)
 
-
-        value = 'blackStockOFA80GritSanded_012517'
-        group = 'test1'
-        exact = False
-        lowercase = False
-        negative = False
-
-        add_group_by_session(tmp_yaml, value, group, exact, lowercase, negative)
-
-        assert not os.path.samefile(index_path, tmp_yaml), "Index file was not updated."
-        os.remove(tmp_yaml)
-
-
-    def test_add_group_by_subject(self):
-        index_path = 'data/test_index.yaml'
-        tmp_yaml = 'data/tmp_copy.yaml'
-
-        with open(index_path, 'r') as f:
-            index_data = yaml.safe_load(f)
-        f.close()
-
-        with open(tmp_yaml, 'w') as g:
-            yaml.safe_dump(index_data, g)
-
+        key = 'SubjectName'
         value = '012517'
         group = 'test1'
         exact = False
         lowercase = False
         negative = False
 
-        add_group_by_subject(tmp_yaml, value, group, exact, lowercase, negative)
+        add_group(tmp_yaml, key, value, group, exact, lowercase, negative)
 
         assert not os.path.samefile(index_path, tmp_yaml), "Index file was not updated"
         os.remove(tmp_yaml)

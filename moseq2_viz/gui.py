@@ -44,43 +44,7 @@ def get_groups_command(index_file, output_directory=None):
 
     return len(set(groups))
 
-def add_group_by_session(index_file, value, group, exact, lowercase, negative, output_directory=None):
-    '''
-    Updates index file SessionName group names with user defined group names.
-
-    Parameters
-    ----------
-    index_file (str): path to index file
-    value (str): SessionName value to search for
-    group (str): group name to allocate.
-    exact (bool): indicate whether to search for exact match.
-    lowercase (bool): indicate whether to convert all searched for names to lowercase.
-    negative (bool): whether to update the inverse of the found selection.
-    output_directory (str): path to alternative index file path
-
-    Returns
-    -------
-    None
-    '''
-
-    if output_directory is not None:
-        index_file = os.path.join(output_directory, index_file.split('/')[-1])
-
-    key = 'SessionName'
-
-    gui_data = {
-        'key': key,
-        'value': value,
-        'group': group,
-        'exact': exact,
-        'lowercase': lowercase,
-        'negative': negative
-    }
-
-    add_group_wrapper(index_file, gui_data)
-    get_groups_command(index_file)
-
-def add_group_by_subject(index_file, value, group, exact, lowercase, negative, output_directory=None):
+def add_group(index_file, by='SessionName', value='default', group='default', exact=False, lowercase=False, negative=False, output_directory=None):
     '''
     Updates index file SubjectName group names with user defined group names.
 
@@ -102,18 +66,31 @@ def add_group_by_subject(index_file, value, group, exact, lowercase, negative, o
     if output_directory is not None:
         index_file = os.path.join(output_directory, index_file.split('/')[-1])
 
-    key = 'SubjectName'
+    if isinstance(value, str):
+        gui_data = {
+            'key': by,
+            'value': value,
+            'group': group,
+            'exact': exact,
+            'lowercase': lowercase,
+            'negative': negative
+        }
+        add_group_wrapper(index_file, gui_data)
 
-    gui_data = {
-        'key': key,
-        'value': value,
-        'group': group,
-        'exact': exact,
-        'lowercase': lowercase,
-        'negative': negative
-    }
-
-    add_group_wrapper(index_file, gui_data)
+    elif isinstance(value, list) and isinstance(group, list):
+        if len(value) == len(group):
+            for v, g in zip(value, group):
+                gui_data = {
+                    'key': by,
+                    'value': v,
+                    'group': g,
+                    'exact': exact,
+                    'lowercase': lowercase,
+                    'negative': negative
+                }
+                add_group_wrapper(index_file, gui_data)
+        else:
+            print('ERROR, did not enter equal number of substring values -> groups.')
     get_groups_command(index_file)
 
 def copy_h5_metadata_to_yaml_command(input_dir, h5_metadata_path):

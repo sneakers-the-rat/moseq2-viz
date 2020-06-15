@@ -298,12 +298,9 @@ class TestScalarUtils(TestCase):
         scalar_df = scalars_to_dataframe(sorted_index)
         complete_df, label_df = results_to_dataframe(test_model, sorted_index, compute_labels=True)
 
-        sessions = list(set(scalar_df.uuid))
-        groups = list(set(scalar_df.group))
-
         scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
 
-        complete_df = compute_mean_syll_speed(complete_df, scalar_df, label_df, sessions, groups, max_sylls=40)
+        complete_df = compute_mean_syll_speed(complete_df, scalar_df, label_df, max_sylls=40)
 
         assert 'speed' in complete_df.columns
         assert not complete_df.speed.isnull().all()

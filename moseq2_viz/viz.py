@@ -779,6 +779,7 @@ def check_types(function):
         if isinstance(ordering, str):
             if ordering == 'm':
                 if (ctrl_group != None and exp_group != None) and (ctrl_group in groups and exp_group in groups):
+                    max_sylls += 1
                     ordering = get_syllable_muteness_ordering(complete_df, ctrl_group=ctrl_group,
                                                                            exp_group=exp_group, max_sylls=max_sylls,
                                                                            stat=stat)

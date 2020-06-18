@@ -668,7 +668,7 @@ def compute_session_centroid_speeds(scalar_df, grouping_keys=['uuid', 'group'],
 
     return sc_speed
 
-def compute_mean_syll_speed(complete_df, scalar_df, label_df, max_sylls=40):
+def compute_mean_syll_speed(complete_df, scalar_df, label_df, groups=None, max_sylls=40):
     '''
     Computes the mean syllable speed based on the centroid speed of the mouse at the frame indices
      with corresponding label values.
@@ -695,6 +695,9 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, max_sylls=40):
 
     all_sessions = []
     for col in tqdm(columns, total=len(columns), desc='Computing Per Session Syll Speeds'):
+        if groups != None:
+            if col[0] not in groups:
+                continue
 
         sess_lbls = lbl_df[col].iloc[3:].reset_index().dropna(axis=0, how='all')
         sess_speeds = centroid_speeds[centroid_speeds['uuid'] == col[1]].iloc[3:].reset_index()

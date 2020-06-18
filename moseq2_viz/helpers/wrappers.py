@@ -261,7 +261,7 @@ def plot_syllable_speeds_wrapper(model_fit, index_file, output_file, group=None,
 
     scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
 
-    df = compute_mean_syll_speed(df, scalar_df, label_df, max_sylls=max_syllable)
+    df = compute_mean_syll_speed(df, scalar_df, label_df, groups=group, max_sylls=max_syllable)
 
     fig, lgd = plot_syll_stats_with_sem(df, ordering=ordering, fmt=fmt, stat='speed', max_sylls=max_syllable,
                                groups=group, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, figsize=figsize)

@@ -239,7 +239,7 @@ class TestViz(TestCase):
             if i == 1:
                 sorted_index['files'][k]['group'] = 'Group2'
 
-        complete_df, _ = results_to_dataframe(test_model, sorted_index)
+        complete_df, _ = results_to_dataframe(test_model, sorted_index, max_syllable=41)
 
         # mutation order plot with correct parameters
         fig, lgd = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='m', max_sylls=None, groups=None,

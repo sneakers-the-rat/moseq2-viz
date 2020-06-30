@@ -5,22 +5,19 @@ from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_usages_
         plot_syllable_durations_wrapper, plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, \
     plot_syllable_speeds_wrapper, plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper
 
-def get_groups_command(index_file, output_directory=None):
+def get_groups_command(index_file):
     '''
     Jupyter Notebook to print index file current metadata groupings.
 
     Parameters
     ----------
     index_file (str): path to index file
-    output_directory (str): path to alternative index file path
 
     Returns
     -------
     (int): number of unique groups
     '''
 
-    if output_directory is not None:
-        index_file = os.path.join(output_directory, index_file.split('/')[-1])
 
     with open(index_file, 'r') as f:
         index_data = yaml.safe_load(f)
@@ -44,7 +41,7 @@ def get_groups_command(index_file, output_directory=None):
 
     return len(set(groups))
 
-def add_group(index_file, by='SessionName', value='default', group='default', exact=False, lowercase=False, negative=False, output_directory=None):
+def add_group(index_file, by='SessionName', value='default', group='default', exact=False, lowercase=False, negative=False):
     '''
     Updates index file SubjectName group names with user defined group names.
 
@@ -56,15 +53,11 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
     exact (bool): indicate whether to search for exact match.
     lowercase (bool): indicate whether to convert all searched for names to lowercase.
     negative (bool): whether to update the inverse of the found selection.
-    output_directory (str): path to alternative index file path
 
     Returns
     -------
     None
     '''
-
-    if output_directory is not None:
-        index_file = os.path.join(output_directory, index_file.split('/')[-1])
 
     if isinstance(value, str):
         gui_data = {
@@ -110,7 +103,7 @@ def copy_h5_metadata_to_yaml_command(input_dir, h5_metadata_path):
     copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path)
 
 
-def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, max_examples, output_directory=None):
+def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, max_examples):
     '''
     Runs CLI function to write crowd movies, due to multiprocessing
     compatibilty issues with Jupyter notebook's scheduler.
@@ -122,17 +115,15 @@ def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, 
     output_dir (str): path to directory to save crowd movies in.
     max_syllable (int): number of syllables to make crowd movies for.
     max_examples (int): max number of mice to include in a crowd movie.
-    output_directory (str): alternative directory prefix to save crowd movies in.
 
     Returns
     -------
     (str): Success string.
     '''
 
-    if output_directory != None:
-        output_dir = os.path.join(output_directory, output_dir)
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     os.system(f'moseq2-viz make-crowd-movies --max-syllable {max_syllable} -m {max_examples} -o {output_dir} {index_file} {model_path}')
 

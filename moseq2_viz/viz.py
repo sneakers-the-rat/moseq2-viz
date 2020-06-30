@@ -113,8 +113,8 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     weights (np.ndarray): syllable transition edge weights
     transition_matrix (np.ndarray): syllable transition matrix
     usages (list): list of syllable usages
-    usage_threshold (float): threshold to include a syllable in list of orphans
-    edge_threshold (float): threshold to consider an edge part of the graph.
+    usage_threshold (float): threshold syllable usage to include a syllable in list of orphans
+    edge_threshold (float): threshold transition probability to consider an edge part of the graph.
     indices (list): indices of syllables to list as orphans
     keep_orphans (bool): indicate whether to graph orphan syllables
     max_syllable (bool): maximum numebr of syllables to include in graph

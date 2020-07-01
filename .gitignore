@@ -43,7 +43,7 @@ htmlcov/
 .coverage.*
 .cache
 nosetests.xml
-coverage.xml
+*.xml
 *.cover
 .hypothesis/
 .pytest_cache/
@@ -110,3 +110,5 @@ venv.bak/
 
 # VS Code
 .vscode
+data/
+.doctrees/

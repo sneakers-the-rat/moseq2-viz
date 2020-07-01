@@ -1,12 +1,14 @@
-import h5py
 import os
-import pandas as pd
-import numpy as np
+import h5py
 import warnings
-from cytoolz import keyfilter, itemfilter, merge_with, curry, valmap, get
+import numpy as np
+import pandas as pd
 from tqdm.auto import tqdm
 from itertools import starmap
+from multiprocessing import Pool
 from collections import defaultdict
+from sklearn.neighbors import KernelDensity
+from cytoolz import keyfilter, itemfilter, merge_with, curry, valmap, get
 from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
                              h5_filepath_from_sorted, get_timestamps_from_h5)
 from moseq2_viz.model.util import parse_model_results, _get_transitions, relabel_by_usage
@@ -21,12 +23,26 @@ def star_valmap(func, d):
     return dict(zip(keys, starmap(func, d.values())))
 
 
-# http://stackoverflow.com/questions/17832238/kinect-intrinsic-parameters-from-field-of-view/18199938#18199938
-# http://www.imaginativeuniversal.com/blog/post/2014/03/05/quick-reference-kinect-1-vs-kinect-2.aspx
-# http://smeenk.com/kinect-field-of-view-comparison/
+
 def convert_pxs_to_mm(coords, resolution=(512, 424), field_of_view=(70.6, 60), true_depth=673.1):
-    """Converts x, y coordinates in pixel space to mm
-    """
+    '''
+    Converts x, y coordinates in pixel space to mm
+    # http://stackoverflow.com/questions/17832238/kinect-intrinsic-parameters-from-field-of-view/18199938#18199938
+    # http://www.imaginativeuniversal.com/blog/post/2014/03/05/quick-reference-kinect-1-vs-kinect-2.aspx
+    # http://smeenk.com/kinect-field-of-view-comparison/
+
+    Parameters
+    ----------
+    coords (list): list of [x,y] pixel coordinate lists.
+    resolution (tuple): video frame size.
+    field_of_view (tuple): camera focal lengths.
+    true_depth (float): detected distance between depth camera and bucket floor.
+
+    Returns
+    -------
+    new_coords (list): list of same [x,y] coordinates in millimeters.
+    '''
+
     cx = resolution[0] // 2
     cy = resolution[1] // 2
 
@@ -44,22 +60,37 @@ def convert_pxs_to_mm(coords, resolution=(512, 424), field_of_view=(70.6, 60), t
 
 
 def is_legacy(features: dict):
-    '''Checks a dictionary of features to see if they correspond with an older version
-    of moseq
-
-    Returns:
-        true if the dict is from an old dataset
-
-    >>> is_legacy({'centroid_x': [1], 'area': 2})
-    True
-    >>> is_legacy({'centroid_x_mm': [1], 'area_mm': 2})
-    False
     '''
+    Checks a dictionary of features to see if they correspond with an older version
+    of moseq.
+
+    Parameters
+    ----------
+    features
+
+    Returns
+    -------
+    (bool): true if the dict is from an old dataset
+    '''
+
     old_features = ('centroid_x', 'centroid_y', 'width', 'length', 'area', 'height_ave')
     return any(x in old_features for x in features)
 
 
 def generate_empty_feature_dict(nframes) -> dict:
+    '''
+    Generates a dict of numpy array of zeros of
+    length nframes for each feature parameter.
+
+    Parameters
+    ----------
+    nframes (int): length of video
+
+    Returns
+    -------
+    (dict): dictionary feature to numpy 0 arrays of length nframes key-value pairs.
+    '''
+
     features = (
         'centroid_x_px', 'centroid_y_px', 'velocity_2d_px', 'velocity_3d_px',
         'width_px', 'length_px', 'area_px', 'centroid_x_mm', 'centroid_y_mm',
@@ -68,20 +99,25 @@ def generate_empty_feature_dict(nframes) -> dict:
     )
 
     def make_empy_arr():
-        return np.zeros((nframes,), dtype='float32')
+        return np.zeros((abs(nframes),), dtype='float32')
     return {k: make_empy_arr() for k in features}
 
 
 def convert_legacy_scalars(old_features, force: bool = False, true_depth: float = 673.1) -> dict:
-    """Converts scalars in the legacy format to the new format, with explicit units.
-    Args:
-        old_features (str, h5 group, or dictionary of scalars): filename, h5 group,
-            or dictionary of scalar values
-        force: force the conversion of centroid_[xy]_px into mm
-        true_depth:  true depth of the floor relative to the camera (673.1 mm by default)
-    Returns:
-        features: dictionary of scalar values
-    """
+    '''
+    Converts scalars in the legacy format to the new format, with explicit units.
+
+    Parameters
+    ----------
+    old_features (str, h5 group, or dictionary of scalars): filename, h5 group,
+    or dictionary of scalar values.
+    force (bool): force the conversion of centroid_[xy]_px into mm.
+    true_depth (float): true depth of the floor relative to the camera (673.1 mm by default)
+
+    Returns
+    -------
+    features (dict): dictionary of scalar values
+    '''
 
     if isinstance(old_features, h5py.Group) and 'centroid_x' in old_features:
         print('Loading scalars from h5 dataset')
@@ -97,7 +133,7 @@ def convert_legacy_scalars(old_features, force: bool = False, true_depth: float 
         nframes = len(old_features['centroid_x_mm'])
     elif not force:
         print('Features already converted')
-        return None
+        return old_features
     else:
         centroid = np.hstack((old_features['centroid_x'][:, None],
                               old_features['centroid_y'][:, None]))
@@ -156,12 +192,34 @@ def convert_legacy_scalars(old_features, force: bool = False, true_depth: float 
     return features
 
 
-def get_scalar_map(index, fill_nans=True, force_conversion=True):
+def get_scalar_map(index, fill_nans=True, force_conversion=False):
+    '''
+    Returns a dictionary of scalar values loaded from an index dictionary.
+
+    Parameters
+    ----------
+    index (dict): dictionary of index file contents.
+    fill_nans (bool): indicate whether to replace NaN values with 0.
+    force_conversion (bool): force the conversion of centroid_[xy]_px into mm.
+
+    Returns
+    -------
+    scalar_map (dict): dictionary of all the scalar values acquired after extraction.
+    '''
 
     scalar_map = {}
     score_idx = h5_to_dict(index['pca_path'], 'scores_idx')
 
-    for uuid, v in index['files'].items():
+    try:
+        iter_items = index['files'].items()
+    except:
+        iter_items = enumerate(index['files'])
+
+    for i, v in iter_items:
+        if isinstance(index['files'], list):
+            uuid = index['files'][i]['uuid']
+        elif isinstance(index['files'], dict):
+            uuid = i
 
         scalars = h5_to_dict(v['path'][0], 'scalars')
         conv_scalars = convert_legacy_scalars(scalars, force=force_conversion)
@@ -187,6 +245,22 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
                                  include_keys=['velocity_2d_mm', 'velocity_3d_mm', 'width_mm',
                                                'length_mm', 'height_ave_mm', 'angle'],
                                  zscore=False):
+    '''
+    Get averages of selected scalar keys for each syllable.
+
+    Parameters
+    ----------
+    scalar_map (dict): dictionary of all the scalar values acquired after extraction.
+    model_labels (dict): dictionary of uuid to syllable label array pairs.
+    max_syllable (int): maximum number of syllables to use.
+    nlags (int): number of lags to use when averaging over a series of PCs.
+    include_keys (list): list of scalar values to load averages of.
+    zscore (bool): indicate whether to z-score loaded values.
+
+    Returns
+    -------
+    syll_average (dict): dictionary of scalars for each syllable sequence.
+    '''
 
     win = int(nlags * 2 + 1)
 
@@ -238,16 +312,54 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
 
 
 def nanzscore(data):
+    '''
+    Z-score numpy array that may contain NaN values.
+
+    Parameters
+    ----------
+    data (np.ndarray): array of scalar values.
+
+    Returns
+    -------
+    data (np.ndarray): z-scored data.
+    '''
+
     return (data - np.nanmean(data)) / np.nanstd(data)
 
 
 def _pca_matches_labels(pca, labels):
-    '''Make sure that the number of frames in the pca dataset matches the
-    number of frames in the assigned labels'''
+    '''
+    Make sure that the number of frames in the pca dataset matches the
+    number of frames in the assigned labels.
+
+    Parameters
+    ----------
+    pca (np.array): array of session PC scores.
+    labels (np.array): array of session syllable labels
+
+    Returns
+    -------
+    (bool): indicates whether the PC scores length matches the corresponding assigned labels.
+    '''
+
     return len(pca) == len(labels)
 
 
 def process_scalars(scalar_map: dict, include_keys: list, zscore: bool = False) -> dict:
+    '''
+    Fill NaNs and possibly zscore scalar values.
+
+    Parameters
+    ----------
+    scalar_map (dict): dictionary of all the scalar values acquired after extraction.
+    include_keys (list): scalar keys to process.
+    zscore (bool): indicate whether to z-score loaded values.
+
+    Returns
+    -------
+
+    '''
+
     out = defaultdict(list)
     for k, v in scalar_map.items():
         for scalar in include_keys:
@@ -277,7 +389,19 @@ def find_and_load_feedback(extract_path, input_path):
 
 
 def remove_nans_from_labels(idx, labels):
-    '''Removes the frames from `labels` where `idx` has NaNs in it'''
+    '''
+    Removes the frames from `labels` where `idx` has NaNs in it.
+
+    Parameters
+    ----------
+    idx (list): indices to remove NaN values at.
+    labels (list): label list containing NaN values.
+
+    Returns
+    -------
+    (list): label list excluding NaN values at given indices
+    '''
+
     return labels[~np.isnan(idx)]
 
 
@@ -287,21 +411,37 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     '''
     Generates a dataframe containing scalar values over the course of a recording session.
     If a model string is included, then return only animals that were included in the model
+    Called to sort scalar metadata information when graphing in plot-scalar-summary.
 
-    Called to sort scalar metadata information when graphing in plot-scalar-summary
-    Args:
-        index: a sorted_index generated by `parse_index` or `get_sorted_index`
-        include_keys: a list of other moseq related keys to include in the dataframe
-        include_model (str): path to an existing moseq model
+    Parameters
+    ----------
+    index (dict): a sorted_index generated by `parse_index` or `get_sorted_index`
+    include_keys (list): a list of other moseq related keys to include in the dataframe
+    include_model (str): path to an existing moseq model
+    disable_output (bool): indicate whether to show tqdm output.
+    include_pcs (bool): UNUSED
+    npcs (int): UNUSED
+    include_feedback (bool): indicate whether to include timestamp data
+    force_conversion (bool): force the conversion of centroid_[xy]_px into mm.
+    include_labels (bool): UNUSED
+
+    Returns
+    -------
+    scalar_df (pandas DataFrame): DataFrame of loaded scalar values with their selected metadata.
     '''
+
     scalar_dict = defaultdict(list)
     skip = []
 
     files = index['files']
-    uuids = list(files.keys())
-
-    # use dset from first animal to generate a list of scalars
-    dset = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='scalars')
+    try:
+        uuids = list(files.keys())
+        # use dset from first animal to generate a list of scalars
+        dset = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='scalars')
+    except:
+        uuids = [f['uuid'] for f in index['files']]
+        # use dset from first animal to generate a list of scalars
+        dset = h5_to_dict(h5_filepath_from_sorted(files[0]), path='scalars')
 
     # only convert if the dataset is legacy and conversion is forced
     if is_legacy(dset) and force_conversion:
@@ -316,9 +456,19 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 
         labels = mdl['labels']
 
+        if isinstance(labels, dict):
+            keys = list(labels.keys())
+            labels = np.array(list(labels.values()))
+
         # we need to call these functions here so we don't filter out data before relabelling
         usage, _ = relabel_by_usage(labels, count='usage')
         frames, _ = relabel_by_usage(labels, count='frames')
+
+        if isinstance(usage, list) or isinstance(usage, np.ndarray):
+            usage = {k:v for k,v in zip(keys, usage)}
+            frames = {k: v for k, v in zip(keys, frames)}
+            labels = {k: v for k, v in zip(keys, labels)}
+            files = {k: v for k, v in zip(keys, files)}
 
         # get pca score indices
         scores_idx = h5_to_dict(index['pca_path'], 'scores_idx')
@@ -341,15 +491,19 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         usage = star_valmap(remove_nans_from_labels, merger(usage))
         frames = star_valmap(remove_nans_from_labels, merger(frames))
         labels = star_valmap(remove_nans_from_labels, merger(labels))
+
         # only include extractions that were modeled and fit the above criteria
         files = keyfilter(lambda x: x in labels, files)
 
-    for k, v in tqdm(files.items(), disable=disable_output):
+    try:
+        iter_items = files.items()
+    except:
+        iter_items = enumerate(files)
+
+    for k, v in tqdm(iter_items, disable=disable_output):
 
         pth = h5_filepath_from_sorted(v)
         dset = h5_to_dict(pth, 'scalars')
-
-        timestamps = get_timestamps_from_h5(pth)
 
         # get extraction parameters for this h5 file
         dct = read_yaml(v['path'][1])
@@ -367,9 +521,18 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
             dset = convert_legacy_scalars(dset, force=force_conversion)
 
         nframes = len(dset[scalar_names[0]])
-        if len(timestamps) != nframes:
-            warnings.warn(f'Timestamps not equal to number of frames for {pth}, skipping')
-            continue
+        if include_feedback:
+            try:
+                timestamps = get_timestamps_from_h5(pth)
+                scalar_dict['timestamp'] = timestamps.astype('int32')
+            except: #h5 file path exception, maybe Attribute or KeyError
+                warnings.warn(f'timestamps for {pth} were not found')
+                warnings.warn('This could be due to a missing/incorrectly named timestamp file in that session directory.')
+                warnings.warn('If the file does exist, ensure it has the correct name/location and re-extract the session.')
+                pass
+            if len(timestamps) != nframes:
+                warnings.warn(f'Timestamps not equal to number of frames for {pth}, skipping')
+                continue
 
         # add scalar data for this animal
         for scalar in scalar_names:
@@ -397,6 +560,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
             scalar_dict['model_label'] += labels[k].tolist()
             scalar_dict['model_label (sort=usage)'] += usage[k].tolist()
             scalar_dict['model_label (sort=frames)'] += frames[k].tolist()
+
     # turn each key in scalar_names into a numpy array
     for scalar in scalar_names:
         scalar_dict[scalar] = np.array(scalar_dict[scalar])
@@ -405,3 +569,170 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     scalar_df = pd.DataFrame(scalar_dict)
 
     return scalar_df
+
+
+def make_a_heatmap(position):
+    '''
+    Uses a kernel density function to create a heatmap representing the mouse position throughout a single session.
+
+    Parameters
+    ----------
+    position (2d numpy array): 2d array of mouse centroid coordinates (for a single session),
+     computed from compute_session_centroid_speeds.
+
+
+    Returns
+    -------
+    pdf (2d numpy array): shape (50, 50) representing the PDF for the mouse position over the whole session.
+
+    '''
+
+    n_grid = 50
+
+    # Set up the bounds over which to build the KDE
+    X, Y = np.meshgrid(* \
+                           [np.linspace(*np.percentile(d, [0.01, 99.99]), num=n_grid)
+                            for d in (position[:, 0], position[:, 1])
+                            ])
+    position_grid = np.hstack((X.ravel()[:, None], Y.ravel()[:, None]))
+    bandwidth = (X.max() - X.min()) / 25.0
+
+    # Set up the KDE
+    kde = KernelDensity(bandwidth=bandwidth)
+    kde.fit(position)
+    pdf = np.exp(kde.score_samples(position_grid)).reshape(n_grid, n_grid)
+    return pdf
+
+
+def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_mm', 'centroid_y_mm']):
+    '''
+    Computes a position PDF for all sessions and returns the pdfs with corresponding lists of
+     groups, session uuids, and subjectNames.
+
+    Parameters
+    ----------
+    scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
+    normalize (bool): Indicates whether normalize the pdfs.
+    centroid_vars (list): list of strings for column values to use when computing mouse position.
+
+    Returns
+    -------
+    pdfs (list): list of 2d np.arrays of PDFs for each session.
+    groups (list): list of strings of groups corresponding to pdfs index.
+    sessions (list): list of strings of session uuids corresponding to pdfs index.
+    subjectNames (list): list of strings of subjectNames corresponding to pdfs index.
+    '''
+
+    sessions = list(set(scalar_df.uuid))
+    groups, positions, subjectNames = [], [], []
+
+    for sess in tqdm(sessions):
+        groups.append(scalar_df[scalar_df['uuid'] == sess][['group']].iloc[0][0])
+        positions.append(scalar_df[scalar_df['uuid'] == sess][centroid_vars].dropna(how='all').to_numpy())
+        subjectNames.append(scalar_df[scalar_df['uuid'] == sess][['SubjectName']].iloc[0][0])
+
+    pool_ = Pool()
+    pdfs = pool_.map(make_a_heatmap, np.array(positions))
+    pdfs = np.stack(pdfs).copy()
+    pool_.close()
+
+    clim_ = 0, pdfs[0].max()
+
+    if normalize:
+        return np.stack([p / p.sum() for p in pdfs]), groups, sessions, subjectNames
+
+    return pdfs, groups, sessions, subjectNames
+
+
+def compute_session_centroid_speeds(scalar_df, grouping_keys=['uuid', 'group'],
+                                    centroid_keys=['centroid_x_mm', 'centroid_y_mm']):
+    '''
+    Computes the centroid speed float value of the mouse given the Series of  mm x and y coordinates
+     from the scalar_df DataFrame.
+
+    Parameters
+    ----------
+    scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
+    grouping_keys (list): list of column names to group the df keys by
+    centroid_keys (list): list of column names containing the centroid values.
+
+    Returns
+    -------
+    sc_speed (pd.DataFrame): single column of a DataFrame containing centroid value to be appended
+    as new column to scalar_df
+
+    '''
+
+    use_df = scalar_df[centroid_keys + grouping_keys]
+    sc_speed = (use_df.centroid_x_mm * 2.0).diff() ** 2 + (use_df.centroid_y_mm * 2.0).diff() ** 2
+
+    return sc_speed
+
+def compute_mean_syll_speed(complete_df, scalar_df, label_df, groups=None, max_sylls=40):
+    '''
+    Computes the mean syllable speed based on the centroid speed of the mouse at the frame indices
+     with corresponding label values.
+
+    Parameters
+    ----------
+    complete_df (pd.DataFrame): DataFrame containing syllable statistic results for each uuid.
+    scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
+    label_df (pd.DataFrame): DataFrame containing syllable labels at each frame (nsessions rows x max(nframes) cols)
+    sessions (list): list of strings of session uuids corresponding to pdfs index.
+    groups (list): list of strings of groups corresponding to pdfs index.
+    max_sylls (int): maximum amount of syllables to include in output.
+
+    Returns
+    -------
+    complete_df (pd.DataFrame): updated input dataframe with a speed value for each syllable merge in as a new column.
+    '''
+
+    lbl_df = label_df.T
+    columns = lbl_df.columns
+    gk = ['group', 'uuid']
+
+    centroid_speeds = scalar_df[['centroid_speed_mm'] + gk]
+
+    if isinstance(groups, list):
+        if len(groups) == 0:
+            groups = None
+
+    all_sessions = []
+    for col in tqdm(columns, total=len(columns), desc='Computing Per Session Syll Speeds'):
+        if groups != None:
+            if col[0] not in groups:
+                continue
+
+        sess_lbls = lbl_df[col].iloc[3:].reset_index().dropna(axis=0, how='all')
+        sess_speeds = centroid_speeds[centroid_speeds['uuid'] == col[1]].iloc[3:].reset_index()
+
+        sess_dict = {
+            'uuid': [],
+            'syllable': [],
+            'speed': []
+        }
+        for lbl in range(max_sylls):
+            indices = (sess_lbls[col] == lbl)
+
+            mean_lbl_speed = np.nanmean(sess_speeds[indices].centroid_speed_mm)
+
+            sess_dict['uuid'].append(col[1])
+            sess_dict['syllable'].append(lbl)
+            sess_dict['speed'].append(mean_lbl_speed)
+
+        all_sessions.append(sess_dict)
+
+    all_speeds_df = pd.DataFrame.from_dict(all_sessions[0])
+    y = all_speeds_df['speed']
+    all_speeds_df['speed'] = np.where(y.between(0, 300), y, 0)
+
+    for i in range(1, len(all_sessions)):
+        tmp_df = pd.DataFrame.from_dict(all_sessions[i])
+        y = tmp_df['speed']
+        tmp_df['speed'] = np.where(y.between(0, 300), tmp_df['speed'], 0)
+
+        all_speeds_df = all_speeds_df.append(tmp_df)
+
+    complete_df = pd.merge(complete_df, all_speeds_df, on=['uuid', 'syllable'])
+
+    return complete_df

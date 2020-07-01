@@ -6,18 +6,36 @@ import random
 import numpy as np
 import seaborn as sns
 import networkx as nx
+from functools import wraps
 import matplotlib.pyplot as plt
+from tqdm.auto import tqdm
 from typing import Tuple, Iterable
 from cytoolz import pluck
 from moseq2_viz.util import star
 from matplotlib import lines, gridspec
 from networkx.drawing.nx_agraph import graphviz_layout
-
+from moseq2_viz.model.label_util import get_sorted_syllable_stat_ordering, get_syllable_muteness_ordering
 
 def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
                  tail_filter=None, tail_threshold=5):
+    '''
+    Filters frames using spatial filters such as Median or Gaussian filters.
+
+    Parameters
+    ----------
+    frames (3D numpy array): frames to filter.
+    medfilter_space (list): list of len()==1, must be odd. Median space filter kernel size.
+    gaussfilter_space (list): list of len()==2. Gaussian space filter kernel size.
+    tail_filter (int): number of iterations to filter over tail.
+    tail_threshold (int): filtering threshold value
+
+    Returns
+    -------
+    out (3D numpy array): filtered numpy array.
+    '''
 
     out = np.copy(frames)
+
 
     if tail_filter is not None:
         for i in range(frames.shape[0]):
@@ -27,6 +45,9 @@ def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
     if medfilter_space is not None and np.all(np.array(medfilter_space) > 0):
         for i in range(frames.shape[0]):
             for medfilt in medfilter_space:
+                if medfilt % 2 == 0:
+                    print('Inputted medfilter must be odd. Subtracting input by 1.')
+                    medfilt -= 1
                 out[i] = cv2.medianBlur(out[i], medfilt)
 
     if gaussfilter_space is not None and np.all(np.array(gaussfilter_space) > 0):
@@ -38,6 +59,17 @@ def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
 
 
 def convert_ebunch_to_graph(ebunch):
+    '''
+    Convert transition matrices to tranistion DAGs.
+
+    Parameters
+    ----------
+    ebunch (list of tuples): syllable transition data
+
+    Returns
+    -------
+    g (networkx.DiGraph): DAG object to graph
+    '''
 
     g = nx.DiGraph()
     g.add_weighted_edges_from(ebunch)
@@ -45,7 +77,22 @@ def convert_ebunch_to_graph(ebunch):
     return g
 
 def floatRgb(mag, cmin, cmax):
-    """ Return a tuple of floats between 0 and 1 for R, G, and B. """
+    '''
+    Return a tuple of floats between 0 and 1 for R, G, and B.
+
+    Parameters
+    ----------
+    mag (float): color intensity.
+    cmin (float): minimum color value
+    cmax (float): maximum color value
+
+    Returns
+    -------
+    red (float): red value
+    green (float): green value
+    blue (float): blue value
+    '''
+
     # Normalize to 0-1
     try: x = float(mag-cmin)/(cmax-cmin)
     except ZeroDivisionError: x = 0.5 # cmax == cmin
@@ -59,6 +106,24 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
                                         usages=None, usage_threshold=-.1,
                                         edge_threshold=-.1, indices=None,
                                         keep_orphans=False, max_syllable=None):
+    '''
+
+    Parameters
+    ----------
+    weights (np.ndarray): syllable transition edge weights
+    transition_matrix (np.ndarray): syllable transition matrix
+    usages (list): list of syllable usages
+    usage_threshold (float): threshold syllable usage to include a syllable in list of orphans
+    edge_threshold (float): threshold transition probability to consider an edge part of the graph.
+    indices (list): indices of syllables to list as orphans
+    keep_orphans (bool): indicate whether to graph orphan syllables
+    max_syllable (bool): maximum numebr of syllables to include in graph
+
+    Returns
+    -------
+    ebunch (list): syllable transition data.
+    orphans (list): syllables with no edges.
+    '''
 
     ebunch = []
     orphans = []
@@ -97,6 +162,46 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             difference_edge_width_scale=500, weights=None,
                             usage_scale=1e5, arrows=False, keep_orphans=False,
                             max_syllable=None, orphan_weight=0, edge_color='k', **kwargs):
+    '''
+    Creates transition graph plot given a transition matrix and some metadata.
+
+    Parameters
+    ----------
+    trans_mats (np.ndarray): syllable transition matrix
+    usages (list): list of syllable usage probabilities
+    groups (list): list groups to graph transition graphs for.
+    edge_threshold (float): threshold to include edge in graph
+    anchor (int): syllable index as the base syllable
+    usage_threshold (int): threshold to include syllable usages
+    node_color (str): node colors
+    node_edge_color (str): node edge color.
+    layout (str): layout format
+    edge_width_scale (int): edge line width scaling factor
+    node_size (int): node size scaling factor
+    fig (pyplot figure): figure to plot to
+    ax (pyplot Axes): axes object
+    width_per_group (int): graph width scaling factor per group
+    height (int): UNUSED.
+    headless (bool): exclude first node.
+    font_size (int): size of node label text.
+    plot_differences (bool): plot difference between group transition matrices
+    difference_threshold (float): threshold to consider 2 graph elements different
+    difference_edge_width_scale (float): difference graph edge line width scaling factor
+    weights (list): list of edge weights
+    usage_scale (float): syllable usage scaling factor
+    arrows (bool): indicate whether to plot arrows as transitions.
+    keep_orphans (bool): plot orphans.
+    max_syllable (int): number of syllables (nodes) to plot
+    orphan_weight (int): scaling factor to plot orphan node sizes
+    edge_color (str): edge color
+    kwargs (dict): extra keyword arguments
+
+    Returns
+    -------
+    fig (pyplot figure): figure containing transition graphs.
+    ax (pyplot axis): figure axis object.
+    pos (dict): dict figure information.
+    '''
 
     if headless:
         plt.switch_backend('agg')
@@ -176,15 +281,6 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
         if usages is not None:
             node_size = [usages[i][k] * usage_scale for k in pos.keys()]
-            '''
-            durs = []
-            for k in pos.keys():
-                try:
-                    durs.append(floatRgb(syll_dur_df.loc[syll_dur_df['syll'] == k, 'avg_dur'], minD, maxD))
-                except:
-                    durs.append((0.0, 0.0, 0.0))
-            node_color = durs
-            '''
 
         nx.draw_networkx_nodes(graph, pos,
                                edgecolors=node_edge_color, node_color=node_color,
@@ -248,7 +344,26 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
 def crowd_matrix_from_loaded_data(slices: Iterable[Tuple[int, int]], frames, scalars, nexamples=50,
                                   pad=30, dur_clip=1000, raw_size=(512, 424), crop_size=(80, 80)):
-    '''This function assumes angles have already been treated for flips, if necessary.'''
+    '''
+    This function assumes angles have already been treated for flips, if necessary.
+    UNUSED
+
+    Parameters
+    ----------
+    slices
+    frames
+    scalars
+    nexamples
+    pad
+    dur_clip
+    raw_size
+    crop_size
+
+    Returns
+    -------
+    None
+    '''
+
     def dur_filter(slice_):
         return (slice_[1] - slice_[0]) < dur_clip
 
@@ -276,6 +391,30 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
                       crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
                       center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
                       **kwargs):
+    '''
+    Creates crowd movie video numpy array.
+
+    Parameters
+    ----------
+    slices (numpy array): video slices of specific syllable label
+    nexamples (int): maximum number of mice to include in crowd_matrix video
+    pad (int): number of frame padding in video
+    raw_size (tuple): video dimensions.
+    frame_path (str): path to in-h5 frames variable
+    crop_size (tuple): mouse crop size
+    dur_clip (int): maximum clip duration.
+    offset (tuple): centroid offsets from cropped videos
+    scale (int): mouse size scaling factor.
+    center (bool): indicate whether mice are centered.
+    rotate (bool): rotate mice to orient them.
+    min_height (int): minimum max height from floor to use.
+    legacy_jitter_fix (bool): whether to apply jitter fix for K1 camera.
+    kwargs (dict): extra keyword arguments
+
+    Returns
+    -------
+    crowd_matrix (3D numpy array): crowd movie for a specific syllable.
+    '''
 
     if rotate and not center:
         raise NotImplementedError('Rotating without centering not supported')
@@ -428,6 +567,25 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
                   sort_vars=['SubjectName', 'uuid'], group_var='group', sz=50,
                   headless=False, **kwargs):
+    '''
+    Creates a position summary graph that shows all the
+    mice's centroid path throughout the respective sessions.
+
+    Parameters
+    ----------
+    scalar_df (pandas DataFrame): dataframe containing all scalar data
+    centroid_vars (list): list of scalar variables to track mouse position
+    sort_vars (list): list of variables to sort the dataframe by.
+    group_var (str): groups df column to graph position plots for.
+    sz (int): plot size.
+    headless (bool): UNUSED
+    kwargs (dict): extra keyword arguments
+
+    Returns
+    -------
+    fig (pyplot figure): pyplot figure object
+    ax (pyplot axis): pyplot axis object
+    '''
 
     grouped = scalar_df.groupby([group_var] + sort_vars)
 
@@ -462,8 +620,12 @@ def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
             ax.set_ylim(lims)
             ax.axis('off')
 
-            if j == 0:
+            if group_var == 'group':
+                if j == 0:
+                    ax.set_title(name)
+            else:
                 ax.set_title(name)
+
 
             if i == 0 and j == len(group_session) - 1:
                 y_line = lines.Line2D([lims[0], lims[0]],
@@ -488,11 +650,33 @@ def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
 def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
                 show_scalars=['velocity_2d_mm', 'velocity_3d_mm',
                               'height_ave_mm', 'width_mm', 'length_mm'],
-                headless=False,
-                **kwargs):
+                headless=False, colors=None, **kwargs):
+    '''
+    Creates scatter plot of given scalar variables representing extraction results.
 
+    Parameters
+    ----------
+    scalar_df (pandas DataFrame):
+    sort_vars (list): list of variables to sort the dataframe by.
+    group_var (str): groups df column to graph position plots for.
+    show_scalars (list): list of scalar variables to plot.
+    headless (bool): exclude head of dataframe from plot.
+    colors (list): list of color strings to indicate groups
+    kwargs (dict): extra keyword variables
+
+    Returns
+    -------
+    fig (pyplot figure): plotted scalar scatter plot
+    ax (pyplot axis): plotted scalar axis
+    '''
     if headless:
         plt.switch_backend('agg')
+
+    if colors == None:
+        colors = sns.color_palette()
+    elif len(colors) == 0:
+        colors = sns.color_palette()
+
 
     fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8))
 
@@ -504,10 +688,10 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
         'STD': grp.std()
     }
 
-    for i, (k, v) in enumerate(summary.items()):
+    for i, (k, v) in tqdm(enumerate(summary.items())):
         summary[k].reset_index(level=summary[k].index.names, inplace=True)
         summary[k] = summary[k].melt(id_vars=group_var, value_vars=show_scalars)
-        sns.swarmplot(data=summary[k], x='variable', y='value', hue=group_var, ax=ax[i], **kwargs)
+        sns.swarmplot(data=summary[k], x='variable', y='value', hue=group_var, ax=ax[i], palette=colors, **kwargs)
         ax[i].set_ylabel(k)
         ax[i].set_xlabel('')
 
@@ -515,97 +699,243 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
 
     return fig, ax
 
+def check_types(function):
+    '''
+    Decorator function to validate user input parameters for plotting syllable statistics, facilitated using
+    functools wraps
 
-def usage_plot(usages, groups=None, headless=False, **kwargs):
+    Parameters
+    ----------
+    function: plot_syll_stats_with_sem - the function to check parameters from.
 
-    # use a Seaborn pointplot, groups map to hue
-    # make a useful x-axis to orient the user (which side is which)
+    Returns
+    -------
+    wrapped (function) returns the function to run
+    '''
 
-    if headless:
-        plt.switch_backend('agg')
+    @wraps(function)
+    def wrapped(complete_df, stat='usage', ordering=None, max_sylls=None, groups=None, ctrl_group=None, exp_group=None,
+                colors=None, figsize=(10, 5), *args, **kwargs):
+        '''
+        Wrapper function to validate input parameters and adjust parameters according to any user errors to run the
+        plotting function with some respective defaulting parameters.
 
-    if len(groups) == 0:
-        groups = None
+        Parameters
+        ----------
+        complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
+        stat (str): choice of statistic to plot: either usage, duration, or speed
+        ordering (str, list, None): "m" for mutated, f"{stat}" for descending ordering with respect to original usage ordering.
+        max_sylls (int): maximum number of syllable to include in plot
+        groups (list): list of groups to include in plot. If groups=None, all groups will be plotted.
+        ctrl_group (str): name of control group to base mutation sorting on.
+        exp_group (str): name of experimental group to base mutation sorting on.
+        colors (list): list of user-selected colors to represent the data
+        figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
+        args
+        kwargs
 
-    if groups is None:
-        hue = None
-    else:
-        hue = 'group'
+        Returns
+        -------
+        function: executes function with validated input parameters
+        '''
 
-    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-    sns.set_style('ticks')
+        if not isinstance(figsize, tuple) or isinstance(figsize, list):
+            print('Invalid figsize. Input a integer-tuple or list of len(figsize) = 2')
+            figsize = (10, 5)
 
-    try:
-        ax = sns.pointplot(data=usages,
-                           x='syllable',
-                           y='usage',
-                           hue=hue,
-                           hue_order=groups,
-                           join=False,
-                           **kwargs)
-        #ax.set_xticks([])
-        plt.xticks(np.arange(max(usages['syllable'])), usages['syllable'])
-        plt.ylabel('P(syllable)')
-        plt.xlabel('Syllable (sorted by usage)')
+        if groups == None or len(groups) == 0:
+            groups = list(set(complete_df.group))
+        elif isinstance(groups, str):
+            groups = [groups]
 
-        sns.despine()
+        if isinstance(groups, list) or isinstance(groups, tuple):
+            uniq_groups = set(complete_df.group)
+            if not set(groups).issubset(uniq_groups):
+                print('Invalid group entered. Displaying all groups.')
+                groups = uniq_groups
 
-        return fig, ax
-    except:
-        print('Invalid inputted groups, graphing default group.')
-        groups, hue = None, None
+        if max_sylls == None:
+            max_sylls = 41
 
-        ax = sns.pointplot(data=usages,
-                           x='syllable',
-                           y='usage',
-                           hue=hue,
-                           hue_order=groups,
-                           join=False,
-                           **kwargs)
-        #ax.set_xticks([])
-        plt.xticks(np.arange(max(usages['syllable'])), usages['syllable'])
-        plt.ylabel('P(syllable)')
-        plt.xlabel('Syllable (sorted by usage)')
+        if set(stat).issubset(set('usage')):
+            stat = 'usage'
+            try:
+                if (isinstance(ordering, str) or ordering.any() == None) and ordering != 'm':
+                    ordering = range(max_sylls)
+            except AttributeError:
+                ordering = range(max_sylls)
+        else:
+            if set(stat).issubset(set('duration')):
+                stat = 'duration'
+            elif set(stat).issubset(set('speed')):
+                stat = 'speed'
+            if isinstance(ordering, str) and ordering != 'm':
+                if not set(ordering).issubset(set('default')):
+                    print(f'Reordering syllables with respect to selected statistic: {stat}')
+                    ordering, _ = get_sorted_syllable_stat_ordering(complete_df, stat=stat)
+                else:
+                    ordering = range(max_sylls)
 
-        sns.despine()
+        if isinstance(ordering, str):
+            if ordering == 'm':
+                if (ctrl_group != None and exp_group != None) and (ctrl_group in groups and exp_group in groups):
+                    max_sylls += 1
+                    ordering = get_syllable_muteness_ordering(complete_df, ctrl_group=ctrl_group,
+                                                                           exp_group=exp_group, max_sylls=max_sylls,
+                                                                           stat=stat)
+                else:
+                    print('You must enter valid control and experimental group names found in your trained model and index file.\nPlotting descending order.')
+                    ordering, _ = get_sorted_syllable_stat_ordering(complete_df, stat=stat)
 
-        return fig, ax
+        if colors == None or len(colors) == 0:
+            colors = [None] * len(groups)
+        else:
+            if len(colors) < len(groups):
+                print(f'Number of inputted colors {len(colors)} does not match number of groups {len(groups)}. Using default.')
+                colors = [None] * len(groups)
 
-def duration_plot(df, groups=None, headless=False, ylim=None, **kwargs):
-    # use a Seaborn pointplot, groups map to hue
-    # make a useful x-axis to orient the user (which side is which)
+        return function(complete_df, stat=stat, ordering=ordering, max_sylls=max_sylls, groups=groups, colors=colors, figsize=figsize,
+                        *args, **kwargs)
 
-    if headless:
-        plt.switch_backend('agg')
+    return wrapped
 
-    if len(groups) == 0:
-        groups = None
+@check_types
+def plot_syll_stats_with_sem(complete_df, stat='usage', ordering=None, max_sylls=None, groups=None, ctrl_group=None,
+                             exp_group=None, colors=None, fmt='o-', figsize=(10, 5)):
+    '''
+    Plots a line and/or point-plot of a given pre-computed syllable statistic (usage, duration, or speed),
+    with a SEM error bar with respect to the group.
+    This function is decorated with the check types function that will ensure that the inputted data configurations
+    are safe to plot in matplotlib.
 
-    if groups is None:
-        hue = None
-    else:
-        hue = 'group'
+    Parameters
+    ----------
+    complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
+    stat (str): choice of statistic to plot: either usage, duration, or speed
+    ordering (str, list, None): "m" for mutated, f"{stat}" for descending ordering with respect to original usage ordering.
+    max_sylls (int): maximum number of syllable to include in plot
+    groups (list): list of groups to include in plot. If groups=None, all groups will be plotted.
+    ctrl_group (str): name of control group to base mutation sorting on.
+    exp_group (str): name of experimental group to base mutation sorting on.
+    colors (list): list of user-selected colors to represent the data
+    fmt (str): str to indicate the kind of plot to make. "o-", "o", "--', etc.
+    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
 
-    fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-    sns.set_style('ticks')
+    Returns
+    -------
+    fig (pyplot figure): plotted scalar scatter plot
+    ax (pyplot axis): plotted scalar axis
+    '''
 
-    ax = sns.pointplot(data=df,
-                       x=df['syllable'],
-                       y=df['duration'],
-                       hue=hue,
-                       hue_order=groups,
-                       join=False,
-                       ci=None,
-                       **kwargs)
-    plt.xticks(np.arange(max(df['syllable'])), df['syllable'])
-    ax.set_xticks([])
-    ax.set_ylim((0, ylim))
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
 
-    plt.ylabel('Duration in Frames')
-    plt.xlabel('Syllables (Sorted by Usage)')
+    # separates each group's usage data into a separate array element, and computes their respective group-marginalized SEM
+    # also reorders data if using mutant ordering
+    shift = -(len(groups) - 1) / 10
+    for i, group in tqdm(enumerate(groups), total=len(groups)):
+        data_df = complete_df[complete_df['group'] == group][['syllable', stat]].groupby('syllable',
+                                                                             as_index=False).mean().reindex(ordering)
+        sem = complete_df.groupby('syllable')[[stat]].sem()[:max_sylls].reindex(ordering)
+        # plot each group with their corresponding SEM error bars
+        plt.errorbar(np.asarray(range(max_sylls)) + shift, data_df[stat].to_numpy()[:max_sylls],
+                     yerr=sem[stat][:max_sylls], label=group, fmt=fmt, color=colors[i])
+        shift += 0.1
 
+    if stat == 'usage':
+        ylabel = 'P(syllable)'
+        xlabel = 'usage'
+    elif stat == 'duration':
+        ylabel = 'Mean Syllable Sequence Frame Duration'
+        xlabel = 'duration'
+    elif stat == 'speed':
+        ylabel = 'Mean Syllable Speed (mm/s)'
+        xlabel = 'speed'
+
+    lgd = plt.legend(bbox_to_anchor=(1.1, 1.05),
+               ncol=1, fancybox=True, shadow=True, fontsize=16)
+    plt.xticks(range(max_sylls), ordering)
+    plt.ylabel(ylabel, fontsize=12)
+    plt.ylim()
+    plt.xlabel(f'Syllable Label (indexed by {xlabel})', fontsize=12)
 
     sns.despine()
 
+    return fig, lgd
 
-    return fig, ax
+def plot_mean_group_heatmap(pdfs, groups):
+    '''
+    Computes the overall group mean of the computed PDFs and plots them.
+
+    Parameters
+    ----------
+    pdfs (list): list of 2d probability density functions (heatmaps) describing mouse position.
+    groups (list): list of groups to compute means and plot
+
+    Returns
+    -------
+    fig (pyplot figure): plotted scalar scatter plot
+    '''
+
+    uniq_groups = np.unique(groups)
+
+    fig = plt.figure(figsize=((20, 5)))
+    gs = plt.GridSpec(1, len(uniq_groups))
+
+    for i, group in tqdm(enumerate(uniq_groups), total=len(uniq_groups)):
+        subplot = fig.add_subplot(gs[i])
+        idx = np.array(groups) == group
+
+        im = plt.imshow(pdfs[idx].mean(0) / pdfs.mean(0).max())
+        plt.colorbar(im, fraction=0.046, pad=0.04)
+
+        plt.xticks([])
+        plt.yticks([])
+
+        subplot.set_title(group, fontsize=14)
+
+    return fig
+
+def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
+    '''
+    Plots the PDF position heatmap for each session, titled with the group and subjectName.
+
+    Parameters
+    ----------
+    pdfs (list): list of 2d probability density functions (heatmaps) describing mouse position.
+    groups (list): list of sessions corresponding to the pdfs indices
+    groups (list): list of groups corresponding to the pdfs indices
+    subjectNames (list): list of subjectNames corresponding to the pdfs indices
+
+    Returns
+    -------
+    fig (pyplot figure): plotted scalar scatter plot
+    '''
+
+    uniq_groups = np.unique(groups)
+    count = [len([grp1 for grp1 in groups if grp1 == grp]) for grp in uniq_groups]
+    figsize = (np.round(2.5 * len(uniq_groups)), np.round(2.6 * np.max(count)))
+
+    fig = plt.figure(figsize=figsize)
+    gs = gridspec.GridSpec(nrows=np.max(count),
+                           ncols=len(uniq_groups),
+                           width_ratios=[1] * len(uniq_groups),
+                           wspace=0.5,
+                           hspace=0.5)
+
+    for i, group in tqdm(enumerate(uniq_groups), total=len(uniq_groups)):
+        idx = np.array(groups) == group
+        tmp_sessions = np.asarray(sessions)[idx]
+        names = np.asarray(subjectNames)[idx]
+        for j, sess in enumerate(tmp_sessions):
+            idx = np.array(sessions) == sess
+            plt.subplot(gs[j, i])
+
+            im = plt.imshow(pdfs[idx].mean(0) / pdfs[idx].mean(0).max())
+            plt.colorbar(im, fraction=0.046, pad=0.04)
+
+            plt.xticks([])
+            plt.yticks([])
+
+            plt.title(f'{group}: {names[j]}', fontsize=10)
+
+    return fig

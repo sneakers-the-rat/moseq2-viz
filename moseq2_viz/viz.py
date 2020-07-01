@@ -885,7 +885,7 @@ def plot_mean_group_heatmap(pdfs, groups):
         subplot = fig.add_subplot(gs[i])
         idx = np.array(groups) == group
 
-        im = plt.imshow(pdfs[idx].mean(0) / pdfs.mean(0).max())
+        im = plt.imshow(pdfs[idx].mean(0) / pdfs[idx].mean(0).max())
         plt.colorbar(im, fraction=0.046, pad=0.04)
 
         plt.xticks([])

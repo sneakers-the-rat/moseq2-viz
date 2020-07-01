@@ -1,155 +1,175 @@
-from functools import partial
-from sys import platform
-import click
 import os
-import ruamel.yaml as yaml
-import h5py
-import multiprocessing as mp
-import numpy as np
-import joblib
-import tqdm
-import warnings
-import re
 import shutil
-import time
-import psutil
-import pytest
-import shutil
+from unittest import TestCase
 from click.testing import CliRunner
-from moseq2_viz.cli import *
+from moseq2_viz.cli import add_group, copy_h5_metadata_to_yaml, plot_scalar_summary, plot_group_position_heatmaps, \
+    plot_verbose_position_heatmaps, plot_transition_graph, plot_usages, plot_syllable_durations, make_crowd_movies
 
-def test_add_group():
-    input_dir = 'data/'
-    input_path = os.path.join(input_dir,'test_index.yaml')
 
-    shutil.copyfile(input_path, 'data/orig.txt')
+class TestCLI(TestCase):
+    def test_add_group(self):
+        input_dir = 'data/'
+        input_path = os.path.join(input_dir, 'test_index.yaml')
 
-    runner = CliRunner()
+        original_file = 'data/orig.txt'
+        with open(original_file, 'w') as f:
+            with open(input_path, 'r') as g:
+                f.write(g.read())
+            g.close()
+        f.close()
 
-    group_params = ['-k', 'SubjectName',
-                    '-v', 'Mouse',
-                    '-g', 'Group1',
-                    '-e', # FLAG
-                    '--lowercase', # FLAG
-                    '-n', # FLAG
-                    input_path]
+        runner = CliRunner()
 
-    results = runner.invoke(add_group, group_params)
-    assert(not os.path.samefile(os.path.join(input_dir, 'orig.txt'), input_path))
-    assert(results.exit_code == 0)
+        group_params = ['-k', 'SubjectName',
+                        '-v', 'Mouse',
+                        '-g', 'Group1',
+                        '-e',  # FLAG
+                        '--lowercase',  # FLAG
+                        '-n',  # FLAG
+                        input_path]
 
-def copy_h5_metadata_to_yaml():
-    input_dir = 'data/_pca/'
+        results = runner.invoke(add_group, group_params)
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (not os.path.samefile(os.path.join(input_dir, 'orig.txt'), input_path)), "Index file was not updated."
+        os.remove(original_file)
 
-    runner = CliRunner()
-    results = runner.invoke(copy_h5_metadata_to_yaml, ['--h5-metadata-path', input_dir+'pca_scores.h5',
-                                                       '-i', input_dir])
+    def test_copy_h5_metadata_to_yaml(self):
+        input_dir = 'data/'
 
-    assert (results.exit_code == 0)
+        runner = CliRunner()
+        results = runner.invoke(copy_h5_metadata_to_yaml, ['--h5-metadata-path', '/metadata/acquisition',
+                                                           '-i', input_dir])
 
-def test_plot_scalar_summary():
+        assert (results.exit_code == 0)
 
-    input_dir = 'data/'
-    gen_dir = 'data/gen_plots/'
-    runner = CliRunner()
+    def test_plot_scalar_summary(self):
+        input_dir = 'data/'
+        gen_dir = 'data/gen_plots/'
+        runner = CliRunner()
 
-    if not os.path.exists(gen_dir):
-        os.makedirs(gen_dir)
+        results = runner.invoke(plot_scalar_summary, ['--output-file', gen_dir + 'scalar',
+                                                      input_dir + 'test_index.yaml'])
 
-    results = runner.invoke(plot_scalar_summary, ['--output-file', gen_dir+'scalar',
-                                                  input_dir+'test_index.yaml'])
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(gen_dir + 'scalar_position.png')), "Position summary PNG not found"
+        assert (os.path.exists(gen_dir + 'scalar_position.pdf')), "Position summary PDF not found"
+        assert (os.path.exists(gen_dir + 'scalar_summary.png')), "Scalar summary PNG not found"
+        assert (os.path.exists(gen_dir + 'scalar_summary.pdf')), "Scalar summary PDF not found"
+        shutil.rmtree(gen_dir)
 
-    assert (os.path.exists(gen_dir + 'scalar_position.png'))
-    assert (os.path.exists(gen_dir + 'scalar_position.pdf'))
-    assert (os.path.exists(gen_dir + 'scalar_summary.png'))
-    assert (os.path.exists(gen_dir + 'scalar_summary.pdf'))
-    os.remove(gen_dir+'scalar_position.png')
-    os.remove(gen_dir + 'scalar_position.pdf')
-    os.remove(gen_dir + 'scalar_summary.png')
-    os.remove(gen_dir + 'scalar_summary.pdf')
-    assert (results.exit_code == 0)
+    def plot_group_position_heatmaps(self):
+        input_dir = 'data/'
+        gen_dir = 'data/gen_plots/'
+        runner = CliRunner()
 
-def test_plot_transition_graph():
+        results = runner.invoke(plot_group_position_heatmaps, ['--output-file', gen_dir + 'group_heatmap',
+                                                      input_dir + 'test_index.yaml'])
 
-    input_dir = 'data/'
-    gen_dir = 'data/gen_plots/'
-    runner = CliRunner()
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(gen_dir + 'group_heatmap.png')), "Position Heatmap PNG not found"
+        assert (os.path.exists(gen_dir + 'group_heatmap.pdf')), "Position Heatmap PDF file not found"
+        shutil.rmtree(gen_dir)
 
-    trans_params = ['--output-file', gen_dir+'transitions',
-                    '--max-syllable', 40,
-                    '-g', 'Group1',
-                    #'--keep-orphans', True,
-                    #'--orphan-weight', 0,
-                    '--arrows', # FLAG
-                    '--normalize', 'bigram',
-                    '--layout', 'spring',
-                    '--sort', True,
-                    '--count', 'usage',
-                    '--edge-scaling', 250,
-                    '--node-scaling', 1e4,
-                    '--scale-node-by-usage', True,
-                    '--width-per-group', 8,
-                    input_dir+'test_index.yaml',
-                    input_dir+'mock_model.p']
+    def test_plot_verbose_position_heatmaps(self):
+        input_dir = 'data/'
+        gen_dir = 'data/gen_plots/'
+        runner = CliRunner()
 
-    results = runner.invoke(plot_transition_graph, trans_params)
+        results = runner.invoke(plot_verbose_position_heatmaps, ['--output-file', gen_dir + 'heatmaps',
+                                                      input_dir + 'test_index.yaml'])
 
-    assert(os.path.exists(gen_dir+'transitions.png'))
-    assert (os.path.exists(gen_dir + 'transitions.pdf'))
-    os.remove(gen_dir + 'transitions.png')
-    os.remove(gen_dir + 'transitions.pdf')
-    assert (results.exit_code == 0)
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(gen_dir + 'heatmaps.png')), "Position Heatmap PNG not found"
+        assert (os.path.exists(gen_dir + 'heatmaps.pdf')), "Position Heatmap PDF file not found"
+        shutil.rmtree(gen_dir)
 
-def test_plot_usages():
-    input_dir = 'data/'
-    gen_dir = 'data/gen_plots/'
+    def test_plot_transition_graph(self):
+        input_dir = 'data/'
+        gen_dir = 'data/gen_plots/'
+        runner = CliRunner()
 
-    runner = CliRunner()
+        trans_params = ['--output-file', gen_dir + 'transitions',
+                        '--max-syllable', 40,
+                        '-g', 'Group1',
+                        '--arrows',  # FLAG
+                        '--normalize', 'bigram',
+                        '--layout', 'spring',
+                        '--sort', True,
+                        '--count', 'usage',
+                        '--edge-scaling', 250,
+                        '--node-scaling', 1e4,
+                        '--scale-node-by-usage', True,
+                        '--width-per-group', 8,
+                        input_dir + 'test_index.yaml',
+                        input_dir + 'test_model.p']
 
-    use_params = ['--output-file', gen_dir+'test_usages',
-                  '--sort', True,
-                  '--count', 'usage',
-                  '--max-syllable', 40,
-                  '-g', 'Group1',
-                  input_dir+'test_index.yaml',
-                  input_dir+'mock_model.p']
+        results = runner.invoke(plot_transition_graph, trans_params)
 
-    results = runner.invoke(plot_usages, use_params)
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(gen_dir + 'transitions.png')), "Transition graph PNG not found"
+        assert (os.path.exists(gen_dir + 'transitions.pdf')), "Transition graph PDF not found"
+        shutil.rmtree(gen_dir)
 
-    assert (os.path.exists(gen_dir + 'test_usages.png'))
-    assert (os.path.exists(gen_dir + 'test_usages.pdf'))
-    os.remove(gen_dir + 'test_usages.png')
-    os.remove(gen_dir + 'test_usages.pdf')
-    assert (results.exit_code == 0)
+    def test_plot_usages(self):
+        gen_dir = 'data/gen_plots/'
 
-def test_make_crowd_movies():
-    input_dir = 'data/'
-    crowd_dir = input_dir+'crowd_movies/'
-    max_examples = 10
-    runner = CliRunner()
+        runner = CliRunner()
 
-    crowd_params = ['-o', crowd_dir,
-                    '--max-syllable', 10,
-                    #'--t', 2,
-                    #'--sort', True,
-                    '--count', 'frames',
-                    #'--gaussfilter-space', 0, 0,
-                    #'--medfilter-space', 0,
-                    '--min-height', 5,
-                    '--max-height', 80,
-                    '--raw-size', 512, 424,
-                    '--scale', 1,
-                    '--cmap', 'jet',
-                    '--dur-clip', 300,
-                    '--legacy-jitter-fix', False,
-                    '--max-examples', max_examples,
-                    input_dir+'test_index_crowd.yaml',
-                    input_dir+'mock_model.p']
+        use_params = ['data/test_index.yaml',
+                      'data/test_model.p',
+                      '--output-file', gen_dir + 'test_usages']
 
-    results = runner.invoke(make_crowd_movies, crowd_params)
+        results = runner.invoke(plot_usages, use_params)
 
-    assert(os.path.exists(crowd_dir))
-    assert(len([os.listdir(crowd_dir)][0]) == max_examples+1)
-    shutil.rmtree(crowd_dir)
-    assert (results.exit_code == 0)
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(gen_dir + 'test_usages.png')), "Usage plot PNG not found"
+        assert (os.path.exists(gen_dir + 'test_usages.pdf')), "Usage plot PDF not found"
+        os.remove(gen_dir + 'test_usages.png')
+        os.remove(gen_dir + 'test_usages.pdf')
+        os.removedirs(gen_dir)
 
+    def test_plot_durations(self):
+        gen_dir = 'data/gen_plots/'
+
+        runner = CliRunner()
+
+        use_params = ['data/test_index.yaml',
+                      'data/test_model.p',
+                      '--output-file', gen_dir + 'test_durations']
+
+        results = runner.invoke(plot_syllable_durations, use_params)
+
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(gen_dir + 'test_durations.png')), "Duration plot PNG not found"
+        assert (os.path.exists(gen_dir + 'test_durations.pdf')), "Duration plot PDF not found"
+        os.remove(gen_dir + 'test_durations.png')
+        os.remove(gen_dir + 'test_durations.pdf')
+        os.removedirs(gen_dir)
+
+    def test_make_crowd_movies(self):
+        input_dir = 'data/'
+        crowd_dir = input_dir + 'crowd_movies/'
+        max_examples = 40
+        max_syllable = 5
+        runner = CliRunner()
+
+        crowd_params = [input_dir + 'test_index_crowd.yaml',
+                        input_dir + 'mock_model.p',
+                        '-o', crowd_dir,
+                        '--max-syllable', max_syllable,
+                        '--count', 'usage',
+                        '--min-height', 5,
+                        '--max-height', 80,
+                        '--raw-size', 512, 424,
+                        '--scale', 1,
+                        '--cmap', 'jet',
+                        '--dur-clip', 300,
+                        '--legacy-jitter-fix', False,
+                        '--max-examples', max_examples]
+
+        results = runner.invoke(make_crowd_movies, crowd_params)
+
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert (os.path.exists(crowd_dir)), "Crowd movies directory was not found"
+        assert (len(os.listdir(crowd_dir)) == max_syllable + 1), "Number of crowd movies does not match max syllables"
+        shutil.rmtree(crowd_dir)

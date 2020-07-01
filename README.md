@@ -1,5 +1,9 @@
 # MoSeq2-Viz: Visualization toolbox for MoSeq2
 
+[![Build Status](https://travis-ci.com/dattalab/moseq2-viz.svg?token=XJGe3NpjKFY5oYjdNcmg&branch=test-suite)](https://travis-ci.com/dattalab/moseq2-viz)
+
+[![codecov](https://codecov.io/gh/dattalab/moseq2-viz/branch/test-suite/graph/badge.svg?token=jUx63Whtx4)](https://codecov.io/gh/dattalab/moseq2-viz)
+
 Latest version number: `0.3.0`
 
 ## Features 

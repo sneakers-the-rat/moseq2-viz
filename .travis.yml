@@ -21,12 +21,12 @@ jobs:
         - if [ "$TRAVIS_OS_NAME" == "linux" ]; then sudo apt-get update; fi
         - if [ "$TRAVIS_OS_NAME" == "linux" ]; then sudo apt-get install -y ffmpeg --allow-unauthenticated; fi
       install:
-        - pip install -e . # manual install for moseq2-viz entry point
-        - pipenv install --dev --ignore-pipfile --deploy # this install will override previously installed dep. versions
+        - pipenv install --dev --deploy # this install will override previously installed dep. versions
       before_script:
         - make
       script:
         - pipenv run pytest --cov-report xml --cov-report term
+        - pipenv install scikit-learn==0.20.3
       after_success:
         - codecov -t $CC_TEST_REPORTER_ID
 
@@ -42,8 +42,8 @@ jobs:
         - if [ "$TRAVIS_OS_NAME" == "linux" ]; then sudo apt-get update; fi
         - if [ "$TRAVIS_OS_NAME" == "linux" ]; then sudo apt-get install -y ffmpeg --allow-unauthenticated; fi
       install:
-        - pip install -e . # manual install for moseq2-viz entry point
         - pipenv install --dev --ignore-pipfile --deploy # this install will override previously installed dep. versions
+        - pipenv install scikit-learn==0.20.3
       before_script:
         - make
       script:

@@ -1,29 +1,8 @@
-from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
-                             parse_index, h5_to_dict, clean_dict, get_sorted_index)
-from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices, model_datasets_to_df,
-                                   results_to_dataframe, parse_model_results,
-                                   get_transition_matrix, get_syllable_statistics, get_average_syllable_durations)
-from moseq2_viz.viz import (make_crowd_matrix, usage_plot, graph_transition_matrix,
-                            scalar_plot, position_plot, duration_plot)
-from moseq2_viz.scalars.util import scalars_to_dataframe
-from moseq2_viz.io.video import write_frames_preview
-from moseq2_viz.model.label_util import to_df
-from tqdm import TqdmSynchronisationWarning
-from cytoolz import pluck, partial
-from sys import platform
-from tqdm.auto import tqdm
-import click
 import os
-import ruamel.yaml as yaml
-import h5py
-import multiprocessing as mp
-import numpy as np
-import joblib
-import warnings
-import re
-import shutil
-import psutil
-import pandas as pd
+import click
+from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_usages_wrapper, plot_scalar_summary_wrapper, \
+        plot_syllable_durations_wrapper, plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, \
+        make_crowd_movies_wrapper, plot_syllable_speeds_wrapper, plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper
 
 orig_init = click.core.Option.__init__
 
@@ -40,8 +19,29 @@ click.core.Option.__init__ = new_init
 def cli():
     pass
 
+@cli.command('version', help='Print version number')
+def version():
+    import moseq2_viz
+    click.echo(moseq2_viz.__version__)
 
-@cli.command(name="add-group")
+
+def common_syll_plot_options(function):
+    function = click.option('--sort', type=bool, default=True, help="Sort syllables by usage")(function)
+    function = click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')(function)
+    function = click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")(function)
+    function = click.option('-g', '--group', type=str, default=None, help="Name of group(s) to show", multiple=True)(function)
+    function = click.option('-o', '--ordering', type=str, default=None,
+                  help="How to order the groups, ['any' for descending, 'm' for muteness]")(function)
+    function = click.option('--ctrl-group', type=str, default=None, help="Name of control group. Only if ordering = 'm'")(function)
+    function = click.option('--exp-group', type=str, default=None, help="Name of experimental group. Only if ordering = 'm'")(function)
+    function = click.option('-c', '--colors', type=str, default=None, help="Colors to plot groups with.", multiple=True)(function)
+    function = click.option('-f', '--fmt', type=str, default='o-', help="Format the scatter plot data.")(function)
+    function = click.option('-s', '--figsize', type=tuple, default=(10, 5), help="Size dimensions of the plotted figure.")(function)
+    
+    return function
+
+
+@cli.command(name="add-group", help='Change group name in index file given a key-value pair')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.option('--key', '-k', type=str, default='SubjectName', help='Key to search for value')
 @click.option('--value', '-v', type=str, default='Mouse', help='Value to search for', multiple=True)
@@ -51,126 +51,21 @@ def cli():
 @click.option('-n', '--negative', type=bool, is_flag=True, help='Negative match (everything that does not match is included)')
 def add_group(index_file, key, value, group, exact, lowercase, negative):
 
-    index = parse_index(index_file)[0]
-    h5_uuids = [f['uuid'] for f in index['files']]
-    metadata = [f['metadata'] for f in index['files']]
+    click_data = click.get_current_context().params
+    add_group_wrapper(index_file, click_data)
 
-    if type(value) is str:
-        value = [value]
-
-    for v in value:
-        if exact:
-            v = r'\b{}\b'.format(v)
-        if lowercase and negative:
-            hits = [re.search(v, meta[key].lower()) is None for meta in metadata]
-        elif lowercase:
-            hits = [re.search(v, meta[key].lower()) is not None for meta in metadata]
-        elif negative:
-            hits = [re.search(v, meta[key]) is None for meta in metadata]
-        else:
-            hits = [re.search(v, meta[key]) is not None for meta in metadata]
-
-        for uuid, hit in zip(h5_uuids, hits):
-            position = h5_uuids.index(uuid)
-            if hit:
-                index['files'][position]['group'] = group
-
-    new_index = '{}_update.yaml'.format(os.path.basename(index_file))
-
-    try:
-        with open(new_index, 'w+') as f:
-            yaml.safe_dump(index, f)
-        shutil.move(new_index, index_file)
-    except Exception:
-        raise Exception
-
-    print('Group(s) added successfully.')
 
 
 # recurse through directories, find h5 files with completed extractions, make a manifest
 # and copy the contents to a new directory
-@cli.command(name="copy-h5-metadata-to-yaml")
+@cli.command(name="copy-h5-metadata-to-yaml", help='Copies metadata within an h5 file to a yaml file.')
 @click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
 @click.option('--h5-metadata-path', default='/metadata/acquisition', type=str, help='Path to acquisition metadata in h5 files')
 def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
-
-    h5s, dicts, yamls = recursive_find_h5s(input_dir)
-    to_load = [(tmp, yml, file) for tmp, yml, file in zip(
-        dicts, yamls, h5s) if tmp['complete'] and not tmp['skip']]
-
-    # load in all of the h5 files, grab the extraction metadata, reformat to make nice 'n pretty
-    # then stage the copy
-
-    for i, tup in enumerate(tqdm(to_load, desc='Copying data to yamls')):
-        with h5py.File(tup[2], 'r') as f:
-            tmp = clean_dict(h5_to_dict(f, h5_metadata_path))
-            tup[0]['metadata'] = dict(tmp)
-
-        try:
-            new_file = '{}_update.yaml'.format(os.path.basename(tup[1]))
-            with open(new_file, 'w+') as f:
-                yaml.safe_dump(tup[0], f)
-            shutil.move(new_file, tup[1])
-        except Exception:
-            raise Exception
+    copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path)
 
 
-@cli.command(name='generate-index')
-@click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
-@click.option('--pca-file', '-p', type=click.Path(), default=os.path.join(os.getcwd(), '_pca/pca_scores.h5'), help='Path to PCA results')
-@click.option('--output-file', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'moseq2-index.yaml'), help="Location for storing index")
-@click.option('--filter', '-f', '_filter', type=(str, str), default=None, help='Regex filter for metadata', multiple=True)
-@click.option('--all-uuids', '-a', type=bool, default=False, help='Use all uuids')
-def generate_index(input_dir, pca_file, output_file, _filter, all_uuids):
-
-    # gather than h5s and the pca scores file
-    # uuids should match keys in the scores file
-
-    h5s, dicts, yamls = recursive_find_h5s(input_dir)
-
-    if 'metadata' not in dicts[0]:
-        raise RuntimeError('Metadata not present in yaml files, run ' +
-                           'copy-h5-metadata-to-yaml to update yaml files')
-
-    if not os.path.exists(pca_file) or all_uuids:
-        warnings.warn('Will include all files')
-        pca_uuids = pluck('uuid', dicts)
-    else:
-        with h5py.File(pca_file, 'r') as f:
-            pca_uuids = list(f['scores'])
-
-    relpath = os.path.relpath
-    file_with_uuids = filter(lambda x: x[2]['uuid'] in pca_uuids, zip(h5s, yamls, dicts))
-    file_with_uuids = [(relpath(h5), relpath(yml), meta) for h5, yml, meta in file_with_uuids]
-
-    output_dict = {
-        'files': [],
-        'pca_path': relpath(pca_file)
-    }
-
-    output_dict['files'] = [dict(path=x[:2], uuid=x[2]['uuid'], group='default') for x in file_with_uuids]
-    for i, file_tup in enumerate(file_with_uuids):
-
-        output_dict['files'][i]['metadata'] = {}
-
-        for k, v in file_tup[2]['metadata'].items():
-            for filt in _filter:
-                if k == filt[0]:
-                    tmp = re.match(filt[1], v)
-                    if tmp is not None:
-                        v = tmp[0]
-
-            output_dict['files'][i]['metadata'][k] = v
-
-    # write out index yaml
-
-    with open(output_file, 'w') as f:
-        yaml.safe_dump(output_dict, f)
-
-    print(f'Index file {output_file} successfully generated.')
-
-
-@cli.command(name='make-crowd-movies')
+@cli.command(name='make-crowd-movies', help='Writes movies of overlaid examples of the rodent perform a given syllable')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-path', type=click.Path(exists=True, resolve_path=True))
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
@@ -193,140 +88,40 @@ def make_crowd_movies(index_file, model_path, max_syllable, max_examples, thread
                       output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip,
                       legacy_jitter_fix, frame_path, gaussfilter_space, medfilter_space):
 
-    if platform in ['linux', 'linux2']:
-        print('Setting CPU affinity to use all CPUs...')
-        cpu_count = psutil.cpu_count()
-        proc = psutil.Process()
-        proc.cpu_affinity(list(range(cpu_count)))
-
-    clean_params = {
-        'gaussfilter_space': gaussfilter_space,
-        'medfilter_space': medfilter_space
-    }
-
-    # need to handle h5 intelligently here...
-
-    if model_path.endswith(('.p', '.pz')):
-        model_fit = parse_model_results(joblib.load(model_path))
-        labels = model_fit['labels']
-
-        if 'train_list' in model_fit:
-            label_uuids = model_fit['train_list']
-        else:
-            label_uuids = model_fit['keys']
-    elif model_path.endswith('.h5'):
-        # load in h5, use index found using another function
-        raise NotImplementedError('We do not support using h5 files for model output')
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
-    info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
-
-    # convert numpy dtypes to their corresponding primitives
-    for k, v in info_dict.items():
-        if isinstance(v, (np.ndarray, np.generic)):
-            info_dict[k] = info_dict[k].item()
-
-    info_dict['model_path'] = model_path
-    info_dict['index_path'] = index_file
-    info_file = os.path.join(output_dir, 'info.yaml')
-
-    with open(info_file, 'w+') as f:
-        yaml.safe_dump(info_dict, f)
-
-    if sort:
-        labels, ordering = relabel_by_usage(labels, count=count)
-    else:
-        ordering = list(range(max_syllable))
-
-    sorted_index = get_sorted_index(index_file)
-    vid_parameters = check_video_parameters(sorted_index)
-
-    # uuid in both the labels and the index
-    uuid_set = set(label_uuids) & set(sorted_index['files'].keys())
-
-    # make sure the files exist
-    uuid_set = [uuid for uuid in uuid_set if os.path.exists(sorted_index['files'][uuid]['path'][0])]
-
-    # harmonize everything...
-    labels = [label_arr for label_arr, uuid in zip(labels, label_uuids) if uuid in uuid_set]
-    label_uuids = [uuid for uuid in label_uuids if uuid in uuid_set]
-    sorted_index['files'] = {k: v for k, v in sorted_index['files'].items() if k in uuid_set}
-
-    if vid_parameters['resolution'] is not None:
-        raw_size = vid_parameters['resolution']
-
-    if sort:
-        filename_format = 'syllable_sorted-id-{:d} ({})_original-id-{:d}.mp4'
-    else:
-        filename_format = 'syllable_{:d}.mp4'
-
-    with mp.Pool() as pool:
-        slice_fun = get_syllable_slices(
-                            labels=labels,
-                            label_uuids=label_uuids,
-                            index=sorted_index)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", TqdmSynchronisationWarning)
-            slices = list(tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
-
-        matrix_fun = partial(make_crowd_matrix,
-                             nexamples=max_examples,
-                             frame_path=frame_path,
-                             dur_clip=dur_clip,
-                             min_height=min_height,
-                             crop_size=vid_parameters['crop_size'],
-                             raw_size=raw_size,
-                             scale=scale,
-                             legacy_jitter_fix=legacy_jitter_fix,
-                             **clean_params)
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", TqdmSynchronisationWarning)
-            crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=max_syllable))
-
-        write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=min_height,
-                            depth_max=max_height, cmap=cmap)
-        pool.starmap(write_fun,
-                     [(os.path.join(output_dir, filename_format.format(i, count, ordering[i])),
-                       crowd_matrix)
-                      for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
+    click_data = click.get_current_context().params
+    make_crowd_movies_wrapper(index_file, model_path, click_data, output_dir)
 
     print(f'Crowd movies successfully generated in {output_dir}.')
 
 
-@cli.command(name='plot-scalar-summary')
+@cli.command(name='plot-scalar-summary', help="Plots a scalar summary of the index file data.")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'scalars'))
-def plot_scalar_summary(index_file, output_file):
+@click.option('-c', '--colors', type=str, default=None, help="Colors to plot groups with.", multiple=True)
+def plot_scalar_summary(index_file, output_file, colors):
 
-    index, sorted_index = parse_index(index_file)
-    scalar_df = scalars_to_dataframe(sorted_index)
-
-
-    try:
-        plt_scalars, _ = scalar_plot(scalar_df, headless=True)
-
-        plt_scalars.savefig(f'{output_file}_summary.png')
-        plt_scalars.savefig(f'{output_file}_summary.pdf')
-        print('Successfully graphed scalars summary.')
-    except:
-        print('Could not calculate scalars')
-        return
-    try:
-        plt_position, _ = position_plot(scalar_df, headless=True)
-
-        plt_position.savefig(f'{output_file}_position.png')
-        plt_position.savefig(f'{output_file}_position.pdf')
-        print('Successfully graphed position summary.')
-    except:
-        print('Could not calculate position summary.')
+    plot_scalar_summary_wrapper(index_file, output_file, colors=colors)
+    print('Sucessfully plotted scalar summary')
 
 
+@cli.command(name='plot-group-position-heatmaps', help="Plots position heatmaps for each group in the index file")
+@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
+@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'scalars'))
+def plot_group_position_heatmaps(index_file, output_file):
+
+    plot_mean_group_position_pdf_wrapper(index_file, output_file)
+    print('Sucessfully plotted mean group heatmaps')
+
+@cli.command(name='plot-verbose-position-heatmaps', help="Plots a position heatmap for each session in the index file.")
+@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
+@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'scalars'))
+def plot_verbose_position_heatmaps(index_file, output_file):
+
+    plot_verbose_pdfs_wrapper(index_file, output_file)
+    print('Sucessfully plotted mean group heatmaps')
 
 
-@cli.command(name='plot-transition-graph')
+@cli.command(name='plot-transition-graph', help="Plots the transition graph depicting the transition probabilities between syllables.")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
@@ -350,118 +145,49 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
                           keep_orphans, orphan_weight, arrows, sort, count,
                           edge_scaling, node_scaling, scale_node_by_usage, width_per_group):
 
-    if layout.lower()[:8] == 'graphviz':
-        try:
-            import pygraphviz
-        except ImportError:
-            raise ImportError('pygraphviz must be installed to use graphviz layout engines')
-
-    model_data = parse_model_results(joblib.load(model_fit))
-    index, sorted_index = parse_index(index_file)
-
-    labels = model_data['labels']
-
-    syll_dur_df, minD, maxD = get_average_syllable_durations(model_data)
-
-    if sort:
-        labels = relabel_by_usage(labels, count=count)[0]
-
-    if 'train_list' in model_data.keys():
-        label_uuids = model_data['train_list']
-    else:
-        label_uuids = model_data['keys']
-
-    label_group = []
-
-    print('Sorting labels...')
-
-    if 'group' in index['files'][0].keys() and len(group) > 0:
-        for uuid in label_uuids:
-            label_group.append(sorted_index['files'][uuid]['group'])
-    # elif 'group' in index['files'][0].keys() and (group is None or len(group) == 0):
-    #     for uuid in label_uuids:
-    #         label_group.append(sorted_index['files'][uuid]['group'])
-    #     group = list(set(label_group))
-    else:
-        label_group = ['']*len(model_data['labels'])
-        group = list(set(label_group))
-
-    print('Computing transition matrices...')
-
-    trans_mats = []
-    usages = []
-    for plt_group in group:
-        use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
-        trans_mats.append(get_transition_matrix(use_labels, normalize=normalize, combine=True, max_syllable=max_syllable))
-        usages.append(get_syllable_statistics(use_labels)[0])
-
-    if not scale_node_by_usage:
-        usages = None
-
-    print('Creating plot...')
-
-    plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=width_per_group,
-                                        edge_threshold=edge_threshold, edge_width_scale=edge_scaling,
-                                        difference_edge_width_scale=edge_scaling, keep_orphans=keep_orphans,
-                                        orphan_weight=orphan_weight, arrows=arrows, usage_threshold=usage_threshold,
-                                        layout=layout, groups=group, usage_scale=node_scaling, headless=True)
-    plt.savefig(f'{output_file}.png', dpi=150)
-    plt.savefig(f'{output_file}.pdf')
-
-    print('Successfully graphed transition matrix.')
+    click_data = click.get_current_context().params
+    plot_transition_graph_wrapper(index_file, model_fit, click_data, output_file)
 
 
-@cli.command(name='plot-usages')
+@cli.command(name='plot-usages', help="Plots syllable usages with different sorting,coloring and grouping capabilities")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
-@click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
-@click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
-@click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
-@click.option('-g', '--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'usages'), help="Filename to store plot")
-def plot_usages(index_file, model_fit, sort, count, max_syllable, group, output_file):
+@common_syll_plot_options
+def plot_usages(index_file, model_fit, output_file, sort, count, max_syllable, group,
+                ordering, ctrl_group, exp_group, colors, fmt, figsize):
 
-    # if the user passes multiple groups, sort and plot against each other
-    # relabel by usage across the whole dataset, gather usages per session per group
-
-    # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
-
-    model_data = parse_model_results(joblib.load(model_fit))
-    sorted_index = get_sorted_index(index_file)
-    try:
-        df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
-        fig, _ = usage_plot(df, groups=group, headless=True)
-        fig.savefig(f'{output_file}.png')
-        fig.savefig(f'{output_file}.pdf')
-    except:
-        print('Could not graph usage plots')
+    plot_syllable_usages_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
+                                 count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
+                                 exp_group=exp_group, colors=colors, fmt=fmt, figsize=figsize)
 
     print('Successfully graphed usage plots')
 
-@cli.command(name='plot-syllable-durations')
+
+@cli.command(name='plot-syllable-durations', help="Plots syllable durations with different sorting,coloring and grouping capabilities")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'durations'), help="Filename to store plot")
-@click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
-def plot_syllable_durations(index_file, model_fit, output_file, max_syllable):
+@common_syll_plot_options
+def plot_syllable_durations(index_file, model_fit, output_file, sort, count, max_syllable, group,
+                ordering, ctrl_group, exp_group, colors, fmt, figsize):
 
-    # if the user passes multiple groups, sort and plot against each other
-    # relabel by usage across the whole dataset, gather usages per session per group
+    plot_syllable_durations_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
+                                 count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
+                                 exp_group=exp_group, colors=colors, fmt=fmt, figsize=figsize)
 
-    # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
+    print('Successfully graphed duration plots')
 
-    model_data = parse_model_results(joblib.load(model_fit))
+@cli.command(name='plot-syllable-speeds', help="Plots syllable centroid speeds with different sorting,coloring and grouping capabilities")
+@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
+@click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
+@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'speeds'), help="Filename to store plot")
+@common_syll_plot_options
+def plot_mean_syllable_speed(index_file, model_fit, output_file, sort, count, max_syllable, group,
+                ordering, ctrl_group, exp_group, colors, fmt, figsize):
 
-    index, sorted_index = parse_index(index_file)
+    plot_mean_group_position_pdf_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
+                                 count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
+                                 exp_group=exp_group, colors=colors, fmt=fmt, figsize=figsize)
 
-
-    df, _ = model_datasets_to_df(model_data, sorted_index, max_syllable=max_syllable, sort=True, count='frames')
-
-    groups = list(set(df['group']))
-
-    fig, _ = duration_plot(df, groups=groups, headless=True)
-
-    fig.savefig('{}.png'.format(output_file))
-    fig.savefig('{}.pdf'.format(output_file))
-
-    print('Successfully generated duration plot')
+    print('Successfully graphed speed plots')

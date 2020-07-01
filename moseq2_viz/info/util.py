@@ -1,13 +1,25 @@
 import numpy as np
-from moseq2_viz.model.util import get_syllable_statistics, get_transition_matrix
+from moseq2_viz.model.util import get_syllable_statistics, get_transition_matrix, relabel_by_usage
 
 
-def entropy(labels, truncate_syllable=40, smoothing=1.0):
-    """
-    Entropy calculation function used to decide whether the likelihood for a syllable label to appear is diminishing
-    over a logarithmic number of times having previously appeared.
-    This is used to ensure that the syllable bigrams/n-grams being created in the graphing steps are reliable and not overfit.
-    """
+def entropy(labels, truncate_syllable=40, smoothing=1.0,
+            relabel_by='usage'):
+    '''
+    Computes syllable usage entropy, base 2.
+
+    Parameters
+    ----------
+    labels (np.ndarray): array of predicted syllable labels
+    truncate_syllable (int): truncate list of relabeled syllables
+    smoothing (float): a constant added to label usages before normalization
+    relabel_by (str): mode to relabel predicted labels.
+
+    Returns
+    -------
+    ent (list): list of entropy values for each syllable label.
+    '''
+
+    labels, _ = relabel_by_usage(labels, count=relabel_by)
 
     ent = []
     for v in labels:
@@ -23,7 +35,7 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0):
 
         syllables = syllables[:truncate_point]
 
-        usages = np.array(list(usages.values())).astype('float')
+        usages = np.array(list(usages.values()), dtype='float')
         usages = usages[:truncate_point] + smoothing
         usages /= usages.sum()
 
@@ -33,11 +45,29 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0):
 
 
 def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
-                 smoothing=1.0, tm_smoothing=1.0):
-    """
-    Computes the entropy rate of the each syllable normalized to a user defined standard, {bigram, rows, columns}.
-    This is used to properly estimate the likelihoods of the syllable tranistions throughout the transition graph.
-    """
+                 smoothing=1.0, tm_smoothing=1.0, relabel_by='usage'):
+    '''
+    Computes entropy rate, base 2 using provided syllable labels. If
+    syllable labels have not been re-labeled by usage, this function will do so.
+
+    Parameters
+    ----------
+    labels (list or np.ndarray): a list of label arrays, where each entry in the list
+            is an array of labels for one subject.
+    truncate_syllable (int): the number of labels to keep for this calculation
+    normalize (str): the type of transition matrix normalization to perform. Options
+            are: 'bigram', 'rows', or 'columns'.
+    smoothing (float): a constant added to label usages before normalization
+    tm_smoothing (float): a constant added to label transtition counts before
+            normalization.
+    relabel_by (str): how to re-order labels. Options are: 'usage' and 'frames'.
+
+    Returns
+    -------
+    ent (list): list of entropy rates per syllable label
+    '''
+
+    labels, _ = relabel_by_usage(labels, count=relabel_by)
 
     ent = []
     for v in labels:
@@ -53,7 +83,7 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
 
         syllables = syllables[:truncate_point]
 
-        usages = np.array(list(usages.values())).astype('float')
+        usages = np.array(list(usages.values()), dtype='float')
         usages = usages[:truncate_point] + smoothing
         usages /= usages.sum()
 
@@ -63,8 +93,7 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
                                    smoothing=0.0,
 
                                    disable_output=True)[0] + tm_smoothing
-        tm = tm[:truncate_point]
-        tm = tm[:, :truncate_point]
+        tm = tm[:truncate_point, :truncate_point]
 
         if normalize == 'bigram':
             tm /= tm.sum()

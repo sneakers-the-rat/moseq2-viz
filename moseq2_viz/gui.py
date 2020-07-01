@@ -1,78 +1,23 @@
-from moseq2_viz.util import (recursive_find_h5s, check_video_parameters,
-                             parse_index, h5_to_dict, clean_dict)
-from moseq2_viz.model.util import (relabel_by_usage, get_syllable_slices,
-                                   results_to_dataframe, parse_model_results, model_datasets_to_df,
-                                   get_transition_matrix, get_syllable_statistics, get_average_syllable_durations)
-from moseq2_viz.viz import (make_crowd_matrix, usage_plot, graph_transition_matrix,
-                            scalar_plot, position_plot, duration_plot)
-from moseq2_viz.scalars.util import scalars_to_dataframe
-from moseq2_viz.io.video import write_frames_preview
-from functools import partial
-from sys import platform
-from numpy import linalg as LA
-from scipy.optimize import linear_sum_assignment
 import os
 import ruamel.yaml as yaml
-import h5py
-import multiprocessing as mp
-import numpy as np
-import joblib
-import tqdm
-import warnings
-import re
-import shutil
-import psutil
-import pandas as pd
-import glob
+from .cli import plot_transition_graph
+from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_usages_wrapper, plot_scalar_summary_wrapper, \
+        plot_syllable_durations_wrapper, plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, \
+    plot_syllable_speeds_wrapper, plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper
 
-def merge_models(model_dir, ext):
+def get_groups_command(index_file):
+    '''
+    Jupyter Notebook to print index file current metadata groupings.
 
-    tmp = os.path.join(model_dir, '*.'+ext)
-    model_paths = [m for m in glob.glob(tmp)]
+    Parameters
+    ----------
+    index_file (str): path to index file
 
-    model_data = {}
-    for m, model_fit in enumerate(model_paths):
-        unit_data = parse_model_results(joblib.load(model_fit))
-        for k,v in unit_data.items():
-            if k not in list(model_data.keys()):
-                model_data[k] = v
-            else:
-                try:
-                    if k == 'model_parameters':
-                        prev = model_data[k]['ar_mat']
-                        curr_arrays = v['ar_mat']
-                        ## UNIT TEST
-                        #temp = v['ar_mat']
-                        #arr = np.arange(0,100)
-                        #np.random.shuffle(arr)
-                        #curr_arrays = []
-                        #for a in arr:
-                        #    curr_arrays.append(temp[a])
-                        cost = np.zeros((len(prev), len(curr_arrays)))
-                        for i, state1 in enumerate(prev):
-                            for j, state2 in enumerate(curr_arrays):
-                                distance = LA.norm(abs(state1 - state2))
-                                cost[i][j] = distance
-                        row_ind, col_ind = linear_sum_assignment(cost)
-                        mapping = {c:r for r,c in zip(row_ind, col_ind)}
-                        adjusted_labels = []
-                        for oldlbl in unit_data['labels'][0]:
-                            try:
-                                adjusted_labels.append(mapping[oldlbl])
-                            except:
-                                pass
-                        model_data['labels'].append(np.array(adjusted_labels))
-                    elif k == 'keys' or k == 'train_list':
-                        for i in v:
-                            model_data[k].append(i)
-                except:
-                    print('Error, trying to merge models with unequal number of PCs.')
-                    pass
-    return model_data
+    Returns
+    -------
+    (int): number of unique groups
+    '''
 
-def get_groups_command(index_file, output_directory=None):
-    if output_directory is not None:
-        index_file = os.path.join(output_directory, index_file.split('/')[-1])
 
     with open(index_file, 'r') as f:
         index_data = yaml.safe_load(f)
@@ -94,426 +39,286 @@ def get_groups_command(index_file, output_directory=None):
     for i in range(len(subjectNames)):
         print('Session Name:', sessionNames[i], '; Subject Name:', subjectNames[i], '; group:', groups[i])
 
-def add_group_by_session(index_file, value, group, exact, lowercase, negative, output_directory=None):
+    return len(set(groups))
 
-    if output_directory is not None:
-        index_file = os.path.join(output_directory, index_file.split('/')[-1])
+def add_group(index_file, by='SessionName', value='default', group='default', exact=False, lowercase=False, negative=False):
+    '''
+    Updates index file SubjectName group names with user defined group names.
 
-    key = 'SessionName'
-    index = parse_index(index_file)[0]
-    h5_uuids = [f['uuid'] for f in index['files']]
-    metadata = [f['metadata'] for f in index['files']]
+    Parameters
+    ----------
+    index_file (str): path to index file
+    value (str): SessionName value to search for
+    group (str): group name to allocate.
+    exact (bool): indicate whether to search for exact match.
+    lowercase (bool): indicate whether to convert all searched for names to lowercase.
+    negative (bool): whether to update the inverse of the found selection.
 
-    if type(value) is str:
-        value = [value]
+    Returns
+    -------
+    None
+    '''
 
-    for v in value:
-        if exact:
-            v = r'\b{}\b'.format(v)
-        if lowercase and negative:
-            hits = [re.search(v, meta[key].lower()) is None for meta in metadata]
-        elif lowercase:
-            hits = [re.search(v, meta[key].lower()) is not None for meta in metadata]
-        elif negative:
-            hits = [re.search(v, meta[key]) is None for meta in metadata]
+    if isinstance(value, str):
+        gui_data = {
+            'key': by,
+            'value': value,
+            'group': group,
+            'exact': exact,
+            'lowercase': lowercase,
+            'negative': negative
+        }
+        add_group_wrapper(index_file, gui_data)
+
+    elif isinstance(value, list) and isinstance(group, list):
+        if len(value) == len(group):
+            for v, g in zip(value, group):
+                gui_data = {
+                    'key': by,
+                    'value': v,
+                    'group': g,
+                    'exact': exact,
+                    'lowercase': lowercase,
+                    'negative': negative
+                }
+                add_group_wrapper(index_file, gui_data)
         else:
-            hits = [re.search(v, meta[key]) is not None for meta in metadata]
-
-        for uuid, hit in zip(h5_uuids, hits):
-            position = h5_uuids.index(uuid)
-            if hit:
-                index['files'][position]['group'] = group
-
-    new_index = '{}_update.yaml'.format(os.path.basename(index_file))
-
-    try:
-        with open(new_index, 'w+') as f:
-            yaml.safe_dump(index, f)
-        shutil.move(new_index, index_file)
-    except Exception:
-        raise Exception
-
-    get_groups_command(index_file)
-
-def add_group_by_subject(index_file, value, group, exact, lowercase, negative, output_directory=None):
-
-    if output_directory is not None:
-        index_file = os.path.join(output_directory, index_file.split('/')[-1])
-
-    key = 'SubjectName'
-    index = parse_index(index_file)[0]
-    h5_uuids = [f['uuid'] for f in index['files']]
-    metadata = [f['metadata'] for f in index['files']]
-
-    if type(value) is str:
-        value = [value]
-
-    for v in value:
-        if exact:
-            v = r'\b{}\b'.format(v)
-        if lowercase and negative:
-            hits = [re.search(v, meta[key].lower()) is None for meta in metadata]
-        elif lowercase:
-            hits = [re.search(v, meta[key].lower()) is not None for meta in metadata]
-        elif negative:
-            hits = [re.search(v, meta[key]) is None for meta in metadata]
-        else:
-            hits = [re.search(v, meta[key]) is not None for meta in metadata]
-
-        for uuid, hit in zip(h5_uuids, hits):
-            position = h5_uuids.index(uuid)
-            if hit:
-                index['files'][position]['group'] = group
-
-    new_index = '{}_update.yaml'.format(os.path.basename(index_file))
-
-    try:
-        with open(new_index, 'w+') as f:
-            yaml.safe_dump(index, f)
-        shutil.move(new_index, index_file)
-    except Exception:
-        raise Exception
-
+            print('ERROR, did not enter equal number of substring values -> groups.')
     get_groups_command(index_file)
 
 def copy_h5_metadata_to_yaml_command(input_dir, h5_metadata_path):
+    '''
+    Reads h5 metadata from a specified metadata h5 path.
 
-    h5s, dicts, yamls = recursive_find_h5s(input_dir)
-    to_load = [(tmp, yml, file) for tmp, yml, file in zip(
-        dicts, yamls, h5s) if tmp['complete'] and not tmp['skip']]
+    Parameters
+    ----------
+    input_dir (str): path to directory containing h5 file
+    h5_metadata_path (str): path to metadata within h5 file
 
-    # load in all of the h5 files, grab the extraction metadata, reformat to make nice 'n pretty
-    # then stage the copy
+    Returns
+    -------
+    None
+    '''
 
-    for i, tup in tqdm.tqdm(enumerate(to_load), total=len(to_load), desc='Copying data to yamls'):
-        with h5py.File(tup[2], 'r') as f:
-            tmp = clean_dict(h5_to_dict(f, h5_metadata_path))
-            tup[0]['metadata'] = dict(tmp)
-
-        try:
-            new_file = '{}_update.yaml'.format(os.path.basename(tup[1]))
-            with open(new_file, 'w+') as f:
-                yaml.safe_dump(tup[0], f)
-            shutil.move(new_file, tup[1])
-        except Exception:
-            raise Exception
-    return True
-
-def make_crowd_movies_command(index_file, model_path, config_file, output_dir, max_syllable, max_examples, output_directory=None):
-
-    with open(config_file, 'r') as f:
-        config_data = yaml.safe_load(f)
+    copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path)
 
 
-    if platform in ['linux', 'linux2']:
-        print('Setting CPU affinity to use all CPUs...')
-        cpu_count = psutil.cpu_count()
-        proc = psutil.Process()
-        proc.cpu_affinity(list(range(cpu_count)))
+def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, max_examples):
+    '''
+    Runs CLI function to write crowd movies, due to multiprocessing
+    compatibilty issues with Jupyter notebook's scheduler.
 
-    clean_params = {
-        'gaussfilter_space': config_data['gaussfilter_space'],
-        'medfilter_space': config_data['medfilter_space']
-    }
+    Parameters
+    ----------
+    index_file (str): path to index file.
+    model_path (str): path to fit model.
+    output_dir (str): path to directory to save crowd movies in.
+    max_syllable (int): number of syllables to make crowd movies for.
+    max_examples (int): max number of mice to include in a crowd movie.
 
-    # need to handle h5 intelligently here...
+    Returns
+    -------
+    (str): Success string.
+    '''
 
-    if model_path.endswith('.p') or model_path.endswith('.pz'):
-        model_fit = parse_model_results(joblib.load(model_path))
-        labels = model_fit['labels']
 
-        if 'train_list' in model_fit:
-            label_uuids = model_fit['train_list']
-        else:
-            label_uuids = model_fit['keys']
-    elif model_path.endswith('.h5'):
-        # load in h5, use index found using another function
-        pass
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
-    if output_directory is None:
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-    else:
-        output_dir = os.path.join(output_directory, output_dir)
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+    os.system(f'moseq2-viz make-crowd-movies --max-syllable {max_syllable} -m {max_examples} -o {output_dir} {index_file} {model_path}')
 
-    info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
-    info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
+    if len(os.listdir(output_dir)) >= max_syllable:
+        return 'Successfully generated '+str(max_syllable) + ' crowd videos.'
 
-    # convert numpy dtypes to their corresponding primitives
-    for k, v in info_dict.items():
-        if isinstance(v, (np.ndarray, np.generic)):
-            info_dict[k] = info_dict[k].item()
+def plot_usages_command(model_fit, index_file, output_file, max_syllable=40, count='usage', group=None, sort=True,
+                        ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-', figsize=(10, 5)):
+    '''
+    Graph syllable usages from fit model data.
 
-    info_dict['model_path'] = model_path
-    info_dict['index_path'] = index_file
-    info_file = os.path.join(output_dir, 'info.yaml')
+    Parameters
+    ----------
+    model_fit (str): path to fit model.
+    index_file (str): path to index file
+    output_file (str): name of saved usages graph.
+    max_syllable (int): max number of syllables to plot.
+    count (str): method to calculate syllable usages, either by 'frames' or 'usage'
+    group (tuple): groups to include in usage plot. If empty, plots default average of all groups.
+    sort (bool): sort by usages.
+    ordering (list, range, str, None): order to list syllables. Default is None to graph syllables [0-max_syllable).
+     Setting ordering to "m" will graph mutated syllable usage difference between ctrl_group and exp_group.
+     None to graph default [0,max_syllable] in order. "usage" to plot descending order of usage values.
+    ctrl_group (str): Control group to graph when plotting mutation differences via setting ordering to 'm'.
+    exp_group (str): Experimental group to directly compare with control group.
+    colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
+    fmt (str): scatter plot format. "o-" for line plot with vertices at corresponding usages. "o" for just points.
+    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
+    Returns
+    -------
+    fig (pyplot figure): figure to graph in Jupyter Notebook.
+    '''
 
-    with open(info_file, 'w+') as f:
-        yaml.safe_dump(info_dict, f)
 
-    if config_data['sort']:
-        labels, ordering = relabel_by_usage(labels, count=config_data['count'])
-    else:
-        ordering = list(range(max_syllable))
-
-    index, sorted_index = parse_index(index_file)
-    vid_parameters = check_video_parameters(sorted_index)
-
-    # uuid in both the labels and the index
-    uuid_set = set(label_uuids) & set(sorted_index['files'].keys())
-
-    # make sure the files exist
-    uuid_set = [uuid for uuid in uuid_set if os.path.exists(sorted_index['files'][uuid]['path'][0])]
-
-    # harmonize everything...
-    labels = [label_arr for label_arr, uuid in zip(labels, label_uuids) if uuid in uuid_set]
-    label_uuids = [uuid for uuid in label_uuids if uuid in uuid_set]
-    sorted_index['files'] = {k: v for k, v in sorted_index['files'].items() if k in uuid_set}
-
-    if vid_parameters['resolution'] is not None:
-        raw_size = vid_parameters['resolution']
-
-    if config_data['sort']:
-        filename_format = 'syllable_sorted-id-{:d} ({})_original-id-{:d}.mp4'
-    else:
-        filename_format = 'syllable_{:d}.mp4'
-
-    with mp.Pool() as pool:
-        slice_fun = partial(get_syllable_slices,
-                            labels=labels,
-                            label_uuids=label_uuids,
-                            index=sorted_index)
-        with warnings.catch_warnings():
-            slices = list(tqdm.tqdm_notebook(pool.imap(slice_fun, range(max_syllable)), total=max_syllable))
-
-        matrix_fun = partial(make_crowd_matrix,
-                             nexamples=max_examples,
-                             dur_clip=config_data['dur_clip'],
-                             min_height=config_data['min_height'],
-                             crop_size=vid_parameters['crop_size'],
-                             raw_size=config_data['raw_size'],
-                             scale=config_data['scale'],
-                             legacy_jitter_fix=config_data['legacy_jitter_fix'],
-                             **clean_params)
-        with warnings.catch_warnings():
-            crowd_matrices = list(tqdm.tqdm_notebook(pool.imap(matrix_fun, slices), total=max_syllable))
-
-        write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],
-                            depth_max=config_data['max_height'], cmap=config_data['cmap'])
-        pool.starmap(write_fun,
-                     [(os.path.join(output_dir, filename_format.format(i, config_data['count'], ordering[i])),
-                       crowd_matrix)
-                      for i, crowd_matrix in enumerate(crowd_matrices) if crowd_matrix is not None])
-
-    return 'Successfully generated '+str(max_examples) + ' crowd videos.'
-
-def plot_usages_command(index_file, model_fit, sort, count, max_syllable, group, output_file):
-
-    # if the user passes multiple groups, sort and plot against each other
-    # relabel by usage across the whole dataset, gather usages per session per group
-
-    # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
-    if os.path.isdir(model_fit):
-        model_data = merge_models(model_fit, 'p')
-    else:
-        model_data = parse_model_results(joblib.load(model_fit))
-
-    index, sorted_index = parse_index(index_file)
-    df, _ = results_to_dataframe(model_data, sorted_index, max_syllable=max_syllable, sort=sort, count=count)
-    plt, _ = usage_plot(df, groups=group, headless=True)
-    plt.savefig('{}.png'.format(output_file))
-    plt.savefig('{}.pdf'.format(output_file))
+    fig = plot_syllable_usages_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
+                                        count=count, group=group, gui=True, fmt=fmt, ordering=ordering,
+                                        ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, figsize=figsize)
 
     print('Usage plot successfully generated')
+    return fig
 
-    return plt
+def plot_scalar_summary_command(index_file, output_file, colors=None, groupby='group'):
+    '''
+    Creates a scalar summary graph and a position summary graph.
 
-def plot_scalar_summary_command(index_file, output_file):
+    Parameters
+    ----------
+    index_file (str): path to index file
+    output_file (str): prefix name of scalar summary images
+    colors (list): list of colors to serve as the sns palette in the scalar summary
+    groupby (str): scalar_df column to group sessions by when graphing scalar and position summaries
 
-    index, sorted_index = parse_index(index_file)
-    scalar_df = scalars_to_dataframe(sorted_index)
+    Returns
+    -------
+    scalar_df (pandas DataFrame): DataFrame containing all of scalar values for debugging.
+    '''
 
-    plt_scalars, _ = scalar_plot(scalar_df, headless=True)
-    plt_position, _ = position_plot(scalar_df, headless=True)
-
-    plt_scalars.savefig('{}_summary.png'.format(output_file))
-    plt_scalars.savefig('{}_summary.pdf'.format(output_file))
-
-    plt_position.savefig('{}_position.png'.format(output_file))
-    plt_position.savefig('{}_position.pdf'.format(output_file))
-
-    return 'Scalar summary plots successfully completed.'
+    scalar_df = plot_scalar_summary_wrapper(index_file, output_file, groupby=groupby, colors=colors, gui=True)
+    return scalar_df
 
 def plot_transition_graph_command(index_file, model_fit, config_file, max_syllable, group, output_file):
+    '''
+    Creates transition graphs given groups to process.
+
+    Parameters
+    ----------
+    index_file (str): path to index file
+    model_fit (str): path to fit model
+    config_file (str): path to config file
+    max_syllable (int): maximum number of syllables to include in graph
+    group (tuple): tuple of names of groups to graph transition graphs for
+    output_file (str): name of the transition graph saved image
+
+    Returns
+    -------
+    fig (pyplot figure): figure to graph in Jupyter Notebook.
+    '''
 
     with open(config_file, 'r') as f:
         config_data = yaml.safe_load(f)
     f.close()
-    try:
-        if config_data['layout'].lower()[:8] == 'graphviz':
-            try:
-                import pygraphviz
-            except ImportError:
-                raise ImportError('pygraphviz must be installed to use graphviz layout engines')
-    except:
-        from moseq2_extract.gui import generate_config_command
-        config_filepath = os.path.join(os.path.dirname(model_fit), 'config.yaml')
-        generate_config_command(config_filepath)
-        with open(config_filepath, 'r') as f:
-            config_data = yaml.safe_load(f)
-        f.close()
 
-    if os.path.isdir(model_fit):
-        model_data = merge_models(model_fit, 'p')
-    else:
-        model_data = parse_model_results(joblib.load(model_fit))
+    # Get default CLI params
+    objs = plot_transition_graph.params
 
-    index, sorted_index = parse_index(index_file)
-    labels = model_data['labels']
+    params = {tmp.name: tmp.default for tmp in objs if not tmp.required}
+    for k, v in params.items():
+        if k not in config_data.keys():
+            config_data[k] = v
 
-    if config_data['sort']:
-        labels = relabel_by_usage(labels, count=config_data['count'])[0]
+    config_data['max_syllable'] = max_syllable
+    config_data['group'] = group
 
-    if 'train_list' in model_data.keys():
-        label_uuids = model_data['train_list']
-    else:
-        label_uuids = model_data['keys']
-
-    label_group = []
-
-    print('Sorting labels...')
-
-    if 'group' in index['files'][0].keys() and len(group) > 0:
-        for uuid in label_uuids:
-            label_group.append(sorted_index['files'][uuid]['group'])
-    else:
-        label_group = ['']*len(model_data['labels'])
-        group = list(set(label_group))
-
-    print('Computing transition matrices...')
-    try:
-        trans_mats = []
-        usages = []
-        for plt_group in group:
-            use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
-            trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True, max_syllable=max_syllable))
-            usages.append(get_syllable_statistics(use_labels)[0])
-        if not config_data['scale_node_by_usage']:
-            usages = None
-
-        print('Creating plot...')
-
-        plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
-                                            edge_threshold=config_data['edge_threshold'], edge_width_scale=config_data['edge_scaling'],
-                                            difference_edge_width_scale=config_data['edge_scaling'], keep_orphans=config_data['keep_orphans'],
-                                            orphan_weight=config_data['orphan_weight'], arrows=config_data['arrows'], usage_threshold=config_data['usage_threshold'],
-                                            layout=config_data['layout'], groups=group, usage_scale=config_data['node_scaling'], headless=True)
-        plt.savefig('{}.png'.format(output_file))
-        plt.savefig('{}.pdf'.format(output_file))
-    except:
-        print('Incorrectly inputted group, plotting default group.')
-
-        label_group = [''] * len(model_data['labels'])
-        group = list(set(label_group))
-
-        print('Recomputing transition matrices...')
-
-        trans_mats = []
-        usages = []
-        for plt_group in group:
-            use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
-            trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True,
-                                                    max_syllable=max_syllable))
-            usages.append(get_syllable_statistics(use_labels)[0])
-
-        plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
-                                            edge_threshold=config_data['edge_threshold'],
-                                            edge_width_scale=config_data['edge_scaling'],
-                                            difference_edge_width_scale=config_data['edge_scaling'],
-                                            keep_orphans=config_data['keep_orphans'],
-                                            orphan_weight=config_data['orphan_weight'], arrows=config_data['arrows'],
-                                            usage_threshold=config_data['usage_threshold'],
-                                            layout=config_data['layout'], groups=group,
-                                            usage_scale=config_data['node_scaling'], headless=True)
-        plt.savefig('{}.png'.format(output_file))
-        plt.savefig('{}.pdf'.format(output_file))
+    fig = plot_transition_graph_wrapper(index_file, model_fit, config_data, output_file, gui=True)
 
     print('Transition graph(s) successfully generated')
-    return plt
+    return fig
 
-def plot_syllable_durations_command(model_fit, index_file, groups, count, max_syllable, output_file, ylim=None):
+def plot_syllable_durations_command(model_fit, index_file, output_file, max_syllable=40, count='usage', group=None,
+                                    ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-', figsize=(10, 5)):
+    '''
+    Plot average syllable durations over different sortings.
+    default ordering is by descending syllable usage. For descending order of durations, set ordering='duration'.
+    For ordering by mutated behavior between a specific experimental and control group, set ordering='m'
 
-    # if the user passes multiple groups, sort and plot against each other
-    # relabel by usage across the whole dataset, gather usages per session per group
+    Parameters
+    ----------
+    model_fit (str): path to fit model.
+    index_file (str): path to index file.
+    output_file (str): name of saved image of durations plot.
+    max_syllable (int): number of syllables to plot durations for.
+    count (str): method to calculate syllable usages, either by 'frames' or 'usage'.
+    groups (tuple): tuple groups to separately plot.
+    ordering (list, range, str, None): order to list syllables. Default is None to graph syllables [0-max_syllable).
+     Setting ordering to "m" will graph mutated syllable usage difference between ctrl_group and exp_group.
+     None to graph default [0,max_syllable] in order. "durations" to plot descending order of duration values.
+    ctrl_group (str): Control group to graph when plotting mutation differences via setting ordering to 'm'.
+    exp_group (str): Experimental group to directly compare with control group.
+    colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
+    fmt (str): scatter plot format. "o-" for line plot with vertices at corresponding usages. "o" for just points.
+    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
 
-    # parse the index, parse the model fit, reformat to dataframe, bob's yer uncle
-    if os.path.isdir(model_fit):
-        model_data = merge_models(model_fit, 'p')
-    else:
-        model_data = parse_model_results(joblib.load(model_fit))
+    Returns
+    -------
+    fig (pyplot figure): figure to graph in Jupyter Notebook.
+    '''
 
-    index, sorted_index = parse_index(index_file)
-    label_uuids = model_data['keys'] + model_data['train_list']
-    i_groups = [sorted_index['files'][uuid]['group'] for uuid in label_uuids]
-    lbl_dict = {}
+    fig = plot_syllable_durations_wrapper(model_fit, index_file, output_file, count=count, max_syllable=max_syllable, group=group, fmt=fmt,
+                                  ordering=ordering, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, figsize=figsize, gui=True)
 
-    df_dict = {
-        'usage': [],
-        'duration': [],
-        'group': [],
-        'syllable': []
-    }
+    return fig
 
-    model_data['labels'] = relabel_by_usage(model_data['labels'], count=count)[0]
-    min_length = min([len(x) for x in model_data['labels']]) - 3
-    for i in range(len(model_data['labels'])):
-        labels = list(filter(lambda a: a != -5, model_data['labels'][i]))
-        tmp_usages, tmp_durations = get_syllable_statistics(model_data['labels'][i], count=count, max_syllable=max_syllable)
-        total_usage = np.sum(list(tmp_usages.values()))
-        curr = labels[0]
-        lbl_dict[curr] = []
-        curr_dur = 1
-        if total_usage <= 0:
-            total_usage = 1.0
-        for li in range(1, min_length):
-            if labels[li] == curr:
-                curr_dur += 1
-            else:
-                lbl_dict[curr].append(curr_dur)
-                curr = labels[li]
-                curr_dur = 1
-            if labels[li] not in list(lbl_dict.keys()):
-                lbl_dict[labels[li]] = []
+def plot_mean_syllable_speeds_command(model_fit, index_file, output_file, max_syllable=40, group=None, fmt='o-',
+                                          ordering=None, ctrl_group=None, exp_group=None, colors=None, figsize=(10, 5)):
+    '''
+    Computes the average syllable speed according to the rodent's centroid speed
+     at the frames with that respective syllable label.
 
-        for k, v in tmp_usages.items():
-            df_dict['usage'].append(v/total_usage)
-            #df_dict['duration'].append(sum(lbl_dict[k]) / len(lbl_dict[k]))
-            try:
-                df_dict['duration'].append(sum(tmp_durations[k])/len(tmp_durations[k]))
-            except:
-                df_dict['duration'].append(sum(tmp_durations[k]) / 1)
-            df_dict['group'].append(i_groups[i])
-            df_dict['syllable'].append(k)
-        lbl_dict = {}
+    Parameters
+    ----------
+    model_fit (str): path to fit model.
+    index_file (str): path to index file.
+    output_file (str): filename for syllable duration graph.
+    max_syllable (int): maximum number of syllables to plot.
+    groups (tuple): tuple groups to separately plot.
+    fmt (str): scatter plot format. "o-" for line plot with vertices at corresponding usages. "o" for just points.
+    ordering (list, range, str, None): order to list syllables. Default is None to graph syllables [0-max_syllable).
+     Setting ordering to "m" will graph mutated syllable usage difference between ctrl_group and exp_group.
+     None to graph default [0,max_syllable] in order. "durations" to plot descending order of duration values.
+    ctrl_group (str): Control group to graph when plotting mutation differences via setting ordering to 'm'.
+    exp_group (str): Experimental group to directly compare with control group.
+    colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
+    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
 
-    df = pd.DataFrame.from_dict(data=df_dict)
-    
-    try:
-        fig, _ = duration_plot(df, groups=groups, ylim=ylim, headless=True)
-        
-        fig.savefig('{}.png'.format(output_file))
-        fig.savefig('{}.pdf'.format(output_file))
+    Returns
+    -------
+    fig (pyplot figure): figure to graph in Jupyter Notebook.
+    '''
 
-        print('Successfully generated duration plot')
-    except:
-        groups = ()
-        fig, _ = duration_plot(df, groups=groups, ylim=ylim, headless=True)
-        
-        fig.savefig('{}.png'.format(output_file))
-        fig.savefig('{}.pdf'.format(output_file))
+    fig = plot_syllable_speeds_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, group=group, fmt=fmt,
+                   ordering=ordering, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, figsize=figsize, gui=True)
 
-        print('Successfully generated duration plot')
-        
+    return fig
+
+def plot_mean_group_position_heatmaps_command(index_file, output_file):
+    '''
+    Plots the average mouse position in a PDF-derived heatmap for each group found in the inputted index file.
+    Parameters
+    ----------
+    index_file (str): path to index file.
+    output_file (str): filename for syllable duration graph.
+
+    Returns
+    -------
+    fig (pyplot figure): figure to graph in Jupyter Notebook.
+    '''
+
+    fig = plot_mean_group_position_pdf_wrapper(index_file, output_file, gui=True)
+
+    return fig
+
+def plot_verbose_position_heatmaps(index_file, output_file):
+    '''
+    Plots a PDF-derived heatmap of each session found in the index file titled with the session name and group.
+
+    Parameters
+    ----------
+    index_file (str): path to index file.
+    output_file (str): filename for syllable duration graph.
+
+    Returns
+    -------
+    fig (pyplot figure): figure to graph in Jupyter Notebook.
+    '''
+
+    fig = plot_verbose_pdfs_wrapper(index_file, output_file, gui=True)
+
     return fig

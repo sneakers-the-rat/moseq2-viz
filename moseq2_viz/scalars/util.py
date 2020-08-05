@@ -694,8 +694,7 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, groups=None, max_s
     gk = ['group', 'uuid']
 
     centroid_speeds = scalar_df[['centroid_speed_mm'] + gk]
-
-    if isinstance(groups, list):
+    if isinstance(groups, (list, tuple)):
         if len(groups) == 0:
             groups = None
 

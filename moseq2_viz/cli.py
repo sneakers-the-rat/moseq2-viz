@@ -10,9 +10,9 @@ Note: These functions simply read all the parameters into a dictionary,
 
 import os
 import click
-from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_usages_wrapper, plot_scalar_summary_wrapper, \
-        plot_syllable_durations_wrapper, plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, \
-        make_crowd_movies_wrapper, plot_syllable_speeds_wrapper, plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper
+from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_stat_wrapper, plot_scalar_summary_wrapper, \
+        plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, make_crowd_movies_wrapper, \
+        plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper
 
 orig_init = click.core.Option.__init__
 
@@ -153,46 +153,27 @@ def plot_transition_graph(index_file, model_fit, max_syllable, group, output_fil
     click_data = click.get_current_context().params
     plot_transition_graph_wrapper(index_file, model_fit, click_data, output_file)
 
-
-@cli.command(name='plot-usages', help="Plots syllable usages with different sorting,coloring and grouping capabilities")
+@cli.command(name='plot-stats', help="Plots syllable usages with different sorting,coloring and grouping capabilities")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
-@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'usages'), help="Filename to store plot")
-@common_syll_plot_options
-def plot_usages(index_file, model_fit, output_file, sort, count, max_syllable, group,
+@click.option('--stat', type=str, default='usage', help="Statistic to plot ['usage', 'speed', 'duration'")
+@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'syll_stat'), help="Filename to store plot")
+@click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
+@click.option('--figsize', type=tuple, default=(10, 5), help="Size dimensions of the plotted figure.")
+@click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
+@click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
+@click.option('-g', '--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
+@click.option('-o', '--ordering', type=str, default=None,
+              help="How to order the groups, ['any' for descending, 'm' for muteness]")
+@click.option('--ctrl-group', type=str, default=None, help="Name of control group. Only if ordering = 'm'")
+@click.option('--exp-group', type=str, default=None, help="Name of experimental group. Only if ordering = 'm'")
+@click.option('-c', '--colors', type=str, default=None, help="Colors to plot groups with.", multiple=True)
+@click.option('-f', '--fmt', type=str, default='o-', help="Format the scatter plot data.")
+def plot_stats(index_file, model_fit, stat, output_file, sort, count, max_syllable, group,
                 ordering, ctrl_group, exp_group, colors, fmt, figsize):
 
-    plot_syllable_usages_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
+    plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat=stat, max_syllable=max_syllable, sort=sort,
                                  count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
                                  exp_group=exp_group, colors=colors, fmt=fmt, figsize=figsize)
 
-    print('Successfully graphed usage plots')
-
-
-@cli.command(name='plot-syllable-durations', help="Plots syllable durations with different sorting,coloring and grouping capabilities")
-@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
-@click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
-@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'durations'), help="Filename to store plot")
-@common_syll_plot_options
-def plot_syllable_durations(index_file, model_fit, output_file, sort, count, max_syllable, group,
-                ordering, ctrl_group, exp_group, colors, fmt, figsize):
-
-    plot_syllable_durations_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
-                                 count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
-                                 exp_group=exp_group, colors=colors, fmt=fmt, figsize=figsize)
-
-    print('Successfully graphed duration plots')
-
-@cli.command(name='plot-syllable-speeds', help="Plots syllable centroid speeds with different sorting,coloring and grouping capabilities")
-@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
-@click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
-@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'speeds'), help="Filename to store plot")
-@common_syll_plot_options
-def plot_mean_syllable_speed(index_file, model_fit, output_file, sort, count, max_syllable, group,
-                ordering, ctrl_group, exp_group, colors, fmt, figsize):
-
-    plot_mean_group_position_pdf_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
-                                 count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
-                                 exp_group=exp_group, colors=colors, fmt=fmt, figsize=figsize)
-
-    print('Successfully graphed speed plots')
+    click.echo(f'Syllable {stat} graph created successfully')

@@ -159,7 +159,6 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     # Edge case: Accounting for mutation sorting
     max_syllable += 1
 
-    print('here')
     compute_labels = False
     if stat == 'speed':
         # Load scalar Dataframe to compute syllable speeds

@@ -30,22 +30,6 @@ click.core.Option.__init__ = new_init
 def cli():
     pass
 
-def common_syll_plot_options(function):
-    function = click.option('--sort', type=bool, default=True, help="Sort syllables by usage")(function)
-    function = click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')(function)
-    function = click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")(function)
-    function = click.option('-g', '--group', type=str, default=None, help="Name of group(s) to show", multiple=True)(function)
-    function = click.option('-o', '--ordering', type=str, default=None,
-                  help="How to order the groups, ['any' for descending, 'm' for muteness]")(function)
-    function = click.option('--ctrl-group', type=str, default=None, help="Name of control group. Only if ordering = 'm'")(function)
-    function = click.option('--exp-group', type=str, default=None, help="Name of experimental group. Only if ordering = 'm'")(function)
-    function = click.option('-c', '--colors', type=str, default=None, help="Colors to plot groups with.", multiple=True)(function)
-    function = click.option('-f', '--fmt', type=str, default='o-', help="Format the scatter plot data.")(function)
-    function = click.option('-s', '--figsize', type=tuple, default=(10, 5), help="Size dimensions of the plotted figure.")(function)
-    
-    return function
-
-
 @cli.command(name="add-group", help='Change group name in index file given a key-value pair')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.option('--key', '-k', type=str, default='SubjectName', help='Key to search for value')

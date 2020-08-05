@@ -1,3 +1,9 @@
+'''
+
+Helper functions for handling crowd movie file writing and video metadata maintenance.
+
+'''
+
 import os
 import cv2
 import warnings

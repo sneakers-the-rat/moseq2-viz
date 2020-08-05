@@ -1,3 +1,13 @@
+'''
+
+CLI front-end operations. This module contains all the functionality and configurable parameters
+users can alter to most accurately process their data.
+
+Note: These functions simply read all the parameters into a dictionary,
+ and then call the corresponding wrapper function with the given input parameters.
+
+'''
+
 import os
 import click
 from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_usages_wrapper, plot_scalar_summary_wrapper, \
@@ -16,14 +26,9 @@ click.core.Option.__init__ = new_init
 
 
 @click.group()
+@click.version_option()
 def cli():
     pass
-
-@cli.command('version', help='Print version number')
-def version():
-    import moseq2_viz
-    click.echo(moseq2_viz.__version__)
-
 
 def common_syll_plot_options(function):
     function = click.option('--sort', type=bool, default=True, help="Sort syllables by usage")(function)

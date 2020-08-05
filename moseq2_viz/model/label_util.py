@@ -1,3 +1,10 @@
+'''
+
+Syllable label information utility functions.
+Contains duplicate functions from moseq2-model + additional syllable sorting/relabeling functions.
+
+'''
+
 import pandas as pd
 import numpy as np
 

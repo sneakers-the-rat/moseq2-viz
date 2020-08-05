@@ -1,17 +1,23 @@
+'''
+
+Visualization model containing all plotting functions and some dependent data pre-processing helper functions.
+
+'''
+
 import re
-import math
 import cv2
 import h5py
+import math
 import random
 import numpy as np
-import seaborn as sns
 import networkx as nx
+import seaborn as sns
+from cytoolz import pluck
+from tqdm.auto import tqdm
 from functools import wraps
 import matplotlib.pyplot as plt
-from tqdm.auto import tqdm
-from typing import Tuple, Iterable
-from cytoolz import pluck
 from moseq2_viz.util import star
+from typing import Tuple, Iterable
 from matplotlib import lines, gridspec
 from networkx.drawing.nx_agraph import graphviz_layout
 from moseq2_viz.model.label_util import get_sorted_syllable_stat_ordering, get_syllable_muteness_ordering

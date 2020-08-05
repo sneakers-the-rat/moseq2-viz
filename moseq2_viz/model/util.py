@@ -689,7 +689,7 @@ def get_frame_label_df(labels, uuids, groups):
     label_df = pd.DataFrame(labels, columns=range(total_columns), index=[groups, uuids])
     return label_df
 
-def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', normalize=True, max_syllable=40,
+def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', max_syllable=40,
                          include_meta=['SessionName', 'SubjectName', 'StartTime'], compute_labels=False):
     '''
     Converts inputted model dictionary to DataFrame with user specified metadata columns.
@@ -1075,36 +1075,3 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
             syllable_matrix[:] = np.nan
 
     return syllable_matrix
-
-
-'''
-def relabel_by_usage(labels: Union[list, np.ndarray], fill_value: int = -5,
-                     count: str = 'usage') -> Union[list, np.ndarray]:
-    Re-sort model labels by their usages
-
-    Args:
-        labels: labels loaded from a model fit
-        fill_value: value prepended to modeling results to account for nlags
-        count: how to count syllable usage - either by emission number (usage) or number of frames (frames)
-
-    Returns:
-        labels: labels resorted by usage
-
-    Examples:
-        Load in model results and sort labels by usages::
-
-            from moseq2_viz.model.util import parse_model_results, relabel_by_usage
-            model_results = parse_model_results('mymodel.p')
-            sorted_labels = relabel_by_usage(model_results['labels'], count='usage')
-
-
-    if isinstance(labels, (list, np.ndarray)):
-        return _relabel_list_by_usage(labels, fill_value=fill_value, count=count)
-    elif isinstance(labels, dict):
-        # rest assured, in python 3 dicts are ordered by default
-        uuids = list(labels.keys())
-        sorted_labels, sorting = _relabel_list_by_usage(list(labels.values()), fill_value=fill_value, count=count)
-        return dict(zip(uuids, sorted_labels)), sorting
-    else:
-        raise ValueError(f'processing of datatype {type(labels)} not implemented or recognized')
-'''

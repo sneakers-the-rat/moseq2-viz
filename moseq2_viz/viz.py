@@ -758,7 +758,7 @@ def check_types(function):
                 groups = uniq_groups
 
         if max_sylls == None:
-            max_sylls = 41
+            max_sylls = 40
 
         if set(stat).issubset(set('usage')):
             stat = 'usage'

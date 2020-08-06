@@ -140,8 +140,6 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     plt (pyplot figure): graph to show in Jupyter Notebook.
     '''
 
-    max_syllable += 1  # accounting for last syllable in list
-
     # if the user passes model directory, merge model states by
     # minimum distance between them relative to first model in list
     if not os.path.exists(os.path.dirname(output_file)):

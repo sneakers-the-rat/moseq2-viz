@@ -18,11 +18,11 @@ from moseq2_viz.util import parse_index
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
                             compute_session_centroid_speeds
-from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot, graph_transition_matrix, \
-                            plot_mean_group_heatmap, plot_verbose_heatmap)
+from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot, plot_mean_group_heatmap, \
+                            plot_verbose_heatmap)
 from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict)
-from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, get_syllable_statistics,
-                                   merge_models, get_transition_matrix, results_to_dataframe)
+from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models, results_to_dataframe, \
+                                   compute_and_graph_grouped_TMs)
 
 def wrapper_function_setup(function):
     '''
@@ -350,99 +350,59 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
     plt (pyplot figure): graph to show in Jupyter Notebook.
     '''
 
-    max_syllable = config_data['max_syllable']
+    # Get loaded model via decorator
+    model_data = kwargs['model_data']
 
+    # Get loaded index dicts via decorator
+    index, sorted_index = kwargs['index'], kwargs['sorted_index']
+
+    # Optionally load pygraphviz for transition graph layout configuration
     if config_data.get('layout').lower()[:8] == 'graphviz':
         try:
             import pygraphviz
         except ImportError:
             raise ImportError('pygraphviz must be installed to use graphviz layout engines')
 
+    # Set groups to plot
     if config_data.get('group') != None:
         group = config_data['group']
 
-    # Get loaded model via decorator
-    model_data = kwargs['model_data']
-
-    # Get loaded index dicts via decorator
-    index, sorted_index = kwargs['index'], kwargs['sorted_index']
+    # Get labels and optionally relabel them by usage sorting
     labels = model_data['labels']
-
     if config_data['sort']:
         labels = relabel_by_usage(labels, count=config_data['count'])[0]
 
+    # Get modeled session uuids to compute group-mean transition graph for
     if 'train_list' in model_data.keys():
         label_uuids = model_data['train_list']
     else:
         label_uuids = model_data['keys']
 
-    label_group = []
-
-    print('Sorting labels...')
-
+    # Loading modeled groups from index file by looking up their session's corresponding uuid
     if 'group' in index['files'][0].keys() and len(group) > 0:
-        for uuid in label_uuids:
-            if uuid in sorted_index['files'].keys():
-                label_group.append(sorted_index['files'][uuid]['group'])
-            else:
-                print('WARNING: UUIDs in model results do not match the index file!')
-                label_group.append('default')
+        label_group = [sorted_index['files'][uuid]['group'] \
+                           if uuid in sorted_index['files'].keys() else '' for uuid in label_uuids]
     else:
+        # If no index file is found, set session grouping as nameless default to plot a single transition graph
         label_group = [''] * len(model_data['labels'])
         group = list(set(label_group))
 
     print('Computing transition matrices...')
     try:
-        trans_mats = []
-        usages = []
-        for plt_group in group:
-            use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
-            trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True,
-                                                    max_syllable=max_syllable))
-            usages.append(get_syllable_statistics(use_labels)[0])
-        if not config_data['scale_node_by_usage']:
-            usages = None
-
-        print('Creating plot...')
-
-        plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
-                                            edge_threshold=config_data['edge_threshold'],
-                                            edge_width_scale=config_data['edge_scaling'],
-                                            difference_edge_width_scale=config_data['edge_scaling'],
-                                            keep_orphans=config_data['keep_orphans'],
-                                            orphan_weight=config_data['orphan_weight'], arrows=config_data['arrows'],
-                                            usage_threshold=config_data['usage_threshold'],
-                                            layout=config_data['layout'], groups=group,
-                                            usage_scale=config_data['node_scaling'], headless=True)
-        plt.savefig('{}.png'.format(output_file))
-        plt.savefig('{}.pdf'.format(output_file))
-    except:
+        # Compute and plot Transition Matrices
+        plt = compute_and_graph_grouped_TMs(config_data, labels, label_group, group)
+    except Exception as e:
+        print('Error:', e)
         print('Incorrectly inputted group, plotting all groups.')
 
         label_group = [f['group'] for f in sorted_index['files'].values()]
         group = list(set(label_group))
 
         print('Recomputing transition matrices...')
+        plt = compute_and_graph_grouped_TMs(config_data, labels, label_group, group)
 
-        trans_mats = []
-        usages = []
-        for plt_group in group:
-            use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
-            trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True,
-                                                    max_syllable=max_syllable))
-            usages.append(get_syllable_statistics(use_labels)[0])
-
-        plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
-                                            edge_threshold=config_data['edge_threshold'],
-                                            edge_width_scale=config_data['edge_scaling'],
-                                            difference_edge_width_scale=config_data['edge_scaling'],
-                                            keep_orphans=config_data['keep_orphans'],
-                                            orphan_weight=config_data['orphan_weight'], arrows=config_data['arrows'],
-                                            usage_threshold=config_data['usage_threshold'],
-                                            layout=config_data['layout'], groups=group,
-                                            usage_scale=config_data['node_scaling'], headless=True)
-        plt.savefig('{}.png'.format(output_file))
-        plt.savefig('{}.pdf'.format(output_file))
+    plt.savefig('{}.png'.format(output_file))
+    plt.savefig('{}.pdf'.format(output_file))
 
     return plt
 

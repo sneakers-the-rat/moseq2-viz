@@ -21,6 +21,7 @@ from os.path import join, basename, dirname
 from typing import Iterator, Any, Dict, Union
 from collections import defaultdict, OrderedDict
 from scipy.optimize import linear_sum_assignment
+from moseq2_viz.viz import graph_transition_matrix
 from moseq2_viz.util import np_cache, h5_to_dict, star
 from cytoolz import curry, valmap, compose, complement, itemmap, concat
 
@@ -89,6 +90,52 @@ def merge_models(model_dir, ext='p'):
                                 model_data[k][k1].append(val)
 
     return model_data
+
+def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
+    '''
+    Convenience function to compute a transition matrix for each given group.
+    Function will also graph the computed transition matrices, then return the open figure object to be saved.
+
+    Parameters
+    ----------
+    config_data (dict): configuration dictionary containing graphing parameters
+    labels (list): list of 1D numpy arrays containing syllable labels per frame for every included session
+    label_group (list): list of corresponding group names to plot transition aggregated transition plots
+    group (list): unique list of groups to plot
+
+    Returns
+    -------
+    plt (pyplot.Figure): open transition graph figure to save
+    '''
+
+    trans_mats = []
+    usages = []
+
+    # Computing transition matrices for each given group
+    for plt_group in group:
+        use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
+        trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True,
+                                                max_syllable=config_data['max_syllable']))
+
+        # Getting usage information for node scaling
+        usages.append(get_syllable_statistics(use_labels)[0])
+
+    # Option to not scale node sizes proportional to the syllable usage.
+    if not config_data['scale_node_by_usage']:
+        usages = None
+
+    print('Creating plot...')
+    plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
+                                        edge_threshold=config_data['edge_threshold'],
+                                        edge_width_scale=config_data['edge_scaling'],
+                                        difference_edge_width_scale=config_data['edge_scaling'],
+                                        keep_orphans=config_data['keep_orphans'],
+                                        orphan_weight=config_data['orphan_weight'], arrows=config_data['arrows'],
+                                        usage_threshold=config_data['usage_threshold'],
+                                        layout=config_data['layout'], groups=group,
+                                        usage_scale=config_data['node_scaling'], headless=True)
+
+    return plt
 
 def _get_transitions(label_sequence):
     '''

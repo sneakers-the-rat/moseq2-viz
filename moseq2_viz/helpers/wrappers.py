@@ -19,7 +19,7 @@ from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
                             compute_session_centroid_speeds
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot, plot_mean_group_heatmap, \
-                            plot_verbose_heatmap)
+                            plot_verbose_heatmap, save_fig)
 from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict)
 from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models, results_to_dataframe, \
                                    compute_and_graph_grouped_TMs)
@@ -183,11 +183,9 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     # Plot Position Summary of all mice in columns organized by groups
     plt_position, _ = position_plot(scalar_df, group_var=groupby)
 
-    plt_scalars.savefig('{}_summary.png'.format(output_file))
-    plt_scalars.savefig('{}_summary.pdf'.format(output_file))
-
-    plt_position.savefig('{}_position.png'.format(output_file))
-    plt_position.savefig('{}_position.pdf'.format(output_file))
+    # Save figures
+    save_fig(plt_scalars, output_file, name='{}_summary')
+    save_fig(plt_position, output_file, name='{}_position')
 
     return scalar_df
 
@@ -256,8 +254,7 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
                                       fmt=fmt, ordering=ordering, stat=stat, max_sylls=max_syllable, figsize=figsize)
 
     # Save
-    plt.savefig('{}.png'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')
-    plt.savefig('{}.pdf'.format(output_file), bbox_extra_artists=(lgd,), bbox_inches='tight')
+    save_fig(plt, output_file, bbox_extra_artists=(lgd,), bbox_inches='tight')
 
     return plt
 
@@ -296,8 +293,7 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file, **kwargs):
     fig = plot_mean_group_heatmap(pdfs, groups)
 
     # Save figure
-    fig.savefig('{}.png'.format(output_file))
-    fig.savefig('{}.pdf'.format(output_file))
+    save_fig(fig, output_file)
 
     return fig
 
@@ -336,8 +332,7 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, **kwargs):
     fig = plot_verbose_heatmap(pdfs, sessions, groups, subjectNames)
 
     # Save figure
-    fig.savefig('{}.png'.format(output_file))
-    fig.savefig('{}.pdf'.format(output_file))
+    save_fig(fig, output_file)
 
     return fig
 
@@ -416,8 +411,7 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
         plt = compute_and_graph_grouped_TMs(config_data, labels, label_group, group)
 
     # Save figure
-    plt.savefig('{}.png'.format(output_file))
-    plt.savefig('{}.pdf'.format(output_file))
+    save_fig(plt, output_file)
 
     return plt
 

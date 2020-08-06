@@ -103,7 +103,7 @@ def get_syllable_muteness_ordering(complete_df, ctrl_group, exp_group, max_sylls
     complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
     ctrl_group (str): Control group.
     exp_group (str): Experimental group.
-    max_sylls (str): maximum number of syllables to include in ordering.
+    max_sylls (int): maximum number of syllables to include in ordering.
     stat (str): choice of statistic to order mutations by: {usage, duration, speed}.
 
     Returns
@@ -123,7 +123,7 @@ def get_syllable_muteness_ordering(complete_df, ctrl_group, exp_group, max_sylls
         max_sylls = len(diff_df)
 
     # sort them from most mutant to least mutant
-    muteness_ordering = diff_df.sort_values(by=stat, ascending=False).index[:max_sylls+1] # adding 1 for sylls [0-40] (for example)
+    muteness_ordering = diff_df.sort_values(by=stat, ascending=False).index[:max_sylls]
 
     return muteness_ordering
 

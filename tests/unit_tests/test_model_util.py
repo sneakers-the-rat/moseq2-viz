@@ -197,17 +197,16 @@ class TestModelUtils(TestCase):
 
         labels, _ = relabel_by_usage(labels)
         max_syllable = 40
-
         usages, durations = get_syllable_statistics(labels, max_syllable=max_syllable)
-        assert len(usages) == len(durations) == max_syllable+1
+        assert len(usages) == len(durations) == max_syllable
 
         Fusages, Fdurations = get_syllable_statistics(labels, max_syllable=max_syllable, count='frames')
-        assert len(Fusages) == len(Fdurations) == max_syllable + 1
+        assert len(Fusages) == len(Fdurations) == max_syllable
 
         assert usages.values() != Fusages.values()
 
         Uusages, Udurations = get_syllable_statistics(labels, max_syllable=max_syllable, count='fraasdfsdgmes')
-        assert len(Uusages) == len(Udurations) == max_syllable + 1
+        assert len(Uusages) == len(Udurations) == max_syllable
 
         assert list(usages.values()) == list(Uusages.values())
 
@@ -274,7 +273,7 @@ class TestModelUtils(TestCase):
 
         columns = ['duration', 'usage', 'uuid', 'group', 'syllable', 'SessionName', 'SubjectName', 'StartTime']
         assert set(columns) == set(df.columns)
-        assert df.shape == ((max_syllable+1)*2, len(columns))
+        assert df.shape == ((max_syllable)*2, len(columns))
 
     def test_normalize_pcs(self):
         index_file = 'data/test_index.yaml'

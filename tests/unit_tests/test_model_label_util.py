@@ -87,5 +87,5 @@ class TestTrainLabelUtils(TestCase):
 
         assert list(relabel_mapping.keys()) == list(ordering)
         assert isinstance(relabel_mapping, dict)
-        assert len(list(relabel_mapping.keys())) == 41
-        assert list(ordering) != list(range(41))
+        assert len(list(relabel_mapping.keys())) == 40
+        assert list(ordering) != list(range(40))

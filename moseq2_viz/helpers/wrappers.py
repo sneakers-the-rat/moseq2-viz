@@ -224,8 +224,6 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     plt (pyplot figure): graph to show in Jupyter Notebook.
     '''
 
-    max_syllable += 1  # accounting for last syllable in list
-
     # Get loaded model via decorator
     model_data = kwargs['model_data']
 

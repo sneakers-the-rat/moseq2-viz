@@ -556,8 +556,8 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
             durations[s].append(d)
 
 
-    usages = OrderedDict(sorted(usages.items()))
-    durations = OrderedDict(sorted(durations.items()))
+    usages = OrderedDict(sorted(usages.items())[:max_syllable])
+    durations = OrderedDict(sorted(durations.items())[:max_syllable])
 
 
     return usages, durations

@@ -14,6 +14,7 @@ import numpy as np
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
+from functools import wraps
 from moseq2_viz.util import parse_index
 from moseq2_viz.io.video import write_crowd_movies
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
@@ -23,6 +24,73 @@ from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot
 from moseq2_viz.util import (recursive_find_h5s, check_video_parameters, h5_to_dict, clean_dict)
 from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, get_syllable_statistics,
                                    merge_models, get_transition_matrix, results_to_dataframe)
+
+def wrapper_function_setup(function):
+    '''
+    Decorator for all (but add_group) wrapper functions.
+    Function will read function name, and read model, index file and output file parameters
+    according to their caller's arg order.
+    Additionally, it will create any missing subdirectories for plotting functions.
+    Parameters
+    ----------
+    function (function): function to perform preprocessing for prior to its execution
+    Returns
+    -------
+    function (function): same function with an updated kwargs dictionary containing all required loaded data
+    '''
+
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+
+        caller = function.__name__
+        model_fit, output_file = None, None
+
+        # Handle all scalar related functions
+        if any(x in caller for x in ['scalar', 'pdf']):
+            index_file, output_file = args[0], args[1]
+
+        # Handle plot syllable summary function
+        elif 'stat' in caller:
+            model_fit, index_file, output_file = args[0], args[1], args[2]
+
+        # Handle transition_graph and crowd_movie functions
+        elif any(x in caller for x in ['crowd', 'transition']):
+            index_file, model_fit = args[0], args[1]
+            if 'transition' in caller:
+                output_file = args[3]
+            elif 'crowd' in caller:
+                output_dir = args[3]
+                # Set up output directory to save crowd movies in
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+
+        # Set up output directory to save plots in
+        if output_file != None:
+            if not os.path.exists(os.path.dirname(output_file)):
+                os.makedirs(os.path.dirname(output_file))
+
+        # Get sorted index dict
+        if index_file != None:
+            index, sorted_index = parse_index(index_file)
+            kwargs['index'] = index
+            kwargs['sorted_index'] = sorted_index
+
+        # Load trained model data
+        if model_fit != None:
+            # If the user passes model directory, merge model states by
+            # minimum distance between them relative to first model in list
+            if os.path.isdir(model_fit):
+                model_data = merge_models(model_fit, 'p')
+            elif model_fit.endswith('.p') or model_fit.endswith('.pz'):
+                model_data = parse_model_results(joblib.load(model_fit))
+            elif model_fit.endswith('.h5'):
+                # TODO: add h5 file model parsing capability
+                pass
+
+            kwargs['model_data'] = model_data
+
+        return function(*args, **kwargs)
+    return wrapped
 
 def add_group_wrapper(index_file, config_data):
     '''
@@ -77,10 +145,15 @@ def add_group_wrapper(index_file, config_data):
 
     print('Group(s) added successfully.')
 
-
-def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None):
+@wrapper_function_setup
+def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None, **kwargs):
     '''
     Wrapper function that plots scalar summary graphs.
+
+    Note: function is decorated with function performing initialization operations and saving
+    the results in the kwargs variable.
+
+    Decorator will retrieve the sorted_index dict.
 
     Parameters
     ----------
@@ -88,6 +161,7 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     output_file (str): path to save graphs.
     groupby (str): scalar_df column to group sessions by when graphing scalar and position summaries
     colors (list): list of colors to serve as the sns palette in the scalar summary
+    kwargs (dict): dict containing index dicts from given index file path.
 
     Returns
     -------
@@ -95,10 +169,9 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     (Only accessible through GUI API)
     '''
 
-    if not os.path.exists(os.path.dirname(output_file)):
-        os.makedirs(os.path.dirname(output_file))
+    # Get loaded index dict via decorator
+    sorted_index = kwargs['sorted_index']
 
-    index, sorted_index = parse_index(index_file)
     scalar_df = scalars_to_dataframe(sorted_index)
 
     plt_scalars, _ = scalar_plot(scalar_df, group_var=groupby, colors=colors, headless=True)
@@ -112,10 +185,15 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
 
     return scalar_df
 
+@wrapper_function_setup
 def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage', sort=True, count='usage', group=None, max_syllable=40,
-                                 fmt='o-', ordering=None, ctrl_group=None, exp_group=None, colors=None, figsize=(10, 5)):
+                                 fmt='o-', ordering=None, ctrl_group=None, exp_group=None, colors=None, figsize=(10, 5), **kwargs):
     '''
     Wrapper function to plot specified syllable statistic.
+
+    Note: function is decorated with function performing initialization operations and saving
+    the results in the kwargs variable.
+    Decorator will retrieve the sorted_index dict and parse the model results into a single dict.
 
     Parameters
     ----------
@@ -135,6 +213,8 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     exp_group (str): Experimental group to directly compare with control group.
     colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
     figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
+    kwargs (dict): dict containing loaded model data and index dicts
+
     Returns
     -------
     plt (pyplot figure): graph to show in Jupyter Notebook.
@@ -142,22 +222,11 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
 
     max_syllable += 1  # accounting for last syllable in list
 
-    # if the user passes model directory, merge model states by
-    # minimum distance between them relative to first model in list
-    if not os.path.exists(os.path.dirname(output_file)):
-        os.makedirs(os.path.dirname(output_file))
+    # Get loaded model via decorator
+    model_data = kwargs['model_data']
 
-    if os.path.isdir(model_fit):
-        model_data = merge_models(model_fit, 'p')
-    else:
-        model_data = parse_model_results(joblib.load(model_fit))
-
-    # if the user passes multiple groups, sort and plot against each other
-    # relabel by usage across the whole dataset, gather usages per session per group
-    index, sorted_index = parse_index(index_file)
-
-    # Edge case: Accounting for mutation sorting
-    max_syllable += 1
+    # Get loaded index dict via decorator
+    sorted_index = kwargs['sorted_index']
 
     print('here')
     compute_labels = False
@@ -187,25 +256,31 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
 
     return plt
 
-def plot_mean_group_position_pdf_wrapper(index_file, output_file):
+@wrapper_function_setup
+def plot_mean_group_position_pdf_wrapper(index_file, output_file, **kwargs):
     '''
     Wrapper function that computes the PDF of the rodent's position throughout the respective sessions,
     and averages these values with respect to their groups to graph a mean position heatmap for each group.
+
+    Note: function is decorated with function performing initialization operations and saving
+    the results in the kwargs variable.
+
+    Decorator will retrieve the sorted_index dict.
 
     Parameters
     ----------
     index_file (str): path to index file.
     output_file (str): filename for the group heatmap graph.
+    kwargs (dict): dict containing loaded index dict from given index file path
 
     Returns
     -------
     fig (pyplot figure): figure to graph in Jupyter Notebook.
     '''
 
-    if not os.path.exists(os.path.dirname(output_file)):
-        os.makedirs(os.path.dirname(output_file))
+    # Get loaded index dicts via decorator
+    sorted_index = kwargs['sorted_index']
 
-    index, sorted_index = parse_index(index_file)
     scalar_df = scalars_to_dataframe(sorted_index)
 
     pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df, normalize=True)
@@ -217,25 +292,31 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file):
 
     return fig
 
-def plot_verbose_pdfs_wrapper(index_file, output_file):
+@wrapper_function_setup
+def plot_verbose_pdfs_wrapper(index_file, output_file, **kwargs):
     '''
     Wrapper function that computes the PDF for the mouse position for each session in the index file.
     Will plot each session's heatmap with a "SessionName: Group"-like title.
+
+    Note: function is decorated with function performing initialization operations and saving
+    the results in the kwargs variable.
+
+    Decorator will retrieve the sorted_index dict.
 
     Parameters
     ----------
     index_file (str): path to index file.
     output_file (str): filename for the verbose heatmap graph.
+    kwargs (dict): dict containing loaded index dict from given index file path
 
     Returns
     -------
     fig (pyplot figure): figure to graph in Jupyter Notebook.
     '''
 
-    if not os.path.exists(os.path.dirname(output_file)):
-        os.makedirs(os.path.dirname(output_file))
+    # Get loaded index dicts via decorator
+    sorted_index = kwargs['sorted_index']
 
-    index, sorted_index = parse_index(index_file)
     scalar_df = scalars_to_dataframe(sorted_index)
 
     pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df)
@@ -247,9 +328,15 @@ def plot_verbose_pdfs_wrapper(index_file, output_file):
 
     return fig
 
-def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_file):
+@wrapper_function_setup
+def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_file, **kwargs):
     '''
     Wrapper function to plot transition graphs.
+
+    Note: function is decorated with function performing initialization operations and saving
+    the results in the kwargs variable.
+
+    Decorator will retrieve the sorted_index dict and parse the model results into a single dict.
 
     Parameters
     ----------
@@ -257,14 +344,12 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
     model_fit (str): path to trained model.
     config_data (dict): dictionary containing the user specified keys and values
     output_file (str): filename for syllable usage graph.
+    kwargs (dict): dict containing loaded model data and index dicts
 
     Returns
     -------
     plt (pyplot figure): graph to show in Jupyter Notebook.
     '''
-
-    if not os.path.exists(os.path.dirname(output_file)):
-        os.makedirs(os.path.dirname(output_file))
 
     max_syllable = config_data['max_syllable']
 
@@ -277,12 +362,11 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
     if config_data.get('group') != None:
         group = config_data['group']
 
-    if os.path.isdir(model_fit):
-        model_data = merge_models(model_fit, 'p')
-    else:
-        model_data = parse_model_results(joblib.load(model_fit))
+    # Get loaded model via decorator
+    model_data = kwargs['model_data']
 
-    index, sorted_index = parse_index(index_file)
+    # Get loaded index dicts via decorator
+    index, sorted_index = kwargs['index'], kwargs['sorted_index']
     labels = model_data['labels']
 
     if config_data['sort']:
@@ -363,10 +447,16 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
 
     return plt
 
-def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
+@wrapper_function_setup
+def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir, **kwargs):
     '''
     Wrapper function to create crowd movie videos and write them to individual
     files depicting respective syllable labels.
+
+    Note: function is decorated with function performing initialization operations and saving
+    the results in the kwargs variable.
+
+    Decorator will retrieve the sorted_index dict and parse the model results into a single dict.
 
     Parameters
     ----------
@@ -374,6 +464,7 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     model_path (str): path to trained model.
     config_data (dict): dictionary containing the user specified keys and values
     output_dir (str): directory to store crowd movies in.
+    kwargs (dict): dict containing loaded model data and index dicts
 
     Returns
     -------
@@ -394,30 +485,17 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
         'medfilter_space': config_data['medfilter_space']
     }
 
-    # need to handle h5 intelligently here...
-
-    if model_path.endswith('.p') or model_path.endswith('.pz'):
-        model_fit = parse_model_results(joblib.load(model_path))
-        labels = model_fit['labels']
-
-        if 'train_list' in model_fit:
-            label_uuids = model_fit['train_list']
-        else:
-            label_uuids = model_fit['keys']
-    elif model_path.endswith('.h5'):
-        # load in h5, use index found using another function
-        pass
-    elif os.path.isdir(model_path):
-        model_fit = merge_models(model_path, 'p')
-        labels = model_fit['labels']
-        if 'train_list' in model_fit:
-            label_uuids = model_fit['train_list']
-        else:
-            label_uuids = model_fit['keys']
+    # Get loaded model via decorator
+    model_fit = kwargs['model_data']
 
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+
+    labels = model_fit['labels']
+
+    if 'train_list' in model_fit:
+        label_uuids = model_fit['train_list']
+    else:
+        label_uuids = model_fit['keys']
 
     info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
     info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
@@ -439,7 +517,8 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     else:
         ordering = list(range(max_syllable))
 
-    index, sorted_index = parse_index(index_file)
+    # Get loaded index dicts via decorator
+    index, sorted_index = kwargs['index'], kwargs['sorted_index']
     vid_parameters = check_video_parameters(sorted_index)
 
     # uuid in both the labels and the index

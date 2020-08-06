@@ -154,9 +154,6 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     # relabel by usage across the whole dataset, gather usages per session per group
     index, sorted_index = parse_index(index_file)
 
-    # Edge case: Accounting for mutation sorting
-    max_syllable += 1
-
     compute_labels = False
     if stat == 'speed':
         # Load scalar Dataframe to compute syllable speeds

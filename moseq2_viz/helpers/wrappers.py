@@ -106,6 +106,7 @@ def add_group_wrapper(index_file, config_data):
     None
     '''
 
+    # Read index file contents
     index = parse_index(index_file)[0]
     h5_uuids = [f['uuid'] for f in index['files']]
     metadata = [f['metadata'] for f in index['files']]
@@ -116,6 +117,7 @@ def add_group_wrapper(index_file, config_data):
     if type(value) is str:
         value = [value]
 
+    # Search for inputted key-value pair and relabel all found instances in index
     for v in value:
         if config_data['exact']:
             v = r'\b{}\b'.format(v)
@@ -133,6 +135,7 @@ def add_group_wrapper(index_file, config_data):
             if hit:
                 index['files'][position]['group'] = config_data['group']
 
+    # Atomically write updated index file
     new_index = '{}_update.yaml'.format(index_file.replace('.yaml', ''))
 
     try:
@@ -171,9 +174,13 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     # Get loaded index dict via decorator
     sorted_index = kwargs['sorted_index']
 
+    # Parse index dict files to return pandas DataFrame of all computed scalars from extraction step
     scalar_df = scalars_to_dataframe(sorted_index)
 
+    # Plot Scalar Summary with specified groupings and colors
     plt_scalars, _ = scalar_plot(scalar_df, group_var=groupby, colors=colors, headless=True)
+
+    # Plot Position Summary of all mice in columns organized by groups
     plt_position, _ = position_plot(scalar_df, group_var=groupby)
 
     plt_scalars.savefig('{}_summary.png'.format(output_file))
@@ -227,7 +234,6 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     # Get loaded index dict via decorator
     sorted_index = kwargs['sorted_index']
 
-    print('here')
     compute_labels = False
     if stat == 'speed':
         # Load scalar Dataframe to compute syllable speeds
@@ -280,12 +286,16 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file, **kwargs):
     # Get loaded index dicts via decorator
     sorted_index = kwargs['sorted_index']
 
+    # Load scalar dataframe to compute position PDF heatmap
     scalar_df = scalars_to_dataframe(sorted_index)
 
+    # Compute Position PDF Heatmaps for all sessions
     pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df, normalize=True)
 
+    # Plot the average Position PDF Heatmap for each group
     fig = plot_mean_group_heatmap(pdfs, groups)
 
+    # Save figure
     fig.savefig('{}.png'.format(output_file))
     fig.savefig('{}.pdf'.format(output_file))
 
@@ -316,12 +326,16 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, **kwargs):
     # Get loaded index dicts via decorator
     sorted_index = kwargs['sorted_index']
 
+    # Load scalar dataframe to compute position PDF heatmap
     scalar_df = scalars_to_dataframe(sorted_index)
 
+    # Compute PDF Heatmaps for all sessions
     pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df)
 
+    # Plot all session heatmaps in columns organized by groups
     fig = plot_verbose_heatmap(pdfs, sessions, groups, subjectNames)
 
+    # Save figure
     fig.savefig('{}.png'.format(output_file))
     fig.savefig('{}.pdf'.format(output_file))
 
@@ -401,6 +415,7 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
         print('Recomputing transition matrices...')
         plt = compute_and_graph_grouped_TMs(config_data, labels, label_group, group)
 
+    # Save figure
     plt.savefig('{}.png'.format(output_file))
     plt.savefig('{}.pdf'.format(output_file))
 
@@ -493,14 +508,14 @@ def copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path):
     to_load = [(tmp, yml, file) for tmp, yml, file in zip(
         dicts, yamls, h5s) if tmp['complete'] and not tmp['skip']]
 
-    # load in all of the h5 files, grab the extraction metadata, reformat to make nice 'n pretty
+    # load in all of the h5 files, grab the extraction metadata, reformat to improve readability
     # then stage the copy
-
     for i, tup in tqdm(enumerate(to_load), total=len(to_load), desc='Copying data to yamls'):
         with h5py.File(tup[2], 'r') as f:
             tmp = clean_dict(h5_to_dict(f, h5_metadata_path))
             tup[0]['metadata'] = dict(tmp)
 
+        # Atomically write updated yaml
         try:
             new_file = '{}_update.yaml'.format(os.path.basename(tup[1]))
             with open(new_file, 'w+') as f:

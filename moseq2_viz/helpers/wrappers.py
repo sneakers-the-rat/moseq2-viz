@@ -10,18 +10,17 @@ import h5py
 import shutil
 import psutil
 import joblib
-import numpy as np
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
 from functools import wraps
 from moseq2_viz.util import parse_index
-from moseq2_viz.io.video import write_crowd_movies
+from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
                             compute_session_centroid_speeds
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot, graph_transition_matrix, \
                             plot_mean_group_heatmap, plot_verbose_heatmap)
-from moseq2_viz.util import (recursive_find_h5s, check_video_parameters, h5_to_dict, clean_dict)
+from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict)
 from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, get_syllable_statistics,
                                    merge_models, get_transition_matrix, results_to_dataframe)
 
@@ -465,83 +464,56 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir, *
     config_data (dict): dictionary containing the user specified keys and values
     output_dir (str): directory to store crowd movies in.
     kwargs (dict): dict containing loaded model data and index dicts
-
     Returns
     -------
     None
     '''
 
-    max_syllable = config_data['max_syllable']
-    max_examples = config_data['max_examples']
+    # Get loaded model via decorator
+    model_fit = kwargs['model_data']
 
+    # Get loaded index dicts via decorator
+    index, sorted_index = kwargs['index'], kwargs['sorted_index']
+
+    # Get number of CPUs to optimize crowd movie creation and writing speed
     if platform in ['linux', 'linux2']:
         print('Setting CPU affinity to use all CPUs...')
         cpu_count = psutil.cpu_count()
         proc = psutil.Process()
         proc.cpu_affinity(list(range(cpu_count)))
 
-    clean_params = {
-        'gaussfilter_space': config_data['gaussfilter_space'],
-        'medfilter_space': config_data['medfilter_space']
-    }
-
-    # Get loaded model via decorator
-    model_fit = kwargs['model_data']
-
-
-
+    # Get list of syllable labels for all sessions
     labels = model_fit['labels']
 
+    # Get modeled session uuids
     if 'train_list' in model_fit:
         label_uuids = model_fit['train_list']
     else:
         label_uuids = model_fit['keys']
 
-    info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
-    info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
-
-    # convert numpy dtypes to their corresponding primitives
-    for k, v in info_dict.items():
-        if isinstance(v, (np.ndarray, np.generic)):
-            info_dict[k] = info_dict[k].item()
-
-    info_dict['model_path'] = model_path
-    info_dict['index_path'] = index_file
-    info_file = os.path.join(output_dir, 'info.yaml')
-
-    with open(info_file, 'w+') as f:
-        yaml.safe_dump(info_dict, f)
-
+    # Relabel syllable labels by usage sorting and save the ordering for crowd-movie file naming
     if config_data['sort']:
         labels, ordering = relabel_by_usage(labels, count=config_data['count'])
     else:
-        ordering = list(range(max_syllable))
+        ordering = list(range(config_data['max_syllable']))
 
-    # Get loaded index dicts via decorator
-    index, sorted_index = kwargs['index'], kwargs['sorted_index']
-    vid_parameters = check_video_parameters(sorted_index)
-
-    # uuid in both the labels and the index
+    # Get uuids found in both the labels and the index
     uuid_set = set(label_uuids) & set(sorted_index['files'].keys())
 
-    # make sure the files exist
+    # Make sure the files exist
     uuid_set = [uuid for uuid in uuid_set if os.path.exists(sorted_index['files'][uuid]['path'][0])]
 
-    # harmonize everything...
+    # Synchronize arrays such that each label array index corresponds to the correct uuid index
     labels = [label_arr for label_arr, uuid in zip(labels, label_uuids) if uuid in uuid_set]
     label_uuids = [uuid for uuid in label_uuids if uuid in uuid_set]
     sorted_index['files'] = {k: v for k, v in sorted_index['files'].items() if k in uuid_set}
 
-    if vid_parameters['resolution'] is not None:
-        config_data['raw_size'] = vid_parameters['resolution']
+    # Write parameter information yaml file in crowd movies directory
+    write_crowd_movie_info_file(model_path=model_path, model_fit=model_fit, index_file=index_file, output_dir=output_dir)
 
-    if config_data['sort']:
-        filename_format = 'syllable_sorted-id-{:d} ({})_original-id-{:d}.mp4'
-    else:
-        filename_format = 'syllable_{:d}.mp4'
+    # Write movies
+    write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir)
 
-    write_crowd_movies(sorted_index, config_data, filename_format, vid_parameters, clean_params, ordering,
-                       labels, label_uuids, max_syllable, max_examples, output_dir)
 
 def copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path):
     '''

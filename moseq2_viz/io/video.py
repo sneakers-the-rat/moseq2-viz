@@ -9,47 +9,96 @@ import cv2
 import warnings
 import subprocess
 import numpy as np
+import ruamel.yaml as yaml
 from tqdm.auto import tqdm
 import multiprocessing as mp
 from functools import partial
 import matplotlib.pyplot as plt
 from moseq2_viz.viz import make_crowd_matrix
+from moseq2_viz.util import check_video_parameters
 from moseq2_viz.model.util import get_syllable_slices
 
-def write_crowd_movies(sorted_index, config_data, filename_format, vid_parameters, clean_params, ordering, \
-                       labels, label_uuids, max_syllable, max_examples, output_dir):
+def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
     '''
-    Creates syllable slices for crowd movies and writes them to files.
-
+    Creates an info.yaml file in the crowd movie directory that holds model training parameters.
+    This file helps identify the conditions from which the crowd movies were generated.
     Parameters
     ----------
-    sorted_index (dict): dictionary of sorted index data.
-    config_data (dict): dictionary of visualization parameters.
-    filename_format (str): string format that denotes the saved crowd movie file names.
-    vid_parameters (dict): dictionary of video writing parameters
-    clean_params (dict): dictionary of image filtering parameters
-    ordering (list): ordering for the new mapping of the relabeled syllable usages.
-    labels (numpy ndarray): list of syllable usages
-    label_uuids (list): list of session uuids each series of labels belongs to.
-    max_syllable (int): maximum number of syllables to create movies for
-    max_examples (int): maximum number of mice to include in a crowd movie
-    output_dir (str): path directory where all the movies are written.
-
+    model_path (str): path to model used to generate movies
+    model_fit (dict): loaded ARHMM dict
+    index_file (str): path to index file used with model
+    output_dir (str): path to crowd movies directory to store file in.
     Returns
     -------
     None
     '''
 
+    # Crowd movie info file contents; used to indicate the modeling state the crowd_movies were generated from
+    info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
+
+    # Loading parameters to dict to save to file in output directory
+    info_file = os.path.join(output_dir, 'info.yaml')
+    info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
+
+    # Adding model and index file paths
+    info_dict['model_path'] = model_path
+    info_dict['index_path'] = index_file
+
+    # Convert numpy dtypes to their corresponding primitives
+    for k, v in info_dict.items():
+        if isinstance(v, (np.ndarray, np.generic)):
+            info_dict[k] = info_dict[k].item()
+
+    # Write metadata info file
+    with open(info_file, 'w+') as f:
+        yaml.safe_dump(info_dict, f)
+
+def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir):
+    '''
+    Creates syllable slices for crowd movies and writes them to files.
+    Parameters
+    ----------
+    sorted_index (dict): dictionary of sorted index data.
+    config_data (dict): dictionary of visualization parameters.
+    filename_format (str): string format that denotes the saved crowd movie file names.
+    ordering (list): ordering for the new mapping of the relabeled syllable usages.
+    labels (numpy ndarray): list of syllable usages
+    label_uuids (list): list of session uuids each series of labels belongs to.
+    output_dir (str): path directory where all the movies are written.
+    Returns
+    -------
+    None
+    '''
+
+    # Filtering parameters
+    clean_params = {
+        'gaussfilter_space': config_data['gaussfilter_space'],
+        'medfilter_space': config_data['medfilter_space']
+    }
+
+    # Set crowd movie filename format based on whether syllables were relabeled
+    if config_data['sort']:
+        filename_format = 'syllable_sorted-id-{:d} ({})_original-id-{:d}.mp4'
+    else:
+        filename_format = 'syllable_{:d}.mp4'
+
+    # Ensure all video metadata parameters are consistent
+    vid_parameters = check_video_parameters(sorted_index)
+    if vid_parameters['resolution'] is not None:
+        config_data['raw_size'] = vid_parameters['resolution']
+
     with mp.Pool() as pool:
+        # Get frame indices from all included sessions for each syllable label
         slice_fun = partial(get_syllable_slices,
                             labels=labels,
                             label_uuids=label_uuids,
                             index=sorted_index)
         with warnings.catch_warnings():
-            slices = list(tqdm(pool.imap(slice_fun, range(max_syllable)), total=max_syllable, desc='Getting Syllable Slices'))
+            slices = list(tqdm(pool.imap(slice_fun, range(config_data['max_syllable'])),
+                               total=config_data['max_syllable'], desc='Getting Syllable Slices'))
 
         matrix_fun = partial(make_crowd_matrix,
-                             nexamples=max_examples,
+                             nexamples=config_data['max_examples'],
                              dur_clip=config_data['dur_clip'],
                              min_height=config_data['min_height'],
                              crop_size=vid_parameters['crop_size'],
@@ -59,16 +108,17 @@ def write_crowd_movies(sorted_index, config_data, filename_format, vid_parameter
                              **clean_params)
 
         with warnings.catch_warnings():
-            crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=max_syllable, desc='Getting Crowd Matrices'))
+            crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=config_data['max_syllable'],
+                                       desc='Getting Crowd Matrices'))
 
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],
                             depth_max=config_data['max_height'], cmap=config_data['cmap'])
+
         pool.starmap(write_fun,
                      [(os.path.join(output_dir, filename_format.format(i, config_data['count'], ordering[i])),
                        crowd_matrix)
-                      for i, crowd_matrix in tqdm(enumerate(crowd_matrices), total=max_syllable, desc='Writing Movies') if crowd_matrix is not None])
-
-
+                      for i, crowd_matrix in tqdm(enumerate(crowd_matrices), total=config_data['max_syllable'],
+                                                  desc='Writing Movies') if crowd_matrix is not None])
 
 def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
                          fps=30, pixel_format='rgb24',

@@ -29,10 +29,13 @@ def wrapper_function_setup(function):
     Decorator for all (but add_group) wrapper functions.
     Function will read function name, and read model, index file and output file parameters
     according to their caller's arg order.
+
     Additionally, it will create any missing subdirectories for plotting functions.
+
     Parameters
     ----------
     function (function): function to perform preprocessing for prior to its execution
+
     Returns
     -------
     function (function): same function with an updated kwargs dictionary containing all required loaded data

@@ -125,15 +125,11 @@ def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
         usages = None
 
     print('Creating plot...')
-    plt, _, _ = graph_transition_matrix(trans_mats, usages=usages, width_per_group=config_data['width_per_group'],
-                                        edge_threshold=config_data['edge_threshold'],
-                                        edge_width_scale=config_data['edge_scaling'],
-                                        difference_edge_width_scale=config_data['edge_scaling'],
-                                        keep_orphans=config_data['keep_orphans'],
-                                        orphan_weight=config_data['orphan_weight'], arrows=config_data['arrows'],
-                                        usage_threshold=config_data['usage_threshold'],
-                                        layout=config_data['layout'], groups=group,
-                                        usage_scale=config_data['node_scaling'], headless=True)
+    plt, _, _ = graph_transition_matrix(trans_mats,
+                                        **config_data,
+                                        usages=usages,
+                                        groups=group,
+                                        headless=True)
 
     return plt
 

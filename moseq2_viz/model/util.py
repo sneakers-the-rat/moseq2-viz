@@ -25,7 +25,7 @@ from moseq2_viz.viz import graph_transition_matrix
 from moseq2_viz.util import np_cache, h5_to_dict, star
 from cytoolz import curry, valmap, compose, complement, itemmap, concat
 
-def merge_models(model_dir, ext='p'):
+def merge_models(model_dir, ext='p',count='usage'):
     '''
     Merges model states by using the Hungarian Algorithm:
     a minimum distance state matching algorithm. User inputs a
@@ -36,6 +36,7 @@ def merge_models(model_dir, ext='p'):
     ----------
     model_dir (str): path to directory containing all the models to merge.
     ext (str): model extension to search for.
+    count (str): method to compute usages 'usage' or 'frames'.
 
     Returns
     -------
@@ -49,7 +50,8 @@ def merge_models(model_dir, ext='p'):
     model_data = {}
 
     for m, model_fit in enumerate(model_paths):
-        unit_data = parse_model_results(joblib.load(model_fit), sort_labels_by_usage=True)
+        unit_data = parse_model_results(joblib.load(model_fit), \
+                                        sort_labels_by_usage=True, count=count)
         for k,v in unit_data.items():
             if k not in list(model_data.keys()):
                 model_data[k] = v

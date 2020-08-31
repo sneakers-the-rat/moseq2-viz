@@ -13,7 +13,6 @@ import joblib
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
-from functools import wraps
 from moseq2_viz.util import parse_index
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
@@ -24,75 +23,53 @@ from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict)
 from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models, results_to_dataframe, \
                                    compute_and_graph_grouped_TMs)
 
-def wrapper_function_setup(function):
+def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, output_file=None):
     '''
-    Decorator for all (but add_group) wrapper functions.
-    Function will read function name, and read model, index file and output file parameters
-    according to their caller's arg order.
-
-    Additionally, it will create any missing subdirectories for plotting functions.
+    Helper function that will optionally load the index file and a trained model given their respective paths.
+    The function will also create any output directories given path to the output file or directory.
 
     Parameters
     ----------
-    function (function): function to perform preprocessing for prior to its execution
+    index_file (str): path to index file to load.
+    model_fit (str): path to model to use.
+    output_dir (str): path to directory to save plots in.
+    output_file (str): path to saved figures.
 
     Returns
     -------
-    function (function): same function with an updated kwargs dictionary containing all required loaded data
+    index (dict): loaded index file dictionary
+    sorted_index (dict): OrderedDict object representing a sorted version of index
+    model_data (dict): loaded model dictionary containing modeling results
     '''
 
-    @wraps(function)
-    def wrapped(*args, **kwargs):
+    # Set up output directory to save crowd movies in
+    if output_dir != None:
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
-        caller = function.__name__
-        model_fit, output_file = None, None
+    # Set up output directory to save plots in
+    if output_file != None:
+        if not os.path.exists(os.path.dirname(output_file)):
+            os.makedirs(os.path.dirname(output_file))
 
-        # Handle all scalar related functions
-        if any(x in caller for x in ['scalar', 'pdf']):
-            index_file, output_file = args[0], args[1]
+    # Get sorted index dict
+    if index_file != None:
+        index, sorted_index = parse_index(index_file)
 
-        # Handle plot syllable summary function
-        elif 'stat' in caller:
-            model_fit, index_file, output_file = args[0], args[1], args[2]
+    model_data = None
+    # Load trained model data
+    if model_fit != None:
+        # If the user passes model directory, merge model states by
+        # minimum distance between them relative to first model in list
+        if os.path.isdir(model_fit):
+            model_data = merge_models(model_fit, 'p')
+        elif model_fit.endswith('.p') or model_fit.endswith('.pz'):
+            model_data = parse_model_results(joblib.load(model_fit))
+        elif model_fit.endswith('.h5'):
+            # TODO: add h5 file model parsing capability
+            pass
 
-        # Handle transition_graph and crowd_movie functions
-        elif any(x in caller for x in ['crowd', 'transition']):
-            index_file, model_fit = args[0], args[1]
-            if 'transition' in caller:
-                output_file = args[3]
-            elif 'crowd' in caller:
-                output_dir = args[3]
-                # Set up output directory to save crowd movies in
-                if not os.path.exists(output_dir):
-                    os.makedirs(output_dir)
-
-        # Set up output directory to save plots in
-        if output_file != None:
-            if not os.path.exists(os.path.dirname(output_file)):
-                os.makedirs(os.path.dirname(output_file))
-
-        # Get sorted index dict
-        if index_file != None:
-            index, sorted_index = parse_index(index_file)
-            kwargs['index'] = index
-            kwargs['sorted_index'] = sorted_index
-
-        # Load trained model data
-        if model_fit != None:
-            # If the user passes model directory, merge model states by
-            # minimum distance between them relative to first model in list
-            if os.path.isdir(model_fit):
-                model_data = merge_models(model_fit, 'p')
-            elif model_fit.endswith('.p') or model_fit.endswith('.pz'):
-                model_data = parse_model_results(joblib.load(model_fit))
-            elif model_fit.endswith('.h5'):
-                # TODO: add h5 file model parsing capability
-                pass
-
-            kwargs['model_data'] = model_data
-
-        return function(*args, **kwargs)
-    return wrapped
+    return index, sorted_index, model_data
 
 def add_group_wrapper(index_file, config_data):
     '''
@@ -150,8 +127,7 @@ def add_group_wrapper(index_file, config_data):
 
     print('Group(s) added successfully.')
 
-@wrapper_function_setup
-def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None, **kwargs):
+def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None):
     '''
     Wrapper function that plots scalar summary graphs.
 
@@ -174,8 +150,8 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     (Only accessible through GUI API)
     '''
 
-    # Get loaded index dict via decorator
-    sorted_index = kwargs['sorted_index']
+    # Get loaded index dict
+    index, sorted_index, _ = init_wrapper_function(index_file, output_file=output_file)
 
     # Parse index dict files to return pandas DataFrame of all computed scalars from extraction step
     scalar_df = scalars_to_dataframe(sorted_index)
@@ -192,9 +168,8 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
 
     return scalar_df
 
-@wrapper_function_setup
 def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage', sort=True, count='usage', group=None, max_syllable=40,
-                                 fmt='o-', ordering=None, ctrl_group=None, exp_group=None, colors=None, figsize=(10, 5), **kwargs):
+                                 fmt='o-', ordering=None, ctrl_group=None, exp_group=None, colors=None, figsize=(10, 5)):
     '''
     Wrapper function to plot specified syllable statistic.
 
@@ -220,18 +195,14 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     exp_group (str): Experimental group to directly compare with control group.
     colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
     figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
-    kwargs (dict): dict containing loaded model data and index dicts
 
     Returns
     -------
     plt (pyplot figure): graph to show in Jupyter Notebook.
     '''
 
-    # Get loaded model via decorator
-    model_data = kwargs['model_data']
-
-    # Get loaded index dict via decorator
-    sorted_index = kwargs['sorted_index']
+    # Load index file and model data
+    index, sorted_index, model_data = init_wrapper_function(index_file, model_fit=model_fit, output_file=output_file)
 
     compute_labels = False
     if stat == 'speed':
@@ -259,8 +230,7 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
 
     return plt
 
-@wrapper_function_setup
-def plot_mean_group_position_pdf_wrapper(index_file, output_file, **kwargs):
+def plot_mean_group_position_pdf_wrapper(index_file, output_file):
     '''
     Wrapper function that computes the PDF of the rodent's position throughout the respective sessions,
     and averages these values with respect to their groups to graph a mean position heatmap for each group.
@@ -274,7 +244,6 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file, **kwargs):
     ----------
     index_file (str): path to index file.
     output_file (str): filename for the group heatmap graph.
-    kwargs (dict): dict containing loaded index dict from given index file path
 
     Returns
     -------
@@ -282,7 +251,7 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file, **kwargs):
     '''
 
     # Get loaded index dicts via decorator
-    sorted_index = kwargs['sorted_index']
+    index, sorted_index, _ = init_wrapper_function(index_file, output_file=output_file)
 
     # Load scalar dataframe to compute position PDF heatmap
     scalar_df = scalars_to_dataframe(sorted_index)
@@ -298,8 +267,7 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file, **kwargs):
 
     return fig
 
-@wrapper_function_setup
-def plot_verbose_pdfs_wrapper(index_file, output_file, **kwargs):
+def plot_verbose_pdfs_wrapper(index_file, output_file):
     '''
     Wrapper function that computes the PDF for the mouse position for each session in the index file.
     Will plot each session's heatmap with a "SessionName: Group"-like title.
@@ -313,7 +281,6 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, **kwargs):
     ----------
     index_file (str): path to index file.
     output_file (str): filename for the verbose heatmap graph.
-    kwargs (dict): dict containing loaded index dict from given index file path
 
     Returns
     -------
@@ -321,7 +288,7 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, **kwargs):
     '''
 
     # Get loaded index dicts via decorator
-    sorted_index = kwargs['sorted_index']
+    index, sorted_index, _ = init_wrapper_function(index_file, output_file=output_file)
 
     # Load scalar dataframe to compute position PDF heatmap
     scalar_df = scalars_to_dataframe(sorted_index)
@@ -337,8 +304,7 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, **kwargs):
 
     return fig
 
-@wrapper_function_setup
-def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_file, **kwargs):
+def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_file):
     '''
     Wrapper function to plot transition graphs.
 
@@ -360,11 +326,8 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
     plt (pyplot figure): graph to show in Jupyter Notebook.
     '''
 
-    # Get loaded model via decorator
-    model_data = kwargs['model_data']
-
-    # Get loaded index dicts via decorator
-    index, sorted_index = kwargs['index'], kwargs['sorted_index']
+    # Load index file and model data
+    index, sorted_index, model_data = init_wrapper_function(index_file, model_fit=model_fit, output_file=output_file)
 
     # Optionally load pygraphviz for transition graph layout configuration
     if config_data.get('layout').lower()[:8] == 'graphviz':
@@ -416,8 +379,7 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
 
     return plt
 
-@wrapper_function_setup
-def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir, **kwargs):
+def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     '''
     Wrapper function to create crowd movie videos and write them to individual
     files depicting respective syllable labels.
@@ -433,17 +395,14 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir, *
     model_path (str): path to trained model.
     config_data (dict): dictionary containing the user specified keys and values
     output_dir (str): directory to store crowd movies in.
-    kwargs (dict): dict containing loaded model data and index dicts
+
     Returns
     -------
     None
     '''
 
-    # Get loaded model via decorator
-    model_fit = kwargs['model_data']
-
-    # Get loaded index dicts via decorator
-    index, sorted_index = kwargs['index'], kwargs['sorted_index']
+    # Load index file and model data
+    index, sorted_index, model_fit = init_wrapper_function(index_file, model_fit=model_path, output_dir=output_dir)
 
     # Get number of CPUs to optimize crowd movie creation and writing speed
     if platform in ['linux', 'linux2']:

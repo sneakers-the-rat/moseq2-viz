@@ -269,16 +269,15 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     nnodes = len(graph_anchor.nodes())
 
     if type(layout) is str and layout.lower() == 'spring':
-        if 'k' not in kwargs.keys():
-            kwargs['k'] = 1.5 / np.sqrt(nnodes)
-        pos = nx.spring_layout(graph_anchor, **kwargs)
+        k = 1.5 / np.sqrt(nnodes)
+        pos = nx.spring_layout(graph_anchor, k=k)
     elif type(layout) is str and layout.lower() == 'circular':
-        pos = nx.circular_layout(graph_anchor, **kwargs)
+        pos = nx.circular_layout(graph_anchor)
     elif type(layout) is str and layout.lower() == 'spectral':
-        pos = nx.spectral_layout(graph_anchor, **kwargs)
+        pos = nx.spectral_layout(graph_anchor)
     elif type(layout) is str and layout.lower()[:8] == 'graphviz':
         prog = re.split(r'\:', layout.lower())[1]
-        pos = graphviz_layout(graph_anchor, prog=prog, **kwargs)
+        pos = graphviz_layout(graph_anchor, prog=prog)
     elif type(layout) is dict:
         # user passed pos directly
         pos = layout

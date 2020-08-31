@@ -15,6 +15,7 @@ from multiprocessing import Pool
 from collections import defaultdict
 from sklearn.neighbors import KernelDensity
 from cytoolz import keyfilter, itemfilter, merge_with, curry, valmap, get
+import scipy.stats
 from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
                              h5_filepath_from_sorted, get_timestamps_from_h5)
 from moseq2_viz.model.util import parse_model_results, _get_transitions, relabel_by_usage
@@ -737,3 +738,37 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, groups=None, max_s
     complete_df = pd.merge(complete_df, all_speeds_df, on=['uuid', 'syllable'])
 
     return complete_df
+
+
+def compute_kl_divergences(pdfs, groups, sessions, subjectNames, oob=False):
+    '''
+    Computes KL divergence for all sessions and returns the divergences
+    Consider trying Jensen Shannon or Wasserstein instead!!
+
+    Parameters
+    ----------
+    pdfs (list): list of 2d probability density functions (heatmaps) describing mouse position.
+    groups (list): list of groups corresponding to the pdfs indices
+    sessions (list): list of sessions corresponding to the pdfs indices
+    subjectNames (list): list of subjectNames corresponding to the pdfs indices
+    oob (bool): Out-of-bag
+
+    Returns
+    -------
+    kl_divergences (pd.Dataframe): dataframe with mouse group, session, subjectname, and kl divergence
+    '''
+
+    if oob:
+        divergence_vals = []
+        for i, pdf in enumerate(pdfs):
+            oob_mean_pdf = pdfs[np.arange(len(pdfs)) != i].mean(0).flatten()
+            divergence_vals.append(scipy.stats.entropy(pk=oob_mean_pdf, qk=pdf.flatten()))
+    else:
+        overall_mean_pdf = pdfs.mean(0).flatten()
+        divergence_vals = [scipy.stats.entropy(pk=overall_mean_pdf, qk=pdf.flatten()) for pdf in pdfs]
+
+    kl_divergences = pd.DataFrame({"group": groups,
+                                   "session": sessions,
+                                   "subjectName": subjectNames,
+                                   "divergence": divergence_vals})
+    return kl_divergences

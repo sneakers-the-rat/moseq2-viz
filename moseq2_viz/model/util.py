@@ -256,6 +256,26 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
 
     return all_mats
 
+def get_syllable_usages(model_data, count):
+    '''
+    Computes the overall syllable usages, and returns a 1D array of their corresponding usage values.
+
+    Parameters
+    ----------
+    model_data (dict): dict object of modeling results
+    count (str): option for whether to count syllable usages; by 'frames', or 'usage'.
+
+    Returns
+    -------
+    syllable_usages (1D np array): array of sorted syllable usages for all syllables in model.
+    '''
+
+    # process the syllable usages over all frames/emissions in the entire cohort
+    usages_by_mouse = np.array([list(get_syllable_statistics(labels, count=count)[0].values()) \
+                                for labels in model_data['labels']])
+
+    syllable_usages = np.sum(usages_by_mouse, axis=0) / np.sum(usages_by_mouse)
+
 
 def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[slice]:
     '''
@@ -1117,4 +1137,3 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
             syllable_matrix = np.zeros((subsampling, max_dur, npcs))
             syllable_matrix[:] = np.nan
 
-    return syllable_matrix

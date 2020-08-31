@@ -10,18 +10,20 @@ import h5py
 import shutil
 import psutil
 import joblib
+import numpy as np
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
 from moseq2_viz.util import parse_index
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
-                            compute_session_centroid_speeds
-from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot, plot_mean_group_heatmap, \
-                            plot_verbose_heatmap, save_fig)
+                            compute_session_centroid_speeds, compute_kl_divergences
+from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot,
+                            plot_mean_group_heatmap, plot_verbose_heatmap, plot_kl_divergences, \
+                            plot_explained_behavior, save_fig)
 from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict)
-from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models, results_to_dataframe, \
-                                   compute_and_graph_grouped_TMs)
+from moseq2_viz.model.util import (relabel_by_usage, get_syllable_usages, parse_model_results, merge_models,
+                                   results_to_dataframe, compute_and_graph_grouped_TMs)
 
 def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, output_file=None):
     '''
@@ -55,6 +57,8 @@ def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, outp
     # Get sorted index dict
     if index_file != None:
         index, sorted_index = parse_index(index_file)
+    else:
+        index, sorted_index = None, None
 
     model_data = None
     # Load trained model data
@@ -442,7 +446,65 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
 
     # Write movies
     write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir)
+def plot_kl_divergences_wrapper(index_file, output_file, oob=False):
+    '''
+    Wrapper function that computes the KL Divergence for the mouse PDF for each session in the index file.
+    Will plot KL divergence against session number
 
+    Parameters
+    ----------
+    index_file (str): path to index file.
+    output_file (str): filename for the verbose heatmap graph.
+    gui (bool): indicate whether GUI is plotting the graphs.
+
+    Returns
+    -------
+    fig (pyplot figure): figure to graph in Jupyter Notebook.
+    outliers (pd.Dataframe): dataframe of outlier sessions
+    '''
+
+    # Get loaded index dicts via decorator
+    index, sorted_index, _ = init_wrapper_function(index_file, output_file=output_file)
+
+    scalar_df = scalars_to_dataframe(sorted_index)
+
+    pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df)
+
+    kl_divergences = compute_kl_divergences(pdfs, groups, sessions, subjectNames,oob=oob)
+    fig, outliers = plot_kl_divergences(kl_divergences)
+
+    fig.savefig('{}.png'.format(output_file))
+    fig.savefig('{}.pdf'.format(output_file))
+
+    return fig, outliers
+
+def plot_explained_behavior_wrapper(model_fit, output_file, count='usage', figsize=(10,5)):
+    '''
+    Wrapper function to plot percent explained behavior from syllables.
+
+    Parameters
+    ----------
+    model_fit (str): path to trained model file.
+    output_file (str): filename for syllable usage graph.
+    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
+    count (str): method to compute usages 'usage' or 'frames'.
+
+    Returns
+    -------
+    plt (pyplot figure): graph to show in Jupyter Notebook.
+    '''
+
+    # Load index file and model data
+    _, _, model_data = init_wrapper_function(model_fit=model_fit, output_file=output_file)
+
+    syllable_usages = get_syllable_usages(model_data, count)
+
+    fig = plot_explained_behavior(syllable_usages, count=count, figsize=figsize)
+
+    fig.savefig('{}.png'.format(output_file))
+    fig.savefig('{}.pdf'.format(output_file))
+
+    return fig
 
 def copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path):
     '''

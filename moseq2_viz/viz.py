@@ -958,7 +958,9 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
 
             plt.title(f'{group}: {names[j]}', fontsize=10)
 
-    return figdef plot_kl_divergences(kl_divergences, figsize=(10, 5)):
+    return fig
+
+def plot_kl_divergences(kl_divergences, figsize=(10, 5)):
     '''
     Plots the KL divergence for each session, titled with the group and subjectName.
 

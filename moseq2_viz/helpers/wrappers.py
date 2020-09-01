@@ -14,8 +14,12 @@ import numpy as np
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
+import ipywidgets as widgets
 from moseq2_viz.util import parse_index
+from IPython.display import display, clear_output
+from moseq2_viz.interactive.controller import SyllableLabeler
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
+from moseq2_viz.interactive.widgets import syll_select, next_button, prev_button, set_button
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
                             compute_session_centroid_speeds, compute_kl_divergences
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot,
@@ -130,6 +134,41 @@ def add_group_wrapper(index_file, config_data):
         raise Exception
 
     print('Group(s) added successfully.')
+
+def interactive_syllable_labeler_wrapper(model_path, crowd_movie_dir, output_file, max_syllables=None):
+    '''
+    
+    Parameters
+    ----------
+    model_path
+    crowd_movie_dir
+    output_file
+    max_syllables
+
+    Returns
+    -------
+
+    '''
+
+    # Load the model
+    model = parse_model_results(joblib.load(model_path))
+
+    # Compute the sorted labels
+    model['labels'] = relabel_by_usage(model['labels'], count='usage')[0]
+
+    # Get Maximum number of syllables to include
+    if max_syllables == None:
+        syllable_usages = get_syllable_usages(model, 'usage')
+        cumulative_explanation = 100 * np.cumsum(syllable_usages)
+        max_sylls = np.argwhere(cumulative_explanation >= 90)[0][0]
+    else:
+        max_sylls = max_syllables
+
+    # Make initial syllable information dict
+    labeler = SyllableLabeler(max_sylls=max_sylls, save_path=output_file)
+    labeler.get_crowd_movie_paths(crowd_movie_dir)
+
+    syll_select.options = labeler.syll_info
 
 def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None):
     '''

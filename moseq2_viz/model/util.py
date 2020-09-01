@@ -278,6 +278,8 @@ def get_syllable_usages(model_data, count):
 
     syllable_usages = np.sum(usages_by_mouse, axis=0) / np.sum(usages_by_mouse)
 
+    return syllable_usages
+
 
 def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[slice]:
     '''

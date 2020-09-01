@@ -16,10 +16,12 @@ import ruamel.yaml as yaml
 from tqdm.auto import tqdm
 import ipywidgets as widgets
 from moseq2_viz.util import parse_index
+from moseq2_viz.interactive.widgets import *
+from ipywidgets import fixed, interactive_output
 from IPython.display import display, clear_output
-from moseq2_viz.interactive.controller import SyllableLabeler
+from moseq2_viz.interactive.view import graph_dendrogram
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
-from moseq2_viz.interactive.widgets import syll_select, next_button, prev_button, set_button
+from moseq2_viz.interactive.controller import SyllableLabeler, InteractiveSyllableStats
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
                             compute_session_centroid_speeds, compute_kl_divergences
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot,
@@ -169,6 +171,81 @@ def interactive_syllable_labeler_wrapper(model_path, crowd_movie_dir, output_fil
     labeler.get_crowd_movie_paths(crowd_movie_dir)
 
     syll_select.options = labeler.syll_info
+
+def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syllables=None):
+    '''
+
+    Parameters
+    ----------
+    index_path
+    model_path
+    info_path
+    max_syllables
+
+    Returns
+    -------
+
+    '''
+
+    istat = InteractiveSyllableStats(index_path=index_path, model_path=model_path, info_path=info_path, max_sylls=max_syllables)
+
+    istat.interactive_stat_helper()
+
+    session_sel.options = list(istat.df.SessionName.unique())
+    ctrl_dropdown.options = list(istat.df.group.unique())
+    exp_dropdown.options = list(istat.df.group.unique())
+
+    out = interactive_output(istat.interactive_syll_stats_grapher, {'df': fixed(istat.df),
+                                                      'obj': fixed(istat),
+                                                      'stat': stat_dropdown,
+                                                      'sort': sorting_dropdown,
+                                                      'groupby': grouping_dropdown,
+                                                      'sessions': session_sel,
+                                                      'ctrl_group': ctrl_dropdown,
+                                                      'exp_group': exp_dropdown
+                                                      })
+
+    display(widget_box, out)
+    graph_dendrogram(istat)
+
+    def show_mutation_group_select(change):
+        '''
+
+        Parameters
+        ----------
+        change
+
+        Returns
+        -------
+
+        '''
+
+        if change.new == 'mutation':
+            ctrl_dropdown.layout.display = "block"
+            exp_dropdown.layout.display = "block"
+        elif sorting_dropdown.value != 'mutation':
+            ctrl_dropdown.layout.display = "none"
+            exp_dropdown.layout.display = "none"
+
+    def show_session_select(change):
+        '''
+
+        Parameters
+        ----------
+        change
+
+        Returns
+        -------
+
+        '''
+
+        if change.new == 'SessionName':
+            session_sel.layout = layout_visible
+        elif change.new == 'group':
+            session_sel.layout = layout_hidden
+
+    grouping_dropdown.observe(show_session_select)
+    sorting_dropdown.observe(show_mutation_group_select)
 
 def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None):
     '''

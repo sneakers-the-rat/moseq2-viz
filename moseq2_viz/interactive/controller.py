@@ -2,13 +2,23 @@
 
 '''
 
+import joblib
+import numpy as np
+import pandas as pd
 from glob import glob
 from bokeh.io import show
 import ruamel.yaml as yaml
 from bokeh.layouts import column
 from IPython.display import display
 from bokeh.models.widgets import Div
+from moseq2_viz.util import parse_index
 from moseq2_viz.interactive.widgets import *
+from moseq2_viz.interactive.view import bokeh_plotting
+from sklearn.metrics.pairwise import pairwise_distances
+from scipy.cluster.hierarchy import linkage, dendrogram
+from moseq2_viz.model.label_util import get_sorted_syllable_stat_ordering, get_syllable_muteness_ordering
+from moseq2_viz.scalars.util import scalars_to_dataframe, compute_session_centroid_speeds, compute_mean_syll_speed
+from moseq2_viz.model.util import parse_model_results, results_to_dataframe, get_syllable_usages, relabel_by_usage
 
 class SyllableLabeler:
     '''
@@ -165,3 +175,133 @@ class SyllableLabeler:
             syll_num = cm.split('sorted-id-')[1].split()[0]
             if syll_num in self.syll_info.keys():
                 self.syll_info[syll_num]['crowd_movie_path'] = cm
+
+class InteractiveSyllableStats:
+    '''
+
+    '''
+
+    def __init__(self, index_path, model_path, info_path, max_sylls):
+        '''
+
+        Parameters
+        ----------
+        index_path
+        model_path
+        info_path
+        max_sylls
+        '''
+
+        self.model_path = model_path
+        self.info_path = info_path
+        self.max_sylls = max_sylls
+        self.index_path = index_path
+        self.df = None
+
+        self.ar_mats = None
+        self.results = None
+        self.icoord, self.dcoord = None, None
+
+    def compute_dendrogram(self):
+        '''
+
+        Returns
+        -------
+
+        '''
+
+        # Get Pairwise distances
+        X = pairwise_distances(self.ar_mats, metric='euclidean')
+        Z = linkage(X, 'ward')
+
+        # Get Dendogram Metadata
+        self.results = dendrogram(Z, distance_sort=True, no_plot=True, get_leaves=True)
+
+        # Get Graph Info
+        icoord, dcoord = self.results['icoord'], self.results['dcoord']
+
+        icoord = pd.DataFrame(icoord) - 5
+        icoord = icoord * (self.df['syllable'].max() / icoord.max().max())
+        self.icoord = icoord.values
+
+        dcoord = pd.DataFrame(dcoord)
+        dcoord = dcoord * (self.df['usage'].max() / dcoord.max().max())
+        self.dcoord = dcoord.values
+
+    def interactive_stat_helper(self):
+        '''
+
+        Returns
+        -------
+
+        '''
+
+        with open(self.info_path, 'r') as f:
+            syll_info = yaml.safe_load(f)
+
+        info_df = pd.DataFrame(list(syll_info.values()), index=[int(k) for k in list(syll_info.keys())]).sort_index()
+        info_df['syllable'] = info_df.index
+
+        model_data = parse_model_results(joblib.load(self.model_path))
+
+        labels, mapping = relabel_by_usage(model_data['labels'], count='usage')
+
+        ar_mats = np.array(model_data['model_parameters']['ar_mat'])
+        self.ar_mats = np.reshape(ar_mats, (100, -1))[mapping][:self.max_sylls]
+
+        syllable_usages = get_syllable_usages({'labels': labels}, count='usage')
+        cumulative_explanation = 100 * np.cumsum(syllable_usages)
+        if self.max_sylls == None:
+            self.max_sylls = np.argwhere(cumulative_explanation >= 90)[0][0]
+
+        sorted_index = parse_index(self.index_path)[1]
+
+        # Load scalar Dataframe to compute syllable speeds
+        scalar_df = scalars_to_dataframe(sorted_index)
+
+        # Compute a syllable summary Dataframe containing usage-based
+        # sorted/relabeled syllable usage and duration information from [0, max_syllable) inclusive
+        df, label_df = results_to_dataframe(model_data, sorted_index, count='usage',
+                                            max_syllable=self.max_sylls, sort=True, compute_labels=True)
+
+        scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
+        df = compute_mean_syll_speed(df, scalar_df, label_df, groups=None, max_sylls=self.max_sylls)
+
+        self.df = df.merge(info_df, on='syllable')
+
+    def interactive_syll_stats_grapher(self, df, obj, stat, sort, groupby, sessions, ctrl_group, exp_group):
+        '''
+
+        Parameters
+        ----------
+        df
+        obj
+        stat
+        sort
+        groupby
+        sessions
+        ctrl_group
+        exp_group
+
+        Returns
+        -------
+
+        '''
+
+        if sort == 'mutation':
+            # display Text for groups to input experimental groups
+            ordering = get_syllable_muteness_ordering(df, ctrl_group, exp_group, stat=stat)
+        elif sort == 'similarity':
+            ordering = self.results['leaves']
+        elif sort != 'usage':
+            ordering, _ = get_sorted_syllable_stat_ordering(df, stat=sort)
+        else:
+            ordering = range(len(df.syllable.unique()))
+
+        if groupby == 'SessionName':
+            session_sel.layout.display = "block"
+            df = df[df['SessionName'].isin(session_sel.value)]
+        else:
+            session_sel.layout.display = "none"
+
+        bokeh_plotting(df, stat, ordering, groupby)

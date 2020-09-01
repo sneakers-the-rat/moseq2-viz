@@ -137,7 +137,7 @@ def add_group_wrapper(index_file, config_data):
 
 def interactive_syllable_labeler_wrapper(model_path, crowd_movie_dir, output_file, max_syllables=None):
     '''
-    
+
     Parameters
     ----------
     model_path
@@ -169,6 +169,19 @@ def interactive_syllable_labeler_wrapper(model_path, crowd_movie_dir, output_fil
     labeler.get_crowd_movie_paths(crowd_movie_dir)
 
     syll_select.options = labeler.syll_info
+
+    output = widgets.interactive_output(labeler.interactive_syllable_labeler, {'syllables': syll_select})
+    display(syll_select, output)
+
+    def on_syll_change(change):
+        clear_output()
+        display(syll_select, output)
+
+    output.observe(on_syll_change, names='value')
+
+    next_button.on_click(labeler.on_next)
+    prev_button.on_click(labeler.on_prev)
+    set_button.on_click(labeler.on_set)
 
 def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None):
     '''

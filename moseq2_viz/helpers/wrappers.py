@@ -5,7 +5,6 @@ Each wrapper function executes the functionality from end-to-end given it's depe
 '''
 
 import os
-import re
 import h5py
 import shutil
 import psutil
@@ -19,7 +18,7 @@ from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_spee
                             compute_session_centroid_speeds
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot, plot_mean_group_heatmap, \
                             plot_verbose_heatmap, save_fig)
-from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict)
+from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict, get_index_hits)
 from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models, results_to_dataframe, \
                                    compute_and_graph_grouped_TMs)
 
@@ -101,15 +100,11 @@ def add_group_wrapper(index_file, config_data):
     for v in value:
         if config_data['exact']:
             v = r'\b{}\b'.format(v)
-        if config_data['lowercase'] and config_data['negative']:
-            hits = [re.search(v, meta[key].lower()) is None for meta in metadata]
-        elif config_data['lowercase']:
-            hits = [re.search(v, meta[key].lower()) is not None for meta in metadata]
-        elif config_data['negative']:
-            hits = [re.search(v, meta[key]) is None for meta in metadata]
-        else:
-            hits = [re.search(v, meta[key]) is not None for meta in metadata]
 
+        # Get matched keys
+        hits = get_index_hits(config_data, metadata, key, v)
+
+        # Update index dict with inputted group values
         for uuid, hit in zip(h5_uuids, hits):
             position = h5_uuids.index(uuid)
             if hit:

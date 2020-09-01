@@ -11,6 +11,7 @@ import shutil
 import psutil
 import joblib
 import numpy as np
+import pandas as pd
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
@@ -27,7 +28,7 @@ from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_spee
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot,
                             plot_mean_group_heatmap, plot_verbose_heatmap, plot_kl_divergences, \
                             plot_explained_behavior, save_fig)
-from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict)
+from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict, index_to_dataframe)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_usages, parse_model_results, merge_models,
                                    results_to_dataframe, compute_and_graph_grouped_TMs)
 
@@ -80,6 +81,57 @@ def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, outp
             pass
 
     return index, sorted_index, model_data
+
+def interactive_group_setting_wrapper(index_filepath):
+    '''
+
+    Parameters
+    ----------
+    index_filepath
+
+    Returns
+    -------
+
+    '''
+
+    index_dict, df = index_to_dataframe(index_filepath)
+    qgrid_widget = qgrid.show_grid(df[['SessionName', 'SubjectName', 'group', 'uuid']], column_options=col_opts,
+                                   column_definitions=col_defs, show_toolbar=False)
+
+    def update_table(b):
+        update_index_button.button_style = 'info'
+        update_index_button.icon = 'none'
+
+        selected_rows = qgrid_widget.get_selected_df()
+        x = selected_rows.index
+
+        for i in x:
+            qgrid_widget.edit_cell(i, 'group', group_input.value)
+
+    def update_clicked(b):
+        files = index_dict['files']
+        meta = [f['metadata'] for f in files]
+        meta_cols = pd.DataFrame(meta).columns
+
+        latest_df = qgrid_widget.get_changed_df()
+        df.update(latest_df)
+
+        updated_index = {'files': list(df.drop(meta_cols, axis=1).to_dict(orient='index').values()),
+                         'pca_path': index_dict['pca_path']}
+
+        with open(index_filepath, 'w+') as f:
+            yaml.safe_dump(updated_index, f)
+
+        update_index_button.button_style = 'success'
+        update_index_button.icon = 'check'
+
+    update_index_button.on_click(update_clicked)
+
+    save_button.on_click(update_table)
+
+    display(group_set)
+    display(qgrid_widget)
+
 
 def add_group_wrapper(index_file, config_data):
     '''

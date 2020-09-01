@@ -1,7 +1,7 @@
 '''
 
 '''
-
+import qgrid
 import ipywidgets as widgets
 from ipywidgets import HBox, VBox
 from bokeh.models.widgets import PreText
@@ -72,3 +72,27 @@ sorting_box = VBox([sorting_dropdown, mutation_box])
 session_box = VBox([grouping_dropdown, session_sel])
 
 widget_box = HBox([stat_dropdown, sorting_box, session_box])
+
+
+### Group Setting Widgets
+col_opts = {
+    'editable': False,
+    'toolTip': "Not editable"
+}
+
+col_defs = {
+    'group': {
+        'editable': True,
+        'toolTip': 'editable'
+    }
+}
+
+group_input = widgets.Text(value='', placeholder='Enter Group Name to Set', description='Desired Group Name', continuous_update=False, disabled=False)
+save_button = widgets.Button(description='Set Group', disabled=False, tooltip='Set Group')
+update_index_button = widgets.Button(description='Update Index File', disabled=False, tooltip='Save Parameters')
+
+group_set = widgets.HBox([group_input, save_button, update_index_button])
+qgrid.set_grid_option('forceFitColumns', False)
+qgrid.set_grid_option('enableColumnReorder', True)
+qgrid.set_grid_option('highlightSelectedRow', True)
+qgrid.set_grid_option('highlightSelectedCell', False)

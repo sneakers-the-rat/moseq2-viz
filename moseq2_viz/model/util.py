@@ -269,7 +269,7 @@ def get_syllable_usages(model_data, count):
 
     Returns
     -------
-    syllable_usages (1D np array): array of sorted syllable usages for all syllables in model.
+    syllable_usages (1D np array): array of sorted syllable usages for all syllables in model
     '''
 
     # process the syllable usages over all frames/emissions in the entire cohort
@@ -279,7 +279,6 @@ def get_syllable_usages(model_data, count):
     syllable_usages = np.sum(usages_by_mouse, axis=0) / np.sum(usages_by_mouse)
 
     return syllable_usages
-
 
 def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[slice]:
     '''
@@ -1141,3 +1140,4 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
             syllable_matrix = np.zeros((subsampling, max_dur, npcs))
             syllable_matrix[:] = np.nan
 
+    return syllable_matrix

@@ -15,13 +15,13 @@ import pandas as pd
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
-import ipywidgets as widgets
+from IPython.display import display
 from moseq2_viz.util import parse_index
 from moseq2_viz.interactive.widgets import *
 from ipywidgets import fixed, interactive_output
-from IPython.display import display, clear_output
 from moseq2_viz.interactive.view import graph_dendrogram
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
+from moseq2_viz.model.trans_graph import get_trans_graph_groups, compute_and_graph_grouped_TMs
 from moseq2_viz.interactive.controller import SyllableLabeler, InteractiveSyllableStats
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
                             compute_session_centroid_speeds, compute_kl_divergences
@@ -30,7 +30,7 @@ from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot
                             plot_explained_behavior, save_fig)
 from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict, index_to_dataframe)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_usages, parse_model_results, merge_models,
-                                   results_to_dataframe, compute_and_graph_grouped_TMs)
+                                   results_to_dataframe)
 
 def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, output_file=None):
     '''
@@ -518,19 +518,7 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
         labels = relabel_by_usage(labels, count=config_data['count'])[0]
 
     # Get modeled session uuids to compute group-mean transition graph for
-    if 'train_list' in model_data.keys():
-        label_uuids = model_data['train_list']
-    else:
-        label_uuids = model_data['keys']
-
-    # Loading modeled groups from index file by looking up their session's corresponding uuid
-    if 'group' in index['files'][0].keys() and len(group) > 0:
-        label_group = [sorted_index['files'][uuid]['group'] \
-                           if uuid in sorted_index['files'].keys() else '' for uuid in label_uuids]
-    else:
-        # If no index file is found, set session grouping as nameless default to plot a single transition graph
-        label_group = [''] * len(model_data['labels'])
-        group = list(set(label_group))
+    group, label_group, label_uuids = get_trans_graph_groups(model_data, index, sorted_index)
 
     print('Computing transition matrices...')
     try:
@@ -614,6 +602,7 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
 
     # Write movies
     write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir)
+
 def plot_kl_divergences_wrapper(index_file, output_file, oob=False):
     '''
     Wrapper function that computes the KL Divergence for the mouse PDF for each session in the index file.

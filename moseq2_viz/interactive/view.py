@@ -1,8 +1,11 @@
 import itertools
-from bokeh.palettes import Dark2_5 as palette
 from bokeh.models.tickers import FixedTicker
+from bokeh.palettes import Dark2_5 as palette
 
+from bokeh.models import Div
+from IPython.display import display
 from bokeh.plotting import figure, show
+from moseq2_viz.interactive.widgets import widget_box
 from bokeh.models import ColumnDataSource, HoverTool, TapTool, BoxSelectTool
 
 color_dict = {'b': 'blue',
@@ -179,3 +182,69 @@ def bokeh_plotting(df, stat, sorting, groupby='group'):
 
     ## Display
     show(p)
+
+def display_crowd_movies(divs):
+    '''
+    Crowd movie comparison helper function that displays the widgets and
+    embedded HTML divs to a running jupyter notebook cell or HTML webpage.
+
+    Parameters
+    ----------
+    divs (list of bokeh.models.Div): list of HTML Div objects containing videos to display
+
+    Returns
+    -------
+
+    '''
+
+    # Set HTML formats
+    movie_table = '''
+                    <head>
+                    <style>
+                        .row {
+                            display: flex;
+                            flex-wrap: wrap;
+                            vertical-align: center;
+                            text-align: center;
+                        }
+        
+                        .column {
+                            width: 50%;
+                            text-align: center;
+                        }
+        
+                        .column video {
+                          vertical-align: center;
+                        }
+                    </style>
+                    </head>
+                    <div class="row"; style="background-color:#ffffff; width:750px">
+                  '''
+    # Create div grid
+    for i, div in enumerate(divs):
+        if (i % 2 == 0) and i > 0:
+            # make a new row
+            movie_table += '</div>'
+            col = f'''
+                      <div class="row"; style="background-color:#ffffff; width:750px">
+                          <div class="column">
+                              {div}
+                          </div>
+                    '''
+        else:
+            # put movie in column
+            col = f'''
+                      <div class="column">
+                          {div}
+                      </div>
+                    '''
+        movie_table += col
+
+    # Close last div
+    movie_table += '</div>'
+
+    div2 = Div(text=movie_table)
+
+    # Display
+    display(widget_box)
+    show(div2)

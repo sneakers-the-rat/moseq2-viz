@@ -11,23 +11,17 @@ import shutil
 import psutil
 import joblib
 import numpy as np
-import pandas as pd
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
-from IPython.display import display
 from moseq2_viz.util import parse_index
-from moseq2_viz.interactive.widgets import *
-from ipywidgets import fixed, interactive_output
-from moseq2_viz.interactive.view import graph_dendrogram
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
-from moseq2_viz.interactive.controller import SyllableLabeler, InteractiveSyllableStats
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
                             compute_session_centroid_speeds, compute_kl_divergences
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot,
                             plot_mean_group_heatmap, plot_verbose_heatmap, plot_kl_divergences, \
                             plot_explained_behavior, save_fig)
-from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict, index_to_dataframe)
+from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_usages, parse_model_results, merge_models,
                                    results_to_dataframe, compute_and_graph_grouped_TMs)
 
@@ -80,57 +74,6 @@ def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, outp
             pass
 
     return index, sorted_index, model_data
-
-def interactive_group_setting_wrapper(index_filepath):
-    '''
-
-    Parameters
-    ----------
-    index_filepath
-
-    Returns
-    -------
-
-    '''
-
-    index_dict, df = index_to_dataframe(index_filepath)
-    qgrid_widget = qgrid.show_grid(df[['SessionName', 'SubjectName', 'group', 'uuid']], column_options=col_opts,
-                                   column_definitions=col_defs, show_toolbar=False)
-
-    def update_table(b):
-        update_index_button.button_style = 'info'
-        update_index_button.icon = 'none'
-
-        selected_rows = qgrid_widget.get_selected_df()
-        x = selected_rows.index
-
-        for i in x:
-            qgrid_widget.edit_cell(i, 'group', group_input.value)
-
-    def update_clicked(b):
-        files = index_dict['files']
-        meta = [f['metadata'] for f in files]
-        meta_cols = pd.DataFrame(meta).columns
-
-        latest_df = qgrid_widget.get_changed_df()
-        df.update(latest_df)
-
-        updated_index = {'files': list(df.drop(meta_cols, axis=1).to_dict(orient='index').values()),
-                         'pca_path': index_dict['pca_path']}
-
-        with open(index_filepath, 'w+') as f:
-            yaml.safe_dump(updated_index, f)
-
-        update_index_button.button_style = 'success'
-        update_index_button.icon = 'check'
-
-    update_index_button.on_click(update_clicked)
-
-    save_button.on_click(update_table)
-
-    display(group_set)
-    display(qgrid_widget)
-
 
 def add_group_wrapper(index_file, config_data):
     '''
@@ -187,116 +130,6 @@ def add_group_wrapper(index_file, config_data):
         raise Exception
 
     print('Group(s) added successfully.')
-
-def interactive_syllable_labeler_wrapper(model_path, crowd_movie_dir, output_file, max_syllables=None):
-    '''
-    
-    Parameters
-    ----------
-    model_path
-    crowd_movie_dir
-    output_file
-    max_syllables
-
-    Returns
-    -------
-
-    '''
-
-    # Load the model
-    model = parse_model_results(joblib.load(model_path))
-
-    # Compute the sorted labels
-    model['labels'] = relabel_by_usage(model['labels'], count='usage')[0]
-
-    # Get Maximum number of syllables to include
-    if max_syllables == None:
-        syllable_usages = get_syllable_usages(model, 'usage')
-        cumulative_explanation = 100 * np.cumsum(syllable_usages)
-        max_sylls = np.argwhere(cumulative_explanation >= 90)[0][0]
-    else:
-        max_sylls = max_syllables
-
-    # Make initial syllable information dict
-    labeler = SyllableLabeler(max_sylls=max_sylls, save_path=output_file)
-    labeler.get_crowd_movie_paths(crowd_movie_dir)
-
-    syll_select.options = labeler.syll_info
-
-def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syllables=None):
-    '''
-
-    Parameters
-    ----------
-    index_path
-    model_path
-    info_path
-    max_syllables
-
-    Returns
-    -------
-
-    '''
-
-    istat = InteractiveSyllableStats(index_path=index_path, model_path=model_path, info_path=info_path, max_sylls=max_syllables)
-
-    istat.interactive_stat_helper()
-
-    session_sel.options = list(istat.df.SessionName.unique())
-    ctrl_dropdown.options = list(istat.df.group.unique())
-    exp_dropdown.options = list(istat.df.group.unique())
-
-    out = interactive_output(istat.interactive_syll_stats_grapher, {'df': fixed(istat.df),
-                                                      'obj': fixed(istat),
-                                                      'stat': stat_dropdown,
-                                                      'sort': sorting_dropdown,
-                                                      'groupby': grouping_dropdown,
-                                                      'sessions': session_sel,
-                                                      'ctrl_group': ctrl_dropdown,
-                                                      'exp_group': exp_dropdown
-                                                      })
-
-    display(widget_box, out)
-    graph_dendrogram(istat)
-
-    def show_mutation_group_select(change):
-        '''
-
-        Parameters
-        ----------
-        change
-
-        Returns
-        -------
-
-        '''
-
-        if change.new == 'mutation':
-            ctrl_dropdown.layout.display = "block"
-            exp_dropdown.layout.display = "block"
-        elif sorting_dropdown.value != 'mutation':
-            ctrl_dropdown.layout.display = "none"
-            exp_dropdown.layout.display = "none"
-
-    def show_session_select(change):
-        '''
-
-        Parameters
-        ----------
-        change
-
-        Returns
-        -------
-
-        '''
-
-        if change.new == 'SessionName':
-            session_sel.layout = layout_visible
-        elif change.new == 'group':
-            session_sel.layout = layout_hidden
-
-    grouping_dropdown.observe(show_session_select)
-    sorting_dropdown.observe(show_mutation_group_select)
 
 def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None):
     '''

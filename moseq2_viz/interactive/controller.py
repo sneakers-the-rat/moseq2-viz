@@ -9,13 +9,14 @@ from glob import glob
 from bokeh.io import show
 import ruamel.yaml as yaml
 from bokeh.layouts import column
-from IPython.display import display
 from bokeh.models.widgets import Div
 from moseq2_viz.util import parse_index
 from moseq2_viz.interactive.widgets import *
-from moseq2_viz.interactive.view import bokeh_plotting
+from IPython.display import display, clear_output
 from sklearn.metrics.pairwise import pairwise_distances
 from scipy.cluster.hierarchy import linkage, dendrogram
+from moseq2_viz.helpers.wrappers import make_crowd_movies_wrapper
+from moseq2_viz.interactive.view import bokeh_plotting, display_crowd_movies
 from moseq2_viz.model.label_util import get_sorted_syllable_stat_ordering, get_syllable_muteness_ordering
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_session_centroid_speeds, compute_mean_syll_speed
 from moseq2_viz.model.util import parse_model_results, results_to_dataframe, get_syllable_usages, relabel_by_usage
@@ -305,3 +306,109 @@ class InteractiveSyllableStats:
             session_sel.layout.display = "none"
 
         bokeh_plotting(df, stat, ordering, groupby)
+
+class CrowdMovieComparison:
+    '''
+    Crowd Movie Comparison application class. Contains all the user inputted parameters
+    within its context.
+
+    '''
+
+    def __init__(self, config_data, index_path, model_path, syll_info, output_dir):
+        '''
+        Initializes class object context parameters.
+
+        Parameters
+        ----------
+        config_data (dict): Configuration parameters for creating crowd movies.
+        index_path (str): Path to index file with paths to all the extracted sessions
+        model_path (str): Path to trained model containing syllable labels.
+        syll_info_path (str): Path to syllable information file containing syllable labels
+        output_dir (str): Path to directory to store crowd movies.
+        '''
+
+        self.config_data = config_data
+        self.index_path = index_path
+        self.model_path = model_path
+        self.syll_info_path = syll_info
+        self.output_dir = output_dir
+
+    def show_session_select(self, change):
+        '''
+        Callback function to change current view to show session selector when user switches
+        DropDownMenu selection to 'SessionName', and hides it if the user
+        selects 'groups'.
+
+        Parameters
+        ----------
+        change (event): User switches their DropDownMenu selection
+
+        Returns
+        -------
+        '''
+
+        if change.new == 'SessionName':
+            session_sel.layout = layout_visible
+            self.config_data['separate_by'] = 'sessions'
+        elif change.new == 'group':
+            session_sel.layout = layout_hidden
+            self.config_data['separate_by'] = 'groups'
+
+    def select_session(self, event):
+        '''
+        Callback function to save the list of selected sessions to config_data
+        to pass to crowd_movie_wrapper.
+
+        Parameters
+        ----------
+        event (event): User clicks on multiple sessions in the SelectMultiple widget
+
+        Returns
+        -------
+        '''
+
+        self.config_data['session_names'] = list(session_sel.value)
+
+    def crowd_movie_preview(self, config_data, syllable, groupby, sessions, nexamples):
+        '''
+        Helper function that triggers the crowd_movie_wrapper function and creates the HTML
+        divs containing the generated crowd movies.
+        Function is triggered whenever any of the widget function inputs are changed.
+
+        Parameters
+        ----------
+        config_data (dict): Configuration parameters for creating crowd movies.
+        syllable (int or ipywidgets.DropDownMenu): Currently displayed syllable.
+        groupby (str or ipywidgets.DropDownMenu): Indicates source selection for crowd movies.
+        sessions (list or ipywidgets.SelectMultiple): Specific session sources to show.
+        nexamples (int or ipywidgets.IntSlider): Number of mice to display per crowd movie.
+
+        Returns
+        -------
+
+        '''
+
+        # Update current config data with widget values
+        self.config_data['specific_syllable'] = int(syll_select.index)
+        self.config_data['max_examples'] = nexamples
+
+        # Compute paths to crowd movies
+        path_dict = make_crowd_movies_wrapper(self.index_path, self.model_path, self.config_data, self.output_dir)
+        clear_output()
+
+        # Create video divs
+        divs = []
+        for group_name, cm_path in path_dict.items():
+            group_txt = f'''
+                <h2>{group_name}</h2>
+                <video
+                    src="{cm_path[0]}"; alt="{cm_path[0]}"; height="350"; width="350"; preload="true";
+                    style="float: center; type: "video/mp4"; margin: 0px 10px 10px 0px;
+                    border="2"; autoplay controls loop>
+                </video>
+            '''
+
+            divs.append(group_txt)
+
+        # Display generated movies
+        display_crowd_movies(divs)

@@ -96,3 +96,19 @@ qgrid.set_grid_option('forceFitColumns', False)
 qgrid.set_grid_option('enableColumnReorder', True)
 qgrid.set_grid_option('highlightSelectedRow', True)
 qgrid.set_grid_option('highlightSelectedCell', False)
+
+### Crowd Movie Comparison Widgets
+style = {'description_width': 'initial'}
+layout_hidden  = widgets.Layout(display = 'none')
+layout_visible = widgets.Layout(display = 'block')
+
+cm_syll_select = widgets.Dropdown(options=[], description='Syllable #:', disabled=False)
+num_examples = widgets.IntSlider(value=20, min=1, max=40, step=1, description='Number of Example Mice:', disabled=False, continuous_update=False, style=style)
+
+cm_sources_dropdown = widgets.Dropdown(options=['group', 'SessionName'], description='Make Crowd Movies From:', disabled=False)
+cm_session_sel = widgets.SelectMultiple(options=[], description='Sessions to Graph:', layout=layout_hidden, disabled=False)
+
+syllable_box = VBox([syll_select, num_examples])
+session_box = VBox([cm_sources_dropdown, session_sel])
+
+widget_box = HBox([syllable_box, session_box]) # add layout

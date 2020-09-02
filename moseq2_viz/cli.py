@@ -60,6 +60,9 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
 @click.option('--max-examples', '-m', type=int, default=40, help="Number of examples to show")
 @click.option('--threads', '-t', type=int, default=-1, help="Number of threads to use for rendering crowd movies")
+@click.option('--separate-by', type=click.Choice(['default', 'groups', 'sessions']), default='default', help="Generate crowd movies from individual group sources.")
+@click.option('--specific-syllable', type=int, default=None, help="Index of max syllable to render")
+@click.option('--session-names', '-s', default=[], type=str, help="SessionNames to create crowd movies from", multiple=True)
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
 @click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--output-dir', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'crowd_movies'), help="Path to store files")
@@ -73,9 +76,10 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
 @click.option('--dur-clip', default=300, help="Exclude syllables more than this number of frames (None for no limit)")
 @click.option('--legacy-jitter-fix', default=False, type=bool, help="Set to true if you notice jitter in your crowd movies")
 @click.option('--frame-path', default='frames', type=str, help='Path to depth frames in h5 file')
-def make_crowd_movies(index_file, model_path, max_syllable, max_examples, threads, sort, count,
-                      output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip,
-                      legacy_jitter_fix, frame_path, gaussfilter_space, medfilter_space):
+@click.option('--progress-bar', '-p', is_flag=True, help='Show verbose progress bars.')
+def make_crowd_movies(index_file, model_path, max_syllable, max_examples, threads, separate_by, specific_syllable,
+                      session_names, sort, count, output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip,
+                      legacy_jitter_fix, frame_path, gaussfilter_space, medfilter_space, progress_bar):
 
     click_data = click.get_current_context().params
     make_crowd_movies_wrapper(index_file, model_path, click_data, output_dir)

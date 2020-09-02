@@ -15,11 +15,10 @@ import pandas as pd
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
-import ipywidgets as widgets
+from IPython.display import display
 from moseq2_viz.util import parse_index
 from moseq2_viz.interactive.widgets import *
 from ipywidgets import fixed, interactive_output
-from IPython.display import display, clear_output
 from moseq2_viz.interactive.view import graph_dendrogram
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.interactive.controller import SyllableLabeler, InteractiveSyllableStats
@@ -609,11 +608,71 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     label_uuids = [uuid for uuid in label_uuids if uuid in uuid_set]
     sorted_index['files'] = {k: v for k, v in sorted_index['files'].items() if k in uuid_set}
 
+    # Get syllable(s) to create crowd movies of
+    if config_data['specific_syllable'] is not None:
+        config_data['crowd_syllables'] = [config_data['specific_syllable']]
+        config_data['max_syllable'] = 1
+    else:
+        config_data['crowd_syllables'] = range(config_data['max_syllable'])
+
     # Write parameter information yaml file in crowd movies directory
     write_crowd_movie_info_file(model_path=model_path, model_fit=model_fit, index_file=index_file, output_dir=output_dir)
 
-    # Write movies
-    write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir)
+    cm_paths = {}
+    if config_data['separate_by'] == 'groups':
+        # Get the groups to separate the arrays by
+        groups = list(set(model_fit['metadata']['groups']))
+        group_keys = {g.lower():[] for g in groups}
+
+        for i, v in enumerate(sorted_index['files'].values()):
+            group_keys[v['group'].lower()].append(i)
+
+        ## Filter these three arrays to get desired crowd movie source
+        for k, v in group_keys.items():
+            group_labels = np.array(labels)[v]
+            group_label_uuids = np.array(label_uuids)[v]
+            group_index = {'files':{k1: v1 for k1, v1 in sorted_index['files'].items() if k1 in group_label_uuids},
+                        'pca_path': sorted_index['pca_path']}
+
+            # create a subdirectory for each group
+            output_subdir = os.path.join(output_dir, k+'/')
+            if not os.path.exists(output_subdir):
+                os.makedirs(output_subdir)
+
+            # Write crowd movie for given group and syllable(s)
+            cm_paths[k] = write_crowd_movies(group_index, config_data, ordering, group_labels, group_label_uuids, output_subdir)
+
+    elif config_data['separate_by'] == 'sessions':
+        # Separate the arrays by session
+        sessions = list(set(model_fit['metadata']['uuids']))
+
+        session_names = {}
+        for i, s in enumerate(sessions):
+            session_name = sorted_index['files'][s]['metadata']['SessionName']
+
+            if session_name in config_data['session_names']:
+                session_names[session_name] = i
+
+        for k, v in session_names.items():
+            session_labels = [np.array(labels)[v]]
+            session_label_uuids = [np.array(label_uuids)[v]]
+            session_index = {'files': {k1: v1 for k1, v1 in sorted_index['files'].items() if k1 in session_label_uuids},
+                           'pca_path': sorted_index['pca_path']}
+
+            # create a subdirectory for each group
+            output_subdir = os.path.join(output_dir, k+'/')
+            if not os.path.exists(output_subdir):
+                os.makedirs(output_subdir)
+
+            # Write crowd movie for given group and syllable(s)
+            cm_paths[k] = write_crowd_movies(session_index, config_data, ordering,
+                                             session_labels, session_label_uuids, output_subdir)
+    else:
+        # Write movies
+        cm_paths = {'all': write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir)}
+    
+    return cm_paths
+
 def plot_kl_divergences_wrapper(index_file, output_file, oob=False):
     '''
     Wrapper function that computes the KL Divergence for the mouse PDF for each session in the index file.

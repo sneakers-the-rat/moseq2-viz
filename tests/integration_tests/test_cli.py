@@ -15,8 +15,6 @@ class TestCLI(TestCase):
         with open(original_file, 'w') as f:
             with open(input_path, 'r') as g:
                 f.write(g.read())
-            g.close()
-        f.close()
 
         runner = CliRunner()
 
@@ -112,11 +110,8 @@ class TestCLI(TestCase):
 
     def test_plot_all_stats(self):
 
-        runner = CliRunner()
-
         for stat in ['usage', 'speed', 'duration']:
             gen_dir = 'data/gen_plots/'
-
 
             use_params = ['data/test_index.yaml',
                           'data/test_model.p',
@@ -125,14 +120,14 @@ class TestCLI(TestCase):
 
             print(' '.join(use_params))
 
-            results = runner.invoke(plot_stats, use_params)
+            os.system(f'moseq2-viz plot-stats {" ".join(use_params)}')
 
-            assert (results.exit_code == 0), "CLI Command did not complete successfully"
             assert (os.path.exists(gen_dir + f'test_{stat}s.png')), f"f'{stat} plot PNG not found"
             assert (os.path.exists(gen_dir + f'test_{stat}s.pdf')), f"{stat} plot PDF not found"
             os.remove(gen_dir + f'test_{stat}s.png')
             os.remove(gen_dir + f'test_{stat}s.pdf')
-            shutil.rmtree(gen_dir)
+
+        shutil.rmtree(gen_dir)
 
     def test_make_crowd_movies(self):
         input_dir = 'data/'

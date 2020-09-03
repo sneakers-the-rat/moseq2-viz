@@ -23,6 +23,8 @@ class TestIOVideo(TestCase):
             config_data = yaml.safe_load(f)
 
         config_data['max_syllable'] = max_syllable
+        config_data['crowd_syllables'] = range(max_syllable)
+        config_data['progress_bar'] = False
 
         model_fit = parse_model_results(joblib.load(model_path))
         labels = model_fit['labels']

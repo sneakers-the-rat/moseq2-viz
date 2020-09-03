@@ -96,3 +96,12 @@ qgrid.set_grid_option('forceFitColumns', False)
 qgrid.set_grid_option('enableColumnReorder', True)
 qgrid.set_grid_option('highlightSelectedRow', True)
 qgrid.set_grid_option('highlightSelectedCell', False)
+
+### Transition Graph Widgets
+
+style = {'description_width': 'initial', 'display':'flex-grow', 'align_items':'stretch'}
+edge_thresholder = widgets.FloatRangeSlider(value=[0.0025, 1], min=0, max=1, step=0.001, style=style, readout_format='.4f',
+                                            description='Edges weights to display', continuous_update=False)
+usage_thresholder = widgets.FloatRangeSlider(value=[0, 1], min=0, max=1, step=0.001, style=style, readout_format='.4f',
+                                             description='Usage nodes to display', continuous_update=False)
+thresholding_box = VBox([edge_thresholder, usage_thresholder])

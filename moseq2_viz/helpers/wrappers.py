@@ -21,8 +21,8 @@ from moseq2_viz.interactive.widgets import *
 from ipywidgets import fixed, interactive_output
 from moseq2_viz.interactive.view import graph_dendrogram
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
-from moseq2_viz.model.trans_graph import get_trans_graph_groups, compute_and_graph_grouped_TMs
-from moseq2_viz.interactive.controller import SyllableLabeler, InteractiveSyllableStats
+from moseq2_viz.model.trans_graph import get_trans_graph_groups, compute_and_graph_grouped_TMs, \
+    get_group_trans_mats, get_usage_dict
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
                             compute_session_centroid_speeds, compute_kl_divergences
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot,
@@ -31,6 +31,7 @@ from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot
 from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict, index_to_dataframe)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_usages, parse_model_results, merge_models,
                                    results_to_dataframe)
+from moseq2_viz.interactive.controller import SyllableLabeler, InteractiveSyllableStats, InteractiveTransitionGraph
 
 def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, output_file=None):
     '''
@@ -298,6 +299,66 @@ def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syl
 
     grouping_dropdown.observe(show_session_select)
     sorting_dropdown.observe(show_mutation_group_select)
+
+def interactive_plot_transition_graph_wrapper(model_path, index_path, info_path):
+    '''
+    Wrapper function that works as a background process that prepares the data
+    for the interactive graphing function.
+
+    Parameters
+    ----------
+    model_path (str): Path to trained model.
+    index_path (str): Path to index file containined trained data metadata.
+    info_path (str): Path to user-labeled syllable information file.
+
+    Returns
+    -------
+    '''
+
+    # Load Model
+    model_fit = parse_model_results(joblib.load(model_path))
+
+    # Load Index File
+    index, sorted_index = parse_index(index_path)
+
+    # Load Syllable Info
+    with open(info_path, 'r') as f:
+        syll_info = yaml.safe_load(f)
+
+    # Get labels and optionally relabel them by usage sorting
+    labels = model_fit['labels']
+    labels = relabel_by_usage(labels, count='usage')[0]
+
+    # get max_sylls
+    max_sylls = len(list(syll_info.keys()))
+
+    # Get groups and matching session uuids
+    group, label_group, label_uuids = get_trans_graph_groups(model_fit, index, sorted_index)
+
+    # Compute usages and transition matrices
+    trans_mats, usages = get_group_trans_mats(labels, label_group, group, max_sylls)
+
+    # Get usage dictionary for node sizes
+    usages = get_usage_dict(usages)
+
+    i_trans_graph = InteractiveTransitionGraph(trans_mats=trans_mats,
+                                               usages=usages,
+                                               max_sylls=max_sylls,
+                                               group=group
+                                               )
+
+    usage_thresholder.max = 0.1
+    edge_thresholder.max = np.max(trans_mats) + 0.01
+
+    # Make graphs
+    out = interactive_output(i_trans_graph.interactive_transition_graph_helper,
+                             {'syll_info': fixed(syll_info),
+                              'trans_mats': fixed(trans_mats),
+                              'edge_threshold': edge_thresholder,
+                              'usage_threshold': usage_thresholder
+                              })
+
+    display(thresholding_box, out)
 
 def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None):
     '''

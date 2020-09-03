@@ -1,11 +1,16 @@
 '''
 
+Interactive applications for labeling syllables, plotting syllable stats, comparing crowd movies
+    and plotting transition graphs.
+Interactivity functionality is facilitated via IPyWidget and Bokeh.
+
 '''
 
 import joblib
 import numpy as np
 import pandas as pd
 from glob import glob
+import networkx as nx
 from bokeh.io import show
 import ruamel.yaml as yaml
 from bokeh.layouts import column
@@ -13,12 +18,14 @@ from IPython.display import display
 from bokeh.models.widgets import Div
 from moseq2_viz.util import parse_index
 from moseq2_viz.interactive.widgets import *
-from moseq2_viz.interactive.view import bokeh_plotting
 from sklearn.metrics.pairwise import pairwise_distances
 from scipy.cluster.hierarchy import linkage, dendrogram
+from moseq2_viz.interactive.view import bokeh_plotting, plot_interactive_transition_graph
 from moseq2_viz.model.label_util import get_sorted_syllable_stat_ordering, get_syllable_muteness_ordering
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_session_centroid_speeds, compute_mean_syll_speed
 from moseq2_viz.model.util import parse_model_results, results_to_dataframe, get_syllable_usages, relabel_by_usage
+from moseq2_viz.model.trans_graph import handle_graph_layout, convert_transition_matrix_to_ebunch, \
+    convert_ebunch_to_graph, make_transition_graphs
 
 class SyllableLabeler:
     '''
@@ -305,3 +312,77 @@ class InteractiveSyllableStats:
             session_sel.layout.display = "none"
 
         bokeh_plotting(df, stat, ordering, groupby)
+
+class InteractiveTransitionGraph:
+    '''
+
+    Interactive transition graph class used to facilitate interactive graph generation
+    and thresholding functionality.
+
+    '''
+
+    def __init__(self, trans_mats, usages, max_sylls, group):
+        '''
+        Initializes context variables
+
+        Parameters
+        ----------
+        trans_mats (list of 2D np.arrays): list of transition matrices for each group
+        usages (list of OrderedDicts): list of dicts of syllable number keys paired with their counts
+        max_sylls (int): maximum number of syllables to include in graph
+        group (list): list of unique group names corresponding to trans_mats
+        '''
+
+        self.trans_mats = trans_mats
+        self.usages = usages
+        self.max_sylls = max_sylls
+        self.group = group
+
+    def interactive_transition_graph_helper(self, syll_info, trans_mats, edge_threshold, usage_threshold):
+        '''
+
+        Helper function that generates all the transition graphs given the currently selected
+        thresholding values, then displays them in a Jupyter notebook or web page.
+
+        Parameters
+        ----------
+        syll_info (dict): Dict of user-labeled syllable information.
+        edge_threshold (tuple): Transition probability range to include in graphs.
+        usage_threshold (tuple): Syllable usage range to include in graphs.
+
+        Returns
+        -------
+        '''
+
+        # Get graph node anchors
+        usages, anchor, usages_anchor, ngraphs = handle_graph_layout(trans_mats, self.usages, anchor=0)
+
+        weights = trans_mats
+
+        # Create graph with nodes and edges
+        ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
+            weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
+            keep_orphans=True, usages=usages_anchor,
+            usage_threshold=usage_threshold, max_syllable=self.max_sylls-1)
+
+        # Get graph anchor
+        graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
+
+        pos = nx.circular_layout(graph_anchor, scale=1)
+
+        # make transition graphs
+        group_names = self.group.copy()
+
+        # prepare transition graphs
+        usages, group_names, _, _, _, graphs = make_transition_graphs(trans_mats,
+                                                             self.usages[:len(self.group)],
+                                                             self.group,
+                                                             group_names,
+                                                             usages_anchor,
+                                                             pos, ebunch_anchor, edge_threshold,
+                                                             difference_threshold=0.0005, orphans=orphans,
+                                                             orphan_weight=0, edge_width_scale=100)
+        # interactive plot transition graphs
+        plot_interactive_transition_graph(graphs, pos, self.group,
+                                          group_names, usages,
+                                          syll_info, self.max_sylls)

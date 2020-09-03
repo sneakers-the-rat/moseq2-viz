@@ -1,9 +1,14 @@
+import warnings
 import itertools
-from bokeh.palettes import Dark2_5 as palette
+import networkx as nx
+from bokeh.layouts import gridplot
+from bokeh.palettes import Spectral4
 from bokeh.models.tickers import FixedTicker
-
-from bokeh.plotting import figure, show
-from bokeh.models import ColumnDataSource, HoverTool, TapTool, BoxSelectTool
+from bokeh.palettes import Dark2_5 as palette
+from bokeh.plotting import figure, show, from_networkx
+from bokeh.models import (ColumnDataSource, LabelSet, BoxSelectTool, Circle,
+                          EdgesAndLinkedNodes, HoverTool, MultiLine,
+                          NodesAndLinkedEdges, TapTool)
 
 color_dict = {'b': 'blue',
               'r': 'red',
@@ -179,3 +184,200 @@ def bokeh_plotting(df, stat, sorting, groupby='group'):
 
     ## Display
     show(p)
+
+
+def format_graphs(graphs, group):
+    '''
+    Formats multiple transition graphs to be stacked in vertical column-order.
+
+    Parameters
+    ----------
+    graphs (list): list of generated Bokeh figures.
+    group (list): list of unique groups
+
+    Returns
+    -------
+    formatted_plots (2D list): list of lists corresponding to rows of figures being plotted.
+    '''
+
+    # formatting plots into grid format
+    ncols = len(group)
+
+    tmp, formatted_plots = [], []
+    for i, p in enumerate(graphs):
+        if len(tmp) < ncols:
+            tmp.append(p)
+        elif len(tmp) == ncols:
+            formatted_plots.append(tmp)
+            tmp = [p]
+    formatted_plots.append(tmp)
+
+    return formatted_plots
+
+def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, syll_info, max_sylls):
+    '''
+
+    Converts the computed networkx transition graphs to Bokeh glyph objects that can be interacted with
+    and updated throughout run-time.
+
+    Parameters
+    ----------
+    graphs (list of nx.DiGraphs): list of created networkx graphs.
+    pos (nx.Layout): shared node position coordinates layout object.
+    group (list): list of unique group names.
+    group_names (list): list of names for all the generated transition graphs + difference graphs
+    usages (list of OrdreredDicts): list of OrderedDicts containing syllable usages.
+    syll_info (dict): dict of syllable label information to display with HoverTool
+    max_sylls (int): Maximum number of syllables to include in transition graph
+
+    Returns
+    -------
+    '''
+
+    warnings.filterwarnings('ignore')
+
+    rendered_graphs, plots = [], []
+
+    for i, graph in enumerate(graphs):
+        if i > 0:
+            pos = nx.circular_layout(graph, scale=1)
+
+        node_indices = [n for n in graph.nodes if n in usages[i].keys()]
+
+        if len(plots) == 0:
+            plot = figure(title=f"{group_names[i]}", x_range=(-1.2, 1.2), y_range=(-1.2, 1.2))
+        else:
+            # Connecting pan-zoom interaction across plots
+            plot = figure(title=f"{group_names[i]}", x_range=plots[0].x_range, y_range=plots[0].y_range)
+
+        cm_tooltip = """
+            <div>
+                <div>
+                    <video
+                        src="@movies" height="260" alt="@movies" width="260"; preload="true";
+                        style="float: left; type: "video/mp4"; "margin: 0px 15px 15px 0px;"
+                        border="2"; autoplay loop
+                    ></video>
+                </div>
+            </div>
+            """
+
+        # adding interactive tools
+        plot.add_tools(HoverTool(tooltips=[('syllable', '@index'),
+                                           ('label', '@label'),
+                                           ('description', '@desc'),
+                                           ('usage', '@usage{0.0000}'),
+                                           ('prev state', '@prev'),
+                                           ('next state', '@next'),
+                                           ('', cm_tooltip)], line_policy='interp'),
+                       TapTool(),
+                       BoxSelectTool())
+
+        # edge colors for difference graphs
+        if i >= len(group):
+            edge_color = {e: 'red' if graph.edges()[e]['weight'] > 0 else 'blue' for e in graph.edges()}
+            edge_width = {e: graph.edges()[e]['weight'] * 350 for e in graph.edges()}
+        else:
+            edge_color = {e: 'black' for e in graph.edges()}
+            edge_width = {e: graph.edges()[e]['weight'] * 200 for e in graph.edges()}
+
+        # setting edge attributes
+        nx.set_edge_attributes(graph, edge_color, "edge_color")
+        nx.set_edge_attributes(graph, edge_width, "edge_width")
+
+        # get usages
+        group_usage = [usages[i][j] for j in node_indices if j in usages[i].keys()]
+
+        # node colors for difference graphs
+        if i >= len(group):
+            node_color = {s: 'red' if usages[i][s] > 0 else 'blue' for s in node_indices}
+            node_size = {s: max(15., 10 + abs(usages[i][s] * 500)) for s in node_indices}
+        else:
+            node_color = {s: 'red' for s in node_indices}
+            node_size = {s: max(15., abs(usages[i][s] * 500)) for s in node_indices}
+
+        # setting node attributes
+        nx.set_node_attributes(graph, node_color, "node_color")
+        nx.set_node_attributes(graph, node_size, "node_size")
+
+        # create bokeh-fied networkx transition graph
+        graph_renderer = from_networkx(graph, pos, scale=1, center=(0, 0))
+
+        # get node directed neighbors
+        prev_states, next_states = [], []
+        for n in node_indices:
+            try:
+                prev_states.append(list(graph.predecessors(n)))
+                next_states.append(list(graph.neighbors(n)))
+            except nx.NetworkXError:
+                # handle orphans
+                print('missing', group_names[i], n)
+                pass
+
+        # getting hovertool info
+        labels, descs, cm_paths = [], [], []
+
+        for n in node_indices:
+            labels.append(syll_info[str(n)]['label'])
+            descs.append(syll_info[str(n)]['desc'])
+            cm_paths.append(syll_info[str(n)]['crowd_movie_path'])
+
+        # setting common data source to display via HoverTool
+        graph_renderer.node_renderer.data_source.add(node_indices, 'index')
+        graph_renderer.node_renderer.data_source.add(labels, 'label')
+        graph_renderer.node_renderer.data_source.add(descs, 'desc')
+        graph_renderer.node_renderer.data_source.add(cm_paths, 'movies')
+        graph_renderer.node_renderer.data_source.add(prev_states, 'prev')
+        graph_renderer.node_renderer.data_source.add(next_states, 'next')
+        graph_renderer.node_renderer.data_source.add(group_usage, 'usage')
+
+        # node interactions
+        graph_renderer.node_renderer.glyph = Circle(size='node_size', fill_color='white', line_color='node_color')
+        graph_renderer.node_renderer.selection_glyph = Circle(size='node_size', fill_color=Spectral4[2])
+        graph_renderer.node_renderer.nonselection_glyph = Circle(size='node_size', line_color='node_color',
+                                                                 fill_color='white')
+        graph_renderer.node_renderer.hover_glyph = Circle(size='node_size', fill_color=Spectral4[1])
+
+        # edge interactions
+        graph_renderer.edge_renderer.glyph = MultiLine(line_color='edge_color', line_alpha=0.7, line_width='edge_width',
+                                                       line_join='miter')
+        graph_renderer.edge_renderer.selection_glyph = MultiLine(line_color='edge_color', line_width='edge_width',
+                                                                 line_join='miter')
+        graph_renderer.edge_renderer.nonselection_glyph = MultiLine(line_color='edge_color', line_alpha=0.1,
+                                                                    line_width='edge_width', line_join='miter')
+        ## Change line color to match difference colors
+        graph_renderer.edge_renderer.hover_glyph = MultiLine(line_color=Spectral4[1], line_width=3)
+
+        # selection policies
+        graph_renderer.selection_policy = NodesAndLinkedEdges()
+        graph_renderer.inspection_policy = NodesAndLinkedEdges()
+
+        # added rendered graph to plot
+        plot.renderers.append(graph_renderer)
+
+        # get node positions
+        x, y = zip(*graph_renderer.layout_provider.graph_layout.values())
+
+        # create DataSource for node info
+        label_source = ColumnDataSource({'x': x,
+                                         'y': y,
+                                         'syllable': list(graph.nodes)
+                                         })
+
+        # create the LabelSet to render
+        labels = LabelSet(x='x', y='y',
+                          x_offset=-7, y_offset=-7,
+                          text='syllable', source=label_source,
+                          text_color='black', text_font_size="12px",
+                          background_fill_color=None,
+                          render_mode='canvas')
+
+        plot.renderers.append(labels)
+
+        plots.append(plot)
+        rendered_graphs.append(graph_renderer)
+
+    formatted_plots = format_graphs(plots, group)
+
+    gp = gridplot(formatted_plots, plot_width=450, plot_height=450)
+    show(gp)

@@ -410,7 +410,7 @@ def make_graph(tm, ebunch_anchor, edge_threshold, usages_anchor):
 
     ebunch, orphans = convert_transition_matrix_to_ebunch(
         tm, tm, edge_threshold=edge_threshold, usages=usages_anchor,
-        indices=ebunch_anchor, keep_orphans=True, max_syllable=tm.shape[0] - 1)
+        indices=ebunch_anchor, keep_orphans=True, max_syllable=tm.shape[0])
 
     # get graph from ebunch
     graph = convert_ebunch_to_graph(ebunch)
@@ -469,8 +469,9 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
             # Handle node size and coloring
             if usages is not None:
                 # get usage difference
-                df_usage = [usages[j + i + 1][k] - usages[i][k] for k in pos.keys()]
-                usages.append(df_usage)
+                df_usage = [usages[j + i + 1][k] - usages[i][k] for k in range(df.shape[0])]
+
+                usages.append(get_usage_dict([df_usage])[0])
 
                 # get node sizes and colors based on usage differences
                 node_size = list(np.abs(df_usage) * usage_scale)

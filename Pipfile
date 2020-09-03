@@ -13,6 +13,8 @@ h5py = "*"
 tqdm = "*"
 scipy = "*"
 numpy = "*"
+qgrid = '*'
+bokeh = '*'
 click = "*"
 psutil = "*"
 cython = "*"
@@ -24,7 +26,7 @@ ipython = '*'
 sklearn = "*"
 seaborn = "*"
 cytoolz = "*"
-networkx = "*"
+networkx = "==2.4"
 setuptools = "*"
 ipywidgets = "*"
 matplotlib = "<=3.2.2"

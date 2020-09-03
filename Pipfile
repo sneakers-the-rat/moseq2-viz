@@ -20,6 +20,7 @@ pandas = "*"
 awscli = "*"
 future = "*"
 joblib = "*"
+ipython = '*'
 sklearn = "*"
 seaborn = "*"
 cytoolz = "*"

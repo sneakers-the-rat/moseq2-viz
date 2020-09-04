@@ -135,19 +135,19 @@ def add_group_wrapper(index_file, config_data):
 
     print('Group(s) added successfully.')
 
-def interactive_syllable_labeler_wrapper(model_path, crowd_movie_dir, output_file, max_syllables=None):
+def interactive_syllable_labeler_wrapper(model_path, index_file, crowd_movie_dir, output_file, max_syllables=None):
     '''
+    Wrapper function to launch a syllable crowd movie preview and interactive labeling application.
 
     Parameters
     ----------
-    model_path
-    crowd_movie_dir
-    output_file
-    max_syllables
+    model_path (str): Path to trained model.
+    crowd_movie_dir (str): Path to crowd movie directory
+    output_file (str): Path to syllable label information file
+    max_syllables (int): Maximum number of syllables to preview and label.
 
     Returns
     -------
-
     '''
 
     # Load the model
@@ -165,20 +165,38 @@ def interactive_syllable_labeler_wrapper(model_path, crowd_movie_dir, output_fil
         max_sylls = max_syllables
 
     # Make initial syllable information dict
-    labeler = SyllableLabeler(max_sylls=max_sylls, save_path=output_file)
+    labeler = SyllableLabeler(model_fit=model, index_file=index_file, max_sylls=max_sylls, save_path=output_file)
+
+    # Populate syllable info dict with relevant syllable information
     labeler.get_crowd_movie_paths(crowd_movie_dir)
+    labeler.get_mean_syllable_info()
 
     syll_select.options = labeler.syll_info
 
+    # Launch and display interactive API
     output = widgets.interactive_output(labeler.interactive_syllable_labeler, {'syllables': syll_select})
     display(syll_select, output)
 
     def on_syll_change(change):
+        '''
+        Callback function for when user selects a different syllable number
+        from the Dropdown menu
+
+        Parameters
+        ----------
+        change (ipywidget DropDown select event): User changes current value of DropDownMenu
+
+        Returns
+        -------
+        '''
+
         clear_output()
         display(syll_select, output)
 
+    # Update view when user selects new syllable from DropDownMenu
     output.observe(on_syll_change, names='value')
 
+    # Initialize button callbacks
     next_button.on_click(labeler.on_next)
     prev_button.on_click(labeler.on_prev)
     set_button.on_click(labeler.on_set)
@@ -498,6 +516,7 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
 
     # Write movies
     write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir)
+
 def plot_kl_divergences_wrapper(index_file, output_file, oob=False):
     '''
     Wrapper function that computes the KL Divergence for the mouse PDF for each session in the index file.

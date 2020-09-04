@@ -689,6 +689,7 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, groups=None, max_s
     -------
     complete_df (pd.DataFrame): updated input dataframe with a speed value for each syllable merge in as a new column.
     '''
+    warnings.filterwarnings('ignore')
 
     lbl_df = label_df.T
     columns = lbl_df.columns

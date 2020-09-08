@@ -14,7 +14,6 @@ import numpy as np
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
-import ipywidgets as widgets
 from moseq2_viz.util import parse_index
 from moseq2_viz.interactive.widgets import *
 from ipywidgets import fixed, interactive_output
@@ -22,7 +21,7 @@ from IPython.display import display, clear_output
 from moseq2_viz.interactive.view import graph_dendrogram
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.interactive.controller import SyllableLabeler, InteractiveSyllableStats
-from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
+from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_scalar, compute_all_pdf_data, \
                             compute_session_centroid_speeds, compute_kl_divergences
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot,
                             plot_mean_group_heatmap, plot_verbose_heatmap, plot_kl_divergences, \
@@ -174,29 +173,37 @@ def interactive_syllable_labeler_wrapper(model_path, crowd_movie_dir, output_fil
 
 def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syllables=None):
     '''
+    Wrapper function to launch the interactive syllable statistics API. Users will be able to view different
+    syllable statistics, sort them according to their metric of choice, and dynamically group the data to
+    view individual sessions or group averages.
 
     Parameters
     ----------
-    index_path
-    model_path
-    info_path
-    max_syllables
+    index_path (str): Path to index file.
+    model_path (str): Path to trained model file.
+    info_path (str): Path to syllable information file.
+    max_syllables (int): Maximum number of syllables to plot.
 
     Returns
     -------
-
     '''
 
+    # Initialize the statistical grapher context
     istat = InteractiveSyllableStats(index_path=index_path, model_path=model_path, info_path=info_path, max_sylls=max_syllables)
 
+    # Load all the data
     istat.interactive_stat_helper()
 
+    # Update the widget values
     session_sel.options = list(istat.df.SessionName.unique())
     ctrl_dropdown.options = list(istat.df.group.unique())
     exp_dropdown.options = list(istat.df.group.unique())
 
-    out = interactive_output(istat.interactive_syll_stats_grapher, {'df': fixed(istat.df),
-                                                      'obj': fixed(istat),
+    # Compute the syllable dendrogram values
+    istat.compute_dendrogram()
+
+    # Plot the Bokeh graph with the currently selected data.
+    out = interactive_output(istat.interactive_syll_stats_grapher, {
                                                       'stat': stat_dropdown,
                                                       'sort': sorting_dropdown,
                                                       'groupby': grouping_dropdown,
@@ -204,48 +211,9 @@ def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syl
                                                       'ctrl_group': ctrl_dropdown,
                                                       'exp_group': exp_dropdown
                                                       })
-
+    # Display graphs
     display(widget_box, out)
     graph_dendrogram(istat)
-
-    def show_mutation_group_select(change):
-        '''
-
-        Parameters
-        ----------
-        change
-
-        Returns
-        -------
-
-        '''
-
-        if change.new == 'mutation':
-            ctrl_dropdown.layout.display = "block"
-            exp_dropdown.layout.display = "block"
-        elif sorting_dropdown.value != 'mutation':
-            ctrl_dropdown.layout.display = "none"
-            exp_dropdown.layout.display = "none"
-
-    def show_session_select(change):
-        '''
-
-        Parameters
-        ----------
-        change
-
-        Returns
-        -------
-
-        '''
-
-        if change.new == 'SessionName':
-            session_sel.layout = layout_visible
-        elif change.new == 'group':
-            session_sel.layout = layout_hidden
-
-    grouping_dropdown.observe(show_session_select)
-    sorting_dropdown.observe(show_mutation_group_select)
 
 def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None):
     '''
@@ -339,7 +307,7 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
         scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
 
         # Compute the average rodent syllable velocity based on the corresponding centroid speed at each labeled frame
-        df = compute_mean_syll_speed(df, scalar_df, label_df, groups=group, max_sylls=max_syllable)
+        df = compute_mean_syll_scalar(df, scalar_df, label_df, groups=group, max_sylls=max_syllable)
 
     # Plot and save syllable stat plot
     plt, lgd = plot_syll_stats_with_sem(df, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,
@@ -562,6 +530,7 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
 
     # Write movies
     write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir)
+
 def plot_kl_divergences_wrapper(index_file, output_file, oob=False):
     '''
     Wrapper function that computes the KL Divergence for the mouse PDF for each session in the index file.

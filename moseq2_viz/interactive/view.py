@@ -106,8 +106,10 @@ def bokeh_plotting(df, stat, sorting, groupby='group'):
                tools=tools,
                tooltips=[
                          ("syllable", "@number{0}"),
-                         (f'{stat}', "$y{0.000}"),
-                         ('SEM', '@sem{0.000}'),
+                         ('usage', "@usage{0.000}"),
+                         ('speed', "@speed{0.000}"),
+                         ('dist. to center', "@dist_to_center{0.000}"),
+                         (f'{stat} SEM', '@sem{0.000}'),
                          ('label', '@label'),
                          ('description', '@desc'),
                          ('crowd movie', cm_tooltip)
@@ -149,6 +151,9 @@ def bokeh_plotting(df, stat, sorting, groupby='group'):
         source = ColumnDataSource(data=dict(
             x=range(len(aux_df.index)),
             y=aux_df[stat].to_numpy(),
+            usage=aux_df['usage'].to_numpy(),
+            speed=aux_df['speed'].to_numpy(),
+            dist_to_center=aux_df['dist_to_center'].to_numpy(),
             sem=sem[stat].to_numpy(),
             number=sem.index,
             label=labels,
@@ -160,6 +165,9 @@ def bokeh_plotting(df, stat, sorting, groupby='group'):
         err_source = ColumnDataSource(data=dict(
             x=errs_x,
             y=errs_y,
+            usage=aux_df['usage'].to_numpy(),
+            speed=aux_df['speed'].to_numpy(),
+            dist_to_center=aux_df['dist_to_center'].to_numpy(),
             sem=sem[stat].to_numpy(),
             number=sem.index,
             label=labels,
@@ -170,7 +178,7 @@ def bokeh_plotting(df, stat, sorting, groupby='group'):
         # Draw glyphs
         p.line('x', 'y', source=source, alpha=0.8, muted_alpha=0.1, legend_label=groups[i], color=color)
         p.circle('x', 'y', source=source, alpha=0.8, muted_alpha=0.1, legend_label=groups[i], color=color, size=6)
-        p.multi_line('x', 'y', source=err_source, alpha=0.8, muted_alpha=0.1, color=color)
+        p.multi_line('x', 'y', source=err_source, alpha=0.8, muted_alpha=0.1, legend_label=groups[i], color=color)
 
     # Setting dynamics xticks
     p.xaxis.ticker = FixedTicker(ticks=list(sorting))

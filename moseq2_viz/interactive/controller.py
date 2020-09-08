@@ -178,6 +178,7 @@ class SyllableLabeler:
 
 class InteractiveSyllableStats:
     '''
+
     Interactive Syllable Statistics grapher class that holds the context for the current
      inputted session.
 

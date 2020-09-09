@@ -84,7 +84,7 @@ mutation_box = VBox([ctrl_dropdown, exp_dropdown])
 sorting_box = VBox([sorting_dropdown, mutation_box])
 session_box = VBox([grouping_dropdown, session_sel])
 
-widget_box = HBox([stat_dropdown, sorting_box, session_box])
+stat_widget_box = HBox([stat_dropdown, sorting_box, session_box])
 
 
 ### Group Setting Widgets
@@ -129,3 +129,17 @@ speed_thresholder = widgets.SelectionRangeSlider(options=['tmp'], style=style, r
                                              description='Threshold nodes by speed', continuous_update=False)
 
 thresholding_box = HBox([VBox([edge_thresholder, usage_thresholder]), speed_thresholder])
+
+### Crowd Movie Comparison Widgets
+style = {'description_width': 'initial'}
+
+cm_syll_select = widgets.Dropdown(options=[], description='Syllable #:', disabled=False)
+num_examples = widgets.IntSlider(value=20, min=1, max=40, step=1, description='Number of Example Mice:', disabled=False, continuous_update=False, style=style)
+
+cm_sources_dropdown = widgets.Dropdown(options=['group', 'SessionName'], description='Make Crowd Movies From:', disabled=False)
+cm_session_sel = widgets.SelectMultiple(options=[], description='Sessions to Graph:', layout=layout_hidden, disabled=False)
+
+syllable_box = VBox([syll_select, num_examples])
+session_box = VBox([cm_sources_dropdown, session_sel])
+
+widget_box = HBox([syllable_box, session_box]) # add layout

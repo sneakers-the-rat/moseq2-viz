@@ -228,7 +228,6 @@ class SyllableLabeler:
                 # update duration
                 wid.children[3].children[1].value = '{:0.3f} ms'.format(group_info[group_name]['duration'])
 
-
     def interactive_syllable_labeler(self, syllables):
         '''
         Helper function that facilitates the interactive view. Function will create a Bokeh Div object

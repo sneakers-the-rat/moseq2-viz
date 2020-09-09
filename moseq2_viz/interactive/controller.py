@@ -383,6 +383,42 @@ class InteractiveTransitionGraph:
         # Get groups and matching session uuids
         self.group, label_group, label_uuids = get_trans_graph_groups(model_fit, index, sorted_index)
 
+        # Compute entropies
+        entropies = []
+        for g in self.group:
+            use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == g]
+            entropies.append(np.mean(entropy(use_labels), axis=0))
+
+        self.entropies = entropies
+
+        # Compute entropy rates
+        entropy_rates = []
+        for g in self.group:
+            use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == g]
+            entropy_rates.append(np.mean(entropy_rate(use_labels), axis=0))
+
+        self.entropy_rates = entropy_rates
+
+        labels = relabel_by_usage(labels, count='usage')[0]
+
+        # Compute usages and transition matrices
+        self.trans_mats, usages = get_group_trans_mats(labels, label_group, self.group, self.max_sylls)
+        self.df = df.groupby(['group', 'syllable'], as_index=False).mean()
+
+        # Get usage dictionary for node sizes
+        self.usages = get_usage_dict(usages)
+
+        # Compute entropy + entropy rate differences
+        for i in range(len(self.group)):
+            for j in range(i+1, len(self.group)):
+                self.entropies.append(self.entropies[j] - self.entropies[i])
+                self.entropy_rates.append(self.entropy_rates[j] - self.entropy_rates[i])
+
+        # Set entropy and entropy rate Ordered Dicts
+        for i in range(len(self.entropies)):
+            self.entropies[i] = get_usage_dict([self.entropies[i]])[0]
+            self.entropy_rates[i] = get_usage_dict([self.entropy_rates[i]])[0]
+
 
     def interactive_transition_graph_helper(self, edge_threshold, usage_threshold, speed_threshold):
         '''
@@ -450,4 +486,5 @@ class InteractiveTransitionGraph:
         # interactive plot transition graphs
         plot_interactive_transition_graph(graphs, pos, self.group,
                                           group_names, usages, self.syll_info,
+                                          self.entropies, self.entropy_rates,
                                           scalars=scalars)

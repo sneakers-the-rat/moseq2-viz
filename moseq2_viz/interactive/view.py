@@ -270,6 +270,8 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
                                            ('usage', '@usage{0.0000}'),
                                            ('speed', '@speed{0.0000}'),
                                            ('dist. to center', '@dist{0.0000}'),
+                                           ('ent. in', '@ent_in{0.000}'),
+                                           ('ent. out', '@ent_out{0.000}'),
                                            ('prev state', '@prev'),
                                            ('next state', '@next'),
                                            ('', cm_tooltip)], line_policy='interp'),
@@ -314,12 +316,23 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
 
         # get node directed neighbors
         prev_states, next_states = [], []
+
+        entropy_in, entropy_out = [], []
+        # get average entropy_in and out
         for n in node_indices:
             try:
                 # Get predecessor and neighboring states
                 pred = np.array(list(graph.predecessors(n)))
                 neighbors = np.array(list(graph.neighbors(n)))
 
+                e_ins, e_outs = [], []
+                for p in pred:
+                    e_in = entropy_rates[i][p][n] + (entropies[i][n] - entropies[i][p])
+                    e_ins.append(e_in)
+
+                for nn in neighbors:
+                    e_out = entropy_rates[i][n][nn] + (entropies[i][nn] - entropies[i][n])
+                    e_outs.append(e_out)
 
                 # Get predecessor and next state transition weights
                 pred_weights = [graph.edges()[(p, n)]['weight'] for p in pred]
@@ -332,6 +345,9 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
                 # Get transition likelihood-sorted previous and next states
                 prev_states.append(pred[pred_sort_idx])
                 next_states.append(neighbors[next_sort_idx])
+
+                entropy_in.append(np.nanmean(e_ins))
+                entropy_out.append(np.nanmean(e_outs))
             except nx.NetworkXError:
                 # handle orphans
                 print('missing', group_names[i], n)
@@ -355,6 +371,8 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
         graph_renderer.node_renderer.data_source.add(group_usage, 'usage')
         graph_renderer.node_renderer.data_source.add(group_speed, 'speed')
         graph_renderer.node_renderer.data_source.add(group_dist, 'dist')
+        graph_renderer.node_renderer.data_source.add(np.nan_to_num(entropy_in), 'ent_in')
+        graph_renderer.node_renderer.data_source.add(np.nan_to_num(entropy_out), 'ent_out')
 
         # node interactions
         graph_renderer.node_renderer.glyph = Circle(size='node_size', fill_color='white', line_color='node_color')

@@ -783,11 +783,11 @@ class CrowdMovieComparison:
         curr_desc = self.syll_info[str(syll_select.index)]['desc']
         
         # Set label
-        syll_label_widget = widgets.Label(value=f"{str(syll_select.index)}: {curr_label}", font_size=50, layout=label_layout)
-        syll_desc_widget = widgets.Label(value=f"{curr_desc}", font_size=50, layout=label_layout)
+        syll_label_widget = widgets.Label(value=f"Label: {str(syll_select.index)}: {curr_label}", font_size=50, layout=label_layout)
+        syll_desc_widget = widgets.Label(value=f"Description: {curr_desc}", font_size=50, layout=label_layout)
         
         # Pack info labels into HBox to display
-        info_box = widgets.HBox([syll_label_widget, syll_desc_widget])
+        info_box = widgets.VBox([syll_label_widget, syll_desc_widget])
         display(info_box)
 
         # Create video divs including syllable metadata

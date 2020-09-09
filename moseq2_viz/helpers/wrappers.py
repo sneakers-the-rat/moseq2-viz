@@ -243,7 +243,7 @@ def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syl
                                                       'exp_group': exp_dropdown
                                                       })
 
-    display(widget_box, out)
+    display(stat_widget_box, out)
     graph_dendrogram(istat)
 
     def show_mutation_group_select(change):

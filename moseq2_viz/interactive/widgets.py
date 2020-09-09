@@ -138,8 +138,9 @@ num_examples = widgets.IntSlider(value=20, min=1, max=40, step=1, description='N
 
 cm_sources_dropdown = widgets.Dropdown(options=['group', 'SessionName'], description='Make Crowd Movies From:', disabled=False)
 cm_session_sel = widgets.SelectMultiple(options=[], description='Sessions to Graph:', layout=layout_hidden, disabled=False)
+cm_trigger_button = widgets.Button(description='Generate Movies', disabled=False, tooltip='Make Crowd Movies', layout=layout_hidden)
 
 syllable_box = VBox([syll_select, num_examples])
-session_box = VBox([cm_sources_dropdown, session_sel])
+session_box = VBox([cm_sources_dropdown, cm_session_sel, cm_trigger_button])
 
 widget_box = HBox([syllable_box, session_box]) # add layout

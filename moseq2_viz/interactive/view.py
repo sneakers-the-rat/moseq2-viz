@@ -476,8 +476,12 @@ def display_crowd_movies(divs):
                             text-align: center;
                         }
         
-                        .column video {
+                        .column {
                           vertical-align: center;
+                        }
+
+                        table {
+                            display: inline-block;
                         }
                     </style>
                     </head>

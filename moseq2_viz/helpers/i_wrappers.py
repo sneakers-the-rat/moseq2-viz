@@ -14,7 +14,7 @@ from IPython.display import display, clear_output
 from moseq2_viz.interactive.view import graph_dendrogram
 from moseq2_viz.helpers.wrappers import init_wrapper_function
 from moseq2_viz.model.util import relabel_by_usage, get_syllable_usages, parse_model_results
-from moseq2_viz.interactive.widgets import syll_select, next_button, prev_button, set_button, info_boxes
+from moseq2_viz.interactive.widgets import syll_select, next_button, prev_button, set_button, info_boxes, cm_trigger_button
 from moseq2_viz.interactive.controller import SyllableLabeler, InteractiveSyllableStats, CrowdMovieComparison, InteractiveTransitionGraph
 
 def interactive_group_setting_wrapper(index_filepath):
@@ -224,22 +224,23 @@ def interactive_crowd_movie_comparison_preview(config_data, index_path, model_pa
     index, sorted_index, model_fit = init_wrapper_function(index_file=index_path, model_fit=model_path, output_dir=output_dir)
 
     sessions = list(set(model_fit['metadata']['uuids']))
-    session_sel.options = [sorted_index['files'][s]['metadata']['SessionName'] for s in sessions]
+    cm_session_sel.options = [sorted_index['files'][s]['metadata']['SessionName'] for s in sessions]
 
     cm_compare = CrowdMovieComparison(config_data=config_data, index_path=index_path,
                                       model_path=model_path, syll_info=syll_info, output_dir=output_dir)
 
     cm_compare.get_session_mean_syllable_info_df(model_fit, sorted_index)
 
-    out = interactive_output(cm_compare.crowd_movie_preview, {'config_data': fixed(cm_compare.config_data),
+    out = interactive_output(cm_compare.crowd_movie_preview, {#'config_data': fixed(cm_compare.config_data),
                                                    'syllable': syll_select,
                                                    'groupby': cm_sources_dropdown,
-                                                   'sessions': session_sel,
+                                                   #'sessions': cm_session_sel,
                                                    'nexamples': num_examples})
     display(out)
 
-    session_sel.observe(cm_compare.select_session)
+    cm_session_sel.observe(cm_compare.select_session)
     cm_sources_dropdown.observe(cm_compare.show_session_select)
+    cm_trigger_button.on_click(cm_compare.on_click_trigger_button)
 
 def interactive_plot_transition_graph_wrapper(model_path, index_path, info_path):
     '''

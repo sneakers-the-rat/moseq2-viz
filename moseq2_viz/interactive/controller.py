@@ -652,6 +652,8 @@ class CrowdMovieComparison:
         self.syll_info = syll_info
         self.output_dir = output_dir
         self.max_sylls = config_data['max_syllable']
+        
+        # Prepare current context's base session syllable info dict
         self.session_dict = {str(i): {'session_info': {}} for i in range(self.max_sylls)}
         
     def show_session_select(self, change):
@@ -668,17 +670,24 @@ class CrowdMovieComparison:
         -------
         '''
 
+        # Handle display syllable selection and update config_data crowd movie generation
+        # source selector.
         if change.new == 'SessionName':
-            session_sel.layout = layout_visible
+            # Show session selector
+            cm_session_sel.layout = layout_visible
+            cm_trigger_button.layout = layout_visible
             self.config_data['separate_by'] = 'sessions'
         elif change.new == 'group':
-            session_sel.layout = layout_hidden
+            # Hide session selector
+            cm_session_sel.layout = layout_hidden
+            cm_trigger_button.layout = layout_hidden
             self.config_data['separate_by'] = 'groups'
 
     def select_session(self, event):
         '''
-        Callback function to save the list of selected sessions to config_data
-        to pass to crowd_movie_wrapper.
+        Callback function to save the list of selected sessions to config_data,
+         and get session syllable info to pass to crowd_movie_wrapper and create the
+         accompanying syllable scalar metadata table.
 
         Parameters
         ----------
@@ -688,7 +697,11 @@ class CrowdMovieComparison:
         -------
         '''
 
-        self.config_data['session_names'] = list(session_sel.value)
+        # Set currently selected sessions
+        self.config_data['session_names'] = list(cm_session_sel.value)
+        
+        # Update session_syllable info dict
+        self.get_selected_session_syllable_info(self.config_data['session_names'])
 
     def get_session_mean_syllable_info_df(self, model_fit, sorted_index):
         '''
@@ -719,9 +732,11 @@ class CrowdMovieComparison:
     def get_selected_session_syllable_info(self, sel_sessions):
         '''
         Prepares dict of session-based syllable information to display.
+        
         Parameters
         ----------
         sel_sessions (list): list of selected session names.
+
         Returns
         -------
         '''
@@ -733,7 +748,7 @@ class CrowdMovieComparison:
                 sess: self.session_df[self.session_df['SessionName'] == sess].drop('SessionName', axis=1).reset_index(
                     drop=True).to_dict()}
             session_dicts.append(session_dict)
-
+        
         # Update syllable data with session info
         for sd in session_dicts:
             session_name = list(sd.keys())[0]
@@ -744,7 +759,80 @@ class CrowdMovieComparison:
                     'duration': sd[session_name]['duration'][syll]
                 }
     
-    def crowd_movie_preview(self, config_data, syllable, groupby, sessions, nexamples):
+    def generate_crowd_movie_divs(self):
+        '''
+        Generates HTML divs containing crowd movies and syllable metadata tables
+         from the given syllable dict file.
+
+        Returns
+        -------
+        divs (list of Bokeh.models.Div): Divs of HTML videos and metadata tables.
+        '''
+
+        # Compute paths to crowd movies
+        path_dict = make_crowd_movies_wrapper(self.index_path, self.model_path, self.config_data, self.output_dir)
+        
+        # Remove previously displayed data
+        clear_output()
+
+        # Create syllable info DataFrame
+        syll_info_df = pd.DataFrame(self.grouped_syll_dict)
+
+        # Get currently selected syllable name info
+        curr_label = self.syll_info[str(syll_select.index)]['label']
+        curr_desc = self.syll_info[str(syll_select.index)]['desc']
+        
+        # Set label
+        syll_label_widget = widgets.Label(value=f"{str(syll_select.index)}: {curr_label}", font_size=50, layout=label_layout)
+        syll_desc_widget = widgets.Label(value=f"{curr_desc}", font_size=50, layout=label_layout)
+        
+        # Pack info labels into HBox to display
+        info_box = widgets.HBox([syll_label_widget, syll_desc_widget])
+        display(info_box)
+
+        # Create video divs including syllable metadata
+        divs = []
+        for group_name, cm_path in path_dict.items():
+            # Convert crowd movie metadata to HTML table
+            group_info = pd.DataFrame(syll_info_df[group_name]).to_html()
+
+            # Insert paths and table into HTML div
+            group_txt = '''
+                {group_info}
+                <video
+                    src="{src}"; alt="{alt}"; height="350"; width="350"; preload="true";
+                    style="float: center; type: "video/mp4"; margin: 0px 10px 10px 0px;
+                    border="2"; autoplay controls loop>
+                </video>
+            '''.format(group_info=group_info, src=cm_path[0], alt=cm_path[0])
+
+            divs.append(group_txt)
+        
+        return divs
+
+    def on_click_trigger_button(self, b):
+        '''
+        Generates crowd movies and displays them when the user clicks the trigger button
+
+        Parameters
+        ----------
+
+        b (ipywidgets.Button click event): User clicks "Generate Movies" button
+
+        Returns
+        -------
+        '''
+        
+        # Compute current selected syllable's session dict.
+        self.grouped_syll_dict = self.session_dict[str(syll_select.index)]['session_info']
+
+        # Get Crowd Movie Divs
+        divs = self.generate_crowd_movie_divs()
+
+        # Display generated movies
+        display_crowd_movies(divs)
+
+    def crowd_movie_preview(self, syllable, groupby, nexamples):
         '''
         Helper function that triggers the crowd_movie_wrapper function and creates the HTML
         divs containing the generated crowd movies.
@@ -752,10 +840,7 @@ class CrowdMovieComparison:
 
         Parameters
         ----------
-        config_data (dict): Configuration parameters for creating crowd movies.
         syllable (int or ipywidgets.DropDownMenu): Currently displayed syllable.
-        groupby (str or ipywidgets.DropDownMenu): Indicates source selection for crowd movies.
-        sessions (list or ipywidgets.SelectMultiple): Specific session sources to show.
         nexamples (int or ipywidgets.IntSlider): Number of mice to display per crowd movie.
 
         Returns
@@ -767,45 +852,15 @@ class CrowdMovieComparison:
         self.config_data['specific_syllable'] = int(syll_select.index)
         self.config_data['max_examples'] = nexamples
 
-        # Compute paths to crowd movies
-        path_dict = make_crowd_movies_wrapper(self.index_path, self.model_path, self.config_data, self.output_dir)
-        clear_output()
-
         # Get group info based on selected DropDownMenu item
-        if groupby == 'SessionName':
-            self.get_selected_session_syllable_info(sessions)
-            syll_dict = self.session_dict[str(syll_select.index)]['session_info']
+        if groupby == 'group':
+            self.grouped_syll_dict = self.syll_info[str(syll_select.index)]['group_info']
+
+            # Get Crowd Movie Divs
+            divs = self.generate_crowd_movie_divs()
+
+            # Display generated movies
+            display_crowd_movies(divs)
         else:
-            syll_dict = self.syll_info[str(syll_select.index)]['group_info']
-
-        # Create video divs including syllable metadata
-        divs = []
-        for group_name, cm_path in path_dict.items():
-            group_txt = '''
-                <h2>{group_name}</h2>
-                <video
-                    src="{src}"; alt="{alt}"; height="350"; width="350"; preload="true";
-                    style="float: center; type: "video/mp4"; margin: 0px 10px 10px 0px;
-                    border="2"; autoplay controls loop>
-                </video>
-                <table style="display: inline-block;">
-                    <tr style="text-align:center;">
-                        <th> Usage: </th>
-                        <th>{usage:.3f}</th>
-                    </tr>
-                    <tr>
-                        <th> Speed: </th>
-                        <th>{speed:.3f} mm/s</th>
-                    </tr>
-                    <tr>
-                        <th> Duration: </th>
-                        <th>{duration:.3f} ms</th>
-                    </tr>
-                </table>
-            '''.format(group_name=group_name, usage=syll_dict[group_name]['usage'], speed=syll_dict[group_name]['speed'],
-                       duration=syll_dict[group_name]['duration'], src=cm_path[0], alt=cm_path[0])
-
-            divs.append(group_txt)
-
-        # Display generated movies
-        display_crowd_movies(divs)
+            # Display widget box until user clicks button to generate session-based crowd movies
+            display(widget_box)

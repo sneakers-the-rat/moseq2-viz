@@ -233,7 +233,10 @@ def interactive_crowd_movie_comparison_preview(config_data, index_path, model_pa
     sessions = list(set(model_fit['metadata']['uuids']))
     session_sel.options = [sorted_index['files'][s]['metadata']['SessionName'] for s in sessions]
 
-    cm_compare = CrowdMovieComparison(config_data, index_path, model_path, syll_info, output_dir)
+    cm_compare = CrowdMovieComparison(config_data=config_data, index_path=index_path,
+                                      model_path=model_path, syll_info=syll_info, output_dir=output_dir)
+
+    cm_compare.get_session_mean_syllable_info_df(model_fit, sorted_index)
 
     out = interactive_output(cm_compare.crowd_movie_preview, {'config_data': fixed(cm_compare.config_data),
                                                    'syllable': syll_select,

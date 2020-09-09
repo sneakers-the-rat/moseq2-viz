@@ -459,10 +459,15 @@ def display_crowd_movies(divs):
     movie_table = '''
                     <head>
                     <style>
+                        .output {
+                            display: contents;
+                            height: auto;
+                        }
                         .row {
                             display: flex;
                             flex-wrap: wrap;
                             vertical-align: center;
+                            width: 900px;
                             text-align: center;
                         }
         
@@ -476,15 +481,16 @@ def display_crowd_movies(divs):
                         }
                     </style>
                     </head>
-                    <div class="row"; style="background-color:#ffffff; width:750px">
+                    <div class="row"; style="background-color:#ffffff; height:auto;">
                   '''
+
     # Create div grid
     for i, div in enumerate(divs):
         if (i % 2 == 0) and i > 0:
             # make a new row
             movie_table += '</div>'
             col = f'''
-                      <div class="row"; style="background-color:#ffffff; width:750px">
+                      <div class="row"; style="background-color:#ffffff; height:auto;">
                           <div class="column">
                               {div}
                           </div>

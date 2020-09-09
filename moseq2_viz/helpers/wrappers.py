@@ -21,9 +21,8 @@ from moseq2_viz.interactive.widgets import *
 from ipywidgets import fixed, interactive_output
 from moseq2_viz.interactive.view import graph_dendrogram
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
-from moseq2_viz.model.trans_graph import get_trans_graph_groups, compute_and_graph_grouped_TMs, \
-    get_group_trans_mats, get_usage_dict
-from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
+from moseq2_viz.model.trans_graph import get_trans_graph_groups, compute_and_graph_grouped_TMs
+from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_scalar, compute_all_pdf_data, \
                             compute_session_centroid_speeds, compute_kl_divergences
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot,
                             plot_mean_group_heatmap, plot_verbose_heatmap, plot_kl_divergences, \
@@ -315,49 +314,34 @@ def interactive_plot_transition_graph_wrapper(model_path, index_path, info_path)
     -------
     '''
 
-    # Load Model
-    model_fit = parse_model_results(joblib.load(model_path))
+    # Initialize Transition Graph data structure
+    i_trans_graph = InteractiveTransitionGraph(model_path=model_path, index_path=index_path, info_path=info_path)
 
-    # Load Index File
-    index, sorted_index = parse_index(index_path)
+    # Load and store transition graph data
+    i_trans_graph.initialize_transition_data()
 
-    # Load Syllable Info
-    with open(info_path, 'r') as f:
-        syll_info = yaml.safe_load(f)
+    # Update threshold range values
+    edge_threshold_stds = int(np.max(i_trans_graph.trans_mats)/np.std(i_trans_graph.trans_mats))
+    usage_threshold_stds = int(i_trans_graph.df['usage'].max()/i_trans_graph.df['usage'].std()) + 2
+    speed_threshold_stds = int(i_trans_graph.df['speed'].max() / i_trans_graph.df['speed'].std()) + 2
 
-    # Get labels and optionally relabel them by usage sorting
-    labels = model_fit['labels']
-    labels = relabel_by_usage(labels, count='usage')[0]
+    edge_thresholder.options = [float('%.3f' % (np.std(i_trans_graph.trans_mats) * i)) for i in range(edge_threshold_stds)]
+    edge_thresholder.index = (1, edge_threshold_stds-1)
 
-    # get max_sylls
-    max_sylls = len(list(syll_info.keys()))
+    usage_thresholder.options = [float('%.3f' % (i_trans_graph.df['usage'].std() * i)) for i in range(usage_threshold_stds)]
+    usage_thresholder.index = (0, usage_threshold_stds - 1)
 
-    # Get groups and matching session uuids
-    group, label_group, label_uuids = get_trans_graph_groups(model_fit, index, sorted_index)
-
-    # Compute usages and transition matrices
-    trans_mats, usages = get_group_trans_mats(labels, label_group, group, max_sylls)
-
-    # Get usage dictionary for node sizes
-    usages = get_usage_dict(usages)
-
-    i_trans_graph = InteractiveTransitionGraph(trans_mats=trans_mats,
-                                               usages=usages,
-                                               max_sylls=max_sylls,
-                                               group=group
-                                               )
-
-    usage_thresholder.max = 0.1
-    edge_thresholder.max = np.max(trans_mats) + 0.01
+    speed_thresholder.options = [float('%.3f' % (i_trans_graph.df['speed'].std() * i)) for i in range(speed_threshold_stds)]
+    speed_thresholder.index = (0, speed_threshold_stds - 1)
 
     # Make graphs
     out = interactive_output(i_trans_graph.interactive_transition_graph_helper,
-                             {'syll_info': fixed(syll_info),
-                              'trans_mats': fixed(trans_mats),
-                              'edge_threshold': edge_thresholder,
-                              'usage_threshold': usage_thresholder
+                             {'edge_threshold': edge_thresholder,
+                              'usage_threshold': usage_thresholder,
+                              'speed_threshold': speed_thresholder,
                               })
 
+    # Display widgets and bokeh network plots
     display(thresholding_box, out)
 
 def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None):
@@ -452,7 +436,7 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
         scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
 
         # Compute the average rodent syllable velocity based on the corresponding centroid speed at each labeled frame
-        df = compute_mean_syll_speed(df, scalar_df, label_df, groups=group, max_sylls=max_syllable)
+        df = compute_mean_syll_scalar(df, scalar_df, label_df, groups=group, max_sylls=max_syllable)
 
     # Plot and save syllable stat plot
     plt, lgd = plot_syll_stats_with_sem(df, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,

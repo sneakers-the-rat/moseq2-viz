@@ -1,5 +1,6 @@
 import warnings
 import itertools
+import numpy as np
 import networkx as nx
 from bokeh.layouts import gridplot
 from bokeh.palettes import Spectral4
@@ -214,7 +215,7 @@ def format_graphs(graphs, group):
 
     return formatted_plots
 
-def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, syll_info, max_sylls):
+def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, syll_info, entropies, entropy_rates, scalars):
     '''
 
     Converts the computed networkx transition graphs to Bokeh glyph objects that can be interacted with
@@ -228,7 +229,7 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
     group_names (list): list of names for all the generated transition graphs + difference graphs
     usages (list of OrdreredDicts): list of OrderedDicts containing syllable usages.
     syll_info (dict): dict of syllable label information to display with HoverTool
-    max_sylls (int): Maximum number of syllables to include in transition graph
+    scalars (dict): dict of syllable scalar information to display with HoverTool
 
     Returns
     -------
@@ -267,6 +268,8 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
                                            ('label', '@label'),
                                            ('description', '@desc'),
                                            ('usage', '@usage{0.0000}'),
+                                           ('speed', '@speed{0.0000}'),
+                                           ('dist. to center', '@dist{0.0000}'),
                                            ('prev state', '@prev'),
                                            ('next state', '@next'),
                                            ('', cm_tooltip)], line_policy='interp'),
@@ -288,6 +291,12 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
         # get usages
         group_usage = [usages[i][j] for j in node_indices if j in usages[i].keys()]
 
+        # get speeds
+        group_speed = [scalars['speeds'][i][j] for j in node_indices if j in scalars['speeds'][i].keys()]
+
+        # get mean distances to bucket centers
+        group_dist = [scalars['dists'][i][j] for j in node_indices if j in scalars['dists'][i].keys()]
+
         # node colors for difference graphs
         if i >= len(group):
             node_color = {s: 'red' if usages[i][s] > 0 else 'blue' for s in node_indices}
@@ -307,8 +316,22 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
         prev_states, next_states = [], []
         for n in node_indices:
             try:
-                prev_states.append(list(graph.predecessors(n)))
-                next_states.append(list(graph.neighbors(n)))
+                # Get predecessor and neighboring states
+                pred = np.array(list(graph.predecessors(n)))
+                neighbors = np.array(list(graph.neighbors(n)))
+
+
+                # Get predecessor and next state transition weights
+                pred_weights = [graph.edges()[(p, n)]['weight'] for p in pred]
+                next_weights = [graph.edges()[(n, p)]['weight'] for p in neighbors]
+
+                # Get descending order of weights
+                pred_sort_idx = np.argsort(pred_weights)[::-1]
+                next_sort_idx = np.argsort(next_weights)[::-1]
+
+                # Get transition likelihood-sorted previous and next states
+                prev_states.append(pred[pred_sort_idx])
+                next_states.append(neighbors[next_sort_idx])
             except nx.NetworkXError:
                 # handle orphans
                 print('missing', group_names[i], n)
@@ -330,23 +353,24 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
         graph_renderer.node_renderer.data_source.add(prev_states, 'prev')
         graph_renderer.node_renderer.data_source.add(next_states, 'next')
         graph_renderer.node_renderer.data_source.add(group_usage, 'usage')
+        graph_renderer.node_renderer.data_source.add(group_speed, 'speed')
+        graph_renderer.node_renderer.data_source.add(group_dist, 'dist')
 
         # node interactions
         graph_renderer.node_renderer.glyph = Circle(size='node_size', fill_color='white', line_color='node_color')
         graph_renderer.node_renderer.selection_glyph = Circle(size='node_size', fill_color=Spectral4[2])
-        graph_renderer.node_renderer.nonselection_glyph = Circle(size='node_size', line_color='node_color',
-                                                                 fill_color='white')
+        graph_renderer.node_renderer.nonselection_glyph = Circle(size='node_size', line_color='node_color', fill_color='white')
         graph_renderer.node_renderer.hover_glyph = Circle(size='node_size', fill_color=Spectral4[1])
 
         # edge interactions
-        graph_renderer.edge_renderer.glyph = MultiLine(line_color='edge_color', line_alpha=0.7, line_width='edge_width',
-                                                       line_join='miter')
+        graph_renderer.edge_renderer.glyph = MultiLine(line_color='edge_color', line_alpha=0.7,
+                                                       line_width='edge_width', line_join='miter')
         graph_renderer.edge_renderer.selection_glyph = MultiLine(line_color='edge_color', line_width='edge_width',
-                                                                 line_join='miter')
-        graph_renderer.edge_renderer.nonselection_glyph = MultiLine(line_color='edge_color', line_alpha=0.1,
+                                                                 line_join='miter', line_alpha=0.8,)
+        graph_renderer.edge_renderer.nonselection_glyph = MultiLine(line_color='edge_color', line_alpha=0.0,
                                                                     line_width='edge_width', line_join='miter')
         ## Change line color to match difference colors
-        graph_renderer.edge_renderer.hover_glyph = MultiLine(line_color=Spectral4[1], line_width=3)
+        graph_renderer.edge_renderer.hover_glyph = MultiLine(line_color=Spectral4[1], line_width=5)
 
         # selection policies
         graph_renderer.selection_policy = NodesAndLinkedEdges()
@@ -372,12 +396,15 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
                           background_fill_color=None,
                           render_mode='canvas')
 
+        # render labels
         plot.renderers.append(labels)
 
         plots.append(plot)
         rendered_graphs.append(graph_renderer)
 
+    # Format grid of transition graphs
     formatted_plots = format_graphs(plots, group)
 
-    gp = gridplot(formatted_plots, plot_width=450, plot_height=450)
+    # Create Bokeh grid plot object
+    gp = gridplot(formatted_plots, plot_width=500, plot_height=500)
     show(gp)

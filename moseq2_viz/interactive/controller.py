@@ -18,11 +18,13 @@ from IPython.display import display
 from bokeh.models.widgets import Div
 from moseq2_viz.util import parse_index
 from moseq2_viz.interactive.widgets import *
+from moseq2_viz.info.util import entropy, entropy_rate
 from sklearn.metrics.pairwise import pairwise_distances
 from scipy.cluster.hierarchy import linkage, dendrogram
 from moseq2_viz.interactive.view import bokeh_plotting, plot_interactive_transition_graph
+from moseq2_viz.model.trans_graph import get_trans_graph_groups, get_group_trans_mats, get_usage_dict
 from moseq2_viz.model.label_util import get_sorted_syllable_stat_ordering, get_syllable_muteness_ordering
-from moseq2_viz.scalars.util import scalars_to_dataframe, compute_session_centroid_speeds, compute_mean_syll_speed
+from moseq2_viz.scalars.util import scalars_to_dataframe, compute_session_centroid_speeds, compute_mean_syll_scalar
 from moseq2_viz.model.util import parse_model_results, results_to_dataframe, get_syllable_usages, relabel_by_usage
 from moseq2_viz.model.trans_graph import handle_graph_layout, convert_transition_matrix_to_ebunch, \
     convert_ebunch_to_graph, make_transition_graphs
@@ -272,7 +274,7 @@ class InteractiveSyllableStats:
                                             max_syllable=self.max_sylls, sort=True, compute_labels=True)
 
         scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
-        df = compute_mean_syll_speed(df, scalar_df, label_df, groups=None, max_sylls=self.max_sylls)
+        df = compute_mean_syll_scalar(df, scalar_df, label_df, groups=None, max_sylls=self.max_sylls)
 
         self.df = df.merge(info_df, on='syllable')
 
@@ -321,24 +323,68 @@ class InteractiveTransitionGraph:
 
     '''
 
-    def __init__(self, trans_mats, usages, max_sylls, group):
+    def __init__(self, model_path, index_path, info_path):
         '''
         Initializes context variables
 
         Parameters
         ----------
-        trans_mats (list of 2D np.arrays): list of transition matrices for each group
-        usages (list of OrderedDicts): list of dicts of syllable number keys paired with their counts
-        max_sylls (int): maximum number of syllables to include in graph
-        group (list): list of unique group names corresponding to trans_mats
+        model_path (str): Path to trained model file
+        index_path (str): Path to index file containing trained session metadata.
+        info_path (str): Path to labeled syllable info file
         '''
 
-        self.trans_mats = trans_mats
-        self.usages = usages
-        self.max_sylls = max_sylls
-        self.group = group
+        self.model_path = model_path
+        self.index_path = index_path
+        self.info_path = info_path
 
-    def interactive_transition_graph_helper(self, syll_info, trans_mats, edge_threshold, usage_threshold):
+    def initialize_transition_data(self):
+        '''
+        Performs all necessary pre-processing to compute the transition graph data and
+         syllable metadata to display via HoverTool.
+        Stores the syll_info dict, groups to explore, maximum number of syllables, and
+         the respective transition graphs and syllable scalars associated.
+
+        Returns
+        -------
+        '''
+
+        # Load Model
+        model_fit = parse_model_results(joblib.load(self.model_path))
+
+        # Load Index File
+        index, sorted_index = parse_index(self.index_path)
+
+        # Load scalar Dataframe to compute syllable speeds
+        scalar_df = scalars_to_dataframe(sorted_index)
+
+        # Load Syllable Info
+        with open(self.info_path, 'r') as f:
+            self.syll_info = yaml.safe_load(f)
+
+        # Get labels and optionally relabel them by usage sorting
+        labels = model_fit['labels']
+
+        # get max_sylls
+        self.max_sylls = len(list(self.syll_info.keys()))
+
+        # Compute a syllable summary Dataframe containing usage-based
+        # sorted/relabeled syllable usage and duration information from [0, max_syllable) inclusive
+        df, label_df = results_to_dataframe(model_fit, index, count='usage',
+                                            max_syllable=self.max_sylls, sort=True, compute_labels=True)
+
+        # Compute centroid speeds
+        scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
+
+        # Compute and append additional syllable scalar data
+        df = compute_mean_syll_scalar(df, scalar_df, label_df, max_sylls=self.max_sylls)
+        df = compute_mean_syll_scalar(df, scalar_df, label_df, scalar='dist_to_center_px', max_sylls=self.max_sylls)
+
+        # Get groups and matching session uuids
+        self.group, label_group, label_uuids = get_trans_graph_groups(model_fit, index, sorted_index)
+
+
+    def interactive_transition_graph_helper(self, edge_threshold, usage_threshold, speed_threshold):
         '''
 
         Helper function that generates all the transition graphs given the currently selected
@@ -346,23 +392,35 @@ class InteractiveTransitionGraph:
 
         Parameters
         ----------
-        syll_info (dict): Dict of user-labeled syllable information.
-        edge_threshold (tuple): Transition probability range to include in graphs.
-        usage_threshold (tuple): Syllable usage range to include in graphs.
-
+        edge_threshold (tuple or ipywidgets.FloatRangeSlider): Transition probability range to include in graphs.
+        usage_threshold (tuple or ipywidgets.FloatRangeSlider): Syllable usage range to include in graphs.
+        speed_threshold (tuple or ipywidgets.FloatRangeSlider): Syllable speed range to include in graphs.
         Returns
         -------
         '''
 
         # Get graph node anchors
-        usages, anchor, usages_anchor, ngraphs = handle_graph_layout(trans_mats, self.usages, anchor=0)
+        usages, anchor, usages_anchor, ngraphs = handle_graph_layout(self.trans_mats, self.usages, anchor=0)
 
-        weights = trans_mats
+        weights = self.trans_mats
+
+        # Get anchored group speeds
+        scalars = {
+            'speeds': [],
+            'dists': []
+        }
+        for g in self.group:
+            g_speeds = self.df[self.df['group'] == g]['speed'].to_numpy()
+            g_dist_to_center = self.df[self.df['group'] == g]['dist_to_center'].to_numpy()
+            scalars['speeds'].append(g_speeds)
+            scalars['dists'].append(g_dist_to_center)
+
+        speed_anchor = get_usage_dict([scalars['speeds'][anchor]])[0]
 
         # Create graph with nodes and edges
         ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
-            weights[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
-            keep_orphans=True, usages=usages_anchor,
+            weights[anchor], self.trans_mats[anchor], edge_threshold=edge_threshold,
+            keep_orphans=True, usages=usages_anchor, speeds=speed_anchor, speed_threshold=speed_threshold,
             usage_threshold=usage_threshold, max_syllable=self.max_sylls-1)
 
         # Get graph anchor
@@ -374,15 +432,22 @@ class InteractiveTransitionGraph:
         group_names = self.group.copy()
 
         # prepare transition graphs
-        usages, group_names, _, _, _, graphs = make_transition_graphs(trans_mats,
+        usages, group_names, _, _, _, graphs, scalars = make_transition_graphs(self.trans_mats,
                                                              self.usages[:len(self.group)],
                                                              self.group,
                                                              group_names,
                                                              usages_anchor,
                                                              pos, ebunch_anchor, edge_threshold,
+                                                             scalars=scalars, speed_threshold=speed_threshold,
                                                              difference_threshold=0.0005, orphans=orphans,
                                                              orphan_weight=0, edge_width_scale=100)
+
+        for key in scalars.keys():
+            for i, scalar in enumerate(scalars[key]):
+                if isinstance(scalar, (list, np.ndarray)):
+                    scalars[key][i] = get_usage_dict([scalar])[0]
+
         # interactive plot transition graphs
         plot_interactive_transition_graph(graphs, pos, self.group,
-                                          group_names, usages,
-                                          syll_info, self.max_sylls)
+                                          group_names, usages, self.syll_info,
+                                          scalars=scalars)

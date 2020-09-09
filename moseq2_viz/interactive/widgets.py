@@ -100,8 +100,19 @@ qgrid.set_grid_option('highlightSelectedCell', False)
 ### Transition Graph Widgets
 
 style = {'description_width': 'initial', 'display':'flex-grow', 'align_items':'stretch'}
+'''
 edge_thresholder = widgets.FloatRangeSlider(value=[0.0025, 1], min=0, max=1, step=0.001, style=style, readout_format='.4f',
                                             description='Edges weights to display', continuous_update=False)
 usage_thresholder = widgets.FloatRangeSlider(value=[0, 1], min=0, max=1, step=0.001, style=style, readout_format='.4f',
                                              description='Usage nodes to display', continuous_update=False)
-thresholding_box = VBox([edge_thresholder, usage_thresholder])
+speed_thresholder = widgets.FloatRangeSlider(value=[-25, 200], min=-50, max=200, step=1, style=style, readout_format='.1f',
+                                             description='Threshold nodes by speed', continuous_update=False)
+'''
+edge_thresholder = widgets.SelectionRangeSlider(options=['tmp'], style=style,
+                                            description='Edges weights to display', continuous_update=False)
+usage_thresholder = widgets.SelectionRangeSlider(options=['tmp'], style=style, readout_format='.4f',
+                                             description='Usage nodes to display', continuous_update=False)
+speed_thresholder = widgets.SelectionRangeSlider(options=['tmp'], style=style, readout_format='.1f',
+                                             description='Threshold nodes by speed', continuous_update=False)
+
+thresholding_box = HBox([VBox([edge_thresholder, usage_thresholder]), speed_thresholder])

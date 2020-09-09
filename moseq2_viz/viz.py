@@ -20,7 +20,7 @@ from moseq2_viz.util import star
 from typing import Tuple, Iterable
 from matplotlib import lines, gridspec
 from networkx.drawing.nx_agraph import graphviz_layout
-from moseq2_viz.model.label_util import get_sorted_syllable_stat_ordering, get_syllable_muteness_ordering
+from moseq2_viz.model.label_util import get_sorted_syllable_stat_ordering, get_syllable_mutation_ordering
 
 def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
                  tail_filter=None, tail_threshold=5):
@@ -800,9 +800,9 @@ def check_types(function):
             if ordering[0] == 'm':
                 if (ctrl_group != None and exp_group != None) and (ctrl_group in groups and exp_group in groups):
                     max_sylls += 1
-                    ordering = get_syllable_muteness_ordering(complete_df, ctrl_group=ctrl_group,
-                                                                           exp_group=exp_group, max_sylls=max_sylls,
-                                                                           stat=stat)
+                    ordering = get_syllable_mutation_ordering(complete_df, ctrl_group=ctrl_group,
+                                                              exp_group=exp_group, max_sylls=max_sylls,
+                                                              stat=stat)
                 else:
                     print('You must enter valid control and experimental group names found in your trained model and index file.\nPlotting descending order.')
                     ordering, _ = get_sorted_syllable_stat_ordering(complete_df, stat=stat)

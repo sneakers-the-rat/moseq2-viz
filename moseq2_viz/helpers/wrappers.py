@@ -15,15 +15,17 @@ import pandas as pd
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
-from IPython.display import display
 from moseq2_viz.util import parse_index
 from moseq2_viz.interactive.widgets import *
 from ipywidgets import fixed, interactive_output
+from IPython.display import display, clear_output
 from moseq2_viz.interactive.view import graph_dendrogram
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.model.trans_graph import get_trans_graph_groups, compute_and_graph_grouped_TMs
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_scalar, compute_all_pdf_data, \
-                            compute_session_centroid_speeds, compute_kl_divergences
+                                    compute_session_centroid_speeds, compute_kl_divergences
+from moseq2_viz.interactive.widgets import syll_select, next_button, prev_button, set_button, \
+                                            syll_info_lbl, info_boxes
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot,
                             plot_mean_group_heatmap, plot_verbose_heatmap, plot_kl_divergences, \
                             plot_explained_behavior, save_fig)
@@ -189,19 +191,19 @@ def add_group_wrapper(index_file, config_data):
 
     print('Group(s) added successfully.')
 
-def interactive_syllable_labeler_wrapper(model_path, crowd_movie_dir, output_file, max_syllables=None):
+def interactive_syllable_labeler_wrapper(model_path, index_file, crowd_movie_dir, output_file, max_syllables=None):
     '''
-    
+    Wrapper function to launch a syllable crowd movie preview and interactive labeling application.
+
     Parameters
     ----------
-    model_path
-    crowd_movie_dir
-    output_file
-    max_syllables
+    model_path (str): Path to trained model.
+    crowd_movie_dir (str): Path to crowd movie directory
+    output_file (str): Path to syllable label information file
+    max_syllables (int): Maximum number of syllables to preview and label.
 
     Returns
     -------
-
     '''
 
     # Load the model
@@ -219,10 +221,46 @@ def interactive_syllable_labeler_wrapper(model_path, crowd_movie_dir, output_fil
         max_sylls = max_syllables
 
     # Make initial syllable information dict
-    labeler = SyllableLabeler(max_sylls=max_sylls, save_path=output_file)
+    labeler = SyllableLabeler(model_fit=model, index_file=index_file, max_sylls=max_sylls, save_path=output_file)
+
+    # Populate syllable info dict with relevant syllable information
     labeler.get_crowd_movie_paths(crowd_movie_dir)
+    labeler.get_mean_syllable_info()
 
     syll_select.options = labeler.syll_info
+
+    # Dynamically generate info box sections for grouped syllable info
+    for group in labeler.groups:
+        group_info = labeler.syll_info[str(syll_select.index)]['group_info'][group]
+        info_boxes.children += (labeler.get_group_info_widgets(group, group_info),)
+
+    # Launch and display interactive API
+    output = widgets.interactive_output(labeler.interactive_syllable_labeler, {'syllables': syll_select})
+    display(syll_select, output)
+
+    def on_syll_change(change):
+        '''
+        Callback function for when user selects a different syllable number
+        from the Dropdown menu
+
+        Parameters
+        ----------
+        change (ipywidget DropDown select event): User changes current value of DropDownMenu
+
+        Returns
+        -------
+        '''
+
+        clear_output()
+        display(syll_select, output)
+
+    # Update view when user selects new syllable from DropDownMenu
+    output.observe(on_syll_change, names='value')
+
+    # Initialize button callbacks
+    next_button.on_click(labeler.on_next)
+    prev_button.on_click(labeler.on_prev)
+    set_button.on_click(labeler.on_set)
 
 def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syllables=None):
     '''

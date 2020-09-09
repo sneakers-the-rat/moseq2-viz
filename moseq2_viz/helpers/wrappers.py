@@ -212,29 +212,37 @@ def interactive_syllable_labeler_wrapper(model_path, index_file, crowd_movie_dir
 
 def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syllables=None):
     '''
+    Wrapper function to launch the interactive syllable statistics API. Users will be able to view different
+    syllable statistics, sort them according to their metric of choice, and dynamically group the data to
+    view individual sessions or group averages.
 
     Parameters
     ----------
-    index_path
-    model_path
-    info_path
-    max_syllables
+    index_path (str): Path to index file.
+    model_path (str): Path to trained model file.
+    info_path (str): Path to syllable information file.
+    max_syllables (int): Maximum number of syllables to plot.
 
     Returns
     -------
-
     '''
 
+    # Initialize the statistical grapher context
     istat = InteractiveSyllableStats(index_path=index_path, model_path=model_path, info_path=info_path, max_sylls=max_syllables)
 
+    # Load all the data
     istat.interactive_stat_helper()
 
+    # Update the widget values
     session_sel.options = list(istat.df.SessionName.unique())
     ctrl_dropdown.options = list(istat.df.group.unique())
     exp_dropdown.options = list(istat.df.group.unique())
 
-    out = interactive_output(istat.interactive_syll_stats_grapher, {'df': fixed(istat.df),
-                                                      'obj': fixed(istat),
+    # Compute the syllable dendrogram values
+    istat.compute_dendrogram()
+
+    # Plot the Bokeh graph with the currently selected data.
+    out = interactive_output(istat.interactive_syll_stats_grapher, {
                                                       'stat': stat_dropdown,
                                                       'sort': sorting_dropdown,
                                                       'groupby': grouping_dropdown,
@@ -243,47 +251,9 @@ def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syl
                                                       'exp_group': exp_dropdown
                                                       })
 
+
     display(stat_widget_box, out)
     graph_dendrogram(istat)
-
-    def show_mutation_group_select(change):
-        '''
-
-        Parameters
-        ----------
-        change
-
-        Returns
-        -------
-
-        '''
-
-        if change.new == 'mutation':
-            ctrl_dropdown.layout.display = "block"
-            exp_dropdown.layout.display = "block"
-        elif sorting_dropdown.value != 'mutation':
-            ctrl_dropdown.layout.display = "none"
-            exp_dropdown.layout.display = "none"
-
-    def show_session_select(change):
-        '''
-
-        Parameters
-        ----------
-        change
-
-        Returns
-        -------
-
-        '''
-
-        if change.new == 'SessionName':
-            session_sel.layout = layout_visible
-        elif change.new == 'group':
-            session_sel.layout = layout_hidden
-
-    grouping_dropdown.observe(show_session_select)
-    sorting_dropdown.observe(show_mutation_group_select)
 
 def interactive_plot_transition_graph_wrapper(model_path, index_path, info_path):
     '''

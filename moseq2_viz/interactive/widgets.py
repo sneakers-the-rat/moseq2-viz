@@ -65,15 +65,15 @@ button_box = HBox([prev_button, set_button, next_button], layout=ui_layout)
 
 ### Syllable Stat Widgets
 ## layouts
-layout_hidden  = widgets.Layout(display='none')
+layout_hidden = widgets.Layout(display='none')
 layout_visible = widgets.Layout(display='block')
 
-stat_dropdown = widgets.Dropdown(options=['usage', 'speed'], description='Stat to Plot:', disabled=False)
+stat_dropdown = widgets.Dropdown(options=['usage', 'speed', 'distance to center'], description='Stat to Plot:', disabled=False)
 
 # add dist to center
-sorting_dropdown = widgets.Dropdown(options=['usage', 'speed', 'similarity', 'mutation'], description='Sort Syllables By:', disabled=False)
-ctrl_dropdown = widgets.Dropdown(options=[], description='Control Group:', disabled=False, layout=layout_hidden)
-exp_dropdown = widgets.Dropdown(options=[], description='Treatment Group:', disabled=False, layout=layout_hidden)
+sorting_dropdown = widgets.Dropdown(options=['usage', 'speed', 'distance to center', 'similarity', 'mutation'], description='Sort Syllables By:', disabled=False)
+ctrl_dropdown = widgets.Dropdown(options=[], description='Control Group:', disabled=False)
+exp_dropdown = widgets.Dropdown(options=[], description='Treatment Group:', disabled=False)
 
 grouping_dropdown = widgets.Dropdown(options=['group', 'SessionName'], description='Group Data By:', disabled=False)
 session_sel = widgets.SelectMultiple(options=[], description='Sessions to Graph:', layout=layout_hidden, disabled=False)

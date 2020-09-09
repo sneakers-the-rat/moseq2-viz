@@ -219,8 +219,6 @@ def interactive_crowd_movie_comparison_preview(config_data, index_path, model_pa
 
     with open(syll_info_path, 'r') as f:
         syll_info = yaml.safe_load(f)
-        keys = sorted([int(k) for k in list(syll_info.keys())])
-        syll_info = OrderedDict((f'{str(k)}: {syll_info[str(k)]["label"]}', syll_info[str(k)]) for k in keys)
 
     syll_select.options = syll_info
     index, sorted_index, model_fit = init_wrapper_function(index_file=index_path, model_fit=model_path, output_dir=output_dir)

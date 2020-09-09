@@ -153,9 +153,10 @@ class SyllableLabeler:
         df, label_df = results_to_dataframe(self.model_fit, self.sorted_index, count='usage',
                                             max_syllable=self.max_sylls, sort=True, compute_labels=True)
 
-        # Compute syllable speed
+        # Compute syllable speed and average distance to bucket center
         scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
-        df = compute_mean_syll_scalar(df, scalar_df, label_df, groups=None, max_sylls=self.max_sylls)
+        df = compute_mean_syll_scalar(df, scalar_df, label_df, max_sylls=self.max_sylls)
+        df = compute_mean_syll_scalar(df, scalar_df, label_df, scalar='dist_to_center_px', max_sylls=self.max_sylls)
 
         # Get all unique groups in df
         self.groups = df.group.unique()
@@ -170,63 +171,37 @@ class SyllableLabeler:
                 group: group_df[group_df['group'] == group].drop('group', axis=1).reset_index(drop=True).to_dict()}
             group_dicts.append(group_dict)
 
+        # Update syllable info dict
         for gd in group_dicts:
             group_name = list(gd.keys())[0]
             for syll in range(self.max_sylls):
                 self.syll_info[str(syll)]['group_info'][group_name] = {
                     'usage': gd[group_name]['usage'][syll],
                     'speed': gd[group_name]['speed'][syll],
+                    'dist_to_center': gd[group_name]['dist_to_center'][syll],
                     'duration': gd[group_name]['duration'][syll]
                 }
 
-    def get_group_info_widgets(self, group_name, group_info):
+    def set_group_info_widgets(self, group_info):
         '''
-        Instantiates new syllable information widgets to display
-        group_name (str): Name of the widget grouping
-        group_info (dict):
+        Display function that reads the syllable information into a pandas DataFrame, converts it
+        to an HTML table and displays it in a Bokeh Div facilitated via the Output() widget.
+
+        Parameters
+        ----------
+        group_info (dict): Dictionary of grouped current syllable information
 
         Returns
         -------
-        info_box (ipywidgets.VBox):
         '''
 
-        # Syllable label scalar names
-        group_lbl = widgets.Label(value="Group Name:")
-        syll_usage_lbl = widgets.Label(value="Syllable Usage:")
-        syll_speed_lbl = widgets.Label(value="Syllable Speed:")
-        syll_duration_lbl = widgets.Label(value="Syllable Duration:")
-
-        # Syllable label scalar values
-        group_value_lbl = widgets.Label(value=group_name)
-        syll_usage_value_lbl = widgets.Label(value='{:0.3f}'.format(group_info['usage']))
-        syll_speed_value_lbl = widgets.Label(value='{:0.3f} mm/s'.format(group_info['speed']))
-        syll_duration_value_lbl = widgets.Label(value='{:0.3f} ms'.format(group_info['duration']))
-
-        # Group info widgets into horizontal layout boxes
-        group_box = HBox([group_lbl, group_value_lbl])
-        usage_box = HBox([syll_usage_lbl, syll_usage_value_lbl])
-        speed_box = HBox([syll_speed_lbl, syll_speed_value_lbl])
-        duration_box = HBox([syll_duration_lbl, syll_duration_value_lbl])
-
-        # syllable info box
-        info_box = VBox([group_box, usage_box, speed_box, duration_box], layout=info_layout)
-
-        return info_box
-
-    def set_group_info_widgets(self, group_info):
-        for wid in info_boxes.children:
-            if isinstance(wid, widgets.VBox):
-                # get group
-                group_name = wid.children[0].children[1].value
-
-                # update usage
-                wid.children[1].children[1].value = '{:0.3f}'.format(group_info[group_name]['usage'])
-
-                # update speed
-                wid.children[2].children[1].value = '{:0.3f} mm/s'.format(group_info[group_name]['speed'])
-
-                # update duration
-                wid.children[3].children[1].value = '{:0.3f} ms'.format(group_info[group_name]['duration'])
+        output_table = Div(text=pd.DataFrame(group_info).to_html())
+        
+        ipy_output = widgets.Output()
+        with ipy_output:
+            show(output_table)
+        
+        info_boxes.children = [syll_info_lbl, ipy_output,]
 
     def interactive_syllable_labeler(self, syllables):
         '''

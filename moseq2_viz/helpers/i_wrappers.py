@@ -127,11 +127,6 @@ def interactive_syllable_labeler_wrapper(model_path, index_file, crowd_movie_dir
 
     syll_select.options = labeler.syll_info
 
-    # Dynamically generate info box sections for grouped syllable info
-    for group in labeler.groups:
-        group_info = labeler.syll_info[str(syll_select.index)]['group_info'][group]
-        info_boxes.children += (labeler.get_group_info_widgets(group, group_info),)
-
     # Launch and display interactive API
     output = widgets.interactive_output(labeler.interactive_syllable_labeler, {'syllables': syll_select})
     display(syll_select, output)

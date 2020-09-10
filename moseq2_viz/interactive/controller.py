@@ -523,7 +523,7 @@ class InteractiveTransitionGraph:
         entropies = []
         for g in self.group:
             use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == g]
-            entropies.append(np.mean(entropy(use_labels), axis=0))
+            entropies.append(np.mean(entropy(use_labels, truncate_syllable=self.max_sylls), axis=0))
 
         self.entropies = entropies
 
@@ -531,7 +531,7 @@ class InteractiveTransitionGraph:
         entropy_rates = []
         for g in self.group:
             use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == g]
-            entropy_rates.append(np.mean(entropy_rate(use_labels), axis=0))
+            entropy_rates.append(np.mean(entropy_rate(use_labels, truncate_syllable=self.max_sylls), axis=0))
 
         self.entropy_rates = entropy_rates
 

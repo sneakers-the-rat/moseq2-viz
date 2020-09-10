@@ -460,7 +460,7 @@ def make_graph(tm, ebunch_anchor, edge_threshold, usages_anchor, speeds=None, sp
     return graph
 
 def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor,
-                           widths, pos, ebunch_anchor, node_edge_colors, node_sizes=[],
+                           widths, pos, ebunch_anchor, node_edge_colors, ax=None, node_sizes=[],
                            difference_threshold=0.0005, difference_edge_width_scale=500,
                            usage_scale=1e5, difference_graphs=[], scalars=None, speed_threshold=-50):
     '''
@@ -535,16 +535,26 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
                 node_sizes.append(node_size)
                 node_edge_colors.append(node_edge_color)
             else:
-                node_sizes.append(400)
-                node_edge_colors.append('r')
+                # Set default node display values
+                node_size = 400
+                node_edge_color = 'r'
+                node_sizes.append(node_size)
+                node_edge_colors.append(node_edge_color)
 
             # get difference graph name
-            group_names.append(f'{group[i + j + 1]} - {group[i]}')
-
+            curr_name = f'{group[i + j + 1]} - {group[i]}'
+            group_names.append(curr_name)
+            #print(i,j)
+        
+            if np.array(ax).all() != None:
+                draw_graphs(graph, [curr_name], weight, pos, node_color='w', node_size=node_size, node_edge_colors=node_edge_color, arrows=False,
+                font_size=12, ax=ax, i=i, j=i+j+1)
+        
     return usages, group_names, difference_graphs, widths, node_sizes, node_edge_colors, scalars
 
 def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor, pos, ebunch_anchor, edge_threshold,
-                           difference_threshold, orphans, orphan_weight, edge_width_scale=100, usage_scale=1e5,
+                           difference_threshold, orphans, orphan_weight,
+                           ax=None, edge_width_scale=100, usage_scale=1e5,
                            scalars=None, speed_threshold=-15):
     '''
 
@@ -564,6 +574,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
     difference_threshold (float): threshold to consider 2 graph elements different.
     orphans (list): list of nodes with no edges.
     orphan_weight (int): scaling factor to plot orphan node sizes.
+    ax (np.ndarray matplotlib.pyplot Axis): Optional axes to plot graphs in
     edge_width_scale (int): edge line width scaling factor.
     usage_scale (float): syllable usage scaling factor.
     scalars (dict): dict of syllable scalar data per transition graph
@@ -603,7 +614,12 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
             node_size = [usages[i][k] * usage_scale for k in pos.keys()]
             node_sizes.append(node_size)
         else:
-            node_sizes.append(400)
+            node_size = 400
+            node_sizes.append(node_size)
+        
+        if np.array(ax).all() != None:
+            draw_graphs(graph, group_names, width, pos, node_color='w', node_size=node_size, node_edge_colors='r', arrows=False,
+            font_size=12, ax=ax, i=i, j=i)
 
         node_edge_colors.append('r')
         graphs.append(graph)
@@ -613,6 +629,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
         usages, group_names, graphs, widths, node_sizes, node_edge_colors, scalars = \
             make_difference_graphs(trans_mats, usages, group, group_names,
             usages_anchor, widths, pos, ebunch_anchor,
+            ax=ax,
             node_edge_colors=node_edge_colors,
             node_sizes=node_sizes,
             difference_threshold=difference_threshold,
@@ -656,23 +673,23 @@ def get_pos(graph_anchor, layout, nnodes):
 
     return pos
 
-def draw_graphs(graphs, groups, group_names, widths, pos, node_color,
-                node_sizes, node_edge_colors, arrows, font_size, ax):
+def draw_graphs(graph, groups, width, pos, node_color,
+                node_size, node_edge_colors, arrows, font_size, 
+                ax, i=0, j=0, colors='k'):
     '''
     Draws transition graph to existing matplotlib axes.
 
     Parameters
     ----------
-    graphs (list of nx.DiGraph): list of created nx.DiGraphs converted from transition matrices
+    graph (nx.DiGraph): list of created nx.DiGraphs converted from transition matrices
     groups (list): list of unique groups included.
-    group_names (list): list of all the titles corresponding to the transition graphs (difference graphs included)
-    widths (2D list): list of edge widths corresponding to each graph's edges.
+    width (2D list): list of edge widths corresponding to each graph's edges.
     pos (nx.Layout): nx.Layout type object holding position coordinates for the nodes.
     node_color (2D list): list of node colors for each graph.
         List item can also be a list corresponding to a color for each node.
-    node_sizes (2D list): list of node sizes for each graph.
+    node_sizes (int or 1D list): list of node sizes for each graph.
         List item can also be a list corresponding to a color for each node.
-    node_edge_colors (2D list): list of node edge colors for each graph.
+    node_edge_colors (list): list of node edge colors for each graph.
         List item can also be a list corresponding to a color for each node.
     arrows (bool): whether to draw arrow edges
     font_size (int): Node label font size
@@ -680,48 +697,27 @@ def draw_graphs(graphs, groups, group_names, widths, pos, node_color,
 
     Returns
     -------
-    '''
+    ''' 
 
-    for gi, i in enumerate(range(len(graphs))):
-        j = i
+    # Draw nodes and edges on matplotlib figure
+    nx.draw_networkx_nodes(graph, pos,
+                        edgecolors=node_edge_colors, node_color=node_color,
+                        node_size=node_size, ax=ax[i][j], cmap='jet')
+    nx.draw_networkx_edges(graph, pos, graph.edges(), width=width,
+                        ax=ax[i][j], arrows=arrows, edge_color=colors, linewidths=1.5)
+    # Draw node labels
+    if font_size > 0:
+        nx.draw_networkx_labels(graph, pos,
+                                {k: k for k in pos.keys()},
+                                font_size=font_size,
+                                ax=ax[i][j], font_color='k')
 
-        # Change indices to graph difference TMs
-        if i == len(groups):
-            j = i - 1
-            i = 0
-
-        # Get difference graph edge colors
-        colors = []
-        if gi >= len(groups):
-            for u, v in graphs[gi].edges():
-                if graphs[gi][u][v]['weight'] > 0:
-                    colors.append('r')
-                else:
-                    colors.append('b')
+    # Set titles
+    if groups is not None:
+        if len(groups) > 1:
+            ax[i][j].set_title( '{}'.format(groups[i]))
         else:
-            colors = 'k'
-
-        # Draw nodes and edges on matplotlib figure
-        nx.draw_networkx_nodes(graphs[gi], pos,
-                               edgecolors=node_edge_colors[gi], node_color=node_color,
-                               node_size=node_sizes[gi], ax=ax[i][j], cmap='jet')
-        nx.draw_networkx_edges(graphs[gi], pos, graphs[gi].edges(), width=widths[gi],
-                               ax=ax[i][j], arrows=arrows, edge_color=colors, linewidths=1.5)
-
-        # Draw node labels
-        if font_size > 0:
-            nx.draw_networkx_labels(graphs[gi], pos,
-                                    {k: k for k in pos.keys()},
-                                    font_size=font_size,
-                                    ax=ax[i][j], font_color='k')
-
-        # Set titles
-        if groups is not None:
-            ax[i][j].set_title('{}'.format(group_names[gi]))
-
-        # Remove axes
-        for k in range(len(ax[i])):
-            ax[i][k].axis('off')
+            ax[i][j].set_title( '{}'.format(groups[0]))
 
 def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             edge_threshold=.0025, anchor=0, usage_threshold=0,
@@ -826,10 +822,10 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
         make_transition_graphs(trans_mats, usages, groups, group_names,
         usages_anchor, pos, ebunch_anchor, edge_threshold,
         difference_threshold, orphans, orphan_weight,
-        edge_width_scale, usage_scale)
+        ax, edge_width_scale, usage_scale)
 
-    # Draw figure
-    draw_graphs(graphs, groups, group_names, widths, pos, node_color,
-                node_sizes, node_edge_colors, arrows, font_size, ax)
+    for i in range(len(ax)):
+        for j in range(len(ax[i])):
+            ax[i][j].axis('off')
 
     return fig, ax, pos

@@ -35,7 +35,7 @@ class TestInfoUtils(TestCase):
             usages = usages[:truncate_point] + smoothing
             usages /= usages.sum()
 
-            ent.append(-(usages * np.log2(usages)))
+            ent.append(-np.sum(usages * np.log2(usages)))
 
         test_ent = entropy(labels)
 
@@ -87,7 +87,7 @@ class TestInfoUtils(TestCase):
             elif normalize == 'columns':
                 tm /= tm.sum(axis=0, keepdims=True)
 
-            ent_r.append(-(usages[:, None] * tm * np.log2(tm)))
+            ent_r.append(-np.sum(usages[:, None] * tm * np.log2(tm)))
 
         test_ent_r = entropy_rate(labels)
         assert len(test_ent_r) == 2  # for 2 sessions in modeling

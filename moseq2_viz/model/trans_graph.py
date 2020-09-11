@@ -544,10 +544,10 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
             # get difference graph name
             curr_name = f'{group[i + j + 1]} - {group[i]}'
             group_names.append(curr_name)
-            #print(i,j)
         
             if np.array(ax).all() != None:
-                draw_graphs(graph, [curr_name], weight, pos, node_color='w', node_size=node_size, node_edge_colors=node_edge_color, arrows=False,
+                draw_graphs(graph, curr_name, weight, pos, node_color='w', node_size=node_size, 
+                node_edge_colors=node_edge_color, arrows=False,
                 font_size=12, ax=ax, i=i, j=i+j+1)
         
     return usages, group_names, difference_graphs, widths, node_sizes, node_edge_colors, scalars
@@ -617,6 +617,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
             node_size = 400
             node_sizes.append(node_size)
         
+        # Draw network to matplotlib figure
         if np.array(ax).all() != None:
             draw_graphs(graph, group_names, width, pos, node_color='w', node_size=node_size, node_edge_colors='r', arrows=False,
             font_size=12, ax=ax, i=i, j=i)
@@ -714,10 +715,11 @@ def draw_graphs(graph, groups, width, pos, node_color,
 
     # Set titles
     if groups is not None:
-        if len(groups) > 1:
+        if isinstance(groups, str):
+            ax[i][j].set_title( '{}'.format(groups))
+        elif len(groups) > 1:
             ax[i][j].set_title( '{}'.format(groups[i]))
-        else:
-            ax[i][j].set_title( '{}'.format(groups[0]))
+            
 
 def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             edge_threshold=.0025, anchor=0, usage_threshold=0,

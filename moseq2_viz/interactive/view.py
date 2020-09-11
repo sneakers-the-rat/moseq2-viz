@@ -215,19 +215,24 @@ def format_graphs(graphs, group):
     formatted_plots (2D list): list of lists corresponding to rows of figures being plotted.
     '''
 
-    # formatting plots into grid format
+    # formatting plots into diagonal grid format
     ncols = len(group)
 
-    tmp, formatted_plots = [], []
-    for i, p in enumerate(graphs):
-        if len(tmp) < ncols:
-            tmp.append(p)
-        elif len(tmp) == ncols:
-            formatted_plots.append(tmp)
-            tmp = [p]
-    formatted_plots.append(tmp)
+    group_grid = np.array([[None]*ncols]*ncols)
 
-    return formatted_plots
+    counter = 0
+    for i in range(0, ncols):
+        group_grid[i, i] = graphs[counter]
+        counter += 1
+
+    for b in range(1, ncols):
+        i = 0
+        for j in range(b, ncols):
+            group_grid[i, j] = graphs[counter]
+            counter += 1
+            i += 1
+
+    return list(group_grid)
 
 def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, syll_info, entropies, entropy_rates, scalars):
     '''

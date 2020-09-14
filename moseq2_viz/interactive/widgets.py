@@ -43,14 +43,13 @@ class SyllableLabelerWidgets:
         self.next_button = widgets.Button(description='Next', disabled=False, tooltip='Next Syllable', layout=widgets.Layout(flex='2 1 0', width='auto', height='40px'))
 
         # Box Layouts
-        self.label_layout = widgets.Layout(flex_flow='column', max_height='100px')
-        self.input_layout = widgets.Layout(max_height='200px') # vbox
+        self.label_layout = widgets.Layout(flex_flow='column', height='75%')
+        self.input_layout = widgets.Layout(height='200px')
 
         self.ui_layout = widgets.Layout(flex_flow='row', width='auto', max_height='50px')
-        self.data_layout = widgets.Layout(flex_flow='row', justify_content='space-between',
-                                    align_content='center', width='auto')
-        self.info_layout = widgets.Layout(height='auto', flex_flow='column', display='flex',
-                                    align_items='center', border='solid', width='100%')
+        self.data_layout = widgets.Layout(flex_flow='row', max_height='150px', justify_content='space-around',
+                                    padding='top', align_content='center', width='auto')
+                                    
         self.center_layout = widgets.Layout(display='flex', align_items='center')
 
         # label box

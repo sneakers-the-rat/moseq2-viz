@@ -6,6 +6,7 @@ Interactivity functionality is facilitated via IPyWidget and Bokeh.
 
 '''
 
+import os
 import time
 import joblib
 import numpy as np
@@ -56,7 +57,12 @@ class SyllableLabeler(SyllableLabelerWidgets):
 
         self.model_fit = model_fit
         self.sorted_index = parse_index(index_file)[1]
-        self.syll_info = {str(i): {'label': '', 'desc': '', 'crowd_movie_path': '', 'group_info': {}} for i in range(max_sylls)}
+
+        if os.path.exists(save_path):
+            with open(save_path, 'r') as f:
+                self.syll_info = yaml.safe_load(f)
+        else:
+            self.syll_info = {str(i): {'label': '', 'desc': '', 'crowd_movie_path': '', 'group_info': {}} for i in range(max_sylls)}
 
     def on_next(self, event):
         '''

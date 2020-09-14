@@ -14,7 +14,6 @@ from IPython.display import display, clear_output
 from moseq2_viz.interactive.view import graph_dendrogram
 from moseq2_viz.helpers.wrappers import init_wrapper_function
 from moseq2_viz.model.util import relabel_by_usage, get_syllable_usages, parse_model_results
-from moseq2_viz.interactive.widgets import syll_select, next_button, prev_button, set_button, info_boxes, cm_trigger_button
 from moseq2_viz.interactive.controller import SyllableLabeler, InteractiveSyllableStats, CrowdMovieComparison, InteractiveTransitionGraph
 
 def interactive_group_setting_wrapper(index_filepath):
@@ -28,10 +27,11 @@ def interactive_group_setting_wrapper(index_filepath):
     -------
 
     '''
+    index_grid = GroupSettingWidgets()
 
     index_dict, df = index_to_dataframe(index_filepath)
-    qgrid_widget = qgrid.show_grid(df[['SessionName', 'SubjectName', 'group', 'uuid']], column_options=col_opts,
-                                   column_definitions=col_defs, show_toolbar=False)
+    qgrid_widget = qgrid.show_grid(df[['SessionName', 'SubjectName', 'group', 'uuid']], column_options=index_grid.col_opts,
+                                   column_definitions=index_grid.col_defs, show_toolbar=False)
 
     def update_table(b):
         '''
@@ -45,14 +45,14 @@ def interactive_group_setting_wrapper(index_filepath):
 
         '''
 
-        update_index_button.button_style = 'info'
-        update_index_button.icon = 'none'
+        index_grid.update_index_button.button_style = 'info'
+        index_grid.update_index_button.icon = 'none'
 
         selected_rows = qgrid_widget.get_selected_df()
         x = selected_rows.index
 
         for i in x:
-            qgrid_widget.edit_cell(i, 'group', group_input.value)
+            qgrid_widget.edit_cell(i, 'group', index_grid.group_input.value)
 
     def update_clicked(b):
         '''
@@ -79,14 +79,14 @@ def interactive_group_setting_wrapper(index_filepath):
         with open(index_filepath, 'w+') as f:
             yaml.safe_dump(updated_index, f)
 
-        update_index_button.button_style = 'success'
-        update_index_button.icon = 'check'
+        index_grid.update_index_button.button_style = 'success'
+        index_grid.update_index_button.icon = 'check'
 
-    update_index_button.on_click(update_clicked)
+    index_grid.update_index_button.on_click(update_clicked)
 
-    save_button.on_click(update_table)
+    index_grid.save_button.on_click(update_table)
 
-    display(group_set)
+    display(index_grid.group_set)
     display(qgrid_widget)
 
 def interactive_syllable_labeler_wrapper(model_path, index_file, crowd_movie_dir, output_file, max_syllables=None):
@@ -125,11 +125,11 @@ def interactive_syllable_labeler_wrapper(model_path, index_file, crowd_movie_dir
     labeler.get_crowd_movie_paths(crowd_movie_dir)
     labeler.get_mean_syllable_info()
 
-    syll_select.options = labeler.syll_info
+    labeler.syll_select.options = labeler.syll_info
 
     # Launch and display interactive API
-    output = widgets.interactive_output(labeler.interactive_syllable_labeler, {'syllables': syll_select})
-    display(syll_select, output)
+    output = widgets.interactive_output(labeler.interactive_syllable_labeler, {'syllables': labeler.syll_select})
+    display(labeler.syll_select, output)
 
     def on_syll_change(change):
         '''
@@ -145,15 +145,15 @@ def interactive_syllable_labeler_wrapper(model_path, index_file, crowd_movie_dir
         '''
 
         clear_output()
-        display(syll_select, output)
+        display(labeler.syll_select, output)
 
     # Update view when user selects new syllable from DropDownMenu
     output.observe(on_syll_change, names='value')
 
     # Initialize button callbacks
-    next_button.on_click(labeler.on_next)
-    prev_button.on_click(labeler.on_prev)
-    set_button.on_click(labeler.on_set)
+    labeler.next_button.on_click(labeler.on_next)
+    labeler.prev_button.on_click(labeler.on_prev)
+    labeler.set_button.on_click(labeler.on_set)
 
 def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syllables=None):
     '''
@@ -179,25 +179,25 @@ def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syl
     istat.interactive_stat_helper()
 
     # Update the widget values
-    session_sel.options = list(istat.df.SessionName.unique())
-    ctrl_dropdown.options = list(istat.df.group.unique())
-    exp_dropdown.options = list(istat.df.group.unique())
+    istat.session_sel.options = list(istat.df.SessionName.unique())
+    istat.ctrl_dropdown.options = list(istat.df.group.unique())
+    istat.exp_dropdown.options = list(istat.df.group.unique())
 
     # Compute the syllable dendrogram values
     istat.compute_dendrogram()
 
     # Plot the Bokeh graph with the currently selected data.
     out = interactive_output(istat.interactive_syll_stats_grapher, {
-                                                      'stat': stat_dropdown,
-                                                      'sort': sorting_dropdown,
-                                                      'groupby': grouping_dropdown,
-                                                      'sessions': session_sel,
-                                                      'ctrl_group': ctrl_dropdown,
-                                                      'exp_group': exp_dropdown
+                                                      'stat': istat.stat_dropdown,
+                                                      'sort': istat.sorting_dropdown,
+                                                      'groupby': istat.grouping_dropdown,
+                                                      'sessions': istat.session_sel,
+                                                      'ctrl_group': istat.ctrl_dropdown,
+                                                      'exp_group': istat.exp_dropdown
                                                       })
 
 
-    display(stat_widget_box, out)
+    display(istat.stat_widget_box, out)
     graph_dendrogram(istat)
 
 def interactive_crowd_movie_comparison_preview(config_data, index_path, model_path, syll_info_path, output_dir):
@@ -220,27 +220,27 @@ def interactive_crowd_movie_comparison_preview(config_data, index_path, model_pa
     with open(syll_info_path, 'r') as f:
         syll_info = yaml.safe_load(f)
 
-    syll_select.options = syll_info
+    
     index, sorted_index, model_fit = init_wrapper_function(index_file=index_path, model_fit=model_path, output_dir=output_dir)
-
-    sessions = list(set(model_fit['metadata']['uuids']))
-    cm_session_sel.options = [sorted_index['files'][s]['metadata']['SessionName'] for s in sessions]
 
     cm_compare = CrowdMovieComparison(config_data=config_data, index_path=index_path,
                                       model_path=model_path, syll_info=syll_info, output_dir=output_dir)
 
+    # Set widgets
+    cm_compare.cm_syll_select.options = syll_info
+    sessions = list(set(model_fit['metadata']['uuids']))
+    cm_compare.cm_session_sel.options = [sorted_index['files'][s]['metadata']['SessionName'] for s in sessions]
+
     cm_compare.get_session_mean_syllable_info_df(model_fit, sorted_index)
 
-    out = interactive_output(cm_compare.crowd_movie_preview, {#'config_data': fixed(cm_compare.config_data),
-                                                   'syllable': syll_select,
-                                                   'groupby': cm_sources_dropdown,
-                                                   #'sessions': cm_session_sel,
-                                                   'nexamples': num_examples})
+    out = interactive_output(cm_compare.crowd_movie_preview, {'syllable': cm_compare.cm_syll_select,
+                                                              'groupby': cm_compare.cm_sources_dropdown,
+                                                              'nexamples': cm_compare.num_examples})
     display(out)
 
-    cm_session_sel.observe(cm_compare.select_session)
-    cm_sources_dropdown.observe(cm_compare.show_session_select)
-    cm_trigger_button.on_click(cm_compare.on_click_trigger_button)
+    cm_compare.cm_session_sel.observe(cm_compare.select_session)
+    cm_compare.cm_sources_dropdown.observe(cm_compare.show_session_select)
+    cm_compare.cm_trigger_button.on_click(cm_compare.on_click_trigger_button)
 
 def interactive_plot_transition_graph_wrapper(model_path, index_path, info_path):
     '''
@@ -268,21 +268,21 @@ def interactive_plot_transition_graph_wrapper(model_path, index_path, info_path)
     usage_threshold_stds = int(i_trans_graph.df['usage'].max()/i_trans_graph.df['usage'].std()) + 2
     speed_threshold_stds = int(i_trans_graph.df['speed'].max() / i_trans_graph.df['speed'].std()) + 2
 
-    edge_thresholder.options = [float('%.3f' % (np.std(i_trans_graph.trans_mats) * i)) for i in range(edge_threshold_stds)]
-    edge_thresholder.index = (1, edge_threshold_stds-1)
+    i_trans_graph.edge_thresholder.options = [float('%.3f' % (np.std(i_trans_graph.trans_mats) * i)) for i in range(edge_threshold_stds)]
+    i_trans_graph.edge_thresholder.index = (1, edge_threshold_stds-1)
 
-    usage_thresholder.options = [float('%.3f' % (i_trans_graph.df['usage'].std() * i)) for i in range(usage_threshold_stds)]
-    usage_thresholder.index = (0, usage_threshold_stds - 1)
+    i_trans_graph.usage_thresholder.options = [float('%.3f' % (i_trans_graph.df['usage'].std() * i)) for i in range(usage_threshold_stds)]
+    i_trans_graph.usage_thresholder.index = (0, usage_threshold_stds - 1)
 
-    speed_thresholder.options = [float('%.3f' % (i_trans_graph.df['speed'].std() * i)) for i in range(speed_threshold_stds)]
-    speed_thresholder.index = (0, speed_threshold_stds - 1)
+    i_trans_graph.speed_thresholder.options = [float('%.3f' % (i_trans_graph.df['speed'].std() * i)) for i in range(speed_threshold_stds)]
+    i_trans_graph.speed_thresholder.index = (0, speed_threshold_stds - 1)
 
     # Make graphs
     out = interactive_output(i_trans_graph.interactive_transition_graph_helper,
-                             {'edge_threshold': edge_thresholder,
-                              'usage_threshold': usage_thresholder,
-                              'speed_threshold': speed_thresholder,
+                             {'edge_threshold': i_trans_graph.edge_thresholder,
+                              'usage_threshold': i_trans_graph.usage_thresholder,
+                              'speed_threshold': i_trans_graph.speed_thresholder,
                               })
 
     # Display widgets and bokeh network plots
-    display(thresholding_box, out)
+    display(i_trans_graph.thresholding_box, out)

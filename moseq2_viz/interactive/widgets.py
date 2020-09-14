@@ -8,139 +8,160 @@ from bokeh.models.widgets import PreText
 
 ### Syllable Labeler Widgets
 # UI widgets
-syll_select = widgets.Dropdown(options={}, description='Syllable #:', disabled=False)
+class SyllableLabelerWidgets:
 
-# labels
-cm_lbl = PreText(text="Crowd Movie") # current crowd movie number
+    def __init__(self):
+            
+        self.syll_select = widgets.Dropdown(options={}, description='Syllable #:', disabled=False)
 
-syll_lbl = widgets.Label(value="Syllable Name") # name user prompt label
-desc_lbl = widgets.Label(value="Short Description") # description label
+        # labels
+        self.cm_lbl = PreText(text="Crowd Movie") # current crowd movie number
 
-syll_info_lbl = widgets.Label(value="Syllable Info", font_size=24)
+        self.syll_lbl = widgets.Label(value="Syllable Name") # name user prompt label
+        self.desc_lbl = widgets.Label(value="Short Description") # description label
 
-syll_usage_value_lbl = widgets.Label(value="")
-syll_speed_value_lbl = widgets.Label(value="")
-syll_duration_value_lbl = widgets.Label(value="")
+        self.syll_info_lbl = widgets.Label(value="Syllable Info", font_size=24)
 
-# text input widgets
-lbl_name_input = widgets.Text(value='',
-                              placeholder='Syllable Name',
-                              tooltip='2 word name for syllable')
+        self.syll_usage_value_lbl = widgets.Label(value="")
+        self.syll_speed_value_lbl = widgets.Label(value="")
+        self.syll_duration_value_lbl = widgets.Label(value="")
 
-desc_input = widgets.Text(value='',
-                          placeholder='Short description of behavior',
-                          tooltip='Describe the behavior.',
-                          layout=widgets.Layout(height='260px'),
-                          disabled=False)
+        # text input widgets
+        self.lbl_name_input = widgets.Text(value='',
+                                    placeholder='Syllable Name',
+                                    tooltip='2 word name for syllable')
 
-# buttons
-prev_button = widgets.Button(description='Prev', disabled=False, tooltip='Previous Syllable', layout=widgets.Layout(flex='2 1 0', width='auto', height='40px'))
-set_button = widgets.Button(description='Save Setting', disabled=False, tooltip='Save current inputs.', button_style='primary', layout=widgets.Layout(flex='3 1 0', width='auto', height='40px'))
-next_button = widgets.Button(description='Next', disabled=False, tooltip='Next Syllable', layout=widgets.Layout(flex='2 1 0', width='auto', height='40px'))
+        self.desc_input = widgets.Text(value='',
+                                placeholder='Short description of behavior',
+                                tooltip='Describe the behavior.',
+                                layout=widgets.Layout(height='260px'),
+                                disabled=False)
 
-# Box Layouts
-label_layout = widgets.Layout(flex_flow='column', max_height='100px')
-input_layout = widgets.Layout(max_height='200px') # vbox
+        # buttons
+        self.prev_button = widgets.Button(description='Prev', disabled=False, tooltip='Previous Syllable', layout=widgets.Layout(flex='2 1 0', width='auto', height='40px'))
+        self.set_button = widgets.Button(description='Save Setting', disabled=False, tooltip='Save current inputs.', button_style='primary', layout=widgets.Layout(flex='3 1 0', width='auto', height='40px'))
+        self.next_button = widgets.Button(description='Next', disabled=False, tooltip='Next Syllable', layout=widgets.Layout(flex='2 1 0', width='auto', height='40px'))
 
-ui_layout = widgets.Layout(flex_flow='row', width='auto', max_height='50px')
-data_layout = widgets.Layout(flex_flow='row', justify_content='space-between',
-                             align_content='center', width='auto')
-info_layout = widgets.Layout(height='auto', flex_flow='column', display='flex',
-                             align_items='center', border='solid', width='100%')
-center_layout = widgets.Layout(display='flex', align_items='center')
+        # Box Layouts
+        self.label_layout = widgets.Layout(flex_flow='column', max_height='100px')
+        self.input_layout = widgets.Layout(max_height='200px') # vbox
 
-# label box
-lbl_box = VBox([syll_lbl, desc_lbl], layout=label_layout)
+        self.ui_layout = widgets.Layout(flex_flow='row', width='auto', max_height='50px')
+        self.data_layout = widgets.Layout(flex_flow='row', justify_content='space-between',
+                                    align_content='center', width='auto')
+        self.info_layout = widgets.Layout(height='auto', flex_flow='column', display='flex',
+                                    align_items='center', border='solid', width='100%')
+        self.center_layout = widgets.Layout(display='flex', align_items='center')
 
-# input box
-input_box = VBox([lbl_name_input, desc_input], layout=label_layout)
+        # label box
+        self.lbl_box = VBox([self.syll_lbl, self.desc_lbl], layout=self.label_layout)
 
-# syllable info box
-info_boxes = VBox([syll_info_lbl], layout=center_layout)
+        # input box
+        self.input_box = VBox([self.lbl_name_input, self.desc_input], layout=self.label_layout)
 
-data_box = VBox([HBox([lbl_box, input_box], layout=data_layout), info_boxes])
+        # syllable info box
+        self.info_boxes = VBox([self.syll_info_lbl], layout=self.center_layout)
 
-# button box
-button_box = HBox([prev_button, set_button, next_button], layout=ui_layout)
+        self.data_box = VBox([HBox([self.lbl_box, self.input_box], layout=self.data_layout), self.info_boxes])
+
+        # button box
+        self.button_box = HBox([self.prev_button, self.set_button, self.next_button], layout=self.ui_layout)
 
 ### Syllable Stat Widgets
-## layouts
-layout_hidden = widgets.Layout(display='none')
-layout_visible = widgets.Layout(display='block')
+class SyllableStatWidgets:
 
-stat_dropdown = widgets.Dropdown(options=['usage', 'speed', 'distance to center'], description='Stat to Plot:', disabled=False)
+    def __init__(self):
 
-# add dist to center
-sorting_dropdown = widgets.Dropdown(options=['usage', 'speed', 'distance to center', 'similarity', 'mutation'], description='Sort Syllables By:', disabled=False)
-ctrl_dropdown = widgets.Dropdown(options=[], description='Control Group:', disabled=False)
-exp_dropdown = widgets.Dropdown(options=[], description='Treatment Group:', disabled=False)
+        self.layout_hidden = widgets.Layout(display='none')
+        self.layout_visible = widgets.Layout(display='block')
 
-grouping_dropdown = widgets.Dropdown(options=['group', 'SessionName'], description='Group Data By:', disabled=False)
-session_sel = widgets.SelectMultiple(options=[], description='Sessions to Graph:', layout=layout_hidden, disabled=False)
+        self.stat_dropdown = widgets.Dropdown(options=['usage', 'speed', 'distance to center'], description='Stat to Plot:', disabled=False)
 
-## boxes
-mutation_box = VBox([ctrl_dropdown, exp_dropdown])
+        # add dist to center
+        self.sorting_dropdown = widgets.Dropdown(options=['usage', 'speed', 'distance to center', 'similarity', 'mutation'], description='Sort Syllables By:', disabled=False)
+        self.ctrl_dropdown = widgets.Dropdown(options=[], description='Control Group:', disabled=False)
+        self.exp_dropdown = widgets.Dropdown(options=[], description='Treatment Group:', disabled=False)
 
-sorting_box = VBox([sorting_dropdown, mutation_box])
-session_box = VBox([grouping_dropdown, session_sel])
+        self.grouping_dropdown = widgets.Dropdown(options=['group', 'SessionName'], description='Group Data By:', disabled=False)
+        self.session_sel = widgets.SelectMultiple(options=[], description='Sessions to Graph:', layout=self.layout_hidden, disabled=False)
 
-stat_widget_box = HBox([stat_dropdown, sorting_box, session_box])
+        ## boxes
+        self.mutation_box = VBox([self.ctrl_dropdown, self.exp_dropdown])
 
+        self.sorting_box = VBox([self.sorting_dropdown, self.mutation_box])
+        self.session_box = VBox([self.grouping_dropdown, self.session_sel])
+
+        self.stat_widget_box = HBox([self.stat_dropdown, self.sorting_box, self.session_box])
 
 ### Group Setting Widgets
-col_opts = {
-    'editable': False,
-    'toolTip': "Not editable"
-}
+class GroupSettingWidgets:
 
-col_defs = {
-    'group': {
-        'editable': True,
-        'toolTip': 'editable'
-    }
-}
+    def __init__(self):
+        self.col_opts = {
+            'editable': False,
+            'toolTip': "Not editable"
+        }
 
-group_input = widgets.Text(value='', placeholder='Enter Group Name to Set', description='Desired Group Name', continuous_update=False, disabled=False)
-save_button = widgets.Button(description='Set Group', disabled=False, tooltip='Set Group')
-update_index_button = widgets.Button(description='Update Index File', disabled=False, tooltip='Save Parameters')
+        self.col_defs = {
+            'group': {
+                'editable': True,
+                'toolTip': 'editable'
+            }
+        }
 
-group_set = widgets.HBox([group_input, save_button, update_index_button])
-qgrid.set_grid_option('forceFitColumns', False)
-qgrid.set_grid_option('enableColumnReorder', True)
-qgrid.set_grid_option('highlightSelectedRow', True)
-qgrid.set_grid_option('highlightSelectedCell', False)
+        self.group_input = widgets.Text(value='', placeholder='Enter Group Name to Set', description='Desired Group Name', continuous_update=False, disabled=False)
+        self.save_button = widgets.Button(description='Set Group', disabled=False, tooltip='Set Group')
+        self.update_index_button = widgets.Button(description='Update Index File', disabled=False, tooltip='Save Parameters')
+
+        self.group_set = widgets.HBox([self.group_input, self.save_button, self.update_index_button])
+        qgrid.set_grid_option('forceFitColumns', False)
+        qgrid.set_grid_option('enableColumnReorder', True)
+        qgrid.set_grid_option('highlightSelectedRow', True)
+        qgrid.set_grid_option('highlightSelectedCell', False)
 
 ### Transition Graph Widgets
+class TransitionGraphWidgets:
+    
+    
+    '''
+    edge_thresholder = widgets.FloatRangeSlider(value=[0.0025, 1], min=0, max=1, step=0.001, style=style, readout_format='.4f',
+                                                description='Edges weights to display', continuous_update=False)
+    usage_thresholder = widgets.FloatRangeSlider(value=[0, 1], min=0, max=1, step=0.001, style=style, readout_format='.4f',
+                                                description='Usage nodes to display', continuous_update=False)
+    speed_thresholder = widgets.FloatRangeSlider(value=[-25, 200], min=-50, max=200, step=1, style=style, readout_format='.1f',
+                                                description='Threshold nodes by speed', continuous_update=False)
+    '''
 
-style = {'description_width': 'initial', 'display':'flex-grow', 'align_items':'stretch'}
-'''
-edge_thresholder = widgets.FloatRangeSlider(value=[0.0025, 1], min=0, max=1, step=0.001, style=style, readout_format='.4f',
-                                            description='Edges weights to display', continuous_update=False)
-usage_thresholder = widgets.FloatRangeSlider(value=[0, 1], min=0, max=1, step=0.001, style=style, readout_format='.4f',
-                                             description='Usage nodes to display', continuous_update=False)
-speed_thresholder = widgets.FloatRangeSlider(value=[-25, 200], min=-50, max=200, step=1, style=style, readout_format='.1f',
-                                             description='Threshold nodes by speed', continuous_update=False)
-'''
-edge_thresholder = widgets.SelectionRangeSlider(options=['tmp'], style=style,
-                                            description='Edges weights to display', continuous_update=False)
-usage_thresholder = widgets.SelectionRangeSlider(options=['tmp'], style=style, readout_format='.4f',
-                                             description='Usage nodes to display', continuous_update=False)
-speed_thresholder = widgets.SelectionRangeSlider(options=['tmp'], style=style, readout_format='.1f',
-                                             description='Threshold nodes by speed', continuous_update=False)
+    def __init__(self):    
+        style = {'description_width': 'initial', 'display':'flex-grow', 'align_items':'stretch'}
+        
+        self.edge_thresholder = widgets.SelectionRangeSlider(options=['tmp'], style=style,
+                                                    description='Edges weights to display', continuous_update=False)
+        self.usage_thresholder = widgets.SelectionRangeSlider(options=['tmp'], style=style, readout_format='.4f',
+                                                    description='Usage nodes to display', continuous_update=False)
+        self.speed_thresholder = widgets.SelectionRangeSlider(options=['tmp'], style=style, readout_format='.1f',
+                                                    description='Threshold nodes by speed', continuous_update=False)
 
-thresholding_box = HBox([VBox([edge_thresholder, usage_thresholder]), speed_thresholder])
+        self.thresholding_box = HBox([VBox([self.edge_thresholder, self.usage_thresholder]), self.speed_thresholder])
 
 ### Crowd Movie Comparison Widgets
-style = {'description_width': 'initial'}
+class CrowdMovieCompareWidgets:
 
-cm_syll_select = widgets.Dropdown(options=[], description='Syllable #:', disabled=False)
-num_examples = widgets.IntSlider(value=20, min=1, max=40, step=1, description='Number of Example Mice:', disabled=False, continuous_update=False, style=style)
+    def __init__(self):
+        style = {'description_width': 'initial'}
 
-cm_sources_dropdown = widgets.Dropdown(options=['group', 'SessionName'], description='Make Crowd Movies From:', disabled=False)
-cm_session_sel = widgets.SelectMultiple(options=[], description='Sessions to Graph:', layout=layout_hidden, disabled=False)
-cm_trigger_button = widgets.Button(description='Generate Movies', disabled=False, tooltip='Make Crowd Movies', layout=layout_hidden)
+        self.label_layout = widgets.Layout(flex_flow='column', max_height='100px')
+        self.layout_hidden = widgets.Layout(display='none')
+        self.layout_visible = widgets.Layout(display='block')
 
-syllable_box = VBox([syll_select, num_examples])
-session_box = VBox([cm_sources_dropdown, cm_session_sel, cm_trigger_button])
+        self.cm_syll_select = widgets.Dropdown(options=[], description='Syllable #:', disabled=False)
+        self.num_examples = widgets.IntSlider(value=20, min=1, max=40, step=1, description='Number of Example Mice:', disabled=False, continuous_update=False, style=style)
 
-widget_box = HBox([syllable_box, session_box]) # add layout
+        self.cm_sources_dropdown = widgets.Dropdown(options=['group', 'SessionName'], description='Make Crowd Movies From:', disabled=False)
+        self.cm_session_sel = widgets.SelectMultiple(options=[], description='Sessions to Graph:', layout=self.layout_hidden, disabled=False)
+        self.cm_trigger_button = widgets.Button(description='Generate Movies', disabled=False, tooltip='Make Crowd Movies', layout=self.layout_hidden)
+
+        self.syllable_box = VBox([self.cm_syll_select, self.num_examples])
+        self.session_box = VBox([self.cm_sources_dropdown, self.cm_session_sel, self.cm_trigger_button])
+
+        self.widget_box = HBox([self.syllable_box, self.session_box]) # add layout

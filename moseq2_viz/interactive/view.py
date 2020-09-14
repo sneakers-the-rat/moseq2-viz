@@ -7,7 +7,6 @@ from IPython.display import display
 from bokeh.palettes import Spectral4
 from bokeh.models.tickers import FixedTicker
 from bokeh.palettes import Dark2_5 as palette
-from moseq2_viz.interactive.widgets import widget_box
 from bokeh.plotting import figure, show, from_networkx
 from bokeh.models import (ColumnDataSource, LabelSet, BoxSelectTool, Circle,
                           EdgesAndLinkedNodes, HoverTool, MultiLine,
@@ -446,7 +445,7 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
     gp = gridplot(formatted_plots, plot_width=500, plot_height=500)
     show(gp)
 
-def display_crowd_movies(divs):
+def display_crowd_movies(widget_box, divs):
     '''
     Crowd movie comparison helper function that displays the widgets and
     embedded HTML divs to a running jupyter notebook cell or HTML webpage.

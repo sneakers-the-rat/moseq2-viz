@@ -6,6 +6,7 @@ Interactivity functionality is facilitated via IPyWidget and Bokeh.
 
 '''
 
+import time
 import joblib
 import numpy as np
 import pandas as pd
@@ -30,7 +31,7 @@ from moseq2_viz.model.util import parse_model_results, results_to_dataframe, get
 from moseq2_viz.model.trans_graph import handle_graph_layout, convert_transition_matrix_to_ebunch, \
     convert_ebunch_to_graph, make_transition_graphs
 
-class SyllableLabeler:
+class SyllableLabeler(SyllableLabelerWidgets):
     '''
 
     Class that contains functionality for previewing syllable crowd movies and
@@ -49,7 +50,7 @@ class SyllableLabeler:
         max_sylls (int): Maximum number of syllables to preview and label.
         save_path (str): Path to save syllable label information dictionary.
         '''
-
+        super().__init__()
         self.save_path = save_path
         self.max_sylls = max_sylls
 
@@ -70,19 +71,19 @@ class SyllableLabeler:
         '''
 
         # Updating dict
-        self.syll_info[str(syll_select.index)]['label'] = lbl_name_input.value
-        self.syll_info[str(syll_select.index)]['desc'] = desc_input.value
+        self.syll_info[str(self.syll_select.index)]['label'] = self.lbl_name_input.value
+        self.syll_info[str(self.syll_select.index)]['desc'] = self.desc_input.value
 
         # Handle cycling through syllable labels
-        if syll_select.index != int(list(syll_select.options.keys())[-1]):
+        if self.syll_select.index != int(list(self.syll_select.options.keys())[-1]):
             # Updating selection to trigger update
-            syll_select.index += 1
+            self.syll_select.index += 1
         else:
-            syll_select.index = 0
+            self.syll_select.index = 0
 
         # Updating input values with current dict entries
-        lbl_name_input.value = self.syll_info[str(syll_select.index)]['label']
-        desc_input.value = self.syll_info[str(syll_select.index)]['desc']
+        self.lbl_name_input.value = self.syll_info[str(self.syll_select.index)]['label']
+        self.desc_input.value = self.syll_info[str(self.syll_select.index)]['desc']
 
     def on_prev(self, event):
         '''
@@ -97,19 +98,19 @@ class SyllableLabeler:
         '''
 
         # Update syllable information dict
-        self.syll_info[str(syll_select.index)]['label'] = lbl_name_input.value
-        self.syll_info[str(syll_select.index)]['desc'] = desc_input.value
+        self.syll_info[str(self.syll_select.index)]['label'] = self.lbl_name_input.value
+        self.syll_info[str(self.syll_select.index)]['desc'] = self.desc_input.value
 
         # Handle cycling through syllable labels
-        if syll_select.index != 0:
+        if self.syll_select.index != 0:
             # Updating selection to trigger update
-            syll_select.index -= 1
+            self.syll_select.index -= 1
         else:
-            syll_select.index = int(list(syll_select.options.keys())[-1])
+            self.syll_select.index = int(list(self.syll_select.options.keys())[-1])
 
         # Reloading previously inputted text area string values
-        lbl_name_input.value = self.syll_info[str(syll_select.index)]['label']
-        desc_input.value = self.syll_info[str(syll_select.index)]['desc']
+        self.lbl_name_input.value = self.syll_info[str(self.syll_select.index)]['label']
+        self.desc_input.value = self.syll_info[str(self.syll_select.index)]['desc']
 
     def on_set(self, event):
         '''
@@ -124,8 +125,8 @@ class SyllableLabeler:
         '''
 
         # Update dict
-        self.syll_info[str(syll_select.index)]['label'] = lbl_name_input.value
-        self.syll_info[str(syll_select.index)]['desc'] = desc_input.value
+        self.syll_info[str(self.syll_select.index)]['label'] = self.lbl_name_input.value
+        self.syll_info[str(self.syll_select.index)]['desc'] = self.desc_input.value
 
         yml = yaml.YAML()
         yml.indent(mapping=3, offset=2)
@@ -135,7 +136,7 @@ class SyllableLabeler:
             yml.dump(self.syll_info, f)
 
         # Update button style
-        set_button.button_type = 'success'
+        self.set_button.button_type = 'success'
 
     def get_mean_syllable_info(self):
         '''
@@ -201,7 +202,7 @@ class SyllableLabeler:
         with ipy_output:
             show(output_table)
         
-        info_boxes.children = [syll_info_lbl, ipy_output,]
+        self.info_boxes.children = [self.syll_info_lbl, ipy_output,]
 
     def interactive_syllable_labeler(self, syllables):
         '''
@@ -216,20 +217,20 @@ class SyllableLabeler:
         -------
         '''
 
-        set_button.button_type = 'primary'
+        self.set_button.button_type = 'primary'
 
         # Set current widget values
         if len(syllables['label']) > 0:
-            lbl_name_input.value = syllables['label']
+            self.lbl_name_input.value = syllables['label']
 
         if len(syllables['desc']) > 0:
-            desc_input.value = syllables['desc']
+            self.desc_input.value = syllables['desc']
 
         # Update label
-        cm_lbl.text = f'Crowd Movie {syll_select.index + 1}/{len(syll_select.options)}'
+        self.cm_lbl.text = f'Crowd Movie {self.syll_select.index + 1}/{len(self.syll_select.options)}'
 
         # Update scalar values
-        group_info = self.syll_info[str(syll_select.index)]['group_info']
+        group_info = self.syll_info[str(self.syll_select.index)]['group_info']
         self.set_group_info_widgets(group_info)
 
         # Get current movie path
@@ -237,7 +238,7 @@ class SyllableLabeler:
 
         # Create syllable crowd movie HTML div to embed
         video_div = f'''
-                        <h2>{syll_select.index}: {syllables['label']}</h2>
+                        <h2>{self.syll_select.index}: {syllables['label']}</h2>
                         <video
                             src="{cm_path}"; alt="{cm_path}"; height="450"; width="450"; preload="true";
                             style="float: left; type: "video/mp4"; margin: 0px 10px 10px 0px;
@@ -247,7 +248,7 @@ class SyllableLabeler:
 
         # Create embedded HTML Div and view layout
         div = Div(text=video_div, style={'width': '100%'})
-        layout = column([div, cm_lbl])
+        layout = column([div, self.cm_lbl])
 
         # Insert Bokeh div into ipywidgets Output widget to display
         vid_out = widgets.Output(height='500px')
@@ -257,10 +258,10 @@ class SyllableLabeler:
         # Create grid layout to display all the widgets
         grid = widgets.GridspecLayout(1, 2, height='500px', layout=widgets.Layout(align_items='flex-start'))
         grid[0, 0] = vid_out
-        grid[0, 1] = data_box
+        grid[0, 1] = self.data_box
 
         # Display all widgets
-        display(grid, button_box)
+        display(grid, self.button_box)
 
     def get_crowd_movie_paths(self, crowd_movie_dir):
         '''
@@ -283,7 +284,7 @@ class SyllableLabeler:
             if syll_num in self.syll_info.keys():
                 self.syll_info[syll_num]['crowd_movie_path'] = cm
 
-class InteractiveSyllableStats:
+class InteractiveSyllableStats(SyllableStatWidgets):
     '''
 
     Interactive Syllable Statistics grapher class that holds the context for the current
@@ -302,6 +303,7 @@ class InteractiveSyllableStats:
         info_path (str): Path to syllable information file.
         max_sylls (int): Maximum number of syllables to plot.
         '''
+        super().__init__()
 
         self.model_path = model_path
         self.info_path = info_path
@@ -438,20 +440,20 @@ class InteractiveSyllableStats:
 
         # Handle selective display for whether mutation sort is selected
         if sort == 'mutation':
-            mutation_box.layout.display = "block"
+            self.mutation_box.layout.display = "block"
         else:
-            mutation_box.layout.display = "none"
+            self.mutation_box.layout.display = "none"
 
         # Handle selective display to select included sessions to graph
         if groupby == 'SessionName':
-            session_sel.layout.display = "block"
-            df = df[df['SessionName'].isin(session_sel.value)]
+            self.session_sel.layout.display = "block"
+            df = df[df['SessionName'].isin(self.session_sel.value)]
         else:
-            session_sel.layout.display = "none"
+            self.session_sel.layout.display = "none"
 
         bokeh_plotting(df, stat, ordering, groupby)
 
-class InteractiveTransitionGraph:
+class InteractiveTransitionGraph(TransitionGraphWidgets):
     '''
 
     Interactive transition graph class used to facilitate interactive graph generation
@@ -469,6 +471,8 @@ class InteractiveTransitionGraph:
         index_path (str): Path to index file containing trained session metadata.
         info_path (str): Path to labeled syllable info file
         '''
+        
+        super().__init__()
 
         self.model_path = model_path
         self.index_path = index_path
@@ -626,7 +630,7 @@ class InteractiveTransitionGraph:
                                           self.entropies, self.entropy_rates,
                                           scalars=scalars)
 
-class CrowdMovieComparison:
+class CrowdMovieComparison(CrowdMovieCompareWidgets):
     '''
     Crowd Movie Comparison application class. Contains all the user inputted parameters
     within its context.
@@ -645,6 +649,7 @@ class CrowdMovieComparison:
         syll_info (dict): Dict object containing labeled syllable information.
         output_dir (str): Path to directory to store crowd movies.
         '''
+        super().__init__()
 
         self.config_data = config_data
         self.index_path = index_path
@@ -674,13 +679,13 @@ class CrowdMovieComparison:
         # source selector.
         if change.new == 'SessionName':
             # Show session selector
-            cm_session_sel.layout = layout_visible
-            cm_trigger_button.layout = layout_visible
+            self.cm_session_sel.layout = self.layout_visible
+            self.cm_trigger_button.layout = self.layout_visible
             self.config_data['separate_by'] = 'sessions'
         elif change.new == 'group':
             # Hide session selector
-            cm_session_sel.layout = layout_hidden
-            cm_trigger_button.layout = layout_hidden
+            self.cm_session_sel.layout = self.layout_hidden
+            self.cm_trigger_button.layout = self.layout_hidden
             self.config_data['separate_by'] = 'groups'
 
     def select_session(self, event):
@@ -698,7 +703,7 @@ class CrowdMovieComparison:
         '''
 
         # Set currently selected sessions
-        self.config_data['session_names'] = list(cm_session_sel.value)
+        self.config_data['session_names'] = list(self.cm_session_sel.value)
         
         # Update session_syllable info dict
         self.get_selected_session_syllable_info(self.config_data['session_names'])
@@ -772,6 +777,8 @@ class CrowdMovieComparison:
         # Compute paths to crowd movies
         path_dict = make_crowd_movies_wrapper(self.index_path, self.model_path, self.config_data, self.output_dir)
         
+        time.sleep(1)
+        
         # Remove previously displayed data
         clear_output()
 
@@ -779,12 +786,12 @@ class CrowdMovieComparison:
         syll_info_df = pd.DataFrame(self.grouped_syll_dict)
 
         # Get currently selected syllable name info
-        curr_label = self.syll_info[str(syll_select.index)]['label']
-        curr_desc = self.syll_info[str(syll_select.index)]['desc']
+        curr_label = self.syll_info[str(self.cm_syll_select.index)]['label']
+        curr_desc = self.syll_info[str(self.cm_syll_select.index)]['desc']
         
         # Set label
-        syll_label_widget = widgets.Label(value=f"Label: {str(syll_select.index)}: {curr_label}", font_size=50, layout=label_layout)
-        syll_desc_widget = widgets.Label(value=f"Description: {curr_desc}", font_size=50, layout=label_layout)
+        syll_label_widget = widgets.Label(value=f"Label: {str(self.cm_syll_select.index)} - {curr_label}", font_size=50, layout=self.label_layout)
+        syll_desc_widget = widgets.Label(value=f"Description: {curr_desc}", font_size=50, layout=self.label_layout)
         
         # Pack info labels into HBox to display
         info_box = widgets.VBox([syll_label_widget, syll_desc_widget])
@@ -824,13 +831,13 @@ class CrowdMovieComparison:
         '''
         
         # Compute current selected syllable's session dict.
-        self.grouped_syll_dict = self.session_dict[str(syll_select.index)]['session_info']
+        self.grouped_syll_dict = self.session_dict[str(self.cm_syll_select.index)]['session_info']
 
         # Get Crowd Movie Divs
         divs = self.generate_crowd_movie_divs()
 
         # Display generated movies
-        display_crowd_movies(divs)
+        display_crowd_movies(self.widget_box, divs)
 
     def crowd_movie_preview(self, syllable, groupby, nexamples):
         '''
@@ -849,18 +856,18 @@ class CrowdMovieComparison:
         '''
 
         # Update current config data with widget values
-        self.config_data['specific_syllable'] = int(syll_select.index)
+        self.config_data['specific_syllable'] = int(self.cm_syll_select.index)
         self.config_data['max_examples'] = nexamples
 
         # Get group info based on selected DropDownMenu item
         if groupby == 'group':
-            self.grouped_syll_dict = self.syll_info[str(syll_select.index)]['group_info']
+            self.grouped_syll_dict = self.syll_info[str(self.cm_syll_select.index)]['group_info']
 
             # Get Crowd Movie Divs
             divs = self.generate_crowd_movie_divs()
 
             # Display generated movies
-            display_crowd_movies(divs)
+            display_crowd_movies(self.widget_box, divs)
         else:
             # Display widget box until user clicks button to generate session-based crowd movies
-            display(widget_box)
+            display(self.widget_box)

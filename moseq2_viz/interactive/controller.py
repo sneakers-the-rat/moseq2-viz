@@ -51,6 +51,7 @@ class SyllableLabeler(SyllableLabelerWidgets):
         max_sylls (int): Maximum number of syllables to preview and label.
         save_path (str): Path to save syllable label information dictionary.
         '''
+
         super().__init__()
         self.save_path = save_path
         self.max_sylls = max_sylls
@@ -792,17 +793,9 @@ class CrowdMovieComparison(CrowdMovieCompareWidgets):
         syll_info_df = pd.DataFrame(self.grouped_syll_dict)
 
         # Get currently selected syllable name info
-        curr_label = self.syll_info[str(self.cm_syll_select.index)]['label']
-        curr_desc = self.syll_info[str(self.cm_syll_select.index)]['desc']
+        self.curr_label = self.syll_info[str(self.cm_syll_select.index)]['label']
+        self.curr_desc = self.syll_info[str(self.cm_syll_select.index)]['desc']
         
-        # Set label
-        syll_label_widget = widgets.Label(value=f"Label: {str(self.cm_syll_select.index)} - {curr_label}", font_size=50, layout=self.label_layout)
-        syll_desc_widget = widgets.Label(value=f"Description: {curr_desc}", font_size=50, layout=self.label_layout)
-        
-        # Pack info labels into HBox to display
-        info_box = widgets.VBox([syll_label_widget, syll_desc_widget])
-        display(info_box)
-
         # Create video divs including syllable metadata
         divs = []
         for group_name, cm_path in path_dict.items():
@@ -843,7 +836,7 @@ class CrowdMovieComparison(CrowdMovieCompareWidgets):
         divs = self.generate_crowd_movie_divs()
 
         # Display generated movies
-        display_crowd_movies(self.widget_box, divs)
+        display_crowd_movies(self.widget_box, self.curr_label, self.curr_desc, divs)
 
     def crowd_movie_preview(self, syllable, groupby, nexamples):
         '''
@@ -873,7 +866,7 @@ class CrowdMovieComparison(CrowdMovieCompareWidgets):
             divs = self.generate_crowd_movie_divs()
 
             # Display generated movies
-            display_crowd_movies(self.widget_box, divs)
+            display_crowd_movies(self.widget_box, self.curr_label, self.curr_desc, divs)
         else:
             # Display widget box until user clicks button to generate session-based crowd movies
             display(self.widget_box)

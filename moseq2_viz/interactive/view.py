@@ -445,7 +445,7 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
     gp = gridplot(formatted_plots, plot_width=500, plot_height=500)
     show(gp)
 
-def display_crowd_movies(widget_box, divs):
+def display_crowd_movies(widget_box, curr_name, desc, divs):
     '''
     Crowd movie comparison helper function that displays the widgets and
     embedded HTML divs to a running jupyter notebook cell or HTML webpage.
@@ -487,8 +487,16 @@ def display_crowd_movies(widget_box, divs):
                         table {
                             display: inline-block;
                         }
+
+                        h3 {
+                            text-align: center;
+                        }
                     </style>
-                    </head>
+                    </head>'''+\
+                  f'''
+                    <h3>Name: {curr_name}</h3>
+                    <h3>Description: {desc}</h3>
+                    <br>
                     <div class="row"; style="background-color:#ffffff; height:auto;">
                   '''
 

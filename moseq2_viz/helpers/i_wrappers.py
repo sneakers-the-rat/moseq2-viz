@@ -89,7 +89,7 @@ def interactive_group_setting_wrapper(index_filepath):
     display(index_grid.group_set)
     display(qgrid_widget)
 
-def interactive_syllable_labeler_wrapper(model_path, index_file, crowd_movie_dir, output_file, max_syllables=None):
+def interactive_syllable_labeler_wrapper(model_path, config_file, index_file, crowd_movie_dir, output_file, max_syllables=None):
     '''
     Wrapper function to launch a syllable crowd movie preview and interactive labeling application.
 
@@ -103,6 +103,10 @@ def interactive_syllable_labeler_wrapper(model_path, index_file, crowd_movie_dir
     Returns
     -------
     '''
+
+    # Load the config file
+    with open(config_file, 'r') as f:
+        config_data = yaml.safe_load(f)
 
     # Load the model
     model = parse_model_results(joblib.load(model_path))
@@ -122,9 +126,10 @@ def interactive_syllable_labeler_wrapper(model_path, index_file, crowd_movie_dir
     labeler = SyllableLabeler(model_fit=model, index_file=index_file, max_sylls=max_sylls, save_path=output_file)
 
     # Populate syllable info dict with relevant syllable information
-    labeler.get_crowd_movie_paths(crowd_movie_dir)
+    labeler.get_crowd_movie_paths(index_file, model_path, config_data, crowd_movie_dir)
     labeler.get_mean_syllable_info()
 
+    # Set the syllable dropdown options
     labeler.syll_select.options = labeler.syll_info
 
     # Launch and display interactive API
@@ -149,11 +154,6 @@ def interactive_syllable_labeler_wrapper(model_path, index_file, crowd_movie_dir
 
     # Update view when user selects new syllable from DropDownMenu
     output.observe(on_syll_change, names='value')
-
-    # Initialize button callbacks
-    labeler.next_button.on_click(labeler.on_next)
-    labeler.prev_button.on_click(labeler.on_prev)
-    labeler.set_button.on_click(labeler.on_set)
 
 def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syllables=None):
     '''

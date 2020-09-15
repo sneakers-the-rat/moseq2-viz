@@ -68,6 +68,11 @@ class SyllableLabeler(SyllableLabelerWidgets):
         else:
             self.syll_info = {str(i): {'label': '', 'desc': '', 'crowd_movie_path': '', 'group_info': {}} for i in range(max_sylls)}
 
+        # Initialize button callbacks
+        self.next_button.on_click(self.on_next)
+        self.prev_button.on_click(self.on_prev)
+        self.set_button.on_click(self.on_set)
+
     def on_next(self, event):
         '''
         Callback function to trigger an view update when the user clicks the "Next" button.
@@ -190,7 +195,6 @@ class SyllableLabeler(SyllableLabelerWidgets):
                     'usage': gd[group_name]['usage'][syll],
                     'speed': gd[group_name]['speed'][syll],
                     'dist_to_center': gd[group_name]['dist_to_center'][syll],
-                    'duration': gd[group_name]['duration'][syll]
                 }
 
     def set_group_info_widgets(self, group_info):
@@ -273,7 +277,26 @@ class SyllableLabeler(SyllableLabelerWidgets):
         # Display all widgets
         display(grid, self.button_box)
 
-    def get_crowd_movie_paths(self, crowd_movie_dir):
+    def set_default_cm_parameters(self, config_data):
+        
+        config_data['separate_by'] = None
+        config_data['specific_syllable'] = None
+        config_data['max_syllable'] = self.max_sylls
+        config_data['max_examples'] = 30
+
+        config_data['gaussfilter_space'] = [0, 0]
+        config_data['medfilter_space'] = [0]
+        config_data['sort'] = True
+        config_data['dur_clip'] = 300
+        config_data['raw_size'] = (512, 424)
+        config_data['scale'] = 1 
+        config_data['legacy_jitter_fix'] = False
+        config_data['cmap'] = 'jet'
+        config_data['count'] = 'usage'
+        
+        return config_data
+
+    def get_crowd_movie_paths(self, index_path, model_path, config_data, crowd_movie_dir):
         '''
         Populates the syllable information dict with the respective crowd movie paths.
 
@@ -285,7 +308,23 @@ class SyllableLabeler(SyllableLabelerWidgets):
         -------
         '''
 
+        if not os.path.exists(crowd_movie_dir):
+            print('Crowd movies not found. Generating movies...')
+            config_data = self.set_default_cm_parameters(config_data)
+            
+            # Generate movies if directory does not exist
+            path_dict = make_crowd_movies_wrapper(index_path, model_path, config_data, crowd_movie_dir)
+
         # Get movie paths
+        crowd_movie_paths = [f for f in glob(crowd_movie_dir + '*') if '.mp4' in f]
+
+        if len(crowd_movie_paths) < self.max_sylls:
+            print('Crowd movie list is incomplete. Generating movies...')
+            config_data = self.set_default_cm_parameters(config_data)
+            
+            # Generate movies if directory does not exist
+            path_dict = make_crowd_movies_wrapper(index_path, model_path, config_data, crowd_movie_dir)
+
         crowd_movie_paths = [f for f in glob(crowd_movie_dir + '*') if '.mp4' in f]
 
         for cm in crowd_movie_paths:

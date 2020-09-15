@@ -415,8 +415,8 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
         label_uuids = model_fit['keys']
 
     # Relabel syllable labels by usage sorting and save the ordering for crowd-movie file naming
-    if config_data['sort']:
-        labels, ordering = relabel_by_usage(labels, count=config_data['count'])
+    if config_data.get('sort', True):
+        labels, ordering = relabel_by_usage(labels, count=config_data.get('count', 'usage'))
     else:
         ordering = list(range(config_data['max_syllable']))
 

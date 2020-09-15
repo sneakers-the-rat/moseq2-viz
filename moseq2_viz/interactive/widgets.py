@@ -77,20 +77,23 @@ class SyllableStatWidgets:
         self.stat_dropdown = widgets.Dropdown(options=['usage', 'speed', 'distance to center'], description='Stat to Plot:', disabled=False)
 
         # add dist to center
-        self.sorting_dropdown = widgets.Dropdown(options=['usage', 'speed', 'distance to center', 'similarity', 'mutation'], description='Sort Syllables By:', disabled=False)
-        self.ctrl_dropdown = widgets.Dropdown(options=[], description='Control Group:', disabled=False)
-        self.exp_dropdown = widgets.Dropdown(options=[], description='Treatment Group:', disabled=False)
+        self.sorting_dropdown = widgets.Dropdown(options=['usage', 'speed', 'distance to center', 'similarity', 'difference'], description='Sort Syllables By:', disabled=False)
+        self.ctrl_dropdown = widgets.Dropdown(options=[], description='Group 1:', disabled=False)
+        self.exp_dropdown = widgets.Dropdown(options=[], description='Group 2:', disabled=False)
 
         self.grouping_dropdown = widgets.Dropdown(options=['group', 'SessionName'], description='Group Data By:', disabled=False)
         self.session_sel = widgets.SelectMultiple(options=[], description='Sessions to Graph:', layout=self.layout_hidden, disabled=False)
 
+        self.errorbar_dropdown = widgets.Dropdown(options=['SEM', 'STD'], description='Error Bars:', disabled=False)
+
         ## boxes
+        self.stat_box = VBox([self.stat_dropdown, self.errorbar_dropdown])
         self.mutation_box = VBox([self.ctrl_dropdown, self.exp_dropdown])
 
         self.sorting_box = VBox([self.sorting_dropdown, self.mutation_box])
         self.session_box = VBox([self.grouping_dropdown, self.session_sel])
 
-        self.stat_widget_box = HBox([self.stat_dropdown, self.sorting_box, self.session_box])
+        self.stat_widget_box = HBox([self.stat_box, self.sorting_box, self.session_box])
 
 ### Group Setting Widgets
 class GroupSettingWidgets:

@@ -25,7 +25,7 @@ from sklearn.metrics.pairwise import pairwise_distances
 from scipy.cluster.hierarchy import linkage, dendrogram
 from moseq2_viz.helpers.wrappers import make_crowd_movies_wrapper
 from moseq2_viz.model.trans_graph import get_trans_graph_groups, get_group_trans_mats, get_usage_dict
-from moseq2_viz.interactive.view import bokeh_plotting, display_crowd_movies,  plot_interactive_transition_graph
+from moseq2_viz.interactive.view import bokeh_plotting, graph_dendrogram, display_crowd_movies, plot_interactive_transition_graph
 from moseq2_viz.model.label_util import get_sorted_syllable_stat_ordering, get_syllable_muteness_ordering
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_session_centroid_speeds, compute_mean_syll_scalar
 from moseq2_viz.model.util import parse_model_results, results_to_dataframe, get_syllable_usages, relabel_by_usage
@@ -321,6 +321,18 @@ class InteractiveSyllableStats(SyllableStatWidgets):
         self.ar_mats = None
         self.results = None
         self.icoord, self.dcoord = None, None
+        self.cladogram = None
+
+        # Load all the data
+        self.interactive_stat_helper()
+
+        # Update the widget values
+        self.session_sel.options = list(self.df.SessionName.unique())
+        self.session_sel.value = [self.session_sel.options[0]]
+
+        self.ctrl_dropdown.options = list(self.df.group.unique())
+        self.exp_dropdown.options = list(self.df.group.unique())
+        self.exp_dropdown.value = self.ctrl_dropdown.options[-1]
 
     def compute_dendrogram(self):
         '''
@@ -406,7 +418,7 @@ class InteractiveSyllableStats(SyllableStatWidgets):
 
         self.df = df.merge(info_df, on='syllable')
 
-    def interactive_syll_stats_grapher(self, stat, sort, groupby, sessions, ctrl_group, exp_group):
+    def interactive_syll_stats_grapher(self, stat, sort, groupby, errorbar, sessions, ctrl_group, exp_group):
         '''
         Helper function that is responsible for handling ipywidgets interactions and updating the currently
          displayed Bokeh plot.
@@ -415,11 +427,11 @@ class InteractiveSyllableStats(SyllableStatWidgets):
         ----------
         stat (list or ipywidgets.DropDown): Statistic to plot: ['usage', 'speed', 'distance to center']
         sort (list or ipywidgets.DropDown): Statistic to sort syllables by (in descending order).
-            ['usage', 'speed', 'distance to center', 'similarity', 'mutation'].
+            ['usage', 'speed', 'distance to center', 'similarity', 'difference'].
         groupby (list or ipywidgets.DropDown): Data to plot; either group averages, or individual session data.
         sessions (list or ipywidgets.MultiSelect): List of selected sessions to display data from.
-        ctrl_group (str or ipywidgets.DropDown): Name of control group to compute mutation sorting with.
-        exp_group (str or ipywidgets.DropDown): Name of comparative group to compute mutation sorting with.
+        ctrl_group (str or ipywidgets.DropDown): Name of control group to compute group difference sorting with.
+        exp_group (str or ipywidgets.DropDown): Name of comparative group to compute group difference sorting with.
 
         Returns
         -------
@@ -435,7 +447,7 @@ class InteractiveSyllableStats(SyllableStatWidgets):
             sort = 'dist_to_center'
 
         # Get selected syllable sorting
-        if sort == 'mutation':
+        if sort == 'difference':
             # display Text for groups to input experimental groups
             ordering = get_syllable_muteness_ordering(df, ctrl_group, exp_group, stat=stat)
         elif sort == 'similarity':
@@ -446,7 +458,7 @@ class InteractiveSyllableStats(SyllableStatWidgets):
             ordering = range(len(df.syllable.unique()))
 
         # Handle selective display for whether mutation sort is selected
-        if sort == 'mutation':
+        if sort == 'difference':
             self.mutation_box.layout.display = "block"
         else:
             self.mutation_box.layout.display = "none"
@@ -458,7 +470,14 @@ class InteractiveSyllableStats(SyllableStatWidgets):
         else:
             self.session_sel.layout.display = "none"
 
-        bokeh_plotting(df, stat, ordering, groupby)
+        # Compute cladogram if it does not already exist
+        if self.cladogram == None:
+            self.cladogram = graph_dendrogram(self)
+            self.results['cladogram'] = self.cladogram
+
+        self.stat_fig = bokeh_plotting(df, stat, ordering, groupby, errorbar=errorbar, syllable_families=self.results)
+        
+        
 
 class InteractiveTransitionGraph(TransitionGraphWidgets):
     '''

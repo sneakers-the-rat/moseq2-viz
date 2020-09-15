@@ -2,7 +2,7 @@ import warnings
 import itertools
 import numpy as np
 import networkx as nx
-from bokeh.layouts import gridplot
+from bokeh.layouts import gridplot, column, row
 from IPython.display import display
 from bokeh.palettes import Spectral4
 from bokeh.models.tickers import FixedTicker
@@ -10,7 +10,7 @@ from bokeh.palettes import Dark2_5 as palette
 from bokeh.plotting import figure, show, from_networkx
 from bokeh.models import (ColumnDataSource, LabelSet, BoxSelectTool, Circle,
                           EdgesAndLinkedNodes, HoverTool, MultiLine,
-                          NodesAndLinkedEdges, TapTool, Div)
+                          NodesAndLinkedEdges, TapTool, Div, ColorPicker, Span)
 
 
 
@@ -33,9 +33,9 @@ def graph_dendrogram(obj):
     '''
 
     ## Cladogram figure
-    cladogram = figure(title='Syllable Stat',
-                       width=600,
-                       height=400,
+    cladogram = figure(title='Distance Sorted Syllable Dendrogram',
+                       width=850,
+                       height=500,
                        output_backend="webgl")
 
     # Show syllable info on hover
@@ -73,11 +73,10 @@ def graph_dendrogram(obj):
     cladogram.xaxis.ticker = FixedTicker(ticks=labels)
     cladogram.xaxis.major_label_overrides = {i: str(l) for i, l in enumerate(labels)}
 
-    # Display cladogram
-    show(cladogram)
+    return cladogram
 
 
-def bokeh_plotting(df, stat, sorting, groupby='group'):
+def bokeh_plotting(df, stat, sorting, groupby='group', errorbar='SEM', syllable_families=None):
     '''
     Generates a Bokeh plot with interactive tools such as the HoverTool, which displays
     additional syllable information and the associated crowd movie.
@@ -113,6 +112,7 @@ def bokeh_plotting(df, stat, sorting, groupby='group'):
                width=850,
                height=500,
                tools=tools,
+               x_range=syllable_families['cladogram'].x_range,
                tooltips=[
                          ("syllable", "@number{0}"),
                          ('usage', "@usage{0.000}"),
@@ -133,6 +133,16 @@ def bokeh_plotting(df, stat, sorting, groupby='group'):
         groups = list(df.group.unique())
     else:
         groups = list(df.SessionName.unique())
+        tmp_groups = df[df['SessionName'].isin(groups)]
+        
+        sess_groups = []
+        for s in groups:
+            sess_groups.append(list(tmp_groups[tmp_groups['SessionName'] == s].group)[0])
+
+        color_map = {g:i for i,g in enumerate(set(sess_groups))}
+        colors = [palette[color_map[g]] for g in sess_groups]
+
+    pickers = []
 
     ## Line Plot
     for i, color in zip(range(len(groups)), colors):
@@ -140,7 +150,10 @@ def bokeh_plotting(df, stat, sorting, groupby='group'):
         aux_df = df[df[groupby] == groups[i]].groupby('syllable', as_index=False).mean().reindex(sorting)
 
         # Get SEM values
-        sem = df.groupby('syllable')[[stat]].sem().reindex(sorting)
+        if errorbar == 'SEM':
+            sem = df.groupby('syllable')[[stat]].sem().reindex(sorting)
+        else:
+            sem = df.groupby('syllable')[[stat]].std().reindex(sorting)
         miny = aux_df[stat] - sem[stat]
         maxy = aux_df[stat] + sem[stat]
 
@@ -185,10 +198,30 @@ def bokeh_plotting(df, stat, sorting, groupby='group'):
         ))
 
         # Draw glyphs
-        p.line('x', 'y', source=source, alpha=0.8, muted_alpha=0.1, legend_label=groups[i], color=color)
-        p.circle('x', 'y', source=source, alpha=0.8, muted_alpha=0.1, legend_label=groups[i], color=color, size=6)
-        p.multi_line('x', 'y', source=err_source, alpha=0.8, muted_alpha=0.1, legend_label=groups[i], color=color)
+        line = p.line('x', 'y', source=source, alpha=0.8, muted_alpha=0.1, legend_label=groups[i], color=color)
+        circle = p.circle('x', 'y', source=source, alpha=0.8, muted_alpha=0.1, legend_label=groups[i], color=color, size=6)
+        error_bars = p.multi_line('x', 'y', source=err_source, alpha=0.8, muted_alpha=0.1, legend_label=groups[i], color=color)
 
+        if groupby == 'group':
+            picker = ColorPicker(title=f"{groups[i]} Line Color")
+            picker.js_link('color', line.glyph, 'line_color')
+            picker.js_link('color', circle.glyph, 'fill_color')
+            picker.js_link('color', circle.glyph, 'line_color')
+            picker.js_link('color', error_bars.glyph, 'line_color')
+        
+            pickers.append(picker)
+
+    # Draw vertical lines at x-axis indices at each dendrogram group end
+    if list(sorting) == syllable_families['leaves']:
+        vline_idx = [x+1 for x in range(len(syllable_families['color_list'])-1) if syllable_families['color_list'][x] != syllable_families['color_list'][x+1]]
+        vlines = []
+        
+        for i in vline_idx:
+             vline = Span(location=i, dimension='height', line_color='black', line_width=1)
+             vlines.append(vline)
+        
+        p.renderers.extend(vlines)
+    
     # Setting dynamics xticks
     p.xaxis.ticker = FixedTicker(ticks=list(sorting))
     p.xaxis.major_label_overrides = {i: str(l) for i, l in enumerate(list(sorting))}
@@ -197,8 +230,18 @@ def bokeh_plotting(df, stat, sorting, groupby='group'):
     p.legend.click_policy = "mute"
     p.legend.location = "top_right"
 
+    output_grid = []
+    if len(pickers) > 0:
+        color_pickers = row(pickers)
+        output_grid.append(color_pickers)
+    output_grid.append(p)
+
+    graph_n_pickers = column(output_grid)
+    
     ## Display
-    show(p)
+    show(graph_n_pickers)
+    
+    return p
 
 def format_graphs(graphs, group):
     '''

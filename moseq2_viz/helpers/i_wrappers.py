@@ -5,13 +5,13 @@
 import joblib
 import numpy as np
 import pandas as pd
+from bokeh.io import show
 import ruamel.yaml as yaml
 from collections import OrderedDict
 from moseq2_viz.interactive.widgets import *
 from moseq2_viz.util import index_to_dataframe
 from ipywidgets import fixed, interactive_output
 from IPython.display import display, clear_output
-from moseq2_viz.interactive.view import graph_dendrogram
 from moseq2_viz.helpers.wrappers import init_wrapper_function
 from moseq2_viz.model.util import relabel_by_usage, get_syllable_usages, parse_model_results
 from moseq2_viz.interactive.controller import SyllableLabeler, InteractiveSyllableStats, CrowdMovieComparison, InteractiveTransitionGraph
@@ -175,14 +175,6 @@ def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syl
     # Initialize the statistical grapher context
     istat = InteractiveSyllableStats(index_path=index_path, model_path=model_path, info_path=info_path, max_sylls=max_syllables)
 
-    # Load all the data
-    istat.interactive_stat_helper()
-
-    # Update the widget values
-    istat.session_sel.options = list(istat.df.SessionName.unique())
-    istat.ctrl_dropdown.options = list(istat.df.group.unique())
-    istat.exp_dropdown.options = list(istat.df.group.unique())
-
     # Compute the syllable dendrogram values
     istat.compute_dendrogram()
 
@@ -191,6 +183,7 @@ def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syl
                                                       'stat': istat.stat_dropdown,
                                                       'sort': istat.sorting_dropdown,
                                                       'groupby': istat.grouping_dropdown,
+                                                      'errorbar': istat.errorbar_dropdown,
                                                       'sessions': istat.session_sel,
                                                       'ctrl_group': istat.ctrl_dropdown,
                                                       'exp_group': istat.exp_dropdown
@@ -198,7 +191,7 @@ def interactive_syllable_stat_wrapper(index_path, model_path, info_path, max_syl
 
 
     display(istat.stat_widget_box, out)
-    graph_dendrogram(istat)
+    show(istat.cladogram)
 
 def interactive_crowd_movie_comparison_preview(config_data, index_path, model_path, syll_info_path, output_dir):
     '''

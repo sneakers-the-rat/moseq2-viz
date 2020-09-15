@@ -741,3 +741,32 @@ def plot_explained_behavior(syllable_usages, count="usage", figsize=(10,5)):
     plt.xlabel(f'Syllable Label (indexed by {count})', fontsize=12)
     sns.despine()
     return fig
+
+def plot_cp_comparison(model_cps, pc_cps):
+    '''
+    Plot the changepoint-duration distributions of a given 1D arrays of model
+     and principal component changepoints.
+
+    Parameters
+    ----------
+    model_cps (1D np.array): Computed model changepoints
+    pc_cps (1D np.array): Computed PC changepoints
+
+    Returns
+    -------
+    fig (pyplot figure): syllable usage ordered by frequency, 90% usage marked
+    ax (pyplot axis): plotted scalar axis
+    '''
+
+    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+
+    # Plot KDEs
+    ax = sns.kdeplot(pc_cps, gridsize=1000, color='blue', label='PCA Changepoints')
+    ax = sns.kdeplot(model_cps, gridsize=1000, color='orange', label='Model Changepoints')
+
+    # Format plot
+    plt.xlim(0, 2)
+    plt.xlabel('Block duration (s)')
+    plt.ylabel('P(duration)')
+    
+    return fig, ax

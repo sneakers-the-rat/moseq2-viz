@@ -92,8 +92,67 @@ def merge_models(model_dir, ext='p',count='usage'):
 
     return model_data
 
+def get_best_fit(cp_path, model_results):
+    '''
+    Returns the model with the closest median syllable duration to the PCA changepoints.
 
+    Parameters
+    ----------
+    cp_path (str): Path to PCA Changepoints h5 file.
+    model_results (dict): dict of pairs of model names paired with dict containing their respective changepoints.
 
+    Returns
+    -------
+    best_model (str): Computed best-fit model key.
+    pca_cps (1D array): 1-dimensional list of pc score block durations.
+    '''
+
+    # Load changepoints
+    with h5py.File(cp_path, 'r') as f:
+        cps = h5_to_dict(f, 'cps')
+
+    # Compute changepoint distribution
+    pca_cps = np.concatenate([np.diff(cp, axis=0) for k, cp in cps.items()]).flatten()
+    
+    best_model = None
+    min_dist = 9999999
+    
+    for model in model_results.keys():
+        # Load current models changepoints
+        model_cps = model_results[model]['changepoints']
+        try:
+            # Get syllable duration difference
+            syll_dur = abs(np.median(pca_cps) - np.median(model_cps))
+
+            # If syllable duration is less than last saved value, update best model
+            if syll_dur < min_dist:
+                min_dist = syll_dur
+                best_model = model
+        except:
+            print('model doesnt match pcs')
+            pass
+        
+    return best_model, pca_cps
+
+def compute_model_changepoints(model):
+    '''
+    Computes the given trained model's syllable label changepoints.
+
+    Parameters
+    ----------
+    model (dict): dict of parsed trained model results.
+
+    Returns
+    -------
+    model_cps (1d np.array): 1-dimensional list of syllable block durations.
+    '''
+
+    model_cps = []
+    for _labels in model["labels"]:
+        locs = _get_transitions(_labels)[1] / 30.
+        model_cps += list(np.diff(locs))
+
+    return np.array(model_cps)
 
 def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
     '''

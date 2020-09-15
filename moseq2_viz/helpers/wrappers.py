@@ -21,10 +21,10 @@ from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_scal
                                     compute_session_centroid_speeds, compute_kl_divergences
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot,
                             plot_mean_group_heatmap, plot_verbose_heatmap, plot_kl_divergences, \
-                            plot_explained_behavior, save_fig)
+                            plot_explained_behavior, save_fig, plot_cp_comparison)
 from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict)
 from moseq2_viz.model.util import (relabel_by_usage, get_syllable_usages, parse_model_results, merge_models,
-                                   results_to_dataframe)
+                                   results_to_dataframe, get_best_fit, compute_model_changepoints)
 
 
 def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, output_file=None):
@@ -132,6 +132,43 @@ def add_group_wrapper(index_file, config_data):
         raise Exception
 
     print('Group(s) added successfully.')
+
+def get_best_fit_model_wrapper(model_dir, cp_file, ext='.p'):
+    '''
+    Given a directory containing multiple models trained on different kappa values,
+    finds the model with the closest median syllable duration to the PC changepoints.
+     Function also graphs the distributions of the best fit model and PC changepoints
+
+    Parameters
+    ----------
+    model_dir (str): Path to directory containing multiple models.
+    cp_file (str): Path to PCA changepoints
+    ext (str): Model extension to search for
+
+    Returns
+    -------
+    fig (pyplot figure): syllable usage ordered by frequency, 90% usage marked
+    ax (pyplot axis): plotted scalar axis
+    '''
+
+    # Get models
+    models = [f for f in os.listdir(model_dir) if f.endswith(ext)]
+
+    # Load models into a single dict and compute their changepoints
+    model_results = {}
+    for model_name in models:
+        model_results[model_name] = parse_model_results(joblib.load(model_dir+model_name))
+        model_results[model_name]['changepoints'] = compute_model_changepoints(model_results[model_name])
+
+    # Find the best fit model
+    best_model, pca_changepoints = get_best_fit(cp_file, model_results)
+
+    print('Model with median duration closest to PC scores:', os.path.join(model_dir, best_model))
+
+    # Graph the difference
+    fig, ax = plot_cp_comparison(model_results[best_model]['changepoints'], pca_changepoints)
+
+    return fig, ax
 
 def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None):
     '''

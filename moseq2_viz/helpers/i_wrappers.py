@@ -89,7 +89,7 @@ def interactive_group_setting_wrapper(index_filepath):
     display(index_grid.group_set)
     display(qgrid_widget)
 
-def interactive_syllable_labeler_wrapper(model_path, config_file, index_file, crowd_movie_dir, output_file, max_syllables=None):
+def interactive_syllable_labeler_wrapper(model_path, config_file, index_file, crowd_movie_dir, output_file, max_syllables=None, n_explained=90):
     '''
     Wrapper function to launch a syllable crowd movie preview and interactive labeling application.
 
@@ -118,7 +118,7 @@ def interactive_syllable_labeler_wrapper(model_path, config_file, index_file, cr
     if max_syllables == None:
         syllable_usages = get_syllable_usages(model, 'usage')
         cumulative_explanation = 100 * np.cumsum(syllable_usages)
-        max_sylls = np.argwhere(cumulative_explanation >= 90)[0][0]
+        max_sylls = np.argwhere(cumulative_explanation >= n_explained)[0][0]
     else:
         max_sylls = max_syllables
 

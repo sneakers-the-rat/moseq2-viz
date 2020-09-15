@@ -115,17 +115,17 @@ class TestCLI(TestCase):
 
             use_params = ['data/test_index.yaml',
                           'data/test_model.p',
-                          '--output-file', gen_dir + f'test_{stat}s',
+                          '--output-file', gen_dir + f'test_{stat}',
                           '--stat', stat]
 
             print(' '.join(use_params))
 
             os.system(f'moseq2-viz plot-stats {" ".join(use_params)}')
 
-            assert (os.path.exists(gen_dir + f'test_{stat}s.png')), f"f'{stat} plot PNG not found"
-            assert (os.path.exists(gen_dir + f'test_{stat}s.pdf')), f"{stat} plot PDF not found"
-            os.remove(gen_dir + f'test_{stat}s.png')
-            os.remove(gen_dir + f'test_{stat}s.pdf')
+            assert (os.path.exists(gen_dir + f'test_{stat}.png')), f"{stat} plot PNG not found"
+            assert (os.path.exists(gen_dir + f'test_{stat}.pdf')), f"{stat} plot PDF not found"
+            os.remove(gen_dir + f'test_{stat}.png')
+            os.remove(gen_dir + f'test_{stat}.pdf')
 
         shutil.rmtree(gen_dir)
 

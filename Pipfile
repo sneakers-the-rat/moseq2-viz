@@ -37,3 +37,4 @@ scikit-image = "*"
 scikit-learn = "==0.20.3"
 dtaidistance = "==1.2.3"
 opencv-python = "*"
+moseq2-viz = {editable = true, path = "."}

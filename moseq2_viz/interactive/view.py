@@ -2,11 +2,12 @@ import warnings
 import itertools
 import numpy as np
 import networkx as nx
-from bokeh.layouts import gridplot, column, row
+import ipywidgets as widgets
 from IPython.display import display
 from bokeh.palettes import Spectral4
 from bokeh.models.tickers import FixedTicker
 from bokeh.palettes import Dark2_5 as palette
+from bokeh.layouts import gridplot, column, row
 from bokeh.plotting import figure, show, from_networkx
 from bokeh.models import (ColumnDataSource, LabelSet, BoxSelectTool, Circle,
                           EdgesAndLinkedNodes, HoverTool, MultiLine,
@@ -488,7 +489,7 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
     gp = gridplot(formatted_plots, plot_width=500, plot_height=500)
     show(gp)
 
-def display_crowd_movies(widget_box, curr_name, desc, divs):
+def display_crowd_movies(widget_box, curr_name, desc, divs, bk_figs):
     '''
     Crowd movie comparison helper function that displays the widgets and
     embedded HTML divs to a running jupyter notebook cell or HTML webpage.
@@ -504,6 +505,7 @@ def display_crowd_movies(widget_box, curr_name, desc, divs):
 
     # Set HTML formats
     movie_table = '''
+                    <html>
                     <head>
                     <style>
                         .output {
@@ -537,6 +539,7 @@ def display_crowd_movies(widget_box, curr_name, desc, divs):
                     </style>
                     </head>'''+\
                   f'''
+                    <body>
                     <h3>Name: {curr_name}</h3>
                     <h3>Description: {desc}</h3>
                     <br>
@@ -564,10 +567,21 @@ def display_crowd_movies(widget_box, curr_name, desc, divs):
         movie_table += col
 
     # Close last div
-    movie_table += '</div>'
+    movie_table += '</div>\
+                    </body>\
+                    </html>'
 
     div2 = Div(text=movie_table)
 
     # Display
     display(widget_box)
+
     show(div2)
+    gp = gridplot(bk_figs, ncols=2, plot_width=250, plot_height=250)
+    
+    # Create Output widget object to center grid plot in view
+    output = widgets.Output(layout=widgets.Layout(align_items='center'))
+    with output:
+        show(gp)
+
+    display(output)

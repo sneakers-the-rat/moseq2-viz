@@ -15,19 +15,22 @@ from glob import glob
 import networkx as nx
 from bokeh.io import show
 import ruamel.yaml as yaml
+from bokeh.resources import CDN
 from bokeh.layouts import column
+from bokeh.plotting import figure
 from bokeh.models.widgets import Div
 from moseq2_viz.util import parse_index
 from moseq2_viz.interactive.widgets import *
-from moseq2_viz.info.util import entropy, entropy_rate
 from IPython.display import display, clear_output
+from bokeh.embed import components, autoload_static
+from moseq2_viz.info.util import entropy, entropy_rate
 from sklearn.metrics.pairwise import pairwise_distances
 from scipy.cluster.hierarchy import linkage, dendrogram
 from moseq2_viz.helpers.wrappers import make_crowd_movies_wrapper
 from moseq2_viz.model.trans_graph import get_trans_graph_groups, get_group_trans_mats, get_usage_dict
 from moseq2_viz.interactive.view import bokeh_plotting, graph_dendrogram, display_crowd_movies, plot_interactive_transition_graph
 from moseq2_viz.model.label_util import get_sorted_syllable_stat_ordering, get_syllable_muteness_ordering
-from moseq2_viz.scalars.util import scalars_to_dataframe, compute_session_centroid_speeds, compute_mean_syll_scalar
+from moseq2_viz.scalars.util import scalars_to_dataframe, compute_session_centroid_speeds, compute_mean_syll_scalar, compute_syllable_position_heatmaps, get_syllable_pdfs
 from moseq2_viz.model.util import parse_model_results, results_to_dataframe, get_syllable_usages, relabel_by_usage
 from moseq2_viz.model.trans_graph import handle_graph_layout, convert_transition_matrix_to_ebunch, \
     convert_ebunch_to_graph, make_transition_graphs
@@ -477,8 +480,6 @@ class InteractiveSyllableStats(SyllableStatWidgets):
 
         self.stat_fig = bokeh_plotting(df, stat, ordering, groupby, errorbar=errorbar, syllable_families=self.results)
         
-        
-
 class InteractiveTransitionGraph(TransitionGraphWidgets):
     '''
 
@@ -686,6 +687,11 @@ class CrowdMovieComparison(CrowdMovieCompareWidgets):
         
         # Prepare current context's base session syllable info dict
         self.session_dict = {str(i): {'session_info': {}} for i in range(self.max_sylls)}
+
+        # Set widget callbacks
+        self.cm_session_sel.observe(self.select_session)
+        self.cm_sources_dropdown.observe(self.show_session_select)
+        self.cm_trigger_button.on_click(self.on_click_trigger_button)
         
     def show_session_select(self, change):
         '''
@@ -757,6 +763,9 @@ class CrowdMovieComparison(CrowdMovieCompareWidgets):
         scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
         df = compute_mean_syll_scalar(df, scalar_df, label_df, groups=None, max_sylls=self.max_sylls)
 
+        # Compute syllable position PDFs
+        self.df = compute_syllable_position_heatmaps(df, scalar_df, label_df)
+
         # Get grouped DataFrame
         self.session_df = df.groupby(('SessionName', 'syllable'), as_index=False).mean()
     
@@ -804,6 +813,17 @@ class CrowdMovieComparison(CrowdMovieCompareWidgets):
         path_dict = make_crowd_movies_wrapper(self.index_path, self.model_path, self.config_data, self.output_dir)
         
         time.sleep(1)
+
+        # Get corresponding syllable position PDF
+        group_syll_pdfs, groups = get_syllable_pdfs(self.df, syllables=[self.cm_syll_select.index], groupby=self.cm_sources_dropdown.value)
+        
+        if self.cm_sources_dropdown.value == 'group':
+            g_iter = groups
+        else:
+            g_iter = self.cm_session_sel.value
+
+        for i, group in enumerate(g_iter):
+            self.grouped_syll_dict[group]['pdf'] = group_syll_pdfs[groups.index(group)]
         
         # Remove previously displayed data
         clear_output()
@@ -817,10 +837,21 @@ class CrowdMovieComparison(CrowdMovieCompareWidgets):
         
         # Create video divs including syllable metadata
         divs = []
+        bk_plots = []
         for group_name, cm_path in path_dict.items():
             # Convert crowd movie metadata to HTML table
-            group_info = pd.DataFrame(syll_info_df[group_name]).to_html()
+            group_info = pd.DataFrame(syll_info_df.drop('pdf', axis=0)[group_name]).to_html()
 
+            group_syllable_pdf = syll_info_df[group_name]['pdf'][0]
+            
+            pdf_fig = figure(height=350, width=350, title=f'{group_name}')
+            pdf_fig.image(image=[group_syllable_pdf],
+                     x=0,
+                     y=0,
+                     dw=group_syllable_pdf.shape[1],
+                     dh=group_syllable_pdf.shape[0],
+                     palette="Viridis256")
+            bk_plots.append(pdf_fig)
             # Insert paths and table into HTML div
             group_txt = '''
                 {group_info}
@@ -833,7 +864,7 @@ class CrowdMovieComparison(CrowdMovieCompareWidgets):
 
             divs.append(group_txt)
         
-        return divs
+        return divs, bk_plots
 
     def on_click_trigger_button(self, b):
         '''
@@ -852,10 +883,10 @@ class CrowdMovieComparison(CrowdMovieCompareWidgets):
         self.grouped_syll_dict = self.session_dict[str(self.cm_syll_select.index)]['session_info']
 
         # Get Crowd Movie Divs
-        divs = self.generate_crowd_movie_divs()
+        divs, self.bk_plots = self.generate_crowd_movie_divs()
 
         # Display generated movies
-        display_crowd_movies(self.widget_box, self.curr_label, self.curr_desc, divs)
+        display_crowd_movies(self.widget_box, self.curr_label, self.curr_desc, divs, self.bk_plots)
 
     def crowd_movie_preview(self, syllable, groupby, nexamples):
         '''
@@ -882,10 +913,10 @@ class CrowdMovieComparison(CrowdMovieCompareWidgets):
             self.grouped_syll_dict = self.syll_info[str(self.cm_syll_select.index)]['group_info']
 
             # Get Crowd Movie Divs
-            divs = self.generate_crowd_movie_divs()
+            divs, self.bk_plots = self.generate_crowd_movie_divs()
 
             # Display generated movies
-            display_crowd_movies(self.widget_box, self.curr_label, self.curr_desc, divs)
+            display_crowd_movies(self.widget_box, self.curr_label, self.curr_desc, divs, self.bk_plots)
         else:
             # Display widget box until user clicks button to generate session-based crowd movies
             display(self.widget_box)

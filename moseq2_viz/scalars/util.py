@@ -709,6 +709,78 @@ def compute_session_centroid_speeds(scalar_df, grouping_keys=['uuid', 'group'],
 
     return sc_speed
 
+def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='group'):
+
+    mini_df = pdf_df[['pdf', 'group', 'SessionName', 'syllable']]
+    
+    if groupby == 'group':
+        groups = list(mini_df.group.unique())
+    else:
+        groups = list(mini_df.SessionName.unique())
+    
+    group_syll_pdfs = []
+    for g in groups:
+        g_df = mini_df[mini_df[groupby] == g]
+        
+        syll_pdfs = []
+        for i in syllables:
+            pdf = g_df[g_df['syllable'] == i].pdf.to_numpy().mean(axis=0)
+            syll_pdfs.append(pdf)
+        
+        if normalize:
+            group_syll_pdfs.append(np.stack([p / p.sum() for p in syll_pdfs]))
+        else:
+            group_syll_pdfs.append(syll_pdfs)
+    
+    return group_syll_pdfs, groups
+    
+
+def compute_syllable_position_heatmaps(complete_df, scalar_df, label_df, centroid_keys=['centroid_x_mm', 'centroid_y_mm'], syllables=range(40)):
+
+    warnings.filterwarnings('ignore')
+
+    lbl_df = label_df.T
+    columns = lbl_df.columns
+    gk = ['group', 'uuid']
+
+    centroid_speeds = scalar_df[centroid_keys + gk]
+
+    all_sessions = []
+    for col in tqdm(columns, total=len(columns), desc=f'Computing Per Session Syll Positions'):
+
+        sess_lbls = lbl_df[col].iloc[3:].reset_index().dropna(axis=0, how='all')
+        sess_speeds = centroid_speeds[centroid_speeds['uuid'] == col[1]].iloc[3:].reset_index()
+
+        sess_dict = {
+            'uuid': [],
+            'syllable': [],
+            'pdf': []
+        }
+        for lbl in syllables:
+            indices = (sess_lbls[col] == lbl)
+
+            syll_pos = np.nan_to_num(sess_speeds[indices][centroid_keys].to_numpy())
+            if len(syll_pos) > 0:
+                pdf = make_a_heatmap(syll_pos)
+            else:
+                pdf = np.zeros((50, 50))
+
+            sess_dict['uuid'].append(col[1])
+            sess_dict['syllable'].append(lbl)
+            sess_dict['pdf'].append(pdf)
+        
+        all_sessions.append(sess_dict)
+    
+    all_positions_df = pd.DataFrame.from_dict(all_sessions[0])
+
+    for i in range(1, len(all_sessions)):
+        tmp_df = pd.DataFrame.from_dict(all_sessions[i])
+        all_positions_df = all_positions_df.append(tmp_df)
+
+    complete_df = pd.merge(complete_df, all_positions_df, on=['uuid', 'syllable'])
+
+    return complete_df
+
 def compute_mean_syll_scalar(complete_df, scalar_df, label_df, scalar='centroid_speed_mm', groups=None, max_sylls=40):
     '''
     Computes the mean syllable speed based on the centroid speed of the mouse at the frame indices

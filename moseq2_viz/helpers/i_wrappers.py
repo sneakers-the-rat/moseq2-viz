@@ -212,15 +212,16 @@ def interactive_crowd_movie_comparison_preview(config_data, index_path, model_pa
 
     with open(syll_info_path, 'r') as f:
         syll_info = yaml.safe_load(f)
-
     
     index, sorted_index, model_fit = init_wrapper_function(index_file=index_path, model_fit=model_path, output_dir=output_dir)
 
     cm_compare = CrowdMovieComparison(config_data=config_data, index_path=index_path,
                                       model_path=model_path, syll_info=syll_info, output_dir=output_dir)
 
-    # Set widgets
+    # Set Syllable select widget options
     cm_compare.cm_syll_select.options = syll_info
+    
+    # Set Session MultipleSelect widget options
     sessions = list(set(model_fit['metadata']['uuids']))
     cm_compare.cm_session_sel.options = [sorted_index['files'][s]['metadata']['SessionName'] for s in sessions]
 
@@ -230,10 +231,6 @@ def interactive_crowd_movie_comparison_preview(config_data, index_path, model_pa
                                                               'groupby': cm_compare.cm_sources_dropdown,
                                                               'nexamples': cm_compare.num_examples})
     display(out)
-
-    cm_compare.cm_session_sel.observe(cm_compare.select_session)
-    cm_compare.cm_sources_dropdown.observe(cm_compare.show_session_select)
-    cm_compare.cm_trigger_button.on_click(cm_compare.on_click_trigger_button)
 
 def interactive_plot_transition_graph_wrapper(model_path, index_path, info_path):
     '''

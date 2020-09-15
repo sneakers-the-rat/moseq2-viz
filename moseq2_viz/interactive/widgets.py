@@ -136,6 +136,8 @@ class TransitionGraphWidgets:
 
     def __init__(self):    
         style = {'description_width': 'initial', 'display':'flex-grow', 'align_items':'stretch'}
+
+        self.color_nodes_button = widgets.Checkbox(value=False, description='Color Nodes by Speed', disabled=False, indent=False)
         
         self.edge_thresholder = widgets.SelectionRangeSlider(options=['tmp'], style=style,
                                                     description='Edges weights to display', continuous_update=False)
@@ -144,7 +146,7 @@ class TransitionGraphWidgets:
         self.speed_thresholder = widgets.SelectionRangeSlider(options=['tmp'], style=style, readout_format='.1f',
                                                     description='Threshold nodes by speed', continuous_update=False)
 
-        self.thresholding_box = HBox([VBox([self.edge_thresholder, self.usage_thresholder]), self.speed_thresholder])
+        self.thresholding_box = HBox([VBox([self.edge_thresholder, self.usage_thresholder]), VBox([self.color_nodes_button, self.speed_thresholder])])
 
 ### Crowd Movie Comparison Widgets
 class CrowdMovieCompareWidgets:

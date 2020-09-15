@@ -586,7 +586,7 @@ class InteractiveTransitionGraph(TransitionGraphWidgets):
             self.entropies[i] = get_usage_dict([self.entropies[i]])[0]
             self.entropy_rates[i] = get_usage_dict([self.entropy_rates[i]])[0]
 
-    def interactive_transition_graph_helper(self, edge_threshold, usage_threshold, speed_threshold):
+    def interactive_transition_graph_helper(self, speed_color, edge_threshold, usage_threshold, speed_threshold):
         '''
 
         Helper function that generates all the transition graphs given the currently selected
@@ -655,7 +655,7 @@ class InteractiveTransitionGraph(TransitionGraphWidgets):
         plot_interactive_transition_graph(graphs, pos, self.group,
                                           group_names, usages, self.syll_info,
                                           self.entropies, self.entropy_rates,
-                                          scalars=scalars)
+                                          scalars=scalars, speed_color=speed_color)
 
 class CrowdMovieComparison(CrowdMovieCompareWidgets):
     '''

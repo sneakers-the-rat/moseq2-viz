@@ -5,6 +5,7 @@ import networkx as nx
 import ipywidgets as widgets
 from IPython.display import display
 from bokeh.palettes import Spectral4
+from bokeh.transform import linear_cmap
 from bokeh.models.tickers import FixedTicker
 from bokeh.palettes import Dark2_5 as palette
 from bokeh.layouts import gridplot, column, row
@@ -277,7 +278,57 @@ def format_graphs(graphs, group):
 
     return list(group_grid)
 
-def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, syll_info, entropies, entropy_rates, scalars):
+def get_neighbors_and_entropies(graph, node_indices, entropies, entropy_rates, group_name):
+    # get selected node neighboring edge colors
+    neighbor_edge_colors = {}
+
+    # get node directed neighbors
+    prev_states, next_states = [], []
+
+    # get average entropy_in and out
+    entropy_in, entropy_out = [], []
+    for n in node_indices:
+        try:
+            # Get predecessor and neighboring states
+            pred = np.array(list(graph.predecessors(n)))
+            neighbors = np.array(list(graph.neighbors(n)))
+
+            e_ins, e_outs = [], []
+            for p in pred:
+                e_in = entropy_rates[p][n] + (entropies[n] - entropies[p])
+                e_ins.append(e_in)
+
+                neighbor_edge_colors[(p, n)] = 'orange'
+
+            for nn in neighbors:
+                e_out = entropy_rates[n][nn] + (entropies[nn] - entropies[n])
+                e_outs.append(e_out)
+
+                neighbor_edge_colors[(n, nn)] = 'purple'
+
+            # Get predecessor and next state transition weights
+            pred_weights = [graph.edges()[(p, n)]['weight'] for p in pred]
+            next_weights = [graph.edges()[(n, p)]['weight'] for p in neighbors]
+
+            # Get descending order of weights
+            pred_sort_idx = np.argsort(pred_weights)[::-1]
+            next_sort_idx = np.argsort(next_weights)[::-1]
+
+            # Get transition likelihood-sorted previous and next states
+            prev_states.append(pred[pred_sort_idx])
+            next_states.append(neighbors[next_sort_idx])
+
+            entropy_in.append(np.nanmean(e_ins))
+            entropy_out.append(np.nanmean(e_outs))
+        except nx.NetworkXError:
+            # handle orphans
+            print('missing', group_name, n)
+            pass
+    
+    return entropy_in, entropy_out, prev_states, next_states, neighbor_edge_colors
+        
+
+def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, syll_info, entropies, entropy_rates, scalars, speed_color=False):
     '''
 
     Converts the computed networkx transition graphs to Bokeh glyph objects that can be interacted with
@@ -334,12 +385,14 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
                                            ('dist. to center', '@dist{0.0000}'),
                                            ('ent. in', '@ent_in{0.000}'),
                                            ('ent. out', '@ent_out{0.000}'),
-                                           ('prev state', '@prev'),
-                                           ('next state', '@next'),
+                                           #('prev state', '@prev'),
+                                           #('next state', '@next'),
                                            ('', cm_tooltip)], line_policy='interp'),
                        TapTool(),
                        BoxSelectTool())
 
+        entropy_in, entropy_out, prev_states, next_states, neighbor_edge_colors = get_neighbors_and_entropies(graph, node_indices, entropies[i], entropy_rates[i], group_names[i])
+        
         # edge colors for difference graphs
         if i >= len(group):
             edge_color = {e: 'red' if graph.edges()[e]['weight'] > 0 else 'blue' for e in graph.edges()}
@@ -347,11 +400,14 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
         else:
             edge_color = {e: 'black' for e in graph.edges()}
             edge_width = {e: graph.edges()[e]['weight'] * 200 for e in graph.edges()}
+        
+        selected_edge_colors = {e: neighbor_edge_colors[e] for e in graph.edges()}
 
         # setting edge attributes
         nx.set_edge_attributes(graph, edge_color, "edge_color")
+        nx.set_edge_attributes(graph, selected_edge_colors, "line_color")
         nx.set_edge_attributes(graph, edge_width, "edge_width")
-
+        
         # get usages
         group_usage = [usages[i][j] for j in node_indices if j in usages[i].keys()]
 
@@ -376,45 +432,6 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
         # create bokeh-fied networkx transition graph
         graph_renderer = from_networkx(graph, pos, scale=1, center=(0, 0))
 
-        # get node directed neighbors
-        prev_states, next_states = [], []
-
-        entropy_in, entropy_out = [], []
-        # get average entropy_in and out
-        for n in node_indices:
-            try:
-                # Get predecessor and neighboring states
-                pred = np.array(list(graph.predecessors(n)))
-                neighbors = np.array(list(graph.neighbors(n)))
-
-                e_ins, e_outs = [], []
-                for p in pred:
-                    e_in = entropy_rates[i][p][n] + (entropies[i][n] - entropies[i][p])
-                    e_ins.append(e_in)
-
-                for nn in neighbors:
-                    e_out = entropy_rates[i][n][nn] + (entropies[i][nn] - entropies[i][n])
-                    e_outs.append(e_out)
-
-                # Get predecessor and next state transition weights
-                pred_weights = [graph.edges()[(p, n)]['weight'] for p in pred]
-                next_weights = [graph.edges()[(n, p)]['weight'] for p in neighbors]
-
-                # Get descending order of weights
-                pred_sort_idx = np.argsort(pred_weights)[::-1]
-                next_sort_idx = np.argsort(next_weights)[::-1]
-
-                # Get transition likelihood-sorted previous and next states
-                prev_states.append(pred[pred_sort_idx])
-                next_states.append(neighbors[next_sort_idx])
-
-                entropy_in.append(np.nanmean(e_ins))
-                entropy_out.append(np.nanmean(e_outs))
-            except nx.NetworkXError:
-                # handle orphans
-                print('missing', group_names[i], n)
-                pass
-
         # getting hovertool info
         labels, descs, cm_paths = [], [], []
 
@@ -437,25 +454,34 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
         graph_renderer.node_renderer.data_source.add(np.nan_to_num(entropy_out), 'ent_out')
 
         # node interactions
-        graph_renderer.node_renderer.glyph = Circle(size='node_size', fill_color='white', line_color='node_color')
-        graph_renderer.node_renderer.selection_glyph = Circle(size='node_size', fill_color=Spectral4[2])
+        #
+        if speed_color:
+            fill_color = linear_cmap('speed', "Spectral4", 0, max(group_speed))
+            text_color = 'white'
+        else:
+            fill_color = 'white'
+            text_color = 'black'
+        
+        graph_renderer.node_renderer.glyph = Circle(size='node_size', fill_color=fill_color, line_color='node_color')
+        graph_renderer.node_renderer.selection_glyph = Circle(size='node_size', fill_color=fill_color)
         graph_renderer.node_renderer.nonselection_glyph = Circle(size='node_size', line_color='node_color', fill_color='white')
         graph_renderer.node_renderer.hover_glyph = Circle(size='node_size', fill_color=Spectral4[1])
 
         # edge interactions
         graph_renderer.edge_renderer.glyph = MultiLine(line_color='edge_color', line_alpha=0.7,
                                                        line_width='edge_width', line_join='miter')
-        graph_renderer.edge_renderer.selection_glyph = MultiLine(line_color='edge_color', line_width='edge_width',
+        graph_renderer.edge_renderer.selection_glyph = MultiLine(line_color='line_color', line_width='edge_width',
                                                                  line_join='miter', line_alpha=0.8,)
         graph_renderer.edge_renderer.nonselection_glyph = MultiLine(line_color='edge_color', line_alpha=0.0,
                                                                     line_width='edge_width', line_join='miter')
         ## Change line color to match difference colors
-        graph_renderer.edge_renderer.hover_glyph = MultiLine(line_color=Spectral4[1], line_width=5)
+        graph_renderer.edge_renderer.hover_glyph = MultiLine(line_color='line_color', line_width=5,
+                                                                 line_join='miter', line_alpha=0.8,)
 
         # selection policies
         graph_renderer.selection_policy = NodesAndLinkedEdges()
         graph_renderer.inspection_policy = NodesAndLinkedEdges()
-
+        
         # added rendered graph to plot
         plot.renderers.append(graph_renderer)
 
@@ -472,7 +498,7 @@ def plot_interactive_transition_graph(graphs, pos, group, group_names, usages, s
         labels = LabelSet(x='x', y='y',
                           x_offset=-7, y_offset=-7,
                           text='syllable', source=label_source,
-                          text_color='black', text_font_size="12px",
+                          text_color=text_color, text_font_size="12px",
                           background_fill_color=None,
                           render_mode='canvas')
 

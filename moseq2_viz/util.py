@@ -8,7 +8,6 @@ import re
 import os
 import h5py
 import numpy as np
-import pandas as pd
 from glob import glob
 import ruamel.yaml as yaml
 from cytoolz import curry, compose
@@ -309,19 +308,6 @@ def parse_index(index_file: str) -> tuple:
 
     return index, uuid_sorted
 
-def index_to_dataframe(index_path):
-    with open(index_path, 'r') as f:
-        index_data = yaml.safe_load(f)
-
-    files = index_data['files']
-    meta = [f['metadata'] for f in files]
-
-    meta_df = pd.DataFrame(meta)
-    tmp_df = pd.DataFrame(files)
-
-    df = pd.concat([meta_df, tmp_df], axis=1)
-
-    return index_data, df
 
 def get_sorted_index(index_file: str) -> dict:
     '''

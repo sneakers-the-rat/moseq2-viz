@@ -15,7 +15,6 @@ from multiprocessing import Pool
 from collections import defaultdict
 from sklearn.neighbors import KernelDensity
 from cytoolz import keyfilter, itemfilter, merge_with, curry, valmap, get
-import scipy.stats
 from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
                              h5_filepath_from_sorted, get_timestamps_from_h5)
 from moseq2_viz.model.util import parse_model_results, _get_transitions, relabel_by_usage

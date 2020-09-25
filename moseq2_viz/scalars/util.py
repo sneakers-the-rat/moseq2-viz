@@ -670,17 +670,18 @@ def compute_session_centroid_speeds(scalar_df, grouping_keys=['uuid', 'group'],
 
     return sc_speed
 
-def compute_mean_syll_speed(complete_df, scalar_df, label_df, groups=None, max_sylls=40):
+def compute_mean_syll_scalar(complete_df, scalar_df, label_df, scalar='centroid_speed_mm', groups=None, max_sylls=40):
     '''
-    Computes the mean syllable speed based on the centroid speed of the mouse at the frame indices
-     with corresponding label values.
+    Computes the mean syllable scalar-value based on the time-series scalar dataframe and the selected scalar.
+    Finds the frame indices with corresponding each of the label values (up to max syllables) and looks up the scalar
+    values in the dataframe.
 
     Parameters
     ----------
     complete_df (pd.DataFrame): DataFrame containing syllable statistic results for each uuid.
     scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
     label_df (pd.DataFrame): DataFrame containing syllable labels at each frame (nsessions rows x max(nframes) cols)
-    sessions (list): list of strings of session uuids corresponding to pdfs index.
+    scalar (str): Selected scalar column to compute mean value for syllables
     groups (list): list of strings of groups corresponding to pdfs index.
     max_sylls (int): maximum amount of syllables to include in output.
 
@@ -689,17 +690,24 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, groups=None, max_s
     complete_df (pd.DataFrame): updated input dataframe with a speed value for each syllable merge in as a new column.
     '''
 
+    warnings.filterwarnings('ignore')
+
     lbl_df = label_df.T
     columns = lbl_df.columns
     gk = ['group', 'uuid']
 
-    centroid_speeds = scalar_df[['centroid_speed_mm'] + gk]
+    centroid_speeds = scalar_df[[scalar] + gk]
     if isinstance(groups, (list, tuple)):
         if len(groups) == 0:
             groups = None
 
+    if scalar == 'centroid_speed_mm':
+        dict_scalar = 'speed'
+    elif scalar == 'dist_to_center_px':
+        dict_scalar = 'dist_to_center'
+
     all_sessions = []
-    for col in tqdm(columns, total=len(columns), desc='Computing Per Session Syll Speeds'):
+    for col in tqdm(columns, total=len(columns), desc=f'Computing Per Session Syll {dict_scalar}'):
         if groups != None:
             if col[0] not in groups:
                 continue
@@ -710,27 +718,26 @@ def compute_mean_syll_speed(complete_df, scalar_df, label_df, groups=None, max_s
         sess_dict = {
             'uuid': [],
             'syllable': [],
-            'speed': []
+            f'{dict_scalar}': []
         }
         for lbl in range(max_sylls):
             indices = (sess_lbls[col] == lbl)
-
-            mean_lbl_speed = np.nanmean(sess_speeds[indices].centroid_speed_mm)
+            mean_lbl_scalar = np.nanmean(sess_speeds[:len(indices)][indices][f'{scalar}'])
 
             sess_dict['uuid'].append(col[1])
             sess_dict['syllable'].append(lbl)
-            sess_dict['speed'].append(mean_lbl_speed)
+            sess_dict[f'{dict_scalar}'].append(mean_lbl_scalar)
 
         all_sessions.append(sess_dict)
 
     all_speeds_df = pd.DataFrame.from_dict(all_sessions[0])
-    y = all_speeds_df['speed']
-    all_speeds_df['speed'] = np.where(y.between(0, 300), y, 0)
+    y = all_speeds_df[f'{dict_scalar}']
+    all_speeds_df[f'{dict_scalar}'] = np.where(y.between(0, 300), y, 0)
 
     for i in range(1, len(all_sessions)):
         tmp_df = pd.DataFrame.from_dict(all_sessions[i])
-        y = tmp_df['speed']
-        tmp_df['speed'] = np.where(y.between(0, 300), tmp_df['speed'], 0)
+        y = tmp_df[f'{dict_scalar}']
+        tmp_df[f'{dict_scalar}'] = np.where(y.between(0, 300), tmp_df[f'{dict_scalar}'], 0)
 
         all_speeds_df = all_speeds_df.append(tmp_df)
 

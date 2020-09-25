@@ -14,7 +14,7 @@ import ruamel.yaml as yaml
 from tqdm.auto import tqdm
 from moseq2_viz.util import parse_index
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
-from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_speed, compute_all_pdf_data, \
+from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_scalar, compute_all_pdf_data, \
                             compute_session_centroid_speeds
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot, plot_mean_group_heatmap, \
                             plot_verbose_heatmap, save_fig)
@@ -214,7 +214,7 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
         scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
 
         # Compute the average rodent syllable velocity based on the corresponding centroid speed at each labeled frame
-        df = compute_mean_syll_speed(df, scalar_df, label_df, groups=group, max_sylls=max_syllable)
+        df = compute_mean_syll_scalar(df, scalar_df, label_df, groups=group, max_sylls=max_syllable)
 
     # Plot and save syllable stat plot
     plt, lgd = plot_syll_stats_with_sem(df, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,

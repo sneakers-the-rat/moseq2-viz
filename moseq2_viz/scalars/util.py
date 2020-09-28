@@ -737,10 +737,10 @@ def compute_mean_syll_scalar(complete_df, scalar_df, label_df, scalar='centroid_
         if len(groups) == 0:
             groups = None
 
-    if scalar == 'centroid_speed_mm':
-        dict_scalar = 'speed'
-    elif scalar == 'dist_to_center_px':
+    if scalar == 'dist_to_center_px':
         dict_scalar = 'dist_to_center'
+    else:
+        dict_scalar = scalar
 
     all_sessions = []
     for col in tqdm(columns, total=len(columns), desc=f'Computing Per Session Syll {dict_scalar}'):

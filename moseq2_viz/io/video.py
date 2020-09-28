@@ -109,6 +109,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
                              legacy_jitter_fix=config_data['legacy_jitter_fix'],
                              **clean_params)
 
+        # Compute crowd matrices
         with warnings.catch_warnings():
             # creating crowd matrices
             crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=len(config_data['crowd_syllables']),
@@ -133,8 +134,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
             crowd_movie_paths = [cm[0] for cm in crowd_movies]
 
         # write movie
-        pool.starmap(write_fun,
-                    crowd_movies)
+        pool.starmap(write_fun, crowd_movies)
         
     return crowd_movie_paths
 
@@ -176,17 +176,20 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
     (subProcess.Pipe object): if there are more slices/chunks to write to, otherwise None.
     '''
 
+    # Set frame padding
     if not np.mod(frames.shape[1], 2) == 0:
         frames = np.pad(frames, ((0, 0), (0, 1), (0, 0)), 'constant', constant_values=0)
 
     if not np.mod(frames.shape[2], 2) == 0:
         frames = np.pad(frames, ((0, 0), (0, 0), (0, 1)), 'constant', constant_values=0)
 
+    # Get string frame dimensions
     if not frame_size and type(frames) is np.ndarray:
         frame_size = '{0:d}x{1:d}'.format(frames.shape[2], frames.shape[1])
     elif not frame_size and type(frames) is tuple:
         frame_size = '{0:d}x{1:d}'.format(frames[0], frames[1])
 
+    # Set text metadata to write frame numbers
     font = cv2.FONT_HERSHEY_SIMPLEX
     white = (255, 255, 255)
     txt_pos = (5, frames.shape[-1] - 40)
@@ -211,12 +214,15 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
     if get_cmd:
         return command
 
+    # Run ffmpeg command
     if not pipe:
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
+    # Get color map
     use_cmap = plt.get_cmap(cmap)
 
+    # Write movie
     for i in tqdm(range(frames.shape[0]), desc="Writing frames", disable=~progress_bar):
         disp_img = frames[i, :].copy().astype('float32')
         disp_img = (disp_img-depth_min)/(depth_max-depth_min)

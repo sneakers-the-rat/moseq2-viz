@@ -11,7 +11,7 @@ from moseq2_viz.io.video import write_crowd_movies, write_frames_preview
 
 class TestIOVideo(TestCase):
 
-    def test_write_crowd_movies(self):
+    def _test_write_crowd_movies(self):
 
         index_file = 'data/test_index_crowd.yaml'
         model_path = 'data/mock_model.p'

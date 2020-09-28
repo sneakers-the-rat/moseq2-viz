@@ -519,6 +519,9 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
             # get edge widths
             weight = [np.abs(graph[u][v]['weight']) * difference_edge_width_scale
                       for u, v in graph.edges()]
+
+            edge_colors = ['r' if (graph[u][v]['weight'] * difference_edge_width_scale > 0) else 'b'
+                           for u, v in graph.edges()]
             widths.append(weight)
 
             # Handle node size and coloring
@@ -544,15 +547,16 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
             # get difference graph name
             curr_name = f'{group[i + j + 1]} - {group[i]}'
             group_names.append(curr_name)
-        
+
             if np.array(ax).all() != None:
-                draw_graphs(graph, curr_name, weight, pos, node_color='w', node_size=node_size, 
-                node_edge_colors=node_edge_color, arrows=False,
-                font_size=12, ax=ax, i=i, j=i+j+1)
-        
+                draw_graphs(graph, curr_name, weight, pos, node_color='w', node_size=node_size,
+                node_edge_colors=node_edge_color, arrows=False, edge_colors=edge_colors,
+                font_size=12, ax=ax, i=i, j=i+1)
+
     return usages, group_names, difference_graphs, widths, node_sizes, node_edge_colors, scalars
 
-def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor, pos, ebunch_anchor, edge_threshold,
+def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor,
+                           pos, ebunch_anchor, edge_threshold,
                            difference_threshold, orphans, orphan_weight,
                            ax=None, edge_width_scale=100, usage_scale=1e5,
                            scalars=None, speed_threshold=-15):
@@ -616,11 +620,12 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
         else:
             node_size = 400
             node_sizes.append(node_size)
-        
+
         # Draw network to matplotlib figure
         if np.array(ax).all() != None:
-            draw_graphs(graph, group_names, width, pos, node_color='w', node_size=node_size, node_edge_colors='r', arrows=False,
-            font_size=12, ax=ax, i=i, j=i)
+            draw_graphs(graph, group_names, width, pos, node_color='w',
+                        node_size=node_size, node_edge_colors='r', arrows=False,
+                        font_size=12, ax=ax, i=i, j=i)
 
         node_edge_colors.append('r')
         graphs.append(graph)
@@ -675,8 +680,8 @@ def get_pos(graph_anchor, layout, nnodes):
     return pos
 
 def draw_graphs(graph, groups, width, pos, node_color,
-                node_size, node_edge_colors, arrows, font_size, 
-                ax, i=0, j=0, colors='k'):
+                node_size, node_edge_colors, arrows, font_size,
+                ax, edge_colors='k', i=0, j=0):
     '''
     Draws transition graph to existing matplotlib axes.
 
@@ -698,20 +703,13 @@ def draw_graphs(graph, groups, width, pos, node_color,
 
     Returns
     -------
-    ''' 
+    '''
 
     # Draw nodes and edges on matplotlib figure
-    nx.draw_networkx_nodes(graph, pos,
-                        edgecolors=node_edge_colors, node_color=node_color,
-                        node_size=node_size, ax=ax[i][j], cmap='jet')
-    nx.draw_networkx_edges(graph, pos, graph.edges(), width=width,
-                        ax=ax[i][j], arrows=arrows, edge_color=colors, linewidths=1.5)
-    # Draw node labels
-    if font_size > 0:
-        nx.draw_networkx_labels(graph, pos,
-                                {k: k for k in pos.keys()},
-                                font_size=font_size,
-                                ax=ax[i][j], font_color='k')
+    nx.draw(graph, pos=pos, with_labels=True,
+            edgecolors=node_edge_colors, ax=ax[i][j], cmap='jet',
+            node_size=node_size, node_color=node_color, arrows=arrows,
+            edge_color=edge_colors, linewidths=1.5)
 
     # Set titles
     if groups is not None:
@@ -719,7 +717,6 @@ def draw_graphs(graph, groups, width, pos, node_color,
             ax[i][j].set_title( '{}'.format(groups))
         elif len(groups) > 1:
             ax[i][j].set_title( '{}'.format(groups[i]))
-            
 
 def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             edge_threshold=.0025, anchor=0, usage_threshold=0,

@@ -5,7 +5,6 @@ Each wrapper function executes the functionality from end-to-end given it's depe
 '''
 
 import os
-import re
 import h5py
 import shutil
 import psutil
@@ -16,16 +15,14 @@ import ruamel.yaml as yaml
 from tqdm.auto import tqdm
 from moseq2_viz.util import parse_index
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
+from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict, get_index_hits)
 from moseq2_viz.model.trans_graph import get_trans_graph_groups, compute_and_graph_grouped_TMs
 from moseq2_viz.scalars.util import scalars_to_dataframe, compute_mean_syll_scalar, compute_all_pdf_data, \
-                                    compute_session_centroid_speeds, compute_kl_divergences
-from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot,
-                            plot_mean_group_heatmap, plot_verbose_heatmap, plot_kl_divergences, \
-                            plot_explained_behavior, save_fig, plot_cp_comparison)
-from moseq2_viz.util import (recursive_find_h5s, h5_to_dict, clean_dict)
-from moseq2_viz.model.util import (relabel_by_usage, get_syllable_usages, parse_model_results, merge_models,
+                            compute_session_centroid_speeds
+from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot, plot_mean_group_heatmap,
+                            plot_verbose_heatmap, save_fig, plot_cp_comparison)
+from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models,
                                    results_to_dataframe, get_best_fit, compute_model_changepoints)
-
 
 def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, output_file=None):
     '''
@@ -107,15 +104,11 @@ def add_group_wrapper(index_file, config_data):
     for v in value:
         if config_data['exact']:
             v = r'\b{}\b'.format(v)
-        if config_data['lowercase'] and config_data['negative']:
-            hits = [re.search(v, meta[key].lower()) is None for meta in metadata]
-        elif config_data['lowercase']:
-            hits = [re.search(v, meta[key].lower()) is not None for meta in metadata]
-        elif config_data['negative']:
-            hits = [re.search(v, meta[key]) is None for meta in metadata]
-        else:
-            hits = [re.search(v, meta[key]) is not None for meta in metadata]
 
+        # Get matched keys
+        hits = get_index_hits(config_data, metadata, key, v)
+
+        # Update index dict with inputted group values
         for uuid, hit in zip(h5_uuids, hits):
             position = h5_uuids.index(uuid)
             if hit:
@@ -410,14 +403,14 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
 
     return plt
 
+
 def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     '''
+
     Wrapper function to create crowd movie videos and write them to individual
     files depicting respective syllable labels.
-
     Note: function is decorated with function performing initialization operations and saving
     the results in the kwargs variable.
-
     Decorator will retrieve the sorted_index dict and parse the model results into a single dict.
 
     Parameters
@@ -429,7 +422,7 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
 
     Returns
     -------
-    None
+    cm_paths (dict): Dictionary of syllables and their generated crowd movie paths
     '''
 
     # Load index file and model data
@@ -476,16 +469,17 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
         config_data['crowd_syllables'] = range(config_data['max_syllable'])
 
     # Write parameter information yaml file in crowd movies directory
-    write_crowd_movie_info_file(model_path=model_path, model_fit=model_fit, index_file=index_file, output_dir=output_dir)
+    write_crowd_movie_info_file(model_path=model_path, model_fit=model_fit, index_file=index_file,
+                                output_dir=output_dir)
 
     # Write movies
     write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir)
 
     cm_paths = {}
-    if config_data['separate_by'] == 'groups':
+    if config_data.get('separate_by') == 'groups':
         # Get the groups to separate the arrays by
         groups = list(set(model_fit['metadata']['groups']))
-        group_keys = {g:[] for g in groups}
+        group_keys = {g: [] for g in groups}
 
         for i, v in enumerate(sorted_index['files'].values()):
             group_keys[v['group']].append(i)
@@ -494,18 +488,19 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
         for k, v in group_keys.items():
             group_labels = np.array(labels)[v]
             group_label_uuids = np.array(label_uuids)[v]
-            group_index = {'files':{k1: v1 for k1, v1 in sorted_index['files'].items() if k1 in group_label_uuids},
-                        'pca_path': sorted_index['pca_path']}
+            group_index = {'files': {k1: v1 for k1, v1 in sorted_index['files'].items() if k1 in group_label_uuids},
+                           'pca_path': sorted_index['pca_path']}
 
             # create a subdirectory for each group
-            output_subdir = os.path.join(output_dir, k+'/')
+            output_subdir = os.path.join(output_dir, k + '/')
             if not os.path.exists(output_subdir):
                 os.makedirs(output_subdir)
 
             # Write crowd movie for given group and syllable(s)
-            cm_paths[k] = write_crowd_movies(group_index, config_data, ordering, group_labels, group_label_uuids, output_subdir)
+            cm_paths[k] = write_crowd_movies(group_index, config_data, ordering, group_labels, group_label_uuids,
+                                             output_subdir)
 
-    elif config_data['separate_by'] == 'sessions':
+    elif config_data.get('separate_by') == 'sessions':
         # Separate the arrays by session
         sessions = list(set(model_fit['metadata']['uuids']))
 
@@ -520,10 +515,10 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
             session_labels = [np.array(labels)[v]]
             session_label_uuids = [np.array(label_uuids)[v]]
             session_index = {'files': {k1: v1 for k1, v1 in sorted_index['files'].items() if k1 in session_label_uuids},
-                           'pca_path': sorted_index['pca_path']}
+                             'pca_path': sorted_index['pca_path']}
 
             # create a subdirectory for each group
-            output_subdir = os.path.join(output_dir, k+'/')
+            output_subdir = os.path.join(output_dir, k + '/')
             if not os.path.exists(output_subdir):
                 os.makedirs(output_subdir)
 
@@ -533,68 +528,8 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     else:
         # Write movies
         cm_paths = {'all': write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir)}
-    
+
     return cm_paths
-
-def plot_kl_divergences_wrapper(index_file, output_file, oob=False):
-    '''
-    Wrapper function that computes the KL Divergence for the mouse PDF for each session in the index file.
-    Will plot KL divergence against session number
-
-    Parameters
-    ----------
-    index_file (str): path to index file.
-    output_file (str): filename for the verbose heatmap graph.
-    gui (bool): indicate whether GUI is plotting the graphs.
-
-    Returns
-    -------
-    fig (pyplot figure): figure to graph in Jupyter Notebook.
-    outliers (pd.Dataframe): dataframe of outlier sessions
-    '''
-
-    # Get loaded index dicts via decorator
-    index, sorted_index, _ = init_wrapper_function(index_file, output_file=output_file)
-
-    scalar_df = scalars_to_dataframe(sorted_index)
-
-    pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df)
-
-    kl_divergences = compute_kl_divergences(pdfs, groups, sessions, subjectNames,oob=oob)
-    fig, outliers = plot_kl_divergences(kl_divergences)
-
-    fig.savefig('{}.png'.format(output_file))
-    fig.savefig('{}.pdf'.format(output_file))
-
-    return fig, outliers
-
-def plot_explained_behavior_wrapper(model_fit, output_file, count='usage', figsize=(10,5)):
-    '''
-    Wrapper function to plot percent explained behavior from syllables.
-
-    Parameters
-    ----------
-    model_fit (str): path to trained model file.
-    output_file (str): filename for syllable usage graph.
-    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
-    count (str): method to compute usages 'usage' or 'frames'.
-
-    Returns
-    -------
-    plt (pyplot figure): graph to show in Jupyter Notebook.
-    '''
-
-    # Load index file and model data
-    _, _, model_data = init_wrapper_function(model_fit=model_fit, output_file=output_file)
-
-    syllable_usages = get_syllable_usages(model_data, count)
-
-    fig = plot_explained_behavior(syllable_usages, count=count, figsize=figsize)
-
-    fig.savefig('{}.png'.format(output_file))
-    fig.savefig('{}.pdf'.format(output_file))
-
-    return fig
 
 def copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path):
     '''

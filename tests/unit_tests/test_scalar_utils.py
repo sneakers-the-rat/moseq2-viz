@@ -248,7 +248,7 @@ class TestScalarUtils(TestCase):
         assert scalar_df.shape == (total_frames, len(df_cols))
 
         # feedback timestamps
-        self.assertRaises(ValueError, scalars_to_dataframe, index_data, include_model=model_file, include_feedback=True)
+        self.assertRaises(ValueError, scalars_to_dataframe, index_data, include_feedback=True)
 
     def test_make_a_heatmap(self):
 

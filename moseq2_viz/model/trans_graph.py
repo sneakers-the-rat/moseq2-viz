@@ -49,7 +49,7 @@ def get_trans_graph_groups(model_fit, index, sorted_index):
 
     return group, label_group, label_uuids
 
-def get_group_trans_mats(labels, label_group, group, max_sylls):
+def get_group_trans_mats(labels, label_group, group, max_sylls, normalize='bigram'):
     '''
     Computes individual transition matrices for each given group.
 
@@ -77,7 +77,7 @@ def get_group_trans_mats(labels, label_group, group, max_sylls):
         # Get sessions to include in trans_mat
         use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
         trans_mats.append(get_transition_matrix(use_labels,
-                                                normalize='bigram',
+                                                normalize=normalize,
                                                 combine=True,
                                                 max_syllable=max_sylls - 1))
 
@@ -103,7 +103,7 @@ def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
     plt (pyplot.Figure): open transition graph figure to save
     '''
 
-    trans_mats, usages = get_group_trans_mats(labels, label_group, group, config_data['max_syllable'])
+    trans_mats, usages = get_group_trans_mats(labels, label_group, group, config_data['max_syllable'], config_data['normalize'])
 
     # Option to not scale node sizes proportional to the syllable usage.
     if not config_data['scale_node_by_usage']:
@@ -461,8 +461,8 @@ def make_graph(tm, ebunch_anchor, edge_threshold, usages_anchor, speeds=None, sp
 
 def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor,
                            widths, pos, ebunch_anchor, node_edge_colors, ax=None, node_sizes=[],
-                           difference_threshold=0.0005, difference_edge_width_scale=500,
-                           usage_scale=1e5, difference_graphs=[], scalars=None, speed_threshold=-50):
+                           difference_threshold=0.0005, difference_edge_width_scale=500, font_size=12,
+                           usage_scale=1e5, difference_graphs=[], scalars=None, arrows=False):
     '''
     Helper function that computes transition graph differences.
 
@@ -502,14 +502,10 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
                 if len(scalars['speeds_2d']) > 0:
                     speed_df = [j2 - i1 for (j2, i1) in zip(scalars['speeds_2d'][i + 1], scalars['speeds_2d'][i])]
                     scalars['speeds_2d'].append(get_usage_dict([speed_df])[0])
-                else:
-                    speed_df = None
 
                 if len(scalars['dists']) > 0:
                     dist_df = [j2 - i1 for (j2, i1) in zip(scalars['dists'][i + 1], scalars['dists'][i])]
                     scalars['dists'].append(get_usage_dict([dist_df])[0])
-                else:
-                    dist_df = None
 
                 if len(scalars['speeds_3d']) > 0:
                     speed_3d_df = [j2 - i1 for (j2, i1) in zip(scalars['speeds_3d'][i + 1], scalars['speeds_3d'][i])]
@@ -520,7 +516,6 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
 
             # make difference graph
             graph = make_graph(df, ebunch_anchor, difference_threshold, usages_anchor)
-
             difference_graphs.append(graph)
 
             # get edge widths
@@ -539,8 +534,8 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
                 usages.append(get_usage_dict([df_usage])[0])
 
                 # get node sizes and colors based on usage differences
-                node_size = list(np.abs(df_usage) * usage_scale)
-                node_edge_color = ['r' if x > 0 else 'b' for x in df_usage]
+                node_size = list(np.abs(df_usage) * usage_scale)[:len(graph.nodes)]
+                node_edge_color = ['r' if x > 0 else 'b' for x in df_usage][:len(graph.nodes)]
 
                 node_sizes.append(node_size)
                 node_edge_colors.append(node_edge_color)
@@ -557,16 +552,17 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
 
             if np.array(ax).all() != None:
                 draw_graphs(graph, curr_name, weight, pos, node_color='w', node_size=node_size,
-                node_edge_colors=node_edge_color, arrows=False, edge_colors=edge_colors,
-                font_size=12, ax=ax, i=i, j=i+1)
+                node_edge_colors=node_edge_color, arrows=arrows, edge_colors=edge_colors,
+                font_size=font_size, ax=ax, i=i, j=i+1)
 
     return usages, group_names, difference_graphs, widths, node_sizes, node_edge_colors, scalars
 
 def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor,
-                           pos, ebunch_anchor, edge_threshold,
-                           difference_threshold, orphans, orphan_weight,
+                           pos, ebunch_anchor, orphans, edge_threshold=.0025,
+                           difference_threshold=.0005, orphan_weight=0,
                            ax=None, edge_width_scale=100, usage_scale=1e5,
-                           scalars=None, speed_threshold=-15):
+                           difference_edge_width_scale=500,
+                           font_size=12, scalars=None, arrows=False):
     '''
 
     Helper function to create transition matrices for all included groups, as well as their
@@ -589,7 +585,6 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
     edge_width_scale (int): edge line width scaling factor.
     usage_scale (float): syllable usage scaling factor.
     scalars (dict): dict of syllable scalar data per transition graph
-    speed_threshold (int): value to threshold syllable states at.
 
     Returns
     -------
@@ -622,7 +617,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
 
         # set node sizes according to usages
         if usages is not None:
-            node_size = [usages[i][k] * usage_scale for k in pos.keys()]
+            node_size = [usages[i][k] * usage_scale for k in pos.keys()][:len(graph.nodes)]
             node_sizes.append(node_size)
         else:
             node_size = 400
@@ -631,8 +626,8 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
         # Draw network to matplotlib figure
         if np.array(ax).all() != None:
             draw_graphs(graph, group_names, width, pos, node_color='w',
-                        node_size=node_size, node_edge_colors='r', arrows=False,
-                        font_size=12, ax=ax, i=i, j=i)
+                        node_size=node_size, node_edge_colors='r', arrows=arrows,
+                        font_size=font_size, ax=ax, i=i, j=i)
 
         node_edge_colors.append('r')
         graphs.append(graph)
@@ -646,9 +641,11 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
             node_edge_colors=node_edge_colors,
             node_sizes=node_sizes,
             difference_threshold=difference_threshold,
+            difference_edge_width_scale=difference_edge_width_scale,
             difference_graphs=graphs,
             scalars=scalars,
-            speed_threshold=speed_threshold)
+            arrows=arrows,
+            font_size=font_size)
 
     return usages, group_names, widths, node_sizes, node_edge_colors, graphs, scalars
 
@@ -686,8 +683,8 @@ def get_pos(graph_anchor, layout, nnodes):
     return pos
 
 def draw_graphs(graph, groups, width, pos, node_color,
-                node_size, node_edge_colors, arrows, font_size,
-                ax, edge_colors='k', i=0, j=0):
+                node_size, node_edge_colors, ax, arrows=False,
+                font_size=12, edge_colors='k', i=0, j=0):
     '''
     Draws transition graph to existing matplotlib axes.
 
@@ -712,8 +709,8 @@ def draw_graphs(graph, groups, width, pos, node_color,
     '''
 
     # Draw nodes and edges on matplotlib figure
-    nx.draw(graph, pos=pos, with_labels=True,
-            edgecolors=node_edge_colors, ax=ax[i][j], cmap='jet',
+    nx.draw(graph, pos=pos, with_labels=True, font_size=font_size, alpha=1,
+            width=width, edgecolors=node_edge_colors, ax=ax[i][j], cmap='jet',
             node_size=node_size, node_color=node_color, arrows=arrows,
             edge_color=edge_colors, linewidths=1.5)
 
@@ -726,13 +723,11 @@ def draw_graphs(graph, groups, width, pos, node_color,
 
 def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             edge_threshold=.0025, anchor=0, usage_threshold=0,
-                            node_color='w', node_edge_color='r', layout='spring',
-                            edge_width_scale=100, node_size=400, fig=None, ax=None,
-                            width_per_group=8, headless=False, font_size=12,
-                            plot_differences=True, difference_threshold=.0005,
-                            difference_edge_width_scale=500, weights=None,
-                            usage_scale=1e4, arrows=False, keep_orphans=False,
-                            max_syllable=None, orphan_weight=0, edge_color='k', **kwargs):
+                            layout='spring', edge_width_scale=100, fig=None, ax=None,
+                            width_per_group=8, headless=False, difference_threshold=.0005,
+                            weights=None, usage_scale=1e4, keep_orphans=False,
+                            max_syllable=None, orphan_weight=0, arrows=False, font_size=12,
+                            difference_edge_width_scale=500, **kwargs):
     '''
     Creates transition graph plot given a transition matrix and some metadata.
 
@@ -825,9 +820,11 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     # Make graphs and difference graphs
     usages, group_names, widths, node_sizes, node_edge_colors, graphs, _ = \
         make_transition_graphs(trans_mats, usages, groups, group_names,
-        usages_anchor, pos, ebunch_anchor, edge_threshold,
-        difference_threshold, orphans, orphan_weight,
-        ax, edge_width_scale, usage_scale)
+        usages_anchor, pos, ebunch_anchor, orphans,
+        difference_edge_width_scale=difference_edge_width_scale, edge_threshold=edge_threshold,
+        difference_threshold=difference_threshold, orphan_weight=orphan_weight,
+        ax=ax, edge_width_scale=edge_width_scale, usage_scale=usage_scale,
+        arrows=arrows, font_size=font_size)
 
     for i in range(len(ax)):
         for j in range(len(ax[i])):

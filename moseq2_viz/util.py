@@ -11,10 +11,10 @@ import numpy as np
 from glob import glob
 import ruamel.yaml as yaml
 from cytoolz import curry, compose
+from cytoolz.curried import valmap
 from functools import lru_cache, wraps
-from cytoolz.curried import get_in, keyfilter, valmap
-from cytoolz.itertoolz import peek, pluck, first, groupby
-from cytoolz.dicttoolz import valfilter, merge_with, dissoc, assoc
+from cytoolz.dicttoolz import dissoc, assoc
+from cytoolz.itertoolz import first, groupby
 
 
 # https://gist.github.com/jaytaylor/3660565
@@ -86,60 +86,46 @@ def get_index_hits(config_data, metadata, key, v):
 
     return hits
 
-def check_video_parameters(index: dict) -> dict:
+def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, label_uuids, output_dir, ordering):
     '''
-    Iterates through each extraction parameter file to verify extraction parameters
-    were the same. If they weren't this function raises a RuntimeError.
+    Helper function that writes syllable crowd movies for each given grouping found in group_keys, and returns
+     a dictionary with session/group name keys paired with paths to their respective generated crowd movies.
 
     Parameters
     ----------
-    index (dict): a `sorted_index` dictionary of extraction parameters.
+    config_data (dict): Loaded crowd movie writing configuration parameters.
+    sorted_index (dict): Loaded index file and sorted files in list.
+    group_keys (dict): Dict of group/session name keys paired with UUIDS to match with labels.
+    labels (2d list): list of syllable label lists for all sessions.
+    label_uuids (list): list of corresponding session UUIDs for all sessions included in labels.
+    output_dir (str): Path to output directory to save crowd movies in.
+    ordering (list): ordering for the new mapping of the relabeled syllable usages.
 
     Returns
     -------
-    vid_parameters (dict): a dictionary with a subset of the used extraction parameters.
+    cm_paths (dict): group/session name keys paired with paths to their respectively generated syllable crowd movies.
     '''
+    from moseq2_viz.io.video import write_crowd_movies
 
-    # define constants
-    check_parameters = ['crop_size', 'fps', 'max_height', 'min_height']
+    cm_paths = {}
+    for k, v in group_keys.items():
+        # Filter group labels to pair with respective UUIDs
+        group_labels = np.array(labels)[v]
+        group_label_uuids = np.array(label_uuids)[v]
+        # Get subset of sorted_index including only included session sources
+        group_index = {'files': {k1: v1 for k1, v1 in sorted_index['files'].items() if k1 in group_label_uuids},
+                       'pca_path': sorted_index['pca_path']}
 
-    get_yaml = get_in(['path', 1])
-    ymls = list(map(get_yaml, index['files'].values()))
+        # create a subdirectory for each group
+        output_subdir = os.path.join(output_dir, k + '/')
+        if not os.path.exists(output_subdir):
+            os.makedirs(output_subdir)
 
-    # load yaml config files when needed
-    dicts = map(read_yaml, ymls)
-    # get the parameters key within each dict
-    params = pluck('parameters', dicts)
+        # Write crowd movie for given group and syllable(s)
+        cm_paths[k] = write_crowd_movies(group_index, config_data, ordering,
+                                         group_labels, group_label_uuids, output_subdir)
 
-    first_entry, params = peek(params)
-    if 'resolution' in first_entry:
-        check_parameters += ['resolution']
-
-    # filter for only keys in check_parameters
-    params = map(keyfilter(lambda k: k in check_parameters), params)
-    # turn lists (in the dict values) into tuples
-    params = map(valmap(lambda x: tuple(x) if isinstance(x, list) else x), params)
-
-    # get unique parameter values
-    vid_parameters = merge_with(set, params)
-
-    incorrect_parameters = valfilter(lambda x: len(x) > 1, vid_parameters)
-
-    # if there are multiple values for a parameter, raise error
-    if incorrect_parameters:
-        raise RuntimeError('The following parameters are not equal ' +
-                           f'across extractions: {incorrect_parameters.keys()}')
-
-    # grab the first value in the set
-    vid_parameters = valmap(first, vid_parameters)
-
-    # update resolution
-    if 'resolution' in vid_parameters:
-        vid_parameters['resolution'] = tuple(x + 100 for x in vid_parameters['resolution'])
-    else:
-        vid_parameters['resolution'] = None
-
-    return vid_parameters
+    return cm_paths
 
 
 def clean_dict(dct):

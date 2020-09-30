@@ -393,7 +393,6 @@ def find_and_load_feedback(extract_path, input_path):
         warnings.warn(f'Could not find feedback file for {extract_path}')
         return None, None
 
-
 def remove_nans_from_labels(idx, labels):
     '''
     Removes the frames from `labels` where `idx` has NaNs in it.
@@ -442,8 +441,61 @@ def compute_mouse_dist_to_center(roi, centroid_x_px, centroid_y_px):
     # Compute distance to center
     return np.hypot(norm_x, norm_y)
 
+def handle_feedback_data(scalar_dict, dct, pth, input_file, nframes):
+    '''
+    Reads recorded neural stimulation timestamps from the given input file or
+     h5 path. Appends the feedback information to the scalar dict to include in the
+     outputted scalar_df.
+
+    Parameters
+    ----------
+    scalar_dict (dict): Session scalar dictionary to add feedback info to
+    dct (dict): Loaded h5 file dict
+    pth (str): Path to feedback data in h5 file
+    input_file (str): Path to feedback timestamps file
+    nframes (int): Number of frames included in current session
+
+    Returns
+    -------
+    scalar_dict (dict): Inputted scalar dict with appended feedback status info key-pairs
+    skip (bool): Indicator for whether loading feedback data has failed, triggers a "continue" in scalars_to_dataframe()
+    '''
+
+    skip = False
+
+    if 'feedback_timestamps' in dct:
+        ts_data = np.array(dct['feedback_timestamps'])
+        feedback_ts, feedback_status = ts_data[:, 0], ts_data[:, 1]
+    else:
+        feedback_ts, feedback_status = find_and_load_feedback(pth, input_file)
+
+    try:
+        timestamps = get_timestamps_from_h5(pth)
+        scalar_dict['timestamp'] = timestamps.astype('int32')
+    except:
+        warnings.warn(f'timestamps for {pth} were not found')
+        warnings.warn('This could be due to a missing/incorrectly named timestamp file in that session directory.')
+        warnings.warn('If the file does exist, ensure it has the correct name/location and re-extract the session.')
+        pass
+    if len(timestamps) != nframes:
+        warnings.warn(f'Timestamps not equal to number of frames for {pth}, skipping')
+        skip = True
+
+    if feedback_ts is not None:
+        for ts in timestamps:
+            hit = np.where(ts.astype('int32') == feedback_ts.astype('int32'))[0]
+            if len(hit) > 0:
+                scalar_dict['feedback_status'] += [feedback_status[hit]]
+            else:
+                scalar_dict['feedback_status'] += [-1]
+    else:
+        scalar_dict['feedback_status'] += [-1] * nframes
+
+    return scalar_dict, skip
+
+
 def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'SubjectName', 'StartTime'],
-                         include_model=None, disable_output=False, include_feedback=None, force_conversion=True):
+                         disable_output=False, include_feedback=None, force_conversion=True):
     '''
     Generates a dataframe containing scalar values over the course of a recording session.
     If a model string is included, then return only animals that were included in the model
@@ -464,19 +516,20 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     '''
 
     scalar_dict = defaultdict(list)
-    skip = []
 
     files = index['files']
+    # use dset from first animal to generate a list of scalars
     try:
         uuids = list(files.keys())
-        # use dset from first animal to generate a list of scalars
         dset = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='scalars')
+
+        # Get ROI shape to compute distance to center
         roi = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='metadata/extraction/roi')['roi'].shape
         dset['dist_to_center_px'] = compute_mouse_dist_to_center(roi, dset['centroid_x_px'], dset['centroid_y_px'])
     except:
-        uuids = [f['uuid'] for f in index['files']]
-        # use dset from first animal to generate a list of scalars
         dset = h5_to_dict(h5_filepath_from_sorted(files[0]), path='scalars')
+
+        # Get ROI shape to compute distance to center
         roi = h5_to_dict(h5_filepath_from_sorted(files[0]), path='metadata/extraction/roi')['roi'].shape
         dset['dist_to_center_px'] = compute_mouse_dist_to_center(roi, dset['centroid_x_px'], dset['centroid_y_px'])
 
@@ -487,61 +540,21 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     # generate a list of scalars
     scalar_names = list(dset.keys())
 
-    # get model labels for UUIDs if a model was supplied
-    if include_model and os.path.exists(include_model):
-        mdl = parse_model_results(include_model, sort_labels_by_usage=False, map_uuid_to_keys=True)
-
-        labels = mdl['labels']
-
-        if isinstance(labels, dict):
-            keys = list(labels.keys())
-            labels = np.array(list(labels.values()))
-
-        # we need to call these functions here so we don't filter out data before relabelling
-        usage, _ = relabel_by_usage(labels, count='usage')
-        frames, _ = relabel_by_usage(labels, count='frames')
-
-        if isinstance(usage, list) or isinstance(usage, np.ndarray):
-            usage = {k:v for k,v in zip(keys, usage)}
-            frames = {k: v for k, v in zip(keys, frames)}
-            labels = {k: v for k, v in zip(keys, labels)}
-            files = {k: v for k, v in zip(keys, files)}
-
-        # get pca score indices
-        scores_idx = h5_to_dict(index['pca_path'], 'scores_idx')
-        # only include labels with the same number of frames as PCA
-        labels = itemfilter(lambda a: _pca_matches_labels(scores_idx[a[0]], a[1]), mdl['labels'])
-
-        labelfilter = curry(keyfilter)(lambda k: k in labels)
-
-        # filter the relabeled dictionaries too
-        usage = labelfilter(usage)
-        frames = labelfilter(frames)
-        # filter the pca scores to match labels
-        scores_idx = labelfilter(scores_idx)
-
-        # make function to merge syllables with the syll scores
-        def merger(d):
-            return merge_with(tuple, scores_idx, d)
-
-        # use the scores to remove the nans
-        usage = star_valmap(remove_nans_from_labels, merger(usage))
-        frames = star_valmap(remove_nans_from_labels, merger(frames))
-        labels = star_valmap(remove_nans_from_labels, merger(labels))
-
-        # only include extractions that were modeled and fit the above criteria
-        files = keyfilter(lambda x: x in labels, files)
-
     try:
         iter_items = files.items()
     except:
         iter_items = enumerate(files)
 
+    # Iterate through index file session info and paths
     for k, v in tqdm(iter_items, disable=disable_output):
 
+        # Get path to extraction h5 file
         pth = h5_filepath_from_sorted(v)
+
+        # Load scalars from h5
         dset = h5_to_dict(pth, 'scalars')
 
+        # Get ROI shape to compute distance to center
         roi = h5_to_dict(pth, path='metadata/extraction/roi')['roi'].shape
         dset['dist_to_center_px'] = compute_mouse_dist_to_center(roi, dset['centroid_x_px'], dset['centroid_y_px'])
 
@@ -549,57 +562,31 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         dct = read_yaml(v['path'][1])
         parameters = dct['parameters']
 
-        if include_feedback:
-            if 'feedback_timestamps' in dct:
-                ts_data = np.array(dct['feedback_timestamps'])
-                feedback_ts, feedback_status = ts_data[:, 0], ts_data[:, 1]
-            else:
-                feedback_ts, feedback_status = find_and_load_feedback(pth, parameters['input_file'])
-
         # convert scalar names into modern format if they are legacy
         if is_legacy(dset) and force_conversion:
             dset = convert_legacy_scalars(dset, force=force_conversion)
-
-        nframes = len(dset[scalar_names[0]])
-        if include_feedback:
-            try:
-                timestamps = get_timestamps_from_h5(pth)
-                scalar_dict['timestamp'] = timestamps.astype('int32')
-            except:
-                warnings.warn(f'timestamps for {pth} were not found')
-                warnings.warn('This could be due to a missing/incorrectly named timestamp file in that session directory.')
-                warnings.warn('If the file does exist, ensure it has the correct name/location and re-extract the session.')
-                pass
-            if len(timestamps) != nframes:
-                warnings.warn(f'Timestamps not equal to number of frames for {pth}, skipping')
-                continue
 
         # add scalar data for this animal
         for scalar in scalar_names:
             scalar_dict[scalar] += dset[scalar].tolist()
 
-        # add metadata from `include_keys`
+        # Count number of session frames
+        nframes = len(dset[scalar_names[0]])
+
+        # add index metadata from `include_keys`
         for key in include_keys:
             # every frame should have the same amount of metadata
             scalar_dict[key] += [v['metadata'][key]] * nframes
 
+        # Add metadata to dict to fit in DataFrame
         scalar_dict['group'] += [v['group']] * nframes
         scalar_dict['uuid'] += [k] * nframes
 
-        if include_feedback and feedback_ts is not None:
-            for ts in timestamps:
-                hit = np.where(ts.astype('int32') == feedback_ts.astype('int32'))[0]
-                if len(hit) > 0:
-                    scalar_dict['feedback_status'] += [feedback_status[hit]]
-                else:
-                    scalar_dict['feedback_status'] += [-1]
-        elif include_feedback:
-            scalar_dict['feedback_status'] += [-1] * nframes
-
-        if include_model and os.path.exists(include_model):
-            scalar_dict['model_label'] += labels[k].tolist()
-            scalar_dict['model_label (sort=usage)'] += usage[k].tolist()
-            scalar_dict['model_label (sort=frames)'] += frames[k].tolist()
+        # Optionally append neural feedback data to scalar_dict
+        if include_feedback:
+            scalar_dict, skip = handle_feedback_data(scalar_dict, dct, pth, parameters['input_file'], nframes)
+            if skip:
+                continue
 
     # turn each key in scalar_names into a numpy array
     for scalar in scalar_names:
@@ -609,7 +596,6 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     scalar_df = pd.DataFrame(scalar_dict)
 
     return scalar_df
-
 
 def make_a_heatmap(position):
     '''
@@ -642,7 +628,6 @@ def make_a_heatmap(position):
     kde.fit(position)
     pdf = np.exp(kde.score_samples(position_grid)).reshape(n_grid, n_grid)
     return pdf
-
 
 def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_mm', 'centroid_y_mm']):
     '''
@@ -680,7 +665,6 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
         return np.stack([p / p.sum() for p in pdfs]), groups, sessions, subjectNames
 
     return pdfs, groups, sessions, subjectNames
-
 
 def compute_session_centroid_speeds(scalar_df, grouping_keys=['uuid', 'group'],
                                     centroid_keys=['centroid_x_mm', 'centroid_y_mm']):
@@ -732,11 +716,13 @@ def compute_mean_syll_scalar(complete_df, scalar_df, label_df, scalar='centroid_
     columns = lbl_df.columns
     gk = ['group', 'uuid']
 
-    centroid_speeds = scalar_df[[scalar] + gk]
+    # Get selected scalar and groups to compute syllable scalars for.
+    scalar_columns = scalar_df[[scalar] + gk]
     if isinstance(groups, (list, tuple)):
         if len(groups) == 0:
             groups = None
 
+    # Handling dict input keys for certain scalars
     if scalar == 'centroid_speed_mm':
         dict_scalar = 'speed'
     elif scalar == 'dist_to_center_px':
@@ -745,22 +731,27 @@ def compute_mean_syll_scalar(complete_df, scalar_df, label_df, scalar='centroid_
         dict_scalar = scalar
 
     all_sessions = []
+    # Iterate through all found sessions
     for col in tqdm(columns, total=len(columns), desc=f'Computing Per Session Syll {dict_scalar}'):
         if groups != None:
             if col[0] not in groups:
                 continue
 
+        # Get session label and scalar time-series arrays
         sess_lbls = lbl_df[col].iloc[3:].reset_index().dropna(axis=0, how='all')
-        sess_speeds = centroid_speeds[centroid_speeds['uuid'] == col[1]].iloc[3:].reset_index()
+        sess_scalar = scalar_columns[scalar_columns['uuid'] == col[1]].iloc[3:].reset_index()
 
+        # Create session scalar dict
         sess_dict = {
             'uuid': [],
             'syllable': [],
             f'{dict_scalar}': []
         }
+
+        # Computing the mean value of the scalar for all syllables, up to max_sylls.
         for lbl in range(max_sylls):
             indices = (sess_lbls[col] == lbl)
-            mean_lbl_scalar = np.nanmean(sess_speeds[:len(indices)][indices][f'{scalar}'])
+            mean_lbl_scalar = np.nanmean(sess_scalar[:len(indices)][indices][f'{scalar}'])
 
             sess_dict['uuid'].append(col[1])
             sess_dict['syllable'].append(lbl)
@@ -768,21 +759,22 @@ def compute_mean_syll_scalar(complete_df, scalar_df, label_df, scalar='centroid_
 
         all_sessions.append(sess_dict)
 
-    all_speeds_df = pd.DataFrame.from_dict(all_sessions[0])
-    y = all_speeds_df[f'{dict_scalar}']
-    all_speeds_df[f'{dict_scalar}'] = np.where(y.between(0, 300), y, 0)
+    # Compiling all the session dicts into a singular pandas DataFrame
+    all_session_scalars_df = pd.DataFrame.from_dict(all_sessions[0])
+    y = all_session_scalars_df[f'{dict_scalar}']
+    all_session_scalars_df[f'{dict_scalar}'] = np.where(y.between(0, 300), y, 0)
 
     for i in range(1, len(all_sessions)):
         tmp_df = pd.DataFrame.from_dict(all_sessions[i])
         y = tmp_df[f'{dict_scalar}']
         tmp_df[f'{dict_scalar}'] = np.where(y.between(0, 300), tmp_df[f'{dict_scalar}'], 0)
 
-        all_speeds_df = all_speeds_df.append(tmp_df)
+        all_session_scalars_df = all_session_scalars_df.append(tmp_df)
 
-    complete_df = pd.merge(complete_df, all_speeds_df, on=['uuid', 'syllable'])
+    # Merge/update the mean syllable scalar DataFrame with the syllable results DataFrame
+    complete_df = pd.merge(complete_df, all_session_scalars_df, on=['uuid', 'syllable'])
 
     return complete_df
-
 
 def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='group'):
     '''
@@ -804,29 +796,33 @@ def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='grou
     groups (list): list of corresponding names to each row in the group_syll_pdfs list
     '''
 
+    # Get DataFrame subset containing only relevant columns
     mini_df = pdf_df[['pdf', 'group', 'SessionName', 'syllable']]
 
+    # Get unique groups to iterate by
     if groupby == 'group':
         groups = list(mini_df.group.unique())
     else:
         groups = list(mini_df.SessionName.unique())
 
+    # Get means of grouping PDFs
     group_syll_pdfs = []
     for g in groups:
         g_df = mini_df[mini_df[groupby] == g]
 
+        # Get mean syllable PDF for all found group names
         syll_pdfs = []
         for i in syllables:
             pdf = g_df[g_df['syllable'] == i].pdf.to_numpy().mean(axis=0)
             syll_pdfs.append(pdf)
 
+        # Optionally scale the PDFs
         if normalize:
             group_syll_pdfs.append(np.stack([p / p.sum() for p in syll_pdfs]))
         else:
             group_syll_pdfs.append(syll_pdfs)
 
     return group_syll_pdfs, groups
-
 
 def compute_syllable_position_heatmaps(complete_df, scalar_df, label_df,
                                        centroid_keys=['centroid_x_mm', 'centroid_y_mm'], syllables=range(40)):
@@ -853,23 +849,28 @@ def compute_syllable_position_heatmaps(complete_df, scalar_df, label_df,
     columns = lbl_df.columns
     gk = ['group', 'uuid']
 
-    centroid_speeds = scalar_df[centroid_keys + gk]
+    # Get centroid columns and groups to compute syllable position PDFs for.
+    centroid_coords = scalar_df[centroid_keys + gk]
 
     all_sessions = []
+    # Iterate through all found sessions
     for col in tqdm(columns, total=len(columns), desc=f'Computing Per Session Syll Positions'):
-
+        # Get mouse centroid positions in each session to compute position heat maps
         sess_lbls = lbl_df[col].iloc[3:].reset_index().dropna(axis=0, how='all')
-        sess_speeds = centroid_speeds[centroid_speeds['uuid'] == col[1]].iloc[3:].reset_index()
+        sess_positions = centroid_coords[centroid_coords['uuid'] == col[1]].iloc[3:].reset_index()
 
+        # Create session PDF dict
         sess_dict = {
             'uuid': [],
             'syllable': [],
             'pdf': []
         }
+        # Compute session's syllable PDFs
         for lbl in syllables:
             indices = (sess_lbls[col] == lbl)
 
-            syll_pos = np.nan_to_num(sess_speeds[:len(indices)][indices][centroid_keys].to_numpy())
+            # Get syllable
+            syll_pos = np.nan_to_num(sess_positions[:len(indices)][indices][centroid_keys].to_numpy())
             if len(syll_pos) > 0:
                 try:
                     pdf = make_a_heatmap(syll_pos)
@@ -884,12 +885,14 @@ def compute_syllable_position_heatmaps(complete_df, scalar_df, label_df,
 
         all_sessions.append(sess_dict)
 
+    # Consolidate all PDF dicts into a singular DataFrame
     all_positions_df = pd.DataFrame.from_dict(all_sessions[0])
 
     for i in range(1, len(all_sessions)):
         tmp_df = pd.DataFrame.from_dict(all_sessions[i])
         all_positions_df = all_positions_df.append(tmp_df)
 
+    # Merge/update the mean syllable PDF DataFrame with the syllable results DataFrame
     complete_df = pd.merge(complete_df, all_positions_df, on=['uuid', 'syllable'])
 
     return complete_df

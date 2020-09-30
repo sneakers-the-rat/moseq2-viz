@@ -4,7 +4,7 @@ import joblib
 import numpy as np
 import ruamel.yaml as yaml
 from unittest import TestCase
-from moseq2_viz.util import check_video_parameters, parse_index
+from moseq2_viz.util import parse_index
 from moseq2_viz.model.util import parse_model_results, relabel_by_usage
 from moseq2_viz.io.video import write_crowd_movies, write_frames_preview
 

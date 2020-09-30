@@ -127,7 +127,7 @@ def add_group_wrapper(index_file, config_data):
 
     print('Group(s) added successfully.')
 
-def get_best_fit_model_wrapper(model_dir, cp_file, ext='.p'):
+def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, ext='.p', fps=30):
     '''
     Given a directory containing multiple models trained on different kappa values,
     finds the model with the closest median syllable duration to the PC changepoints.
@@ -137,7 +137,10 @@ def get_best_fit_model_wrapper(model_dir, cp_file, ext='.p'):
     ----------
     model_dir (str): Path to directory containing multiple models.
     cp_file (str): Path to PCA changepoints
+    output_file (str): Path to file to save figure to.
+    plot_all (bool): Plot all model changepoint distributions.
     ext (str): Model extension to search for
+    fps (int): Frames per second
 
     Returns
     -------
@@ -152,17 +155,26 @@ def get_best_fit_model_wrapper(model_dir, cp_file, ext='.p'):
     model_results = {}
     for model_name in models:
         model_results[model_name] = parse_model_results(joblib.load(model_dir+model_name))
-        model_results[model_name]['changepoints'] = compute_model_changepoints(model_results[model_name])
+        model_results[model_name]['changepoints'] = compute_model_changepoints(model_results[model_name], fps=fps)
 
-    # Find the best fit model
+    # Find the best fit model by comparing their median durations with the PC scores changepoints
     best_model, pca_changepoints = get_best_fit(cp_file, model_results)
+    selected_model_path = os.path.join(model_dir, best_model)
 
-    print('Model with median duration closest to PC scores:', os.path.join(model_dir, best_model))
+    print('Model with median duration closest to PC scores:', selected_model_path)
 
-    # Graph the difference
-    fig, ax = plot_cp_comparison(model_results[best_model]['changepoints'], pca_changepoints)
+    if plot_all:
+        # Graph all the model CP dists
+        fig, ax = plot_cp_comparison(model_results, pca_changepoints, plot_all=plot_all, best_model=best_model)
+    else:
+        # Graph the best-fit model CP difference
+        fig, ax = plot_cp_comparison(model_results, pca_changepoints, best_model=best_model)
 
-    return fig, ax
+    # Save the figure
+    if output_file != None:
+        save_fig(fig, output_file)
+
+    return selected_model_path
 
 def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None):
     '''

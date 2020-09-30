@@ -124,7 +124,7 @@ def get_best_fit(cp_path, model_results):
             # Get syllable duration difference
             syll_dur = abs(np.median(pca_cps) - np.median(model_cps))
 
-            # If syllable duration is less than last saved value, update best model
+            # If syllable duration is less than last saved value, update best model key
             if syll_dur < min_dist:
                 min_dist = syll_dur
                 best_model = model
@@ -134,13 +134,14 @@ def get_best_fit(cp_path, model_results):
         
     return best_model, pca_cps
 
-def compute_model_changepoints(model):
+def compute_model_changepoints(model, fps=30.):
     '''
     Computes the given trained model's syllable label changepoints.
 
     Parameters
     ----------
     model (dict): dict of parsed trained model results.
+    fps (int): frames per second.
 
     Returns
     -------
@@ -149,7 +150,7 @@ def compute_model_changepoints(model):
 
     model_cps = []
     for _labels in model["labels"]:
-        locs = _get_transitions(_labels)[1] / 30.
+        locs = _get_transitions(_labels)[1] / fps
         model_cps += list(np.diff(locs))
 
     return np.array(model_cps)
@@ -224,9 +225,12 @@ def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[sli
 
     labels = np.concatenate(([-1], labels, [-1]))
     is_syllable = np.diff(np.int16(labels == syllable))
+
     starts = np.where(is_syllable == 1)[0]
     ends = np.where(is_syllable == -1)[0]
+
     slices = starmap(slice, zip(starts, ends))
+
     return slices
 
 

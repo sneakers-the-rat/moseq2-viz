@@ -12,11 +12,11 @@ import seaborn as sns
 from cytoolz import pluck
 from tqdm.auto import tqdm
 from functools import wraps
+from scipy.stats import mode
 import matplotlib.pyplot as plt
 from moseq2_viz.util import star
 from typing import Tuple, Iterable
 from matplotlib import lines, gridspec
-from networkx.drawing.nx_agraph import graphviz_layout
 from moseq2_viz.model.label_util import get_sorted_syllable_stat_ordering, get_syllable_mutation_ordering
 
 def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
@@ -743,15 +743,17 @@ def plot_explained_behavior(syllable_usages, count="usage", figsize=(10,5)):
     sns.despine()
     return fig
 
-def plot_cp_comparison(model_cps, pc_cps):
+def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
     '''
     Plot the changepoint-duration distributions of a given 1D arrays of model
      and principal component changepoints.
 
     Parameters
     ----------
-    model_cps (1D np.array): Computed model changepoints
+    model_cps (dict): Multiple parsed model results aggregated into a single dict.
     pc_cps (1D np.array): Computed PC changepoints
+    plot_all (bool): Plot all model changepoints for all keys included in model_cps dict.
+    best_model (str): key name to the model with the closest median syllable duration
 
     Returns
     -------
@@ -759,15 +761,61 @@ def plot_cp_comparison(model_cps, pc_cps):
     ax (pyplot axis): plotted scalar axis
     '''
 
-    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
 
     # Plot KDEs
-    ax = sns.kdeplot(pc_cps, gridsize=1000, color='blue', label='PCA Changepoints')
-    ax = sns.kdeplot(model_cps, gridsize=1000, color='orange', label='Model Changepoints')
+    ax = sns.distplot(pc_cps, kde_kws={'gridsize': 600}, hist_kws={'alpha': .2}, bins=np.linspace(0, 4, 100),
+                      hist=False, kde=True, color='orange', label='PCA Changepoints')
+
+    if not plot_all:
+        if best_model != None and plot_all == False:
+            model_cps = model_results[best_model]['changepoints']
+
+        if '-' in best_model:
+            kappa = best_model.split("-")[1].split(".")[0]
+        else:
+            kappa = 'default'
+
+        _ = sns.distplot(model_cps, ax=ax, kde_kws={'gridsize': 600}, hist_kws={'alpha': .2}, bins=np.linspace(0, 4, 100),
+                         hist=False, kde=True, color='blue', label=f'Model Changepoints Kappa={kappa}')
+
+    else:
+        for i, k in enumerate(model_results.keys()):
+            # Set default curve formatting
+            ls, alpha = '--', 0.5
+            if k == best_model:
+                ls, alpha = '-', 1 # Solid line for best fit
+
+            if '-' in k:
+                kappa = k.split("-")[1].split(".")[0]
+            else:
+                kappa = 'default'
+
+            sns.distplot(model_results[k]['changepoints'], ax=ax, kde_kws={'gridsize': 600, 'linestyle': ls, 'alpha': alpha},
+                         hist_kws={'alpha': .2}, bins=np.linspace(0, 4, 100), hist=False, kde=True,
+                         color=sns.color_palette('dark')[i], label=f'Model Changepoints Kappa={kappa}')
 
     # Format plot
     plt.xlim(0, 2)
+
+    if isinstance(model_results, dict):
+        model_results = model_results[best_model]['changepoints']
+
+    # Plot best model description
+    s = "Best Model CP Stats: Mean, median, mode (s) = {0:.5}, {1:.5}, {2:.5}".format(str(np.mean(model_results)),
+                                                                                      str(np.median(model_results)),
+                                                                                      str(mode(model_results)[0][0]))
+    # Plot PC CP description
+    t = "PC CP Stats: Mean, median, mode (s) = {0:.5}, {1:.5}, {2:.5}".format(str(np.mean(pc_cps)),
+                                                                              str(np.median(pc_cps)),
+                                                                              str(mode(pc_cps)[0][0]))
+
+    plt.text(.5, 2, s, fontsize=12)
+    plt.text(.5, 1.8, t, fontsize=12)
     plt.xlabel('Block duration (s)')
     plt.ylabel('P(duration)')
-    
+    sns.despine()
+
+    plt.show()
+
     return fig, ax

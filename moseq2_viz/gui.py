@@ -13,7 +13,7 @@ import ruamel.yaml as yaml
 from .cli import plot_transition_graph
 from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_stat_wrapper, \
     plot_scalar_summary_wrapper, plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, \
-    plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper
+    plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper, get_best_fit_model_wrapper
 
 
 def get_groups_command(index_file):
@@ -113,6 +113,36 @@ def copy_h5_metadata_to_yaml_command(input_dir, h5_metadata_path):
 
     copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path)
 
+def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30):
+    '''
+    Given a directory containing multiple models, and the path to the pca scores they were trained on,
+     this function returns the path to the model that has the closest median syllable duration to that of
+     the PC Scores.
+
+    Parameters
+    ----------
+    progress_paths (dict): Dict containing paths the to model directory and pca scores file
+    output_file (str): Optional path to save the comparison plot
+    plot_all (bool): Indicates whether to plot all the models' changepoint distributions with the PCs, highlighting
+     the best model curve.
+    fps (int): Frames per second.
+
+    Returns
+    -------
+    best_fit_model (str): Path tp best fit model
+    '''
+
+    # Check output file path
+    if output_file == None:
+        output_file = os.path.join(progress_paths['plot_path'], 'model_vs_pc_changepoints')
+
+    # Get paths to required parameters
+    model_dir = progress_paths['model_session_path']
+    changepoint_path = os.path.join(progress_paths['pca_dirname'], progress_paths['changepoints_path'] + '.h5')
+
+    # Get best fit model and plot requested curves
+    best_fit_model = get_best_fit_model_wrapper(model_dir, changepoint_path, output_file, plot_all=plot_all, fps=fps)
+    return best_fit_model
 
 def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, max_examples):
     '''

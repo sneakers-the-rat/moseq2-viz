@@ -533,20 +533,10 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
             df = tm2 - tm
 
             if isinstance(scalars, dict):
-                if len(scalars['speeds_2d']) > 0:
-                    speed_df = [j2 - i1 for (j2, i1) in zip(scalars['speeds_2d'][i + 1], scalars['speeds_2d'][i])]
-                    scalars['speeds_2d'].append(get_usage_dict([speed_df])[0])
-
-                if len(scalars['dists']) > 0:
-                    dist_df = [j2 - i1 for (j2, i1) in zip(scalars['dists'][i + 1], scalars['dists'][i])]
-                    scalars['dists'].append(get_usage_dict([dist_df])[0])
-
-                if len(scalars['speeds_3d']) > 0:
-                    speed_3d_df = [j2 - i1 for (j2, i1) in zip(scalars['speeds_3d'][i + 1], scalars['speeds_3d'][i])]
-                    scalars['speeds_3d'].append(get_usage_dict([speed_3d_df])[0])
-                if len(scalars['heights']) > 0:
-                    height_df = [j2 - i1 for (j2, i1) in zip(scalars['heights'][i + 1], scalars['heights'][i])]
-                    scalars['heights'].append(get_usage_dict([height_df])[0])
+                for key in scalars.keys():
+                    if len(scalars[key]) > 0:
+                        scalar_df = [j2 - i1 for (j2, i1) in zip(scalars[key][i + 1], scalars[key][i])]
+                        scalars[key].append(get_usage_dict([scalar_df])[0])
 
             # make difference graph
             graph = make_graph(df, ebunch_anchor, difference_threshold, usages_anchor)
@@ -637,7 +627,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
 
     for i, tm in enumerate(trans_mats):
         if isinstance(scalars, dict):
-            speeds = scalars['speeds_2d'][i]
+            speeds = scalars['speed'][i]
         else:
             speeds = None
 

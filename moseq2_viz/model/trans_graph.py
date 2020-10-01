@@ -4,7 +4,6 @@ Syllable transition graph creation and utility functions.
 
 '''
 
-import re
 import math
 import tqdm
 import numpy as np

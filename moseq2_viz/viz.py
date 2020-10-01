@@ -6,17 +6,12 @@ Visualization model containing all plotting functions and some dependent data pr
 
 import cv2
 import h5py
-import random
 import numpy as np
 import seaborn as sns
-from cytoolz import pluck
 from tqdm.auto import tqdm
 from functools import wraps
 import matplotlib.pyplot as plt
-from moseq2_viz.util import star
-from typing import Tuple, Iterable
 from matplotlib import lines, gridspec
-from networkx.drawing.nx_agraph import graphviz_layout
 from moseq2_viz.model.label_util import get_sorted_syllable_stat_ordering, get_syllable_mutation_ordering
 
 def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
@@ -79,50 +74,6 @@ def save_fig(fig, output_file, name='{}', **kwargs):
     fig.savefig(f'{name}.png'.format(output_file), **kwargs)
     fig.savefig(f'{name}.pdf'.format(output_file), **kwargs)
 
-def crowd_matrix_from_loaded_data(slices: Iterable[Tuple[int, int]], frames, scalars, nexamples=50,
-                                  pad=30, dur_clip=1000, raw_size=(512, 424), crop_size=(80, 80)):
-    '''
-    This function assumes angles have already been treated for flips, if necessary.
-    UNUSED
-
-    Parameters
-    ----------
-    slices
-    frames
-    scalars
-    nexamples
-    pad
-    dur_clip
-    raw_size
-    crop_size
-
-    Returns
-    -------
-    None
-    '''
-
-    def dur_filter(slice_):
-        return (slice_[1] - slice_[0]) < dur_clip
-
-    slices = filter(dur_filter, slices)
-    slices = random.choices(slices, k=nexamples)
-    dur = list(s[1] - s[0] for s in slices)
-    max_dur = max(dur)
-    starts = map(lambda x: x - pad, pluck(0, slices))
-
-    def pad_idx(idx, dur):
-        return idx + pad + (max_dur - dur)
-
-    ends = map(star(pad_idx), zip(pluck(1, slices), dur))
-    # turn each tuple of indices into a slice object
-    slices = map(star(slice), zip(starts, ends))
-
-    crowd_mtx = np.zeros((max_dur + 2 * pad, *reversed(raw_size)), dtype='uint8')
-
-    yc0, xc0 = [x // 2 for x in crop_size]
-    # TODO: finish - add the below stuff
-
-
 # TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
                       crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
@@ -174,8 +125,6 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
         return None
 
     max_dur = durs.max()
-
-    # original_dtype = h5py.File(use_slices[0][2], 'r')['frames'].dtype
 
     if max_dur < 0:
         return None
@@ -249,8 +198,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
                 continue
 
             rot_mat = cv2.getRotationMatrix2D((xc0, yc0), angles[i], 1)
-            # old_frame = crowd_matrix[i][rr[0]:rr[-1],
-            #                             cc[0]:cc[-1]]
+
             old_frame = crowd_matrix[i]
             new_frame = np.zeros_like(old_frame)
             new_frame_clip = frames[i]

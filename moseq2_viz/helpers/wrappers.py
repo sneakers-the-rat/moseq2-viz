@@ -481,8 +481,8 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
         config_data['crowd_syllables'] = range(config_data['max_syllable'])
 
     # Write parameter information yaml file in crowd movies directory
-    write_crowd_movie_info_file(model_path=model_path, model_fit=model_fit, index_file=index_file,
-                                output_dir=output_dir)
+    write_crowd_movie_info_file(model_path=model_path, model_fit=model_fit,
+                                index_file=index_file, output_dir=output_dir)
 
     # Optionally generate crowd movies from independent sources, i.e. groups, or individual sessions.
     if config_data.get('separate_by') == 'groups':
@@ -509,7 +509,7 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
 
         # Write crowd movies for each session
         cm_paths = make_separate_crowd_movies(config_data, sorted_index, session_names,
-                                              labels, label_uuids, output_dir, ordering)
+                                              labels, label_uuids, output_dir, ordering, sessions=True)
     else:
         # Write movies using all sessions as the source
         cm_paths = {'all': write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir)}

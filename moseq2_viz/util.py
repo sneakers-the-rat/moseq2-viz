@@ -86,7 +86,7 @@ def get_index_hits(config_data, metadata, key, v):
 
     return hits
 
-def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, label_uuids, output_dir, ordering):
+def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, label_uuids, output_dir, ordering, sessions=False):
     '''
     Helper function that writes syllable crowd movies for each given grouping found in group_keys, and returns
      a dictionary with session/group name keys paired with paths to their respective generated crowd movies.
@@ -112,6 +112,11 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, la
         # Filter group labels to pair with respective UUIDs
         group_labels = np.array(labels)[v]
         group_label_uuids = np.array(label_uuids)[v]
+
+        if sessions == True:
+            group_labels = [group_labels]
+            group_label_uuids = [group_label_uuids]
+
         # Get subset of sorted_index including only included session sources
         group_index = {'files': {k1: v1 for k1, v1 in sorted_index['files'].items() if k1 in group_label_uuids},
                        'pca_path': sorted_index['pca_path']}

@@ -9,8 +9,8 @@ import cv2
 import warnings
 import subprocess
 import numpy as np
+from tqdm import tqdm
 import ruamel.yaml as yaml
-from tqdm.auto import tqdm
 import multiprocessing as mp
 from functools import partial
 import matplotlib.pyplot as plt

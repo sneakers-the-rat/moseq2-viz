@@ -629,7 +629,7 @@ def make_a_heatmap(position):
     pdf = np.exp(kde.score_samples(position_grid)).reshape(n_grid, n_grid)
     return pdf
 
-def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_mm', 'centroid_y_mm']):
+def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_mm', 'centroid_y_mm'], key='SubjectName'):
     '''
     Computes a position PDF for all sessions and returns the pdfs with corresponding lists of
      groups, session uuids, and subjectNames.
@@ -639,6 +639,7 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
     scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
     normalize (bool): Indicates whether normalize the pdfs.
     centroid_vars (list): list of strings for column values to use when computing mouse position.
+    key (str): metadata column to return info from.
 
     Returns
     -------
@@ -654,7 +655,7 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
     for sess in tqdm(sessions):
         groups.append(scalar_df[scalar_df['uuid'] == sess][['group']].iloc[0][0])
         positions.append(scalar_df[scalar_df['uuid'] == sess][centroid_vars].dropna(how='all').to_numpy())
-        subjectNames.append(scalar_df[scalar_df['uuid'] == sess][['SubjectName']].iloc[0][0])
+        subjectNames.append(scalar_df[scalar_df['uuid'] == sess][[key]].iloc[0][0])
 
     pool_ = Pool()
     pdfs = pool_.map(make_a_heatmap, np.array(positions))
@@ -871,13 +872,13 @@ def compute_syllable_position_heatmaps(complete_df, scalar_df, label_df,
 
             # Get syllable
             syll_pos = np.nan_to_num(sess_positions[:len(indices)][indices][centroid_keys].to_numpy())
+            pdf = np.zeros((50, 50))
             if len(syll_pos) > 0:
                 try:
                     pdf = make_a_heatmap(syll_pos)
                 except ValueError:
-                    pdf = np.zeros((50, 50))
-            else:
-                pdf = np.zeros((50, 50))
+                    # On fail, pass zero array
+                    pass
 
             sess_dict['uuid'].append(col[1])
             sess_dict['syllable'].append(lbl)

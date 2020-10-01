@@ -80,12 +80,14 @@ def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
     '''
     Creates an info.yaml file in the crowd movie directory that holds model training parameters.
     This file helps identify the conditions from which the crowd movies were generated.
+
     Parameters
     ----------
     model_path (str): path to model used to generate movies
     model_fit (dict): loaded ARHMM dict
     index_file (str): path to index file used with model
     output_dir (str): path to crowd movies directory to store file in.
+
     Returns
     -------
     None
@@ -114,6 +116,7 @@ def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
 def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir):
     '''
     Creates syllable slices for crowd movies and writes them to files.
+
     Parameters
     ----------
     sorted_index (dict): dictionary of sorted index data.
@@ -123,6 +126,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
     labels (numpy ndarray): list of syllable usages
     label_uuids (list): list of session uuids each series of labels belongs to.
     output_dir (str): path directory where all the movies are written.
+
     Returns
     -------
     None
@@ -172,7 +176,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
             # creating crowd matrices
             crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=len(config_data['crowd_syllables']),
                                        desc='Getting Crowd Matrices', disable=not config_data['progress_bar']))
-        
+
         # writing function
         config_data['fps'] = vid_parameters['fps']
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],
@@ -193,7 +197,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
 
         # write movie
         pool.starmap(write_fun, crowd_movies)
-        
+
     return crowd_movie_paths
 
 def write_frames_preview(filename, frames=np.empty((0,)), threads=6,

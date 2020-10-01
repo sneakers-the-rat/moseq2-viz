@@ -872,13 +872,13 @@ def compute_syllable_position_heatmaps(complete_df, scalar_df, label_df,
 
             # Get syllable
             syll_pos = np.nan_to_num(sess_positions[:len(indices)][indices][centroid_keys].to_numpy())
+            pdf = np.zeros((50, 50))
             if len(syll_pos) > 0:
                 try:
                     pdf = make_a_heatmap(syll_pos)
                 except ValueError:
-                    pdf = np.zeros((50, 50))
-            else:
-                pdf = np.zeros((50, 50))
+                    # On fail, pass zero array
+                    pass
 
             sess_dict['uuid'].append(col[1])
             sess_dict['syllable'].append(lbl)

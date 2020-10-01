@@ -268,6 +268,84 @@ def floatRgb(mag, cmin, cmax):
 
     return red, green, blue
 
+def get_stat_thresholded_ebunch(ebunch, stat, stat_threshold):
+    '''
+    Filters the given ebunch list based on the node statistic and thresholding value(s), removing any nodes that are
+     outside of the requested value or range.
+
+    Parameters
+    ----------
+    ebunch (list): List of tuples representing all node connections (within a single graph) and their edge weights.
+    stat (list): List of syllable statistics, e.g. syllable usages, or speeds.
+    stat_threshold (int or tuple): Thresholding values to filter ebunch with.
+
+    Returns
+    -------
+    ebunch (list): Thresholded list of node connections.
+    '''
+
+    if isinstance(stat_threshold, tuple):
+        # Add nodes if their usage value is within the usage threshold range.
+        ebunch = [e for e in ebunch if ((stat[e[0]] >= stat_threshold[0]) and (stat[e[0]] <= stat_threshold[1])) and
+                  ((stat[e[1]] >= stat_threshold[0]) and (stat[e[1]] <= stat_threshold[1]))]
+    else:
+        # Add nodes if their usage value is larger than the usage threshold value.
+        ebunch = [e for e in ebunch if stat[e[0]] > stat_threshold and stat[e[1]] > stat_threshold]
+
+    return ebunch
+
+def threshold_edges(ebunch, orphans, edge_threshold, weights, i, edge=None):
+    '''
+    Thresholds included nodes/edges given an edge_threshold value. If edge is given, then
+     threshold the edge transition probability directly, otherwise, compare the weights.
+
+    Parameters
+    ----------
+    ebunch (list): List of tuples representing all node connections (within a single graph) and their edge weights.
+    edge_threshold (float or tuple): threshold transition probability (optionally range) to consider an edge part of the graph.
+    weights (np.ndarray): syllable transition edge weights
+    i (int): edge index to threshold at.
+    orphans (list): list of included orphaned nodes.
+    edge (float): Current syllable pair edge weight.
+
+    Returns
+    -------
+    ebunch (list): Thresholded list of node pairs based on edge threshold value.
+    orphans (list): List of newly orphaned nodes as a result of the thresholding.
+    '''
+
+    if edge != None:
+        if isinstance(edge_threshold, tuple):
+            # Add node pair + weight if transition prob. is within edge threshold range
+            if np.abs(edge) >= edge_threshold[0] and np.abs(edge) <= edge_threshold[1]:
+                ebunch.append((i[0], i[1], weights[i[0], i[1]]))
+                # Add out-of-range/orphaned nodes
+                if np.abs(edge) < edge_threshold[0] and np.abs(edge) > edge_threshold[1]:
+                    orphans.append((i[0], i[1]))
+        else:
+            # Add node pair if transition probability is larger than edge threshold value
+            if np.abs(edge) > edge_threshold:
+                ebunch.append((i[0], i[1], weights[i[0], i[1]]))
+            # Add out-of-range/orphaned nodes
+            if np.abs(edge) <= edge_threshold:
+                orphans.append((i[0], i[1]))
+    else:
+        if isinstance(edge_threshold, tuple):
+            # Add node pair + weight if weight is within edge threshold range
+            if np.abs(weights[i[0], i[1]]) >= edge_threshold[0] and np.abs(weights[i[0], i[1]]) <= edge_threshold[1]:
+                ebunch.append((i[0], i[1], weights[i[0], i[1]]))
+                # Add out-of-range/orphaned nodes
+                if np.abs(weights[i[0], i[1]]) < edge_threshold[0] and np.abs(weights[i[0], i[1]]) > edge_threshold[1]:
+                    orphans.append((i[0], i[1]))
+        else:
+            # Add node pair if transition probability is larger than edge threshold value
+            if np.abs(weights[i[0], i[1]]) > edge_threshold:
+                ebunch.append((i[0], i[1], weights[i[0], i[1]]))
+            # Add out-of-range/orphaned nodes
+            if np.abs(weights[i[0], i[1]]) <= edge_threshold:
+                orphans.append((i[0], i[1]))
+
+    return ebunch, orphans
 
 def convert_transition_matrix_to_ebunch(weights, transition_matrix,
                                         usages=None, usage_threshold=-.1,
@@ -304,75 +382,31 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     if indices is None and not keep_orphans:
         # Do not keep orphaned nodes to display
         for i, v in np.ndenumerate(transition_matrix):
-            if isinstance(edge_threshold, tuple):
-                # Add node pair if transition probability is within threshold range
-                if np.abs(v) >= edge_threshold[0] and np.abs(v) <= edge_threshold[1]:
-                    ebunch.append((i[0], i[1], weights[i[0], i[1]]))
-            else:
-                # Add node pair if transition probability is larger than edge threshold value
-                if np.abs(v) > edge_threshold:
-                    ebunch.append((i[0], i[1], weights[i[0], i[1]]))
+            ebunch, _ = threshold_edges(ebunch, orphans, edge_threshold, weights, i, edge=v)
     elif indices is None and keep_orphans:
         # Keep orphaned nodes to display
         for i, v in np.ndenumerate(transition_matrix):
-            if isinstance(edge_threshold, tuple):
-                # Add node pair + weight if transition prob. is within edge threshold range
-                if np.abs(v) >= edge_threshold[0] and np.abs(v) <= edge_threshold[1]:
-                    ebunch.append((i[0], i[1], weights[i[0], i[1]]))
-                    # Add out-of-range/orphaned nodes
-                    if np.abs(v) < edge_threshold[0] and np.abs(v) > edge_threshold[1]:
-                        orphans.append((i[0], i[1]))
-            else:
-                # Add node pair if transition probability is larger than edge threshold value
-                if np.abs(v) > edge_threshold:
-                    ebunch.append((i[0], i[1], weights[i[0], i[1]]))
-                # Add out-of-range/orphaned nodes
-                if np.abs(v) <= edge_threshold:
-                    orphans.append((i[0], i[1]))
+            ebunch, orphans = threshold_edges(ebunch, orphans, edge_threshold, weights, i, edge=v)
+
     elif indices is not None and keep_orphans:
         # Keep orphaned nodes to display
         for i in indices:
-            if isinstance(edge_threshold, tuple):
-                # Add node pair + weight if weight is within edge threshold range
-                if np.abs(weights[i[0], i[1]]) >= edge_threshold[0] and np.abs(weights[i[0], i[1]]) <= edge_threshold[1]:
-                    ebunch.append((i[0], i[1], weights[i[0], i[1]]))
-                    # Add out-of-range/orphaned nodes
-                    if np.abs(weights[i[0], i[1]]) < edge_threshold[0] and np.abs(weights[i[0], i[1]]) > edge_threshold[1]:
-                        orphans.append((i[0], i[1]))
-            else:
-                # Add node pair if transition probability is larger than edge threshold value
-                if np.abs(weights[i[0], i[1]]) > edge_threshold:
-                    ebunch.append((i[0], i[1], weights[i[0], i[1]]))
-                # Add out-of-range/orphaned nodes
-                if np.abs(weights[i[0], i[1]]) <= edge_threshold:
-                    orphans.append((i[0], i[1]))
+            ebunch, orphans = threshold_edges(ebunch, orphans, edge_threshold, weights, i)
     else:
         # Adding all node pairs in included indices
         ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i in indices]
 
     if usages is not None:
-        if isinstance(usage_threshold, tuple):
-            # Add nodes if their usage value is within the usage threshold range.
-            ebunch = [e for e in ebunch if ((usages[e[0]] >= usage_threshold[0]) and (usages[e[0]] <= usage_threshold[1])) and
-                      ((usages[e[1]] >= usage_threshold[0]) and (usages[e[1]] <= usage_threshold[1]))]
-        else:
-            # Add nodes if their usage value is larger than the usage threshold value.
-            ebunch = [e for e in ebunch if usages[e[0]] > usage_threshold and usages[e[1]] > usage_threshold]
+        ebunch = get_stat_thresholded_ebunch(ebunch, usages, usage_threshold)
 
     if speeds is not None:
-        if isinstance(speed_threshold, tuple):
-            ebunch = [e for e in ebunch if
-                      ((speeds[e[0]] >= speed_threshold[0]) and (speeds[e[0]] <= speed_threshold[1])) and
-                      ((speeds[e[1]] >= speed_threshold[0]) and (speeds[e[1]] <= speed_threshold[1]))]
-        else:
-            ebunch = [e for e in ebunch if speeds[e[0]] > speed_threshold and speeds[e[1]] > speed_threshold]
+        ebunch = get_stat_thresholded_ebunch(ebunch, speeds, speed_threshold)
 
     # Cap the number of included syllable states
     if max_syllable is not None:
         ebunch = [e for e in ebunch if e[0] <= max_syllable and e[1] <= max_syllable]
 
     return ebunch, orphans
-
 
 def get_usage_dict(usages):
     '''
@@ -498,20 +532,10 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
             df = tm2 - tm
 
             if isinstance(scalars, dict):
-                if len(scalars['speeds_2d']) > 0:
-                    speed_df = [j2 - i1 for (j2, i1) in zip(scalars['speeds_2d'][i + 1], scalars['speeds_2d'][i])]
-                    scalars['speeds_2d'].append(get_usage_dict([speed_df])[0])
-
-                if len(scalars['dists']) > 0:
-                    dist_df = [j2 - i1 for (j2, i1) in zip(scalars['dists'][i + 1], scalars['dists'][i])]
-                    scalars['dists'].append(get_usage_dict([dist_df])[0])
-
-                if len(scalars['speeds_3d']) > 0:
-                    speed_3d_df = [j2 - i1 for (j2, i1) in zip(scalars['speeds_3d'][i + 1], scalars['speeds_3d'][i])]
-                    scalars['speeds_3d'].append(get_usage_dict([speed_3d_df])[0])
-                if len(scalars['heights']) > 0:
-                    height_df = [j2 - i1 for (j2, i1) in zip(scalars['heights'][i + 1], scalars['heights'][i])]
-                    scalars['heights'].append(get_usage_dict([height_df])[0])
+                for key in scalars.keys():
+                    if len(scalars[key]) > 0:
+                        scalar_df = [j2 - i1 for (j2, i1) in zip(scalars[key][i + 1], scalars[key][i])]
+                        scalars[key].append(get_usage_dict([scalar_df])[0])
 
             # make difference graph
             graph = make_graph(df, ebunch_anchor, difference_threshold, usages_anchor)
@@ -602,7 +626,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
 
     for i, tm in enumerate(trans_mats):
         if isinstance(scalars, dict):
-            speeds = scalars['speeds_2d'][i]
+            speeds = scalars['speed'][i]
         else:
             speeds = None
 

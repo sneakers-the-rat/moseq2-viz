@@ -116,6 +116,7 @@ def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
 def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir):
     '''
     Creates syllable slices for crowd movies and writes them to files.
+
     Parameters
     ----------
     sorted_index (dict): dictionary of sorted index data.
@@ -125,6 +126,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
     labels (numpy ndarray): list of syllable usages
     label_uuids (list): list of session uuids each series of labels belongs to.
     output_dir (str): path directory where all the movies are written.
+
     Returns
     -------
     None
@@ -148,14 +150,16 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
         config_data['raw_size'] = vid_parameters['resolution']
 
     with mp.Pool() as pool:
-        # Get frame indices from all included sessions for each syllable label
+        # Get frame slices from all included sessions for each syllable label
         slice_fun = partial(get_syllable_slices,
                             labels=labels,
                             label_uuids=label_uuids,
                             index=sorted_index)
+
         with warnings.catch_warnings():
-            slices = list(tqdm(pool.imap(slice_fun, range(config_data['max_syllable'])),
-                               total=config_data['max_syllable'], desc='Getting Syllable Slices'))
+            slices = list(tqdm(pool.imap(slice_fun, config_data['crowd_syllables']),
+                               total=config_data['max_syllable'], desc='Getting Syllable Slices',
+                               disable=not config_data['progress_bar']))
 
         matrix_fun = partial(make_crowd_matrix,
                              nexamples=config_data['max_examples'],
@@ -169,25 +173,39 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
 
         # Compute crowd matrices
         with warnings.catch_warnings():
-            crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=config_data['max_syllable'],
-                                       desc='Getting Crowd Matrices'))
+            # creating crowd matrices
+            crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=len(config_data['crowd_syllables']),
+                                       desc='Getting Crowd Matrices', disable=not config_data['progress_bar']))
 
+        # writing function
+        config_data['fps'] = vid_parameters['fps']
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],
-                            depth_max=config_data['max_height'], cmap=config_data['cmap'])
+                            depth_max=config_data['max_height'], cmap=config_data['cmap'], progress_bar = config_data['progress_bar'])
 
-        # Write crowd movies
-        pool.starmap(write_fun,
-                     [(os.path.join(output_dir, filename_format.format(i, config_data['count'], ordering[i])),
-                       crowd_matrix)
-                      for i, crowd_matrix in tqdm(enumerate(crowd_matrices), total=config_data['max_syllable'],
-                                                  desc='Writing Movies') if crowd_matrix is not None])
+        # get list of tuples (path_to_write, crowd_movie)
+        crowd_movies = [[os.path.join(output_dir, filename_format.format(i, config_data['count'], ordering[i])), crowd_matrix]
+                            for i, crowd_matrix in tqdm(enumerate(crowd_matrices), total=len(config_data['crowd_syllables']),
+                                                        desc='Writing Movies', disable=not config_data['progress_bar'])
+                            if crowd_matrix is not None]
+
+        if len(config_data['crowd_syllables']) > 1:
+            crowd_movie_paths = [cm[0] for cm in crowd_movies]
+        else:
+            crowd_movies[0][0] = crowd_movies[0][0].replace('-0 ', f'-{config_data["crowd_syllables"][0]}')
+            crowd_movies[0][0] = crowd_movies[0][0].replace(f'-{ordering[0]}.', f'-{ordering[config_data["crowd_syllables"][0]]}.')
+            crowd_movie_paths = [cm[0] for cm in crowd_movies]
+
+        # write movie
+        pool.starmap(write_fun, crowd_movies)
+
+    return crowd_movie_paths
 
 def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
                          fps=30, pixel_format='rgb24',
                          codec='h264', slices=24, slicecrc=1,
                          frame_size=None, depth_min=0, depth_max=80,
                          get_cmd=False, cmap='jet', text=None, text_scale=1,
-                         text_thickness=2, pipe=None, close_pipe=True, progress_bar=True):
+                         text_thickness=2, pipe=None, close_pipe=True, progress_bar=True, **kwargs):
     '''
     Writes out a false-colored mp4 video.
     [Duplicate from moseq2-extract]
@@ -213,6 +231,7 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
     pipe (subProcess.Pipe object): if not None, indicates that there are more frames to be written.
     close_pipe (bool): indicates whether video is done writing, and to close pipe to file-stream.
     progress_bar (bool): display progress bar.
+    kwargs (dict): extra keyword arguments
 
     Returns
     -------

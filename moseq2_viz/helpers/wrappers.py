@@ -208,12 +208,8 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     # Plot Scalar Summary with specified groupings and colors
     plt_scalars, _ = scalar_plot(scalar_df, group_var=groupby, colors=colors, headless=True)
 
-    # Plot Position Summary of all mice in columns organized by groups
-    plt_position, _ = position_plot(scalar_df, group_var=groupby)
-
     # Save figures
     save_fig(plt_scalars, output_file, name='{}_summary')
-    save_fig(plt_position, output_file, name='{}_position')
 
     return scalar_df
 

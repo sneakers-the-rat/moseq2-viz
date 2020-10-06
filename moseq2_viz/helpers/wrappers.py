@@ -20,7 +20,7 @@ from moseq2_viz.util import (parse_index, recursive_find_h5s, h5_to_dict, clean_
                              make_separate_crowd_movies)
 from moseq2_viz.scalars.util import (scalars_to_dataframe, compute_mean_syll_scalar, compute_all_pdf_data,
                             compute_session_centroid_speeds)
-from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot, plot_mean_group_heatmap,
+from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, plot_mean_group_heatmap,
                             plot_verbose_heatmap, save_fig, plot_cp_comparison)
 from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models,
                                    results_to_dataframe, get_best_fit, compute_model_changepoints)
@@ -154,7 +154,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     # Load models into a single dict and compute their changepoints
     model_results = {}
     for model_name in models:
-        model_results[model_name] = parse_model_results(joblib.load(model_dir+model_name))
+        model_results[model_name] = parse_model_results(joblib.load(os.path.join(model_dir, model_name)))
         model_results[model_name]['changepoints'] = compute_model_changepoints(model_results[model_name], fps=fps)
 
     # Find the best fit model by comparing their median durations with the PC scores changepoints

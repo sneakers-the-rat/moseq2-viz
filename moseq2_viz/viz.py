@@ -696,6 +696,4 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
     plt.ylabel('P(duration)')
     sns.despine()
 
-    plt.show()
-
     return fig, ax

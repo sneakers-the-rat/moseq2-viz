@@ -3,7 +3,8 @@ import shutil
 from unittest import TestCase
 from click.testing import CliRunner
 from moseq2_viz.cli import add_group, copy_h5_metadata_to_yaml, plot_scalar_summary, \
-    plot_group_position_heatmaps, plot_verbose_position_heatmaps, plot_transition_graph, plot_stats, make_crowd_movies
+    plot_group_position_heatmaps, plot_verbose_position_heatmaps, plot_transition_graph, make_crowd_movies, get_best_fit_model
+
 
 
 class TestCLI(TestCase):
@@ -31,6 +32,25 @@ class TestCLI(TestCase):
         assert (not os.path.samefile(os.path.join(input_dir, 'orig.txt'), input_path)), "Index file was not updated."
         os.remove(original_file)
 
+    def test_get_best_model(self):
+
+        input_dir = 'data/'
+        cp_file = 'data/_pca/changepoints.h5'
+        output_file = 'data/gen_plots/model_vs_pc_changepoints'
+
+        runner = CliRunner()
+
+        run_params = [input_dir, cp_file, output_file]
+
+        if not os.path.exists(output_file):
+            os.makedirs(os.path.dirname(output_file))
+
+        results = runner.invoke(get_best_fit_model, run_params)
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert os.path.exists(output_file+'.png')
+        shutil.rmtree(os.path.dirname(output_file))
+
+
     def test_copy_h5_metadata_to_yaml(self):
         input_dir = 'data/'
 
@@ -49,8 +69,6 @@ class TestCLI(TestCase):
                                                       input_dir + 'test_index.yaml'])
 
         assert (results.exit_code == 0), "CLI Command did not complete successfully"
-        assert (os.path.exists(gen_dir + 'scalar_position.png')), "Position summary PNG not found"
-        assert (os.path.exists(gen_dir + 'scalar_position.pdf')), "Position summary PDF not found"
         assert (os.path.exists(gen_dir + 'scalar_summary.png')), "Scalar summary PNG not found"
         assert (os.path.exists(gen_dir + 'scalar_summary.pdf')), "Scalar summary PDF not found"
         shutil.rmtree(gen_dir)

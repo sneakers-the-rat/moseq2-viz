@@ -5,7 +5,7 @@ from unittest import TestCase
 from moseq2_viz.gui import get_groups_command, add_group, plot_stats_command, \
                 plot_scalar_summary_command, plot_transition_graph_command, \
                 plot_mean_group_position_heatmaps_command, \
-                plot_verbose_position_heatmaps
+                plot_verbose_position_heatmaps, get_best_fit_model
 
 class TestGUI(TestCase):
 
@@ -74,8 +74,6 @@ class TestGUI(TestCase):
         df = plot_scalar_summary_command(index_file, output_file)
 
         assert not df.empty, "Scalar DataFrame was not return correctly; is empty."
-        assert (os.path.exists(gen_dir + 'test_scalar_position.png')), "Position Summary PNG plot was not saved"
-        assert (os.path.exists(gen_dir + 'test_scalar_position.pdf')), "Position Summary PDF plot was not saved"
         assert (os.path.exists(gen_dir + 'test_scalar_summary.png')), "Scalar Summary PNG plot was not saved"
         assert (os.path.exists(gen_dir + 'test_scalar_summary.pdf')), "Scalar Summary PDF plot was not saved"
         shutil.rmtree(gen_dir)
@@ -116,5 +114,18 @@ class TestGUI(TestCase):
         assert (os.path.exists(output_file + '.pdf')), "Transition PDF graph was not saved"
         shutil.rmtree(gen_dir)
 
-    def test_copy_h5_metadata_to_yaml_command(self):
-        print()
+    def test_get_fit_model(self):
+
+        progress_paths = {
+            'plot_path': 'data/gen_plots/',
+            'model_session_path': 'data/',
+            'pca_dirname': 'data/_pca/',
+            'changepoints_path': 'changepoints'
+        }
+
+        if not os.path.exists(progress_paths['plot_path']):
+            os.makedirs(progress_paths['plot_path'])
+
+        best_model = get_best_fit_model(progress_paths, plot_all=True)
+        assert best_model != None
+        shutil.rmtree(progress_paths['plot_path'])

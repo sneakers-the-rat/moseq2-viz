@@ -12,7 +12,7 @@ import os
 import click
 from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_stat_wrapper, plot_scalar_summary_wrapper, \
         plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, make_crowd_movies_wrapper, \
-        plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper
+        plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper, get_best_fit_model_wrapper
 
 orig_init = click.core.Option.__init__
 
@@ -43,6 +43,15 @@ def add_group(index_file, key, value, group, exact, lowercase, negative):
     click_data = click.get_current_context().params
     add_group_wrapper(index_file, click_data)
 
+@cli.command(name="get-best-model", help='Returns the model with the closest median duration to the PC Changepoints, given a directory containing multiple models')
+@click.argument('model-dir', type=click.Path(exists=True, resolve_path=True))
+@click.argument('cp-path', type=click.Path(exists=True, resolve_path=True))
+@click.argument('output-file', type=click.Path(exists=False, resolve_path=True))
+@click.option('--plot-all', is_flag=True, help="Plot all included model results")
+@click.option('--ext', type=str, default='.p', help="Model extensions found in input directory")
+@click.option('--fps', type=int, default=30, help="Frames per second")
+def get_best_fit_model(model_dir, cp_path, output_file, plot_all, ext, fps):
+    get_best_fit_model_wrapper(model_dir, cp_path, output_file, plot_all, ext, fps)
 
 
 # recurse through directories, find h5 files with completed extractions, make a manifest

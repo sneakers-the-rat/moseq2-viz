@@ -9,8 +9,8 @@ from functools import reduce
 from unittest import TestCase
 from moseq2_viz.model.trans_graph import _get_transitions, get_transition_matrix
 from moseq2_viz.model.util import (relabel_by_usage, h5_to_dict,
-    calculate_syllable_usage, compress_label_sequence, find_label_transitions,
-    get_syllable_statistics, parse_model_results, merge_models, get_mouse_syllable_slices,
+    calculate_syllable_usage, compress_label_sequence, find_label_transitions, get_best_fit,
+    get_syllable_statistics, parse_model_results, merge_models, get_mouse_syllable_slices, compute_model_changepoints,
     syllable_slices_from_dict, get_syllable_slices, calculate_label_durations, labels_to_changepoints,
     results_to_dataframe, _gen_to_arr, normalize_pcs, _whiten_all, simulate_ar_trajectory)
 
@@ -358,6 +358,36 @@ class TestModelUtils(TestCase):
         assert sim_mats.shape == (100, 100)
         assert ar_mats.all() != sim_mats.all()
 
+    def test_get_best_fit(self):
+        model_path_1 = 'data/mock_model.p'
+        model_path_2 = 'data/test_model.p'
+        cp_file = 'data/_pca/changepoints.h5'
+        model_data1 = parse_model_results(joblib.load(model_path_1))
+        model_data1['changepoints'] = compute_model_changepoints(model_data1)
+
+        model_data2 = parse_model_results(joblib.load(model_path_2))
+        model_data2['changepoints'] = compute_model_changepoints(model_data2)
+
+        model_results = {
+                            'model1': model_data1,
+                            'model2': model_data2
+                         }
+
+        best_model, pca_cps = get_best_fit(cp_file, model_results)
+        assert best_model == 'model1'
+
+    def test_compute_model_changepoints(self):
+
+        model_path = 'data/test_model.p'
+        model_data = parse_model_results(joblib.load(model_path))
+        changepoints = compute_model_changepoints(model_data)
+
+        ntransitions = 0
+        for lbls in model_data['labels']:
+            locs = _get_transitions(lbls)[1] / 30
+            ntransitions += len(np.diff(list(locs)))
+
+        assert len(changepoints) == ntransitions == 1716
 
 if __name__ == '__main__':
     unittest.main()

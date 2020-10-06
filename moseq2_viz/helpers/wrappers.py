@@ -16,13 +16,13 @@ import ruamel.yaml as yaml
 from tqdm.auto import tqdm
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.model.trans_graph import get_trans_graph_groups, compute_and_graph_grouped_TMs
-from moseq2_viz.util import (parse_index, recursive_find_h5s, h5_to_dict, clean_dict, get_index_hits,
-                             make_separate_crowd_movies)
+from moseq2_viz.util import (parse_index, recursive_find_h5s, h5_to_dict, clean_dict, get_index_hits)
 from moseq2_viz.scalars.util import (scalars_to_dataframe, compute_mean_syll_scalar, compute_all_pdf_data,
                             compute_session_centroid_speeds)
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, position_plot, plot_mean_group_heatmap,
                             plot_verbose_heatmap, save_fig)
-from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models, results_to_dataframe)
+from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models, results_to_dataframe,
+                                   make_separate_crowd_movies)
 
 def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, output_file=None):
     '''

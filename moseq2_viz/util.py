@@ -86,52 +86,6 @@ def get_index_hits(config_data, metadata, key, v):
 
     return hits
 
-def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, label_uuids, output_dir, ordering, sessions=False):
-    '''
-    Helper function that writes syllable crowd movies for each given grouping found in group_keys, and returns
-     a dictionary with session/group name keys paired with paths to their respective generated crowd movies.
-
-    Parameters
-    ----------
-    config_data (dict): Loaded crowd movie writing configuration parameters.
-    sorted_index (dict): Loaded index file and sorted files in list.
-    group_keys (dict): Dict of group/session name keys paired with UUIDS to match with labels.
-    labels (2d list): list of syllable label lists for all sessions.
-    label_uuids (list): list of corresponding session UUIDs for all sessions included in labels.
-    output_dir (str): Path to output directory to save crowd movies in.
-    ordering (list): ordering for the new mapping of the relabeled syllable usages.
-
-    Returns
-    -------
-    cm_paths (dict): group/session name keys paired with paths to their respectively generated syllable crowd movies.
-    '''
-    from moseq2_viz.io.video import write_crowd_movies
-
-    cm_paths = {}
-    for k, v in group_keys.items():
-        # Filter group labels to pair with respective UUIDs
-        group_labels = np.array(labels)[v]
-        group_label_uuids = np.array(label_uuids)[v]
-
-        if sessions == True:
-            group_labels = [group_labels]
-            group_label_uuids = [group_label_uuids]
-
-        # Get subset of sorted_index including only included session sources
-        group_index = {'files': {k1: v1 for k1, v1 in sorted_index['files'].items() if k1 in group_label_uuids},
-                       'pca_path': sorted_index['pca_path']}
-
-        # create a subdirectory for each group
-        output_subdir = os.path.join(output_dir, k + '/')
-        if not os.path.exists(output_subdir):
-            os.makedirs(output_subdir)
-
-        # Write crowd movie for given group and syllable(s)
-        cm_paths[k] = write_crowd_movies(group_index, config_data, ordering,
-                                         group_labels, group_label_uuids, output_subdir)
-
-    return cm_paths
-
 
 def clean_dict(dct):
     '''

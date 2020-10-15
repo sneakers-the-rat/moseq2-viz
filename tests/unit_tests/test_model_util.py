@@ -1,4 +1,6 @@
+import os
 import joblib
+import shutil
 import unittest
 import numpy as np
 import pandas as pd
@@ -7,12 +9,13 @@ from copy import deepcopy
 import ruamel.yaml as yaml
 from functools import reduce
 from unittest import TestCase
+from moseq2_viz.util import parse_index
 from moseq2_viz.model.trans_graph import _get_transitions, get_transition_matrix
 from moseq2_viz.model.util import (relabel_by_usage, h5_to_dict,
     calculate_syllable_usage, compress_label_sequence, find_label_transitions, get_best_fit,
     get_syllable_statistics, parse_model_results, merge_models, get_mouse_syllable_slices, compute_model_changepoints,
     syllable_slices_from_dict, get_syllable_slices, calculate_label_durations, labels_to_changepoints,
-    results_to_dataframe, _gen_to_arr, normalize_pcs, _whiten_all, simulate_ar_trajectory)
+    results_to_dataframe, _gen_to_arr, normalize_pcs, _whiten_all, simulate_ar_trajectory, make_separate_crowd_movies)
 
 def make_sequence(lbls, durs):
     arr = [[x] * y for x, y in zip(lbls, durs)]
@@ -388,6 +391,77 @@ class TestModelUtils(TestCase):
             ntransitions += len(np.diff(list(locs)))
 
         assert len(changepoints) == ntransitions == 1716
+
+    def test_make_separate_crowd_movies(self):
+
+        index_file = 'data/test_index.yaml'
+        model_path = 'data/test_model.p'
+        output_dir = 'data/test_movies/'
+        config_file = 'data/config.yaml'
+
+        with open(config_file, 'r') as f:
+            config_data = yaml.safe_load(f)
+
+        _, sorted_index = parse_index(index_file)
+
+        model_data = parse_model_results(joblib.load(model_path))
+
+        labels = model_data['labels']
+        label_uuids = model_data['metadata']['uuids']
+
+        groups = list(set(model_data['metadata']['groups']))
+        group_keys = {'Group1': [] for g in groups}
+
+        for i, v in enumerate(sorted_index['files'].values()):
+            group_keys[v['group']].append(i)
+
+        uuid_set = set(label_uuids) & set(sorted_index['files'].keys())
+
+        # Make sure the files exist
+        uuid_set = [uuid for uuid in uuid_set if os.path.exists(sorted_index['files'][uuid]['path'][0])]
+
+        # Synchronize arrays such that each label array index corresponds to the correct uuid index
+        labels = [label_arr for label_arr, uuid in zip(labels, label_uuids) if uuid in uuid_set]
+        label_uuids = [uuid for uuid in label_uuids if uuid in uuid_set]
+        sorted_index['files'] = {k: v for k, v in sorted_index['files'].items() if k in uuid_set}
+        sorted_index['pca_path'] = 'data/test_scores.h5'
+
+        # Setting config_data parameters
+        config_data['max_syllable'] = 5
+        ordering = range(config_data['max_syllable'])
+
+        config_data['crowd_syllables'] = ordering
+        config_data['progress_bar'] = False
+        config_data['max_examples'] = 1
+        config_data['dur_clip'] = 1000
+        config_data['scale'] = 1
+        config_data['legacy_jitter_fix'] = False
+
+        path_dict = make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, label_uuids, output_dir, ordering)
+
+        assert len(path_dict['Group1']) == 5
+        for value in path_dict['Group1']:
+            assert os.path.exists(value)
+
+        shutil.rmtree(output_dir)
+
+        sessions = list(set(model_data['metadata']['uuids']))
+
+        session_names = {}
+        for i, s in enumerate(sessions):
+            session_name = sorted_index['files'][s]['metadata']['SessionName']
+            session_names[session_name] = i
+
+        # Write crowd movies for each session
+        cm_paths = make_separate_crowd_movies(config_data, sorted_index, session_names,
+                                              labels, label_uuids, output_dir, ordering, sessions=True)
+
+        for sess in session_names.keys():
+            assert len(cm_paths[sess]) == 5
+            for value in cm_paths[sess]:
+                assert os.path.exists(value)
+
+        shutil.rmtree(output_dir)
 
 if __name__ == '__main__':
     unittest.main()

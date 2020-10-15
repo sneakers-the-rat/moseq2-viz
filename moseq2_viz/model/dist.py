@@ -118,7 +118,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
                 scalar_nlags = None
 
             for k, v in scalar_ave.items():
-                key = 'scalar[{}]'.format(k)
+                key = f'scalar[{k}]'
                 if scalar_nlags is None:
                     scalar_nlags = v.shape[1] // 2
                 v = v[:, scalar_nlags + 1:]
@@ -221,7 +221,7 @@ def get_behavioral_distance_ar(ar_mat, init_point=None, sim_points=10, max_sylla
         ar_dist = dtw_ndim.distance_matrix(ar_traj, parallel=parallel, show_progress=True)
         ar_dist = reformat_dtw_distances(ar_dist, nsyllables=ar_dist.shape[0], rescale=False)
     else:
-        raise RuntimeError('Did not understand distance {}'.format(dist))
+        raise RuntimeError(f'Did not understand distance {dist}')
 
     return ar_dist
 

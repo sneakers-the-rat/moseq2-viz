@@ -15,6 +15,7 @@ from cytoolz.curried import valmap
 from functools import lru_cache, wraps
 from cytoolz.dicttoolz import dissoc, assoc
 from cytoolz.itertoolz import first, groupby
+from os.path import join, exists, dirname, splitext
 
 
 # https://gist.github.com/jaytaylor/3660565
@@ -122,8 +123,8 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, la
                        'pca_path': sorted_index['pca_path']}
 
         # create a subdirectory for each group
-        output_subdir = os.path.join(output_dir, k + '/')
-        if not os.path.exists(output_subdir):
+        output_subdir = join(output_dir, k + '/')
+        if not exists(output_subdir):
             os.makedirs(output_subdir)
 
         # Write crowd movie for given group and syllable(s)
@@ -277,8 +278,7 @@ def parse_index(index_file: str) -> tuple:
     uuid_sorted (dict): dictionary of a list of files and pca_score path.
     '''
 
-    join = os.path.join
-    index_dir = os.path.dirname(index_file)
+    index_dir = dirname(index_file)
 
     index = read_yaml(index_file)
     files = index['files']
@@ -358,10 +358,10 @@ def recursive_find_h5s(root_dir=os.getcwd(),
             return 'frames' in f
 
     def h5_to_yaml(h5f):
-        return yaml_string.format(os.path.splitext(h5f)[0])
+        return yaml_string.format(splitext(h5f)[0])
 
     # make function to test if yaml file with same basename as h5 file exists
-    yaml_exists = compose(os.path.exists, h5_to_yaml)
+    yaml_exists = compose(exists, h5_to_yaml)
 
     # grab all files with ext = .h5
     files = glob(f'**/*{ext}', recursive=True)

@@ -38,10 +38,9 @@ def cli():
 @click.option('--exact', '-e', type=bool, is_flag=True, help='Exact match only')
 @click.option('--lowercase', type=bool, is_flag=True, help='Lowercase text filter')
 @click.option('-n', '--negative', type=bool, is_flag=True, help='Negative match (everything that does not match is included)')
-def add_group(index_file, key, value, group, exact, lowercase, negative):
+def add_group(index_file, **config_data):
 
-    click_data = click.get_current_context().params
-    add_group_wrapper(index_file, click_data)
+    add_group_wrapper(index_file, config_data)
 
 @cli.command(name="get-best-model", help='Returns the model with the closest median duration to the PC Changepoints, given a directory containing multiple models')
 @click.argument('model-dir', type=click.Path(exists=True, resolve_path=True))
@@ -51,6 +50,7 @@ def add_group(index_file, key, value, group, exact, lowercase, negative):
 @click.option('--ext', type=str, default='.p', help="Model extensions found in input directory")
 @click.option('--fps', type=int, default=30, help="Frames per second")
 def get_best_fit_model(model_dir, cp_path, output_file, plot_all, ext, fps):
+
     get_best_fit_model_wrapper(model_dir, cp_path, output_file, plot_all, ext, fps)
 
 
@@ -86,12 +86,9 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
 @click.option('--legacy-jitter-fix', default=False, type=bool, help="Set to true if you notice jitter in your crowd movies")
 @click.option('--frame-path', default='frames', type=str, help='Path to depth frames in h5 file')
 @click.option('--progress-bar', '-p', is_flag=True, help='Show verbose progress bars.')
-def make_crowd_movies(index_file, model_path, max_syllable, max_examples, threads, separate_by, specific_syllable,
-                      session_names, sort, count, output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip,
-                      legacy_jitter_fix, frame_path, gaussfilter_space, medfilter_space, progress_bar):
+def make_crowd_movies(index_file, model_path, output_dir, **config_data):
 
-    click_data = click.get_current_context().params
-    make_crowd_movies_wrapper(index_file, model_path, click_data, output_dir)
+    make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir)
 
     print(f'Crowd movies successfully generated in {output_dir}.')
 
@@ -142,13 +139,9 @@ def plot_verbose_position_heatmaps(index_file, output_file):
 @click.option('--node-scaling', type=float, default=1e4, help="Scale factor for nodes by usage")
 @click.option('--scale-node-by-usage', type=bool, default=True, help="Scale node sizes by usages probabilities")
 @click.option('--width-per-group', type=float, default=8, help="Width (in inches) for figure canvas per group")
-def plot_transition_graph(index_file, model_fit, max_syllable, group, output_file,
-                          normalize, edge_threshold, usage_threshold, layout,
-                          keep_orphans, orphan_weight, arrows, sort, count,
-                          edge_scaling, node_scaling, scale_node_by_usage, width_per_group):
+def plot_transition_graph(index_file, model_fit, output_file, **config_data):
 
-    click_data = click.get_current_context().params
-    plot_transition_graph_wrapper(index_file, model_fit, click_data, output_file)
+    plot_transition_graph_wrapper(index_file, model_fit, config_data, output_file)
 
 @cli.command(name='plot-stats', help="Plots syllable usages with different sorting,coloring and grouping capabilities")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))

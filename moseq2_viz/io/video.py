@@ -4,12 +4,12 @@ Helper functions for handling crowd movie file writing and video metadata mainte
 
 '''
 
-import os
 import cv2
 import warnings
 import subprocess
 import numpy as np
 from tqdm import tqdm
+from os.path import join
 import ruamel.yaml as yaml
 import multiprocessing as mp
 from functools import partial
@@ -97,7 +97,7 @@ def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
     info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
 
     # Loading parameters to dict to save to file in output directory
-    info_file = os.path.join(output_dir, 'info.yaml')
+    info_file = join(output_dir, 'info.yaml')
     info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
 
     # Adding model and index file paths
@@ -183,7 +183,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
                             depth_max=config_data['max_height'], cmap=config_data['cmap'], progress_bar = config_data['progress_bar'])
 
         # get list of tuples (path_to_write, crowd_movie)
-        crowd_movies = [[os.path.join(output_dir, filename_format.format(i, config_data['count'], ordering[i])), crowd_matrix]
+        crowd_movies = [[join(output_dir, filename_format.format(i, config_data['count'], ordering[i])), crowd_matrix]
                             for i, crowd_matrix in tqdm(enumerate(crowd_matrices), total=len(config_data['crowd_syllables']), 
                                                         desc='Writing Movies', disable=not config_data['progress_bar']) 
                             if crowd_matrix is not None]
@@ -247,9 +247,9 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
 
     # Get string frame dimensions
     if not frame_size and type(frames) is np.ndarray:
-        frame_size = '{0:d}x{1:d}'.format(frames.shape[2], frames.shape[1])
+        frame_size = f'{frames.shape[2]}x{frames.shape[1]}'
     elif not frame_size and type(frames) is tuple:
-        frame_size = '{0:d}x{1:d}'.format(frames[0], frames[1])
+        frame_size = f'{int(frames[0])}x{int(frames[1])}'
 
     # Set text metadata to write frame numbers
     font = cv2.FONT_HERSHEY_SIMPLEX

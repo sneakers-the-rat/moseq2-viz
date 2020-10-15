@@ -10,6 +10,7 @@ CLI functions, then call the corresponding wrapper function with the given input
 
 import os
 import ruamel.yaml as yaml
+from os.path import join, exists
 from .cli import plot_transition_graph
 from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_stat_wrapper, \
     plot_scalar_summary_wrapper, plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, \
@@ -134,11 +135,11 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30)
 
     # Check output file path
     if output_file == None:
-        output_file = os.path.join(progress_paths['plot_path'], 'model_vs_pc_changepoints')
+        output_file = join(progress_paths['plot_path'], 'model_vs_pc_changepoints')
 
     # Get paths to required parameters
     model_dir = progress_paths['model_session_path']
-    changepoint_path = os.path.join(progress_paths['pca_dirname'], progress_paths['changepoints_path'] + '.h5')
+    changepoint_path = join(progress_paths['pca_dirname'], progress_paths['changepoints_path'] + '.h5')
 
     # Get best fit model and plot requested curves
     best_fit_model = get_best_fit_model_wrapper(model_dir, changepoint_path, output_file, plot_all=plot_all, fps=fps)
@@ -163,7 +164,7 @@ def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, 
     '''
 
 
-    if not os.path.exists(output_dir):
+    if not exists(output_dir):
         os.makedirs(output_dir)
 
     os.system(f'moseq2-viz make-crowd-movies --max-syllable {max_syllable} -m {max_examples} -o {output_dir} {index_file} {model_path}')

@@ -4,7 +4,6 @@ Utility functions specifically responsible for handling model data during pre an
 
 '''
 
-import os
 import h5py
 import glob
 import joblib
@@ -43,7 +42,7 @@ def merge_models(model_dir, ext='p',count='usage'):
     keys and state-matched labels.
     '''
 
-    tmp = os.path.join(model_dir, '*.'+ext.strip('.'))
+    tmp = join(model_dir, '*.'+ext.strip('.'))
     model_paths = [m for m in glob.glob(tmp)]
 
     model_data = {}
@@ -316,12 +315,10 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
             idx = score_idx[label_uuid]
 
             if len(idx) > len(label_arr):
-                warnings.warn('Index length {:d} and label array length {:d} in {}'
-                              .format(len(idx), len(label_arr), h5))
+                warnings.warn(f'Index length {len(idx)} and label array length {len(label_arr)} in {h5}')
                 idx = idx[:len(label_arr)]
             elif len(idx) < len(label_arr):
-                warnings.warn('Index length {:d} and label array length {:d} in {}'
-                              .format(len(idx), len(label_arr), h5))
+                warnings.warn(f'Index length {len(idx)} and label array length {len(label_arr)} in {h5}')
                 continue
 
             missing_frames = np.where(np.isnan(idx))[0]

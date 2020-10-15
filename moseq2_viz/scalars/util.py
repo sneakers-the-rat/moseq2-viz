@@ -4,7 +4,6 @@ Utility functions responsible for handling all scalar data-related operations.
 
 '''
 
-import os
 import h5py
 import warnings
 import numpy as np
@@ -14,6 +13,7 @@ from itertools import starmap
 from cytoolz import valmap, get
 from multiprocessing import Pool
 from collections import defaultdict
+from os.path import join, exists, dirname
 from sklearn.neighbors import KernelDensity
 from moseq2_viz.model.util import _get_transitions
 from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
@@ -129,7 +129,7 @@ def convert_legacy_scalars(old_features, force: bool = False, true_depth: float 
         print('Loading scalars from h5 dataset')
         old_features = h5_to_dict(old_features, '/')
 
-    elif isinstance(old_features, (str, np.str_)) and os.path.exists(old_features):
+    elif isinstance(old_features, (str, np.str_)) and exists(old_features):
         print('Loading scalars from file')
         old_features = h5_to_dict(old_features, 'scalars')
 
@@ -380,12 +380,12 @@ def process_scalars(scalar_map: dict, include_keys: list, zscore: bool = False) 
 
 
 def find_and_load_feedback(extract_path, input_path):
-    join = os.path.join
-    feedback_path = join(os.path.dirname(input_path), 'feedback_ts.txt')
-    if not os.path.exists(feedback_path):
-        feedback_path = join(os.path.dirname(extract_path), '..', 'feedback_ts.txt')
+    
+    feedback_path = join(dirname(input_path), 'feedback_ts.txt')
+    if not exists(feedback_path):
+        feedback_path = join(dirname(extract_path), '..', 'feedback_ts.txt')
 
-    if os.path.exists(feedback_path):
+    if exists(feedback_path):
         feedback_ts = load_timestamps(feedback_path, 0)
         feedback_status = load_timestamps(feedback_path, 1)
         return feedback_ts, feedback_status

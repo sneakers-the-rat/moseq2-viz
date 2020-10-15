@@ -740,9 +740,9 @@ def draw_graphs(graph, groups, width, pos, node_color,
     # Set titles
     if groups is not None:
         if isinstance(groups, str):
-            ax[i][j].set_title( '{}'.format(groups))
+            ax[i][j].set_title(f'{groups}')
         elif len(groups) > 1:
-            ax[i][j].set_title( '{}'.format(groups[i]))
+            ax[i][j].set_title(f'{groups[i]}')
 
 def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             edge_threshold=.0025, anchor=0, usage_threshold=0,

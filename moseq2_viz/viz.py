@@ -72,8 +72,10 @@ def save_fig(fig, output_file, name='{}', **kwargs):
     None
     '''
 
-    fig.savefig(f'{name}.png'.format(output_file), **kwargs)
-    fig.savefig(f'{name}.pdf'.format(output_file), **kwargs)
+    formatted_filename = name.format(output_file)
+
+    fig.savefig(f'{formatted_filename}.png', **kwargs)
+    fig.savefig(f'{formatted_filename}.pdf', **kwargs)
 
 # TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
@@ -324,7 +326,7 @@ def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
                 x_line.set_clip_on(False)
                 ax.add_line(y_line)
                 ax.add_line(x_line)
-                ax.text(lims[0] - 10, lims[0] - 60, '{} CM'.format(np.round(sz / 10).astype('int')))
+                ax.text(lims[0] - 10, lims[0] - 60, f'{np.round(sz / 10).astype("int")} CM')
 
             ax.set_aspect('auto')
 
@@ -682,13 +684,11 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
         model_results = model_results[best_model]['changepoints']
 
     # Plot best model description
-    s = "Best Model CP Stats: Mean, median, mode (s) = {0:.5}, {1:.5}, {2:.5}".format(str(np.mean(model_results)),
-                                                                                      str(np.median(model_results)),
-                                                                                      str(mode(model_results)[0][0]))
+    s = f'Best Model CP Stats: Mean, median, mode (s) = {np.mean(model_results):.4f},' \
+        f' {np.median(model_results):.4f}, {mode(model_results)[0][0]:.4f}'
     # Plot PC CP description
-    t = "PC CP Stats: Mean, median, mode (s) = {0:.5}, {1:.5}, {2:.5}".format(str(np.mean(pc_cps)),
-                                                                              str(np.median(pc_cps)),
-                                                                              str(mode(pc_cps)[0][0]))
+    t = f'PC CP Stats: Mean, median, mode (s) = {np.mean(pc_cps):.4f}, ' \
+        f'{np.median(pc_cps):.4f}, {mode(pc_cps)[0][0]:.4f}'
 
     plt.text(.5, 2, s, fontsize=12)
     plt.text(.5, 1.8, t, fontsize=12)

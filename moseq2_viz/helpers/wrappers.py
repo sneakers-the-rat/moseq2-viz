@@ -14,6 +14,7 @@ import joblib
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
+from os.path import isdir, exists, join, dirname, basename
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.model.trans_graph import get_trans_graph_groups, compute_and_graph_grouped_TMs
 from moseq2_viz.util import (parse_index, recursive_find_h5s, h5_to_dict, clean_dict, get_index_hits,
@@ -46,13 +47,13 @@ def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, outp
 
     # Set up output directory to save crowd movies in
     if output_dir != None:
-        if not os.path.exists(output_dir):
+        if not exists(output_dir):
             os.makedirs(output_dir)
 
     # Set up output directory to save plots in
     if output_file != None:
-        if not os.path.exists(os.path.dirname(output_file)):
-            os.makedirs(os.path.dirname(output_file))
+        if not exists(dirname(output_file)):
+            os.makedirs(dirname(output_file))
 
     # Get sorted index dict
     if index_file != None:
@@ -65,7 +66,7 @@ def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, outp
     if model_fit != None:
         # If the user passes model directory, merge model states by
         # minimum distance between them relative to first model in list
-        if os.path.isdir(model_fit):
+        if isdir(model_fit):
             model_data = merge_models(model_fit, 'p')
         elif model_fit.endswith('.p') or model_fit.endswith('.pz'):
             model_data = parse_model_results(joblib.load(model_fit))
@@ -116,7 +117,7 @@ def add_group_wrapper(index_file, config_data):
                 index['files'][position]['group'] = config_data['group']
 
     # Atomically write updated index file
-    new_index = '{}_update.yaml'.format(index_file.replace('.yaml', ''))
+    new_index = f'{index_file.replace(".yaml", "")}_update.yaml'
 
     try:
         with open(new_index, 'w+') as f:
@@ -154,12 +155,12 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     # Load models into a single dict and compute their changepoints
     model_results = {}
     for model_name in models:
-        model_results[model_name] = parse_model_results(joblib.load(os.path.join(model_dir, model_name)))
+        model_results[model_name] = parse_model_results(joblib.load(join(model_dir, model_name)))
         model_results[model_name]['changepoints'] = compute_model_changepoints(model_results[model_name], fps=fps)
 
     # Find the best fit model by comparing their median durations with the PC scores changepoints
     best_model, pca_changepoints = get_best_fit(cp_file, model_results)
-    selected_model_path = os.path.join(model_dir, best_model)
+    selected_model_path = join(model_dir, best_model)
 
     print('Model with median duration closest to PC scores:', selected_model_path)
 
@@ -462,7 +463,7 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     uuid_set = set(label_uuids) & set(sorted_index['files'].keys())
 
     # Make sure the files exist
-    uuid_set = [uuid for uuid in uuid_set if os.path.exists(sorted_index['files'][uuid]['path'][0])]
+    uuid_set = [uuid for uuid in uuid_set if exists(sorted_index['files'][uuid]['path'][0])]
 
     # Synchronize arrays such that each label array index corresponds to the correct uuid index
     labels = [label_arr for label_arr, uuid in zip(labels, label_uuids) if uuid in uuid_set]
@@ -539,7 +540,7 @@ def copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path):
 
         # Atomically write updated yaml
         try:
-            new_file = '{}_update.yaml'.format(os.path.basename(tup[1]))
+            new_file = f'{basename(tup[1])}_update.yaml'
             with open(new_file, 'w+') as f:
                 yaml.safe_dump(tup[0], f)
             shutil.move(new_file, tup[1])

@@ -4,6 +4,7 @@ Utility functions specifically responsible for handling model data during pre an
 
 '''
 
+import os
 import h5py
 import glob
 import joblib
@@ -15,10 +16,10 @@ from itertools import starmap
 from numpy import linalg as LA
 from cytoolz.curried import get
 from sklearn.cluster import KMeans
-from os.path import join, basename, dirname
 from typing import Iterator, Any, Dict, Union
 from collections import defaultdict, OrderedDict
 from scipy.optimize import linear_sum_assignment
+from os.path import join, basename, dirname, exists
 from moseq2_viz.util import np_cache, h5_to_dict, star
 from moseq2_viz.model.trans_graph import _get_transitions
 from cytoolz import curry, valmap, compose, complement, itemmap, concat
@@ -1107,8 +1108,8 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, la
                        'pca_path': sorted_index['pca_path']}
 
         # create a subdirectory for each group
-        output_subdir = os.path.join(output_dir, k + '/')
-        if not os.path.exists(output_subdir):
+        output_subdir = join(output_dir, k + '/')
+        if not exists(output_subdir):
             os.makedirs(output_subdir)
 
         # Write crowd movie for given group and syllable(s)

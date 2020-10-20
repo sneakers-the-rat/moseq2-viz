@@ -70,25 +70,27 @@ class TestInfoUtils(TestCase):
             usages = usages[:truncate_point] + smoothing
             usages /= usages.sum()
 
-            tm = get_transition_matrix([v],
-                                       max_syllable=100,
-                                       normalize='none',
-                                       smoothing=0.0,
+            for norm in ['none', 'bigram', 'rows', 'columns']:
+                tm = get_transition_matrix([v],
+                                            max_syllable=100,
+                                            normalize='none',
+                                            smoothing=0.0,
+                                            disable_output=True)[0] + tm_smoothing
+                tm = tm[:truncate_point, :truncate_point]
 
-                                       disable_output=True)[0] + tm_smoothing
-            tm = tm[:truncate_point, :truncate_point]
+                assert tm.shape == (truncate_point, truncate_point)
 
-            assert tm.shape == (truncate_point, truncate_point)
+                if norm == 'bigram':
+                    tm /= tm.sum()
+                elif norm == 'rows':
+                    tm /= tm.sum(axis=1, keepdims=True)
+                elif norm == 'columns':
+                    tm /= tm.sum(axis=0, keepdims=True)
 
-            if normalize == 'bigram':
-                tm /= tm.sum()
-            elif normalize == 'rows':
-                tm /= tm.sum(axis=1, keepdims=True)
-            elif normalize == 'columns':
-                tm /= tm.sum(axis=0, keepdims=True)
+                real_er = -np.sum(usages[:, None] * tm * np.log2(tm))
 
-            ent_r.append(-np.sum(usages[:, None] * tm * np.log2(tm)))
+                test_er = entropy_rate(labels, normalize=norm, truncate_syllable=truncate_syllable, smoothing=smoothing, tm_smoothing=tm_smoothing)
 
-        test_ent_r = entropy_rate(labels)
-        assert len(test_ent_r) == 2  # for 2 sessions in modeling
-        np.testing.assert_almost_equal(ent_r, test_ent_r, 2)
+                assert len(test_er) == 2  # for 2 sessions in modeling
+
+                np.testing.assert_allclose(real_er, test_er, rtol=1e-2) 

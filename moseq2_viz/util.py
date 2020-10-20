@@ -235,9 +235,20 @@ def get_timestamps_from_h5(h5file: str):
 
 
 def load_changepoints(cpfile):
+    '''
+    Loads PC changepoints array from given changepoints.h5 file.
+
+    Parameters
+    ----------
+    cpfile (str): Path to changepoints h5 file.
+
+    Returns
+    -------
+    (1d numpy array): Array of pre-computed principal components changepoints.
+    '''
+
     cps = h5_to_dict(cpfile, 'cps')
     cp_dist = map(compose(np.diff, np.squeeze), cps.values())
-    # TODO: make sure that this is correct
     return np.concatenate(list(cp_dist))
 
 

@@ -157,16 +157,16 @@ class TestCLI(TestCase):
         crowd_params = [input_dir + 'test_index_crowd.yaml',
                         input_dir + 'mock_model.p',
                         '-o', crowd_dir,
-                        '--max-syllable', max_syllable,
+                        '--max-syllable', str(max_syllable),
                         '--count', 'usage',
-                        '--min-height', 5,
-                        '--max-height', 80,
-                        '--raw-size', 512, 424,
-                        '--scale', 1,
+                        '--min-height', '5',
+                        '--max-height', '80',
+                        '--raw-size', '512', '424',
+                        '--scale', '1',
                         '--cmap', 'jet',
-                        '--dur-clip', 300,
-                        '--legacy-jitter-fix', False,
-                        '--max-examples', max_examples]
+                        '--dur-clip', str(300),
+                        '--legacy-jitter-fix', str(False),
+                        '--max-examples', str(max_examples)]
 
         results = runner.invoke(make_crowd_movies, crowd_params)
 
@@ -174,3 +174,27 @@ class TestCLI(TestCase):
         assert (os.path.exists(crowd_dir)), "Crowd movies directory was not found"
         assert (len(os.listdir(crowd_dir)) == max_syllable + 1), "Number of crowd movies does not match max syllables"
         shutil.rmtree(crowd_dir)
+
+        groupby_params = crowd_params + ['--separate-by', 'sessions', '-s', '012517']
+        print(' '.join(groupby_params))
+
+        results = runner.invoke(make_crowd_movies, groupby_params)
+
+        outpath = os.path.join(crowd_dir, '012517/')
+
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert os.path.exists(outpath), "Crowd movies directory was not found"
+        assert (len(os.listdir(outpath)) == max_syllable), "Number of crowd movies does not match max syllables"
+        shutil.rmtree(outpath)
+
+        groupby_params = crowd_params + ['--separate-by', 'groups', '--specific-syllable', '1']
+        print(' '.join(groupby_params))
+
+        results = runner.invoke(make_crowd_movies, groupby_params)
+
+        outpath = os.path.join(crowd_dir, 'Group1/')
+
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        assert os.path.exists(outpath), "Crowd movies directory was not found"
+        assert (len(os.listdir(outpath)) == 1), "Number of crowd movies does not match max syllables"
+        shutil.rmtree(outpath)

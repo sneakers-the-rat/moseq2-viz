@@ -23,7 +23,8 @@ from moseq2_viz.scalars.util import (scalars_to_dataframe, compute_mean_syll_sca
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, plot_mean_group_heatmap,
                             plot_verbose_heatmap, save_fig, plot_cp_comparison)
 from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models,
-                                   results_to_dataframe, get_best_fit, compute_model_changepoints)
+                                   results_to_dataframe, get_best_fit, compute_model_changepoints,
+                                   make_separate_crowd_movies)
 
 def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, output_file=None):
     '''
@@ -484,6 +485,10 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     if config_data.get('separate_by') == 'groups':
         # Get the groups to separate the arrays by
         groups = list(set(model_fit['metadata']['groups']))
+        if len(groups) == 0:
+            # Load groups from index file if groups not found in model
+            groups = list(set([v['group'] for v in sorted_index['files'].values()]))
+
         group_keys = {g: [] for g in groups}
 
         for i, v in enumerate(sorted_index['files'].values()):

@@ -146,6 +146,7 @@ class TestViz(TestCase):
 
         medfilter_space = [2]
         gaussfilter_space = [2.5, 2]
+        tail_filter = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
 
         out = clean_frames(frames, medfilter_space, gaussfilter_space, tail_filter)
         np.all(np.not_equal(frames, out))
@@ -182,6 +183,7 @@ class TestViz(TestCase):
         os.remove(outfile)
 
     def test_make_crowd_matrix(self):
+
         model_fit = 'data/mock_model.p'
         index_file = 'data/test_index_crowd.yaml'
 
@@ -200,9 +202,13 @@ class TestViz(TestCase):
 
         syllable_slices = get_syllable_slices(2, labels, label_uuids, index_data)
 
-        crowd_matrix = make_crowd_matrix(syllable_slices)
+        crowd_matrix = make_crowd_matrix(syllable_slices, rotate=True, center=True)
         assert crowd_matrix.shape[0] == 62, "Crowd movie number of frames is incorrect"
         assert crowd_matrix.shape == (62, 424, 512), "Crowd movie resolution is incorrect"
+
+        crowd_matrix = make_crowd_matrix(syllable_slices, dur_clip=None, nexamples=1)
+        assert crowd_matrix.shape[0] == 61, "Crowd movie number of frames is incorrect"
+        assert crowd_matrix.shape == (61, 424, 512), "Crowd movie resolution is incorrect"
 
     def test_position_plot(self):
         index_file = 'data/test_index_crowd.yaml'

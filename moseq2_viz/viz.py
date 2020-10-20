@@ -25,7 +25,7 @@ def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
     frames (3D numpy array): frames to filter.
     medfilter_space (list): list of len()==1, must be odd. Median space filter kernel size.
     gaussfilter_space (list): list of len()==2. Gaussian space filter kernel size.
-    tail_filter (int): number of iterations to filter over tail.
+    tail_filter (cv2.getStructuringElement): structuringElement to filter out mouse tails.
     tail_threshold (int): filtering threshold value
 
     Returns

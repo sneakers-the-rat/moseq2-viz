@@ -1053,6 +1053,7 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
     syllable_matrix = np.zeros((len(use_slices), max_dur, npcs), 'float32')
 
     for i, (idx, uuid, _) in enumerate(use_slices):
+        print(idx, uuid)
         syllable_matrix[i, :idx[1]-idx[0], :] = pca_scores[uuid][idx[0]:idx[1], :npcs]
 
     if remove_offset:
@@ -1087,11 +1088,13 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, la
     label_uuids (list): list of corresponding session UUIDs for all sessions included in labels.
     output_dir (str): Path to output directory to save crowd movies in.
     ordering (list): ordering for the new mapping of the relabeled syllable usages.
+    sessions (bool): indicates whether session crowd movies are being generated.
 
     Returns
     -------
     cm_paths (dict): group/session name keys paired with paths to their respectively generated syllable crowd movies.
     '''
+
     from moseq2_viz.io.video import write_crowd_movies
 
     cm_paths = {}

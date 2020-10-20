@@ -8,13 +8,13 @@ CLI functions, then call the corresponding wrapper function with the given input
 
 '''
 
-import os
+from os.path import join
 import ruamel.yaml as yaml
-from os.path import join, exists
-from .cli import plot_transition_graph
+from .cli import plot_transition_graph, make_crowd_movies
 from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_stat_wrapper, \
     plot_scalar_summary_wrapper, plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, \
-    plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper, get_best_fit_model_wrapper
+    plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper, get_best_fit_model_wrapper, \
+    make_crowd_movies_wrapper
 
 
 def get_groups_command(index_file):
@@ -163,14 +163,14 @@ def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, 
     (str): Success string.
     '''
 
+    # Get default CLI params
+    objs = make_crowd_movies.params
 
-    if not exists(output_dir):
-        os.makedirs(output_dir)
+    config_data = {tmp.name: tmp.default for tmp in objs if not tmp.required}
+    config_data['max_syllable'] = max_syllable
+    config_data['max_examples'] = max_examples
 
-    os.system(f'moseq2-viz make-crowd-movies --max-syllable {max_syllable} -m {max_examples} -o {output_dir} {index_file} {model_path}')
-
-    if len(os.listdir(output_dir)) >= max_syllable:
-        return 'Successfully generated '+str(max_syllable) + ' crowd videos.'
+    make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir)
 
 def plot_stats_command(model_fit, index_file, output_file, stat='usage', max_syllable=40, count='usage', group=None, sort=True,
                         ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-', figsize=(10, 5)):

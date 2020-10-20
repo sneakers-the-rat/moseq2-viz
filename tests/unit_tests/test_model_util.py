@@ -10,13 +10,13 @@ from copy import deepcopy
 import ruamel.yaml as yaml
 from functools import reduce
 from unittest import TestCase
-from moseq2_viz.util import parse_index, get_index_hits
-from moseq2_viz.model.trans_graph import _get_transitions, get_transition_matrix
-from moseq2_viz.model.util import (relabel_by_usage, h5_to_dict,
+from moseq2_viz.util import parse_index, get_index_hits, load_changepoints, load_timestamps
+from moseq2_viz.model.trans_graph import _get_transitions
+from moseq2_viz.model.util import (relabel_by_usage, h5_to_dict, retrieve_pcs_from_slices,
     calculate_syllable_usage, compress_label_sequence, find_label_transitions, get_best_fit, 
     get_syllable_statistics, parse_model_results, merge_models, get_mouse_syllable_slices, compute_model_changepoints,
     syllable_slices_from_dict, get_syllable_slices, calculate_label_durations, labels_to_changepoints,
-    results_to_dataframe, _gen_to_arr, normalize_pcs, _whiten_all, simulate_ar_trajectory, 
+    results_to_dataframe, _gen_to_arr, normalize_pcs, _whiten_all, simulate_ar_trajectory, whiten_pcs,
     make_separate_crowd_movies, get_syllable_usages)
 
 def make_sequence(lbls, durs):
@@ -42,6 +42,40 @@ class TestModelUtils(TestCase):
         hits = get_index_hits(config_data, metadata, key, v)
 
         assert len(hits) == 2
+
+    def test_load_changepoints(self):
+
+        cp_path = 'data/_pca/changepoints.h5'
+
+        cps = load_changepoints(cp_path)
+
+        assert cps.shape == (51,)
+
+    def test_load_timestamps(self):
+
+        ts_path = 'data/depth_ts.txt'
+
+        ts_contents = '''350709011.4036 0
+350709044.3977 0
+350709077.4811 0
+350709111.4189 0
+350709144.4593 0
+350709177.5818 0
+350709211.5186 0
+350709244.3859 0
+350709277.4546 0
+350709411.3864 0
+350709577.5677 0
+350709611.3888 0'''
+
+        with open(ts_path, 'w') as f:
+            f.write(ts_contents)
+
+        ts = load_timestamps(ts_path)
+
+        assert len(ts) == 12
+
+        os.remove(ts_path)
 
     def test_merge_models(self):
         model_paths = 'data/'
@@ -366,6 +400,41 @@ class TestModelUtils(TestCase):
 
         assert pca_scores.values() != whitened_test.values() != whitened_test2.values()
 
+    def test_whiten_pcs(self):
+
+        index_file = 'data/test_index.yaml'
+
+        with open(index_file, 'r') as f:
+            index_data = yaml.safe_load(f)
+            index_data['pca_path'] = 'data/test_scores.h5'
+
+        pca_scores = h5_to_dict(index_data['pca_path'], 'scores')
+
+        whitened_test = whiten_pcs(pca_scores, 'e')
+
+        assert pca_scores.values() != whitened_test.values()
+
+    def test_retrieve_pcs_from_slices(self):
+
+        index_file = 'data/test_index.yaml'
+
+        with open(index_file, 'r') as f:
+            index_data = yaml.safe_load(f)
+            index_data['pca_path'] = 'data/test_scores.h5'
+
+        pca_scores = h5_to_dict(index_data['pca_path'], 'scores')
+
+        pca_scores = normalize_pcs(pca_scores, method='z')
+
+        # [(match_idx[i], match_idx[j] + 1), label_uuid, h5]
+        slices = [[(23, 32), '5c72bf30-9596-4d4d-ae38-db9a7a28e912', 'path'],
+                  [(35, 45), '5c72bf30-9596-4d4d-ae38-db9a7a28e912', 'path'],
+                  [(50, 60), '5c72bf30-9596-4d4d-ae38-db9a7a28e912', 'path'],
+                  [(100, 130), '5c72bf30-9596-4d4d-ae38-db9a7a28e912', 'path']]
+
+        syllable_matrix = retrieve_pcs_from_slices(slices, pca_scores, max_dur = 30)
+
+        assert syllable_matrix.shape == (100, 30, 10)
 
     def test_simulate_ar_trajectory(self):
         model_path = 'data/mock_model.p'

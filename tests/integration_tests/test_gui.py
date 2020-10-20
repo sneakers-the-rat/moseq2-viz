@@ -5,7 +5,7 @@ from unittest import TestCase
 from moseq2_viz.gui import get_groups_command, add_group, plot_stats_command, \
                 plot_scalar_summary_command, plot_transition_graph_command, \
                 plot_mean_group_position_heatmaps_command, \
-                plot_verbose_position_heatmaps, get_best_fit_model
+                plot_verbose_position_heatmaps, get_best_fit_model, make_crowd_movies_command
 
 class TestGUI(TestCase):
 
@@ -44,6 +44,17 @@ class TestGUI(TestCase):
         key = 'SubjectName'
         value = '012517'
         group = 'test1'
+        exact = False
+        lowercase = False
+        negative = False
+
+        add_group(tmp_yaml, key, value, group, exact, lowercase, negative)
+
+        assert not os.path.samefile(index_path, tmp_yaml), "Index file was not updated"
+
+        key = 'SubjectName'
+        value = ['012517', '012517']
+        group = ['test1', 'test1']
         exact = False
         lowercase = False
         negative = False
@@ -129,3 +140,18 @@ class TestGUI(TestCase):
         best_model = get_best_fit_model(progress_paths, plot_all=True)
         assert best_model != None
         shutil.rmtree(progress_paths['plot_path'])
+
+    def test_make_crowd_movies_command(self):
+
+        index_file = 'data/test_index_crowd.yaml'
+        model_path = 'data/test_model.p'
+
+        output_dir = 'data/crowd_movies/'
+        max_syllable = 5
+        max_examples = 5
+
+        make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, max_examples)
+
+        assert (os.path.exists(output_dir)), "Crowd movies directory was not found"
+        assert (len(os.listdir(output_dir)) == max_syllable + 1), "Number of crowd movies does not match max syllables"
+        shutil.rmtree(output_dir)

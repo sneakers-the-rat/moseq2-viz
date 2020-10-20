@@ -8,6 +8,7 @@ from moseq2_viz.model.trans_graph import get_transition_matrix
 
 
 class TestInfoUtils(TestCase):
+    
     def test_entropy(self):
         model_fit = 'data/test_model.p'
 
@@ -17,6 +18,7 @@ class TestInfoUtils(TestCase):
         smoothing = 1.0
 
         ent = []
+        ents = []
         for v in labels:
             usages = get_syllable_statistics([v])[0]
             assert usages != None
@@ -36,11 +38,16 @@ class TestInfoUtils(TestCase):
             usages /= usages.sum()
 
             ent.append(-np.sum(usages * np.log2(usages)))
+            ents.append(-(usages * np.log2(usages)))
 
         test_ent = entropy(labels)
+        test_ents = entropy(labels, get_session_sum=False)
 
         assert len(test_ent) == 2 # for 2 sessions in modeling
         np.testing.assert_almost_equal(ent, test_ent, 1)
+
+        assert len(test_ents) == 2 # for 2 sessions in modeling
+        np.testing.assert_almost_equal(ents, test_ents, 1)
 
     def test_entropy_rate(self):
 
@@ -51,30 +58,30 @@ class TestInfoUtils(TestCase):
         truncate_syllable = 40
         smoothing = 1.0
         tm_smoothing = 1.0
-        normalize = 'bigram'
-        ent_r = []
-        for v in labels:
+        for norm in ['bigram', 'rows', 'columns']:
+            tmp = []
+            tmp_er = []
+            for v in labels:
 
-            usages = get_syllable_statistics([v])[0]
-            syllables = np.array(list(usages.keys()))
-            truncate_point = np.where(syllables == truncate_syllable)[0]
+                usages = get_syllable_statistics([v])[0]
+                syllables = np.array(list(usages.keys()))
+                truncate_point = np.where(syllables == truncate_syllable)[0]
 
-            if truncate_point is None or len(truncate_point) != 1:
-                truncate_point = len(syllables)
-            else:
-                truncate_point = truncate_point[0]
+                if truncate_point is None or len(truncate_point) != 1:
+                    truncate_point = len(syllables)
+                else:
+                    truncate_point = truncate_point[0]
 
-            syllables = syllables[:truncate_point]
+                syllables = syllables[:truncate_point]
 
-            usages = np.array(list(usages.values()), dtype='float')
-            usages = usages[:truncate_point] + smoothing
-            usages /= usages.sum()
-
-            for norm in ['none', 'bigram', 'rows', 'columns']:
+                usages = np.array(list(usages.values()), dtype='float')
+                usages = usages[:truncate_point] + smoothing
+                usages /= usages.sum()
+            
                 tm = get_transition_matrix([v],
-                                            max_syllable=100,
-                                            normalize='none',
-                                            smoothing=0.0,
+                                            max_syllable=truncate_syllable,
+                                            normalize=norm,
+                                            smoothing=smoothing,
                                             disable_output=True)[0] + tm_smoothing
                 tm = tm[:truncate_point, :truncate_point]
 
@@ -88,9 +95,14 @@ class TestInfoUtils(TestCase):
                     tm /= tm.sum(axis=0, keepdims=True)
 
                 real_er = -np.sum(usages[:, None] * tm * np.log2(tm))
+                tmp_er.append(-(usages[:, None] * tm * np.log2(tm)))
+                tmp.append(real_er)
+            
+            test_er = entropy_rate(labels, normalize=norm, truncate_syllable=truncate_syllable, smoothing=smoothing, tm_smoothing=tm_smoothing)
+            test_ers = entropy_rate(labels, normalize=norm, truncate_syllable=truncate_syllable, smoothing=smoothing, tm_smoothing=tm_smoothing, get_session_sum=False)
 
-                test_er = entropy_rate(labels, normalize=norm, truncate_syllable=truncate_syllable, smoothing=smoothing, tm_smoothing=tm_smoothing)
-
-                assert len(test_er) == 2  # for 2 sessions in modeling
-
-                np.testing.assert_allclose(real_er, test_er, rtol=1e-2) 
+            assert len(test_er) == len(tmp) == 2
+            assert len(test_ers) == len(tmp_er) == 2
+            
+            np.testing.assert_allclose(tmp, test_er, rtol=1e-1) 
+            np.testing.assert_allclose(tmp_er, test_ers, atol=1e-1) 

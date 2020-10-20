@@ -10,9 +10,9 @@ from moseq2_viz.model.util import parse_model_results, h5_to_dict, results_to_da
 from moseq2_viz.scalars.util import star_valmap, remove_nans_from_labels, convert_pxs_to_mm, is_legacy, \
     generate_empty_feature_dict, convert_legacy_scalars, get_scalar_map, get_scalar_triggered_average, \
     nanzscore, _pca_matches_labels, process_scalars, find_and_load_feedback, scalars_to_dataframe, \
-    make_a_heatmap, compute_all_pdf_data, compute_session_centroid_speeds, compute_mean_syll_scalar,
-    compute_syllable_position_heatmaps, get_syllable_pdfs
-
+    make_a_heatmap, compute_all_pdf_data, compute_session_centroid_speeds, compute_mean_syll_scalar, \
+    compute_syllable_position_heatmaps, handle_feedback_data, get_syllable_pdfs, compute_mouse_dist_to_center, \
+    h5_filepath_from_sorted
 
 class TestScalarUtils(TestCase):
 
@@ -306,7 +306,7 @@ class TestScalarUtils(TestCase):
         assert 'speed' in complete_df.columns
         assert not complete_df.speed.isnull().all()
 
-        def test_compute_mouse_dist_to_center(self):
+    def test_compute_mouse_dist_to_center(self):
 
         test_index = 'data/test_index.yaml'
 

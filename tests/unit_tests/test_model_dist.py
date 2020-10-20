@@ -9,7 +9,7 @@ class TestModelDists(TestCase):
 
     def test_get_behavioral_distance(self):
         test_index = 'data/test_index_crowd.yaml'
-        test_model = 'data/mock_model.p'
+        test_model = 'data/test_model.p'
 
         index, sorted_index = parse_index(test_index)
 
@@ -18,7 +18,7 @@ class TestModelDists(TestCase):
         dist_dict = get_behavioral_distance(sorted_index, test_model,
                                             max_syllable=10,
                                             resample_idx=-1,
-                                            distances=['ar[init]', 'ar[dtw]'])
+                                            distances=['ar[init]', 'ar[dtw]', 'scalars'])
 
         assert len(dist_dict.keys()) == 2
         assert dist_dict['ar[init]'].shape == (10, 10)

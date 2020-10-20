@@ -473,6 +473,7 @@ def handle_feedback_data(scalar_dict, dct, pth, input_file, nframes):
         timestamps = get_timestamps_from_h5(pth)
         scalar_dict['timestamp'] = timestamps.astype('int32')
     except:
+        timestamps = []
         warnings.warn(f'timestamps for {pth} were not found')
         warnings.warn('This could be due to a missing/incorrectly named timestamp file in that session directory.')
         warnings.warn('If the file does exist, ensure it has the correct name/location and re-extract the session.')

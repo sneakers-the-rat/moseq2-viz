@@ -145,8 +145,8 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
 
     Returns
     -------
+    selected_model_path (str): Path to model with closest median duration to PC Changepoints
     fig (pyplot figure): syllable usage ordered by frequency, 90% usage marked
-    ax (pyplot axis): plotted scalar axis
     '''
 
     # Get models
@@ -175,7 +175,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     if output_file != None:
         save_fig(fig, output_file)
 
-    return selected_model_path
+    return selected_model_path, fig
 
 def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None):
     '''
@@ -481,8 +481,9 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     write_crowd_movie_info_file(model_path=model_path, model_fit=model_fit,
                                 index_file=index_file, output_dir=output_dir)
 
+    separate_by = config_data.get('separate_by', '').lower()
     # Optionally generate crowd movies from independent sources, i.e. groups, or individual sessions.
-    if config_data.get('separate_by') == 'groups':
+    if separate_by == 'groups':
         # Get the groups to separate the arrays by
         groups = list(set(model_fit['metadata']['groups']))
         if len(groups) == 0:
@@ -497,13 +498,17 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
         # Write crowd movies for each group
         cm_paths = make_separate_crowd_movies(config_data, sorted_index, group_keys,
                                               labels, label_uuids, output_dir, ordering)
-    elif config_data.get('separate_by') == 'sessions':
+    elif separate_by == 'sessions' or separate_by == 'subjects':
+        grouping = 'SessionName'
+        if separate_by == 'subjects':
+            grouping = 'SubjectName'
+
         # Separate the arrays by session
         sessions = list(set(model_fit['metadata']['uuids']))
 
         session_names = {}
         for i, s in enumerate(sessions):
-            session_name = sorted_index['files'][s]['metadata']['SessionName']
+            session_name = sorted_index['files'][s]['metadata'][grouping]
 
             if session_name in config_data['session_names']:
                 session_names[session_name] = i

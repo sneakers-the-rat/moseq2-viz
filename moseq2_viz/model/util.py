@@ -202,7 +202,10 @@ def get_syllable_usages(model_data, max_syllable=100, count='usage'):
     '''
 
     # process the syllable usages over all frames/emissions in the entire cohort
-    usages_by_mouse = np.array([list(get_syllable_statistics(labels, count=count, max_syllable=max_syllable)[0].values()) \
+    usages_by_mouse = np.array([list(get_syllable_statistics(data=labels,
+                                                             fill_value=-5,
+                                                             count=count,
+                                                             max_syllable=max_syllable)[0].values()) \
                                 for labels in model_data['labels']])
 
     syllable_usages = np.sum(usages_by_mouse, axis=0) / np.sum(usages_by_mouse)
@@ -1053,7 +1056,6 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
     syllable_matrix = np.zeros((len(use_slices), max_dur, npcs), 'float32')
 
     for i, (idx, uuid, _) in enumerate(use_slices):
-        print(idx, uuid)
         syllable_matrix[i, :idx[1]-idx[0], :] = pca_scores[uuid][idx[0]:idx[1], :npcs]
 
     if remove_offset:

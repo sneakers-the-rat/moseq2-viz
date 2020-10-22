@@ -799,13 +799,13 @@ def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='grou
     '''
 
     # Get DataFrame subset containing only relevant columns
-    mini_df = pdf_df[['pdf', 'group', 'SessionName', 'syllable']]
+    mini_df = pdf_df[['pdf', 'group', 'SessionName', 'SubjectName', 'syllable']]
 
     # Get unique groups to iterate by
     if groupby == 'group':
         groups = list(mini_df.group.unique())
     else:
-        groups = list(mini_df.SessionName.unique())
+        groups = list(mini_df[groupby].unique())
 
     # Get means of grouping PDFs
     group_syll_pdfs = []

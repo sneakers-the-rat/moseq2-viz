@@ -265,8 +265,9 @@ class TestViz(TestCase):
         assert fig != None
 
         # different stat selected, len(colors) < len(groups)
-        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='dur', ordering='dur', max_sylls=40, groups=['Group1', 'Group2'],
-                                       ctrl_group=None, exp_group=None, colors=['red'], fmt='o-')
+        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='dur', ordering='dur', max_sylls=40,
+                                            groups=['Group1', 'Group2'], ctrl_group=None, exp_group=None,
+                                            colors=['red'], fmt='o-')
 
         assert fig != None
 

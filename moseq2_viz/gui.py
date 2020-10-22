@@ -142,7 +142,9 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30)
     changepoint_path = join(progress_paths['pca_dirname'], progress_paths['changepoints_path'] + '.h5')
 
     # Get best fit model and plot requested curves
-    best_fit_model = get_best_fit_model_wrapper(model_dir, changepoint_path, output_file, plot_all=plot_all, fps=fps)
+    best_fit_model, fig = get_best_fit_model_wrapper(model_dir, changepoint_path, output_file, plot_all=plot_all, fps=fps)
+    fig.show(warn=False)
+
     return best_fit_model
 
 def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, max_examples):

@@ -177,7 +177,9 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
 
     return selected_model_path, fig
 
-def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None):
+def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None,
+                                show_scalars=['velocity_2d_mm', 'velocity_3d_mm',
+                                              'height_ave_mm', 'width_mm', 'length_mm']):
     '''
     Wrapper function that plots scalar summary graphs.
 
@@ -192,7 +194,7 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     output_file (str): path to save graphs.
     groupby (str): scalar_df column to group sessions by when graphing scalar and position summaries
     colors (list): list of colors to serve as the sns palette in the scalar summary
-    kwargs (dict): dict containing index dicts from given index file path.
+    show_scalars (list): list of scalar variables to plot.
 
     Returns
     -------
@@ -207,7 +209,7 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     scalar_df = scalars_to_dataframe(sorted_index)
 
     # Plot Scalar Summary with specified groupings and colors
-    plt_scalars, _ = scalar_plot(scalar_df, group_var=groupby, colors=colors, headless=True)
+    plt_scalars, _ = scalar_plot(scalar_df, group_var=groupby, show_scalars=show_scalars, colors=colors, headless=True)
 
     # Save figures
     save_fig(plt_scalars, output_file, name='{}_summary')

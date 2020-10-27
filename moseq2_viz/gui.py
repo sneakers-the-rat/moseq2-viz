@@ -209,7 +209,8 @@ def plot_stats_command(model_fit, index_file, output_file, stat='usage', max_syl
     print(f'{stat} plot successfully generated')
     return fig
 
-def plot_scalar_summary_command(index_file, output_file, colors=None, groupby='group'):
+def plot_scalar_summary_command(index_file, output_file, show_scalars=['velocity_2d_mm', 'velocity_3d_mm',
+                              'height_ave_mm', 'width_mm', 'length_mm'], colors=None, groupby='group'):
     '''
     Creates a scalar summary graph and a position summary graph.
 
@@ -217,6 +218,7 @@ def plot_scalar_summary_command(index_file, output_file, colors=None, groupby='g
     ----------
     index_file (str): path to index file
     output_file (str): prefix name of scalar summary images
+    show_scalars (list): list of scalar variables to plot.
     colors (list): list of colors to serve as the sns palette in the scalar summary
     groupby (str): scalar_df column to group sessions by when graphing scalar and position summaries
 
@@ -225,7 +227,8 @@ def plot_scalar_summary_command(index_file, output_file, colors=None, groupby='g
     scalar_df (pandas DataFrame): DataFrame containing all of scalar values for debugging.
     '''
 
-    scalar_df = plot_scalar_summary_wrapper(index_file, output_file, groupby=groupby, colors=colors)
+    scalar_df = plot_scalar_summary_wrapper(index_file, output_file, groupby=groupby,
+                                            colors=colors, show_scalars=show_scalars)
     return scalar_df
 
 def plot_transition_graph_command(index_file, model_fit, config_file, max_syllable, group, output_file):

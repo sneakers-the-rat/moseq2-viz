@@ -36,7 +36,7 @@ def check_video_parameters(index: dict) -> dict:
     from moseq2_viz.util import read_yaml
 
     # define constants
-    check_parameters = ['crop_size', 'fps', 'max_height', 'min_height']
+    check_parameters = ['crop_size', 'fps']
 
     get_yaml = get_in(['path', 1])
     ymls = list(map(get_yaml, index['files'].values()))

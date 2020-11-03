@@ -578,7 +578,7 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
             if np.array(ax).all() != None:
                 draw_graph(graph, curr_name, weight, pos, node_color='w', node_size=node_size,
                            node_edge_colors=node_edge_color, arrows=arrows, edge_colors=edge_colors,
-                           font_size=font_size, ax=ax, i=i, j=i+1)
+                           font_size=font_size, ax=ax, i=i, j=i+j+1)
 
     return usages, group_names, difference_graphs, widths, node_sizes, node_edge_colors, scalars
 
@@ -841,8 +841,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     group_names = groups.copy()
 
     # Make graphs and difference graphs
-    usages, group_names, widths, node_sizes, node_edge_colors, graphs, _ = \
-        make_transition_graphs(trans_mats, usages, groups, group_names,
+    _ = make_transition_graphs(trans_mats, usages, groups, group_names,
         usages_anchor, pos, ebunch_anchor, orphans,
         difference_edge_width_scale=difference_edge_width_scale, edge_threshold=edge_threshold,
         difference_threshold=difference_threshold, orphan_weight=orphan_weight,

@@ -77,7 +77,6 @@ def save_fig(fig, output_file, name='{}', **kwargs):
     fig.savefig(f'{formatted_filename}.png', **kwargs)
     fig.savefig(f'{formatted_filename}.pdf', **kwargs)
 
-# TODO: add option to render w/ text using opencv (easy, this way we can annotate w/ nu, etc.)
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
                       crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
                       center=False, rotate=False, min_height=10, legacy_jitter_fix=False,

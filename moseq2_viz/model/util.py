@@ -45,7 +45,6 @@ def merge_models(model_dir, ext='p',count='usage'):
 
     tmp = join(model_dir, '*.'+ext.strip('.'))
     model_paths = [m for m in glob.glob(tmp)]
-
     model_data = {}
 
     for m, model_fit in enumerate(model_paths):

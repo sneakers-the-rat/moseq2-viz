@@ -483,7 +483,12 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     write_crowd_movie_info_file(model_path=model_path, model_fit=model_fit,
                                 index_file=index_file, output_dir=output_dir)
 
-    separate_by = config_data.get('separate_by', '').lower()
+    # Ensuring movie separation parameter is found
+    if config_data.get('separate_by', '') is not None:
+        separate_by = config_data['separate_by'].lower()
+    else:
+        separate_by = 'default'
+
     # Optionally generate crowd movies from independent sources, i.e. groups, or individual sessions.
     if separate_by == 'groups':
         # Get the groups to separate the arrays by

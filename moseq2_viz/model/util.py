@@ -50,7 +50,7 @@ def merge_models(model_dir, ext='p',count='usage'):
     for m, model_fit in enumerate(model_paths):
         unit_data = parse_model_results(joblib.load(model_fit), \
                                         sort_labels_by_usage=True, count=count)
-        for k,v in unit_data.items():
+        for k, v in unit_data.items():
             if k not in list(model_data.keys()):
                 model_data[k] = v
             else:
@@ -85,9 +85,16 @@ def merge_models(model_dir, ext='p',count='usage'):
                             model_data[k].append(i)
                 elif k == 'metadata':
                     for k1, v1 in unit_data[k].items():
-                        for val in v1:
-                            if k1 == 'groups':
-                                model_data[k][k1].append(val)
+                        if k1 == 'groups':
+                            if isinstance(model_data[k][k1], dict):
+                                model_data[k][k1].update(v1)
+                            elif isinstance(model_data[k][k1], list):
+                                model_data[k][k1] += v1
+                        elif k1 == 'uuids':
+                            for val in v1:
+                                if val not in model_data[k][k1]:
+                                    model_data[k][k1] = list(model_data[k][k1])
+                                    model_data[k][k1].append(val)
 
     return model_data
 

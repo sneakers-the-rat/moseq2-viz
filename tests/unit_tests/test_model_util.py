@@ -7,13 +7,12 @@ import numpy as np
 import pandas as pd
 from operator import add
 from copy import deepcopy
-import ruamel.yaml as yaml
 from functools import reduce
 from unittest import TestCase
 from moseq2_viz.util import parse_index, get_index_hits, load_changepoint_distribution, load_timestamps, read_yaml
 from moseq2_viz.model.trans_graph import _get_transitions
 from moseq2_viz.model.util import (relabel_by_usage, h5_to_dict, retrieve_pcs_from_slices,
-    calculate_syllable_usage, compress_label_sequence, find_label_transitions, get_best_fit, 
+    compress_label_sequence, find_label_transitions, get_best_fit,
     get_syllable_statistics, parse_model_results, merge_models, get_mouse_syllable_slices, compute_model_changepoints,
     syllable_slices_from_dict, get_syllable_slices, calculate_syllable_durations, labels_to_changepoints,
     results_to_dataframe, _gen_to_arr, normalize_pcs, _whiten_all, simulate_ar_trajectory, whiten_pcs,
@@ -206,33 +205,6 @@ class TestModelUtils(TestCase):
         durs = calculate_syllable_durations(np.asarray(labels))
 
         assert all(durations[1:] == durs)
-
-    def test_calculate_syllable_usage(self):
-        true_labels = [-5, 1, 3, 1, 2, 4, 1, 5]
-        durs = [3, 3, 4, 2, 6, 7, 2, 4]
-        arr = make_sequence(true_labels, durs)
-
-        labels_dict = {
-            'animal1': arr,
-            'animal2': arr
-        }
-
-        test_result = {
-            1: 6,
-            2: 2,
-            3: 2,
-            4: 2,
-            5: 2
-        }
-
-        result = calculate_syllable_usage(labels_dict)
-
-        assert test_result == result, 'syll usage calculation incorrect for dict'
-
-        df = pd.DataFrame({'syllable': true_labels[1:] + true_labels[1:], 'dur': durs[1:] + durs[1:]})
-        result = calculate_syllable_usage(df)
-
-        assert test_result == result, 'syll usage calculation incorrect for dataframe'
 
     def test_get_syllable_statistics(self):
         # For now this just tests if there are any function-related errors
@@ -509,7 +481,6 @@ class TestModelUtils(TestCase):
         config_data['crowd_syllables'] = ordering
         config_data['progress_bar'] = False
         config_data['max_examples'] = 1
-        config_data['dur_clip'] = 1000
         config_data['scale'] = 1
         config_data['legacy_jitter_fix'] = False
 

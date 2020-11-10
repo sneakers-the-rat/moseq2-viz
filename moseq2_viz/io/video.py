@@ -132,6 +132,8 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
     None
     '''
 
+    progress_bar = config_data.get('progress_bar', False)
+
     # Filtering parameters
     clean_params = {
         'gaussfilter_space': config_data['gaussfilter_space'],
@@ -139,7 +141,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
     }
 
     # Set crowd movie filename format based on whether syllables were relabeled
-    if config_data['sort']:
+    if config_data.get('sort', True):
         filename_format = 'syllable_sorted-id-{:d} ({})_original-id-{:d}.mp4'
     else:
         filename_format = 'syllable_{:d}.mp4'
@@ -158,30 +160,30 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
         
         with warnings.catch_warnings():
             slices = list(tqdm(pool.imap(slice_fun, config_data['crowd_syllables']),
-                               total=config_data['max_syllable'], desc='Getting Syllable Slices', 
-                               disable=not config_data['progress_bar']))
+                               total=config_data.get('max_syllable', 40), desc='Getting Syllable Slices',
+                               disable=not progress_bar))
 
         matrix_fun = partial(make_crowd_matrix,
-                             nexamples=config_data['max_examples'],
-                             max_dur=config_data['max_dur'],
-                             min_dur=config_data['min_dur'],
-                             min_height=config_data['min_height'],
-                             crop_size=vid_parameters['crop_size'],
-                             raw_size=config_data['raw_size'],
-                             scale=config_data['scale'],
-                             legacy_jitter_fix=config_data['legacy_jitter_fix'],
+                             nexamples=config_data.get('max_examples', 20),
+                             max_dur=config_data.get('max_dur', 1000),
+                             min_dur=config_data.get('min_dur', 0),
+                             min_height=config_data.get('min_height', 10),
+                             crop_size=vid_parameters.get('crop_size', (80, 80)),
+                             raw_size=config_data.get('raw_size', (512, 424)),
+                             scale=config_data.get('scale', 1),
+                             legacy_jitter_fix=config_data.get('legacy_jitter_fix', False),
                              **clean_params)
 
         # Compute crowd matrices
         with warnings.catch_warnings():
             # creating crowd matrices
             crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=len(config_data['crowd_syllables']),
-                                       desc='Getting Crowd Matrices', disable=not config_data['progress_bar']))
+                                       desc='Getting Crowd Matrices', disable=not progress_bar))
 
         # writing function
         config_data['fps'] = vid_parameters['fps']
         write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],
-                            depth_max=config_data['max_height'], cmap=config_data['cmap'], progress_bar = config_data['progress_bar'])
+                            depth_max=config_data['max_height'], cmap=config_data['cmap'], progress_bar=progress_bar)
 
         # get list of tuples (path_to_write, crowd_movie)
         crowd_movies = [[join(output_dir, filename_format.format(i, config_data['count'], ordering[i])), crowd_matrix]

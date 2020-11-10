@@ -183,7 +183,7 @@ def make_crowd_movies_command(index_file, model_path, output_dir, config_data=No
     make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir)
 
 def plot_stats_command(model_fit, index_file, output_file, stat='usage', max_syllable=40, count='usage', group=None, sort=True,
-                        ordering=None, ctrl_group=None, exp_group=None, colors=None, fmt='o-', figsize=(10, 5)):
+                        ordering=None, ctrl_group=None, exp_group=None, colors=None, figsize=(10, 5)):
     '''
     Graph given syllable statistic from fit model data.
     Parameters
@@ -202,7 +202,6 @@ def plot_stats_command(model_fit, index_file, output_file, stat='usage', max_syl
     ctrl_group (str): Control group to graph when plotting mutation differences via setting ordering to 'm'.
     exp_group (str): Experimental group to directly compare with control group.
     colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
-    fmt (str): scatter plot format. "o-" for line plot with vertices at corresponding usages. "o" for just points.
     figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
     Returns
     -------
@@ -211,7 +210,7 @@ def plot_stats_command(model_fit, index_file, output_file, stat='usage', max_syl
 
 
     fig = plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat=stat, max_syllable=max_syllable,
-                                     sort=sort, count=count, group=group, fmt=fmt, ordering=ordering,
+                                     sort=sort, count=count, group=group, ordering=ordering,
                                      ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, figsize=figsize)
 
     print(f'{stat} plot successfully generated')

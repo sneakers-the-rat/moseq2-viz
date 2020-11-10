@@ -13,7 +13,7 @@ class TestGUI(TestCase):
     def test_get_groups_command(self):
         index_path = 'data/test_index.yaml'
 
-        index_data = read_yaml(index_data)
+        index_data = read_yaml(index_path)
 
         groups, uuids = [], []
         subjectNames, sessionNames = [], []
@@ -27,7 +27,6 @@ class TestGUI(TestCase):
         num_groups = get_groups_command(index_path)
 
         assert num_groups == len(set(groups)), "Number of returned groups is incorrect"
-
 
     def test_add_group(self):
         index_path = 'data/test_index.yaml'
@@ -147,7 +146,12 @@ class TestGUI(TestCase):
         max_syllable = 5
         max_examples = 5
 
-        make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, max_examples)
+        config_data = {
+            'max_syllable': max_syllable,
+            'max_examples': max_examples
+        }
+
+        make_crowd_movies_command(index_file, model_path, output_dir, config_data)
 
         assert (os.path.exists(output_dir)), "Crowd movies directory was not found"
         assert (len(os.listdir(output_dir)) == max_syllable + 1), "Number of crowd movies does not match max syllables"

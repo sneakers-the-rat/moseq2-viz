@@ -4,16 +4,17 @@ Visualization model containing all plotting functions and some dependent data pr
 
 '''
 
+import os
 import cv2
 import h5py
 import warnings
 import numpy as np
 import seaborn as sns
 from tqdm.auto import tqdm
-from functools import wraps
 from scipy.stats import mode
+from matplotlib import gridspec
 import matplotlib.pyplot as plt
-from matplotlib import lines, gridspec
+from os.path import dirname, exists
 from moseq2_viz.model.label_util import sort_syllables_by_stat, sort_syllables_by_stat_difference
 
 
@@ -75,8 +76,9 @@ def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='s
             raise ValueError(f'Attempting to sort by {stat} differences, but {ctrl_group} or {exp_group} not in {groups}.')
         ordering = sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group,
                                                      max_sylls=max_sylls, stat=stat)
-
-    if colors is None or len(colors) == 0 or len(colors) != len(groups):
+    if colors is None:
+        colors = []
+    if len(colors) == 0 or len(colors) != len(groups):
         if len(colors) != len(groups):
             warnings.warn(f'Number of inputted colors {len(colors)} does not match number of groups {len(groups)}. Using default.')
         colors = sns.color_palette(n_colors=len(groups))
@@ -141,6 +143,9 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
     -------
     None
     '''
+
+    if not exists(dirname(output_file)):
+        os.makedirs(dirname(output_file))
 
     if suffix is not None:
         output_file = output_file + suffix
@@ -352,11 +357,10 @@ def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
     g = sns.FacetGrid(data=scalar_df, col='uuid', col_wrap=5, height=2.5, hue=group_var)
     g.map(plt.plot, centroid_vars[0], centroid_vars[1], **plt_kwargs)
     g.set_titles(template='{col_name}')
-    for a in g.axes.flat:
-        uuid = a.get_title()
-        a.set_title(f"{uuid_map.loc[uuid, 'SubjectName']}\n{uuid_map.loc[uuid, 'SessionName']}", fontsize=8)
+    for i, a in enumerate(g.axes.flat):
+        a.set_title(f"{uuid_map.iloc[i]['SubjectName']}\n{uuid_map.iloc[i]['SessionName']}", fontsize=8)
         a.set_aspect('equal')
-    g.tight_layout()
+    g.fig.tight_layout()
     g.add_legend()
 
     return g.fig, g.axes, g
@@ -407,7 +411,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
 
 
 def plot_syll_stats_with_sem(complete_df, stat='usage', ordering='stat', max_sylls=40, groups=None, ctrl_group=None,
-                             exp_group=None, colors=None, fmt='o', figsize=(10, 5)):
+                             exp_group=None, colors=None, figsize=(10, 5)):
     '''
     Plots a line and/or point-plot of a given pre-computed syllable statistic (usage, duration, or speed),
     with a SEM error bar with respect to the group.
@@ -426,7 +430,6 @@ def plot_syll_stats_with_sem(complete_df, stat='usage', ordering='stat', max_syl
     ctrl_group (str): name of control group to base mutation sorting on.
     exp_group (str): name of experimental group to base mutation sorting on.
     colors (list): list of user-selected colors to represent the data
-    fmt (str): str to indicate the kind of plot to make. "o-", "o", "--', etc.
     figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
 
     Returns
@@ -435,14 +438,26 @@ def plot_syll_stats_with_sem(complete_df, stat='usage', ordering='stat', max_syl
     ax (pyplot axis): plotted scalar axis
     '''
 
-    ordering, groups, colors, figsize = _validate_and_order_syll_stats_params(complete_df, stat=stat, ordering=ordering, max_sylls=max_sylls, groups=groups, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, figsize=figsize)
+    xlabel = f'Syllables sorted by {stat}'
+    if ordering == 'diff':
+        xlabel += ' difference'
+
+    ordering, groups, colors, figsize = _validate_and_order_syll_stats_params(complete_df,
+                                                                              stat=stat,
+                                                                              ordering=ordering,
+                                                                              max_sylls=max_sylls,
+                                                                              groups=groups,
+                                                                              ctrl_group=ctrl_group,
+                                                                              exp_group=exp_group,
+                                                                              colors=colors,
+                                                                              figsize=figsize)
 
     fig, ax = plt.subplots(1, 1, figsize=figsize)
 
     # plot each group's stat data separately, computes groupwise SEM, and orders data based on the stat/ordering parameters
     hue = 'group' if groups is not None else None
     ax = sns.pointplot(data=complete_df, x='syllable', y=stat, hue=hue, order=ordering,
-                       join=False, dodge=True, ci=68, markers=fmt, ax=ax, hue_order=groups,
+                       join=False, dodge=True, ci=68, ax=ax, hue_order=groups,
                        palette=colors)
 
     if stat == 'usage':
@@ -451,10 +466,6 @@ def plot_syll_stats_with_sem(complete_df, stat='usage', ordering='stat', max_syl
         ylabel = 'Mean Syllable Sequence Frame Duration'
     elif stat == 'speed':
         ylabel = 'Mean Syllable Speed (mm/s)'
-
-    xlabel = f'Syllables sorted by {stat}'
-    if ordering == 'diff':
-        xlabel += ' difference'
 
     legend = ax.legend(frameon=False, bbox_to_anchor=(1, 1))
     plt.ylabel(ylabel, fontsize=12)

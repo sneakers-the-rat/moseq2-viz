@@ -159,7 +159,6 @@ def plot_transition_graph(index_file, model_fit, output_file, **config_data):
 @click.option('--ctrl-group', type=str, default=None, help="Name of control group. Only if ordering = 'm'")
 @click.option('--exp-group', type=str, default=None, help="Name of experimental group. Only if ordering = 'm'")
 @click.option('-c', '--colors', type=str, default=None, help="Colors to plot groups with.", multiple=True)
-@click.option('-f', '--fmt', type=str, default='o-', help="Format the scatter plot data.")
 def plot_stats(index_file, model_fit, output_file, **cli_kwargs):
 
     plot_syllable_stat_wrapper(model_fit, index_file, output_file, **cli_kwargs)

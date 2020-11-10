@@ -164,7 +164,6 @@ class TestCLI(TestCase):
                         '--raw-size', '512', '424',
                         '--scale', '1',
                         '--cmap', 'jet',
-                        '--dur-clip', str(300),
                         '--legacy-jitter-fix', str(False),
                         '--max-examples', str(max_examples)]
 

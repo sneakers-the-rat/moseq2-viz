@@ -199,12 +199,13 @@ class TestViz(TestCase):
         syllable_slices = get_syllable_slices(2, labels, label_uuids, index_data)
 
         crowd_matrix = make_crowd_matrix(syllable_slices, rotate=True, center=True)
-        assert crowd_matrix.shape[0] == 62, "Crowd movie number of frames is incorrect"
-        assert crowd_matrix.shape == (62, 424, 512), "Crowd movie resolution is incorrect"
+        print(crowd_matrix.shape)
+        assert crowd_matrix.shape[0] == 1060, "Crowd movie number of frames is incorrect"
+        assert crowd_matrix.shape == (1060, 424, 512), "Crowd movie resolution is incorrect"
 
         crowd_matrix = make_crowd_matrix(syllable_slices, max_dur=None, nexamples=1)
-        assert crowd_matrix.shape[0] == 61, "Crowd movie number of frames is incorrect"
-        assert crowd_matrix.shape == (61, 424, 512), "Crowd movie resolution is incorrect"
+        assert crowd_matrix.shape[0] == 62, "Crowd movie number of frames is incorrect"
+        assert crowd_matrix.shape == (62, 424, 512), "Crowd movie resolution is incorrect"
 
     def test_position_plot(self):
         index_file = 'data/test_index_crowd.yaml'
@@ -253,27 +254,26 @@ class TestViz(TestCase):
         complete_df, _ = results_to_dataframe(test_model, sorted_index, max_syllable=41)
 
         # mutation order plot with correct parameters
-        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='m', max_sylls=None, groups=None,
-                                       ctrl_group='Group1', exp_group='Group2', colors=['red', 'orange'], fmt='o-')
+        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='diff', max_sylls=None, groups=None,
+                                       ctrl_group='Group1', exp_group='Group2', colors=['red', 'orange'])
 
         assert fig != None
 
         # different stat selected, len(colors) < len(groups)
-        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='dur', ordering='dur', max_sylls=40,
-                                            groups=['Group1', 'Group2'], ctrl_group=None, exp_group=None,
-                                            colors=['red'], fmt='o-')
+        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='duration', ordering='stat', max_sylls=40,
+                                            groups=['Group1', 'Group2'], ctrl_group=None, exp_group=None, colors=['red'])
 
         assert fig != None
 
         # incorrect groups, and empty colors, descending order sorting
-        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='dur', ordering='dur', max_sylls=None,
-                                       groups=['Group', 'Group2'], ctrl_group=None, exp_group=None, colors=[], fmt='o-')
+        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='duration', ordering='stat', max_sylls=None,
+                                       groups=['Group', 'Group2'], ctrl_group=None, exp_group=None, colors=[])
 
         assert fig != None
 
         # currently raises error if user inputs incorrect ctrl_group/exp_group name
-        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='m', max_sylls=None, groups=None,
-                                       ctrl_group='Grou1', exp_group='Group2', colors=['red', 'orange'], fmt='o-')
+        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='stat', max_sylls=None, groups=None,
+                                       ctrl_group='Grou1', exp_group='Group2', colors=['red', 'orange'])
 
         assert fig != None
 

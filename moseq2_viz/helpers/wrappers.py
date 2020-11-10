@@ -217,7 +217,7 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     return scalar_df
 
 def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage', sort=True, count='usage', group=None, max_syllable=40,
-                                 fmt='o-', ordering=None, ctrl_group=None, exp_group=None, colors=None, figsize=(10, 5)):
+                               ordering=None, ctrl_group=None, exp_group=None, colors=None, figsize=(10, 5)):
     '''
     Wrapper function to plot specified syllable statistic.
 
@@ -235,7 +235,6 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     count (str): method to compute usages 'usage' or 'frames'.
     group (tuple, list, None): tuple or list of groups to separately model usages. (None to graph all groups)
     max_syllable (int): maximum number of syllables to plot.
-    fmt (str): scatter plot format. "o-" for line plot with vertices at corresponding usages. "o" for just points.
     ordering (list, range, str, None): order to list syllables. Default is None to graph syllables [0-max_syllable).
      Setting ordering to "m" will graph mutated syllable usage difference between ctrl_group and exp_group.
      None to graph default [0,max_syllable] in order. "usage" to plot descending order of usage values.
@@ -271,7 +270,7 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
 
     # Plot and save syllable stat plot
     plt, lgd = plot_syll_stats_with_sem(df, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,
-                                      fmt=fmt, ordering=ordering, stat=stat, max_sylls=max_syllable, figsize=figsize)
+                                        ordering=ordering, stat=stat, max_sylls=max_syllable, figsize=figsize)
 
     # Save
     save_fig(plt, output_file, bbox_extra_artists=(lgd,), bbox_inches='tight')

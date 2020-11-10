@@ -820,8 +820,6 @@ def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
 
     nlags = ar_mat.shape[1] // npcs
 
-    # print('Found {} pcs and {} lags in AR matrix'.format(npcs, nlags))
-
     if init_points is None:
         init_points = np.zeros((nlags, npcs), dtype='float32')
 

@@ -33,7 +33,6 @@ def get_groups_command(index_file):
 
     with open(index_file, 'r') as f:
         index_data = yaml.safe_load(f)
-    f.close()
 
     groups, uuids = [], []
     subjectNames, sessionNames = [], []
@@ -60,6 +59,7 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
     Parameters
     ----------
     index_file (str): path to index file
+    TODO: update value and group docstrings to accept lists as well since they're handled in this function
     value (str): SessionName value to search for
     group (str): group name to allocate.
     exact (bool): indicate whether to search for exact match.
@@ -71,32 +71,30 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
     None
     '''
 
+    gui_data = {
+        'key': by,
+        'exact': exact,
+        'lowercase': lowercase,
+        'negative': negative
+    }
+
     if isinstance(value, str):
-        gui_data = {
-            'key': by,
+        gui_data.update({
             'value': value,
             'group': group,
-            'exact': exact,
-            'lowercase': lowercase,
-            'negative': negative
-        }
+        })
         add_group_wrapper(index_file, gui_data)
 
     elif isinstance(value, list) and isinstance(group, list):
         if len(value) == len(group):
             for v, g in zip(value, group):
-                gui_data = {
-                    'key': by,
+                gui_data.update({
                     'value': v,
                     'group': g,
-                    'exact': exact,
-                    'lowercase': lowercase,
-                    'negative': negative
-                }
+                })
                 add_group_wrapper(index_file, gui_data)
         else:
             print('ERROR, did not enter equal number of substring values -> groups.')
-    get_groups_command(index_file)
 
 def copy_h5_metadata_to_yaml_command(input_dir, h5_metadata_path):
     '''
@@ -134,7 +132,7 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30)
     '''
 
     # Check output file path
-    if output_file == None:
+    if output_file is None:
         output_file = join(progress_paths['plot_path'], 'model_vs_pc_changepoints')
 
     # Get paths to required parameters
@@ -147,7 +145,7 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30)
 
     return best_fit_model
 
-def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, max_examples):
+def make_crowd_movies_command(index_file, model_path, output_dir, config_data=None):
     '''
     Runs CLI function to write crowd movies, due to multiprocessing
     compatibilty issues with Jupyter notebook's scheduler.
@@ -157,8 +155,7 @@ def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, 
     index_file (str): path to index file.
     model_path (str): path to fit model.
     output_dir (str): path to directory to save crowd movies in.
-    max_syllable (int): number of syllables to make crowd movies for.
-    max_examples (int): max number of mice to include in a crowd movie.
+    config_data (dict): TODO: describe the parameters that this config_data can contain. For example, max_syllables, max_example
 
     Returns
     -------
@@ -168,9 +165,14 @@ def make_crowd_movies_command(index_file, model_path, output_dir, max_syllable, 
     # Get default CLI params
     objs = make_crowd_movies.params
 
-    config_data = {tmp.name: tmp.default for tmp in objs if not tmp.required}
-    config_data['max_syllable'] = max_syllable
-    config_data['max_examples'] = max_examples
+    defaults = {tmp.name: tmp.default for tmp in objs if not tmp.required}
+
+    if config_data is None:
+        config_data = defaults
+    elif isinstance(config_data, dict):
+        config_data = {**defaults, **config_data}
+    else:
+        raise TypeError('config_data needs to be a dictionary')
 
     make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir)
 
@@ -251,15 +253,11 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
 
     with open(config_file, 'r') as f:
         config_data = yaml.safe_load(f)
-    f.close()
 
     # Get default CLI params
-    objs = plot_transition_graph.params
+    params = {tmp.name: tmp.default for tmp in plot_transition_graph.params if not tmp.required}
 
-    params = {tmp.name: tmp.default for tmp in objs if not tmp.required}
-    for k, v in params.items():
-        if k not in config_data.keys():
-            config_data[k] = v
+    config_data = {**params, **config_data}
 
     config_data['max_syllable'] = max_syllable
     config_data['group'] = group

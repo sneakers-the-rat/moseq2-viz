@@ -22,7 +22,6 @@ jobs:
         - if [ "$TRAVIS_OS_NAME" == "linux" ]; then sudo apt-get install -y ffmpeg --allow-unauthenticated; fi
       install:
         - pipenv install --dev --ignore-pipfile --deploy # this install will override previously installed dep. versions
-        - pipenv install scikit-learn==0.20.3
       before_script:
         - make
       script:
@@ -43,7 +42,6 @@ jobs:
         - if [ "$TRAVIS_OS_NAME" == "linux" ]; then sudo apt-get install -y ffmpeg --allow-unauthenticated; fi
       install:
         - pipenv install --dev --ignore-pipfile --deploy # this install will override previously installed dep. versions
-        - pipenv install scikit-learn==0.20.3
       before_script:
         - make
       script:

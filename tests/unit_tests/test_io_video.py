@@ -4,12 +4,24 @@ import joblib
 import numpy as np
 import ruamel.yaml as yaml
 from unittest import TestCase
-from moseq2_viz.util import check_video_parameters, parse_index
+from moseq2_viz.util import parse_index, read_yaml
 from moseq2_viz.model.util import parse_model_results, relabel_by_usage
-from moseq2_viz.io.video import write_crowd_movies, write_frames_preview
+from moseq2_viz.io.video import write_crowd_movies, write_frames_preview, write_crowd_movie_info_file
 
 
 class TestIOVideo(TestCase):
+
+    def test_write_crowd_movie_info_file(self):
+
+        model_path = 'data/test_model.p'
+        model_fit = parse_model_results(joblib.load(model_path))
+        index_file = 'data/test_index.yaml'
+        output_dir = 'data/'
+
+        write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir)
+
+        assert os.path.exists(os.path.join(output_dir, 'info.yaml'))
+        os.remove(os.path.join(output_dir, 'info.yaml'))
 
     def test_write_crowd_movies(self):
 
@@ -18,16 +30,11 @@ class TestIOVideo(TestCase):
         config_file = 'data/config.yaml'
         output_dir = 'data/crowd_movies/'
         max_syllable = 5
-        max_examples = 40
 
-        with open(config_file, 'r') as f:
-            config_data = yaml.safe_load(f)
-        f.close()
-
-        if config_data['sort']:
-            filename_format = 'syllable_sorted-id-{:d} ({})_original-id-{:d}.mp4'
-        else:
-            filename_format = 'syllable_{:d}.mp4'
+        config_data = read_yaml(config_file)
+        config_data['max_syllable'] = max_syllable
+        config_data['crowd_syllables'] = range(max_syllable)
+        config_data['progress_bar'] = False
 
         model_fit = parse_model_results(joblib.load(model_path))
         labels = model_fit['labels']
@@ -41,19 +48,13 @@ class TestIOVideo(TestCase):
             os.makedirs(output_dir)
 
         index, sorted_index = parse_index(index_file)
-        vid_parameters = check_video_parameters(sorted_index)
-        clean_params = {
-            'gaussfilter_space': config_data['gaussfilter_space'],
-            'medfilter_space': config_data['medfilter_space']
-        }
 
         if config_data['sort']:
             labels, ordering = relabel_by_usage(labels, count=config_data['count'])
         else:
             ordering = list(range(max_syllable))
 
-        write_crowd_movies(sorted_index, config_data, filename_format, vid_parameters, clean_params, ordering,
-                           labels, label_uuids, max_syllable, max_examples, output_dir)
+        write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir)
 
         assert (os.path.exists(output_dir))
         assert (len(os.listdir(output_dir)) == max_syllable)

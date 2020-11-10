@@ -1,3 +1,9 @@
+'''
+
+General utility functions to facilitate loading and organizing data.
+
+'''
+
 import re
 import os
 import h5py
@@ -5,31 +11,10 @@ import numpy as np
 from glob import glob
 import ruamel.yaml as yaml
 from cytoolz import curry, compose
-from functools import lru_cache, wraps
-from cytoolz.curried import get_in, keyfilter, valmap
-from cytoolz.itertoolz import peek, pluck, first, groupby
-from cytoolz.dicttoolz import valfilter, merge_with, dissoc, assoc
-
-
-# https://gist.github.com/jaytaylor/3660565
-_underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
-_underscorer2 = re.compile(r'([a-z0-9])([A-Z])')
-
-def np_cache(function):
-    @lru_cache(maxsize=None)
-    def cached_wrapper(hashable_array):
-        array = np.array(hashable_array)
-        return function(array)
-
-    @wraps(function)
-    def wrapper(array):
-        return cached_wrapper(tuple(array))
-
-    # copy lru_cache attributes over too
-    wrapper.cache_info = cached_wrapper.cache_info
-    wrapper.cache_clear = cached_wrapper.cache_clear
-
-    return wrapper
+from cytoolz.curried import valmap
+from cytoolz.dicttoolz import dissoc, assoc
+from cytoolz.itertoolz import first, groupby
+from os.path import join, exists, dirname, splitext
 
 
 def camel_to_snake(s):
@@ -44,70 +29,97 @@ def camel_to_snake(s):
     -------
     (str): snake_case string
     '''
+    # https://gist.github.com/jaytaylor/3660565
+    _underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
+    _underscorer2 = re.compile(r'([a-z0-9])([A-Z])')
 
     subbed = _underscorer1.sub(r'\1_\2', s)
     return _underscorer2.sub(r'\1_\2', subbed).lower()
 
 
-def check_video_parameters(index: dict) -> dict:
+def get_index_hits(config_data, metadata, key, v):
     '''
-    Iterates through each extraction parameter file to verify extraction parameters
-    were the same. If they weren't this function raises a RuntimeError.
+    Searches for matching keys in given index file metadata dict.
+    Returns list of booleans indicating that a session was found.
 
     Parameters
     ----------
-    index (dict): a `sorted_index` dictionary of extraction parameters.
+    config_data (dict): dictionary containing boolean search filters [lowercase, negative]
+    metadata (list): list of session metadata dict objects
+    key (str): metadata key being searched for
+    v (str): value of the corresponding key to be found
 
     Returns
     -------
-    vid_parameters (dict): a dictionary with a subset of the used extraction parameters.
+    hits (list): list of booleans indicating the found sessions to be updated in add_group_wrapper()
     '''
 
-    # define constants
-    check_parameters = ['crop_size', 'fps', 'max_height', 'min_height']
-
-    get_yaml = get_in(['path', 1])
-    ymls = list(map(get_yaml, index['files'].values()))
-
-    # load yaml config files when needed
-    dicts = map(read_yaml, ymls)
-    # get the parameters key within each dict
-    params = pluck('parameters', dicts)
-
-    first_entry, params = peek(params)
-    if 'resolution' in first_entry:
-        check_parameters += ['resolution']
-
-    # filter for only keys in check_parameters
-    params = map(keyfilter(lambda k: k in check_parameters), params)
-    # turn lists (in the dict values) into tuples
-    params = map(valmap(lambda x: tuple(x) if isinstance(x, list) else x), params)
-
-    # get unique parameter values
-    vid_parameters = merge_with(set, params)
-
-    incorrect_parameters = valfilter(lambda x: len(x) > 1, vid_parameters)
-
-    # if there are multiple values for a parameter, raise error
-    if incorrect_parameters:
-        raise RuntimeError('The following parameters are not equal ' +
-                           f'across extractions: {incorrect_parameters.keys()}')
-
-    # grab the first value in the set
-    vid_parameters = valmap(first, vid_parameters)
-
-    # update resolution
-    if 'resolution' in vid_parameters:
-        vid_parameters['resolution'] = tuple(x + 100 for x in vid_parameters['resolution'])
+    if config_data['lowercase'] and config_data['negative']:
+        # Convert keys to lowercase and return inverse selection
+        hits = [re.search(v, meta[key].lower()) is None for meta in metadata]
+    elif config_data['lowercase']:
+        # Convert keys to lowercase
+        hits = [re.search(v, meta[key].lower()) is not None for meta in metadata]
+    elif config_data['negative']:
+        # Return inverse selection
+        hits = [re.search(v, meta[key]) is None for meta in metadata]
     else:
-        vid_parameters['resolution'] = None
+        # Default search
+        hits = [re.search(v, meta[key]) is not None for meta in metadata]
 
-    return vid_parameters
+    return hits
+
+
+def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, label_uuids, output_dir, ordering, sessions=False):
+    '''
+    Helper function that writes syllable crowd movies for each given grouping found in group_keys, and returns
+     a dictionary with session/group name keys paired with paths to their respective generated crowd movies.
+
+    Parameters
+    ----------
+    config_data (dict): Loaded crowd movie writing configuration parameters.
+    sorted_index (dict): Loaded index file and sorted files in list.
+    group_keys (dict): Dict of group/session name keys paired with UUIDS to match with labels.
+    labels (2d list): list of syllable label lists for all sessions.
+    label_uuids (list): list of corresponding session UUIDs for all sessions included in labels.
+    output_dir (str): Path to output directory to save crowd movies in.
+    ordering (list): ordering for the new mapping of the relabeled syllable usages.
+
+    Returns
+    -------
+    cm_paths (dict): group/session name keys paired with paths to their respectively generated syllable crowd movies.
+    '''
+    from moseq2_viz.io.video import write_crowd_movies
+
+    cm_paths = {}
+    for k, v in group_keys.items():
+        # Filter group labels to pair with respective UUIDs
+        group_labels = np.array(labels)[v]
+        group_label_uuids = np.array(label_uuids)[v]
+
+        if sessions == True:
+            group_labels = [group_labels]
+            group_label_uuids = [group_label_uuids]
+
+        # Get subset of sorted_index including only included session sources
+        group_index = {'files': {k1: v1 for k1, v1 in sorted_index['files'].items() if k1 in group_label_uuids},
+                       'pca_path': sorted_index['pca_path']}
+
+        # create a subdirectory for each group
+        output_subdir = join(output_dir, k + '/')
+        if not exists(output_subdir):
+            os.makedirs(output_subdir)
+
+        # Write crowd movie for given group and syllable(s)
+        cm_paths[k] = write_crowd_movies(group_index, config_data, ordering,
+                                         group_labels, group_label_uuids, output_subdir)
+
+    return cm_paths
 
 
 def clean_dict(dct):
     '''
-    Casts dict values to numpy arrays
+    Casts numpy array values into lists and `np.generic` data into scalar values.
 
     Parameters
     ----------
@@ -115,7 +127,7 @@ def clean_dict(dct):
 
     Returns
     -------
-    (dict): dictionary with standardized value type:list
+    (dict): dictionary with standardized value types. 
     '''
 
     def clean_entry(e):
@@ -138,12 +150,12 @@ def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
 
     Parameters
     ----------
-    file (opened h5py File): open h5py File object.
+    file (h5py.File): open h5py File object.
     path (str): path within h5 to dict to load.
 
     Returns
     -------
-    ans (dict): loaded dictionary from h5
+    ans (dict): loaded dictionary from h5 dataset or group
     '''
 
     ans = {}
@@ -179,11 +191,11 @@ def h5_to_dict(h5file, path: str = '/') -> dict:
     elif isinstance(h5file, (h5py.File, h5py.Group)):
         out = _load_h5_to_dict(h5file, path)
     else:
-        raise Exception('file input not understood - need h5 file path or file object')
+        raise Exception('File input not understood. Use an h5 file path or file handle')
     return out
 
 
-def get_timestamps_from_h5(h5file: str):
+def get_timestamps_from_h5(h5file: str) -> np.ndarray:
     '''
     Returns dict of timestamps from h5file.
 
@@ -193,11 +205,11 @@ def get_timestamps_from_h5(h5file: str):
 
     Returns
     -------
-    (dict): dictionary containing timestamp data.
+    (np.ndarray): timestamps from extraction within the h5file.
     '''
 
     with h5py.File(h5file, 'r') as f:
-        # v0.1.3 new data format
+        # v0.1.3 or greater data format
         is_new = 'timestamps' in f
     if is_new:
         return h5_to_dict(h5file, 'timestamps')['timestamps']
@@ -205,10 +217,21 @@ def get_timestamps_from_h5(h5file: str):
         return h5_to_dict(h5file, 'metadata/timestamps')['timestamps']
 
 
-def load_changepoints(cpfile):
+def load_changepoint_distribution(cpfile):
+    '''
+    Loads changepoint durations from given changepoints file `cpfile`.
+
+    Parameters
+    ----------
+    cpfile (str): Path to changepoints h5 file.
+
+    Returns
+    -------
+    (1d numpy array): Array of changepoint durations.
+    '''
+
     cps = h5_to_dict(cpfile, 'cps')
     cp_dist = map(compose(np.diff, np.squeeze), cps.values())
-    # TODO: make sure that this is correct
     return np.concatenate(list(cp_dist))
 
 
@@ -223,7 +246,7 @@ def load_timestamps(timestamp_file, col=0):
 
     Returns
     -------
-    ts (numpy array): loaded array of timestamps
+    ts (np.ndarray): loaded array of timestamps
     '''
 
     ts = np.loadtxt(timestamp_file, delimiter=' ')
@@ -231,8 +254,7 @@ def load_timestamps(timestamp_file, col=0):
         return ts[:, col]
     elif col > 0:
         raise Exception(f'Timestamp file {timestamp_file} does not have more than one column of data')
-    else:
-        return ts
+    return ts
 
 
 def parse_index(index_file: str) -> tuple:
@@ -249,8 +271,7 @@ def parse_index(index_file: str) -> tuple:
     uuid_sorted (dict): dictionary of a list of files and pca_score path.
     '''
 
-    join = os.path.join
-    index_dir = os.path.dirname(index_file)
+    index_dir = dirname(index_file)
 
     index = read_yaml(index_file)
     files = index['files']
@@ -330,10 +351,10 @@ def recursive_find_h5s(root_dir=os.getcwd(),
             return 'frames' in f
 
     def h5_to_yaml(h5f):
-        return yaml_string.format(os.path.splitext(h5f)[0])
+        return yaml_string.format(splitext(h5f)[0])
 
     # make function to test if yaml file with same basename as h5 file exists
-    yaml_exists = compose(os.path.exists, h5_to_yaml)
+    yaml_exists = compose(exists, h5_to_yaml)
 
     # grab all files with ext = .h5
     files = glob(f'**/*{ext}', recursive=True)
@@ -355,7 +376,6 @@ def read_yaml(yaml_path: str):
     return loaded
 
 
-# dang this is fast!
 # from https://stackoverflow.com/questions/40084931/taking-subarrays-from-numpy-array-with-given-stride-stepsize/40085052#40085052
 def strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
     '''

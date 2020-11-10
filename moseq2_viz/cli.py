@@ -1,8 +1,18 @@
+'''
+
+CLI front-end operations. This module contains all the functionality and configurable parameters
+users can alter to most accurately process their data.
+
+Note: These functions simply read all the parameters into a dictionary,
+ and then call the corresponding wrapper function with the given input parameters.
+
+'''
+
 import os
 import click
-from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_usages_wrapper, plot_scalar_summary_wrapper, \
-        plot_syllable_durations_wrapper, plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, \
-        make_crowd_movies_wrapper, plot_syllable_speeds_wrapper, plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper
+from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_stat_wrapper, plot_scalar_summary_wrapper, \
+        plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, make_crowd_movies_wrapper, \
+        plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper, get_best_fit_model_wrapper
 
 orig_init = click.core.Option.__init__
 
@@ -16,30 +26,9 @@ click.core.Option.__init__ = new_init
 
 
 @click.group()
+@click.version_option()
 def cli():
     pass
-
-@cli.command('version', help='Print version number')
-def version():
-    import moseq2_viz
-    click.echo(moseq2_viz.__version__)
-
-
-def common_syll_plot_options(function):
-    function = click.option('--sort', type=bool, default=True, help="Sort syllables by usage")(function)
-    function = click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')(function)
-    function = click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")(function)
-    function = click.option('-g', '--group', type=str, default=None, help="Name of group(s) to show", multiple=True)(function)
-    function = click.option('-o', '--ordering', type=str, default=None,
-                  help="How to order the groups, ['any' for descending, 'm' for muteness]")(function)
-    function = click.option('--ctrl-group', type=str, default=None, help="Name of control group. Only if ordering = 'm'")(function)
-    function = click.option('--exp-group', type=str, default=None, help="Name of experimental group. Only if ordering = 'm'")(function)
-    function = click.option('-c', '--colors', type=str, default=None, help="Colors to plot groups with.", multiple=True)(function)
-    function = click.option('-f', '--fmt', type=str, default='o-', help="Format the scatter plot data.")(function)
-    function = click.option('-s', '--figsize', type=tuple, default=(10, 5), help="Size dimensions of the plotted figure.")(function)
-    
-    return function
-
 
 @cli.command(name="add-group", help='Change group name in index file given a key-value pair')
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
@@ -49,11 +38,20 @@ def common_syll_plot_options(function):
 @click.option('--exact', '-e', type=bool, is_flag=True, help='Exact match only')
 @click.option('--lowercase', type=bool, is_flag=True, help='Lowercase text filter')
 @click.option('-n', '--negative', type=bool, is_flag=True, help='Negative match (everything that does not match is included)')
-def add_group(index_file, key, value, group, exact, lowercase, negative):
+def add_group(index_file, **config_data):
 
-    click_data = click.get_current_context().params
-    add_group_wrapper(index_file, click_data)
+    add_group_wrapper(index_file, config_data)
 
+@cli.command(name="get-best-model", help='Returns the model with the closest median duration to the PC Changepoints, given a directory containing multiple models')
+@click.argument('model-dir', type=click.Path(exists=True, resolve_path=True))
+@click.argument('cp-path', type=click.Path(exists=True, resolve_path=True))
+@click.argument('output-file', type=click.Path(exists=False, resolve_path=True))
+@click.option('--plot-all', is_flag=True, help="Plot all included model results")
+@click.option('--ext', type=str, default='.p', help="Model extensions found in input directory")
+@click.option('--fps', type=int, default=30, help="Frames per second")
+def get_best_fit_model(model_dir, cp_path, output_file, plot_all, ext, fps):
+
+    get_best_fit_model_wrapper(model_dir, cp_path, output_file, plot_all, ext, fps)
 
 
 # recurse through directories, find h5 files with completed extractions, make a manifest
@@ -71,6 +69,9 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
 @click.option('--max-examples', '-m', type=int, default=40, help="Number of examples to show")
 @click.option('--threads', '-t', type=int, default=-1, help="Number of threads to use for rendering crowd movies")
+@click.option('--separate-by', type=click.Choice(['default', 'groups', 'sessions', 'subjects']), default='default', help="Generate crowd movies from individual group sources.")
+@click.option('--specific-syllable', type=int, default=None, help="Index of max syllable to render")
+@click.option('--session-names', '-s', default=[], type=str, help="SessionNames to create crowd movies from", multiple=True)
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
 @click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--output-dir', '-o', type=click.Path(), default=os.path.join(os.getcwd(), 'crowd_movies'), help="Path to store files")
@@ -81,15 +82,14 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
 @click.option('--raw-size', type=(int, int), default=(512, 424), help="Size of original videos")
 @click.option('--scale', type=float, default=1, help="Scaling from pixel units to mm")
 @click.option('--cmap', type=str, default='jet', help="Name of valid Matplotlib colormap for false-coloring images")
-@click.option('--dur-clip', default=300, help="Exclude syllables more than this number of frames (None for no limit)")
+@click.option('--max-dur', default=300, help="Exclude syllables longer than this number of frames (None for no limit)")
+@click.option('--min-dur', default=0, help="Exclude syllables shorter than this number of frames")
 @click.option('--legacy-jitter-fix', default=False, type=bool, help="Set to true if you notice jitter in your crowd movies")
 @click.option('--frame-path', default='frames', type=str, help='Path to depth frames in h5 file')
-def make_crowd_movies(index_file, model_path, max_syllable, max_examples, threads, sort, count,
-                      output_dir, min_height, max_height, raw_size, scale, cmap, dur_clip,
-                      legacy_jitter_fix, frame_path, gaussfilter_space, medfilter_space):
+@click.option('--progress-bar', '-p', is_flag=True, help='Show verbose progress bars.')
+def make_crowd_movies(index_file, model_path, output_dir, **config_data):
 
-    click_data = click.get_current_context().params
-    make_crowd_movies_wrapper(index_file, model_path, click_data, output_dir)
+    make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir)
 
     print(f'Crowd movies successfully generated in {output_dir}.')
 
@@ -140,54 +140,27 @@ def plot_verbose_position_heatmaps(index_file, output_file):
 @click.option('--node-scaling', type=float, default=1e4, help="Scale factor for nodes by usage")
 @click.option('--scale-node-by-usage', type=bool, default=True, help="Scale node sizes by usages probabilities")
 @click.option('--width-per-group', type=float, default=8, help="Width (in inches) for figure canvas per group")
-def plot_transition_graph(index_file, model_fit, max_syllable, group, output_file,
-                          normalize, edge_threshold, usage_threshold, layout,
-                          keep_orphans, orphan_weight, arrows, sort, count,
-                          edge_scaling, node_scaling, scale_node_by_usage, width_per_group):
+def plot_transition_graph(index_file, model_fit, output_file, **config_data):
 
-    click_data = click.get_current_context().params
-    plot_transition_graph_wrapper(index_file, model_fit, click_data, output_file)
+    plot_transition_graph_wrapper(index_file, model_fit, config_data, output_file)
 
-
-@cli.command(name='plot-usages', help="Plots syllable usages with different sorting,coloring and grouping capabilities")
+@cli.command(name='plot-stats', help="Plots syllable usages with different sorting,coloring and grouping capabilities")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
-@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'usages'), help="Filename to store plot")
-@common_syll_plot_options
-def plot_usages(index_file, model_fit, output_file, sort, count, max_syllable, group,
-                ordering, ctrl_group, exp_group, colors, fmt, figsize):
+@click.option('--stat', type=click.Choice(['usage', 'speed', 'duration']), default='usage', help="Statistic to plot.")
+@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'syll_stat'), help="Filename to store plot")
+@click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
+@click.option('--figsize', type=tuple, default=(10, 5), help="Size dimensions of the plotted figure.")
+@click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
+@click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
+@click.option('-g', '--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
+@click.option('-o', '--ordering', type=click.Choice(['usage', 'speed', 'duration', 'mutation']), default='usage',
+              help="How to order the groups")
+@click.option('--ctrl-group', type=str, default=None, help="Name of control group. Only if ordering = 'm'")
+@click.option('--exp-group', type=str, default=None, help="Name of experimental group. Only if ordering = 'm'")
+@click.option('-c', '--colors', type=str, default=None, help="Colors to plot groups with.", multiple=True)
+def plot_stats(index_file, model_fit, output_file, **cli_kwargs):
 
-    plot_syllable_usages_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
-                                 count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
-                                 exp_group=exp_group, colors=colors, fmt=fmt, figsize=figsize)
+    plot_syllable_stat_wrapper(model_fit, index_file, output_file, **cli_kwargs)
 
-    print('Successfully graphed usage plots')
-
-
-@cli.command(name='plot-syllable-durations', help="Plots syllable durations with different sorting,coloring and grouping capabilities")
-@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
-@click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
-@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'durations'), help="Filename to store plot")
-@common_syll_plot_options
-def plot_syllable_durations(index_file, model_fit, output_file, sort, count, max_syllable, group,
-                ordering, ctrl_group, exp_group, colors, fmt, figsize):
-
-    plot_syllable_durations_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
-                                 count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
-                                 exp_group=exp_group, colors=colors, fmt=fmt, figsize=figsize)
-
-    print('Successfully graphed duration plots')
-
-@cli.command(name='plot-syllable-speeds', help="Plots syllable centroid speeds with different sorting,coloring and grouping capabilities")
-@click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
-@click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
-@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'speeds'), help="Filename to store plot")
-@common_syll_plot_options
-def plot_mean_syllable_speed(index_file, model_fit, output_file, sort, count, max_syllable, group,
-                ordering, ctrl_group, exp_group, colors, fmt, figsize):
-
-    plot_mean_group_position_pdf_wrapper(model_fit, index_file, output_file, max_syllable=max_syllable, sort=sort,
-                                 count=count, group=group, ordering=ordering, ctrl_group=ctrl_group,
-                                 exp_group=exp_group, colors=colors, fmt=fmt, figsize=figsize)
-
-    print('Successfully graphed speed plots')
+    click.echo(f'Syllable {cli_kwargs["stat"]} graph created successfully')

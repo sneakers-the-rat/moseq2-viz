@@ -1,3 +1,10 @@
+'''
+
+Syllable label information utility functions.
+Contains duplicate functions from moseq2-model + additional syllable sorting/relabeling functions.
+
+'''
+
 import pandas as pd
 import numpy as np
 
@@ -56,7 +63,7 @@ def syll_id(labels: np.ndarray) -> np.ndarray:
     return labels[onsets]
 
 
-def to_df(labels, uuid) -> pd.DataFrame:
+def labels_to_df(labels, uuid) -> pd.DataFrame:
     '''
     Convert labels numpy.ndarray to pandas.DataFrame
 
@@ -85,7 +92,7 @@ def to_df(labels, uuid) -> pd.DataFrame:
     return df
 
 
-def get_syllable_muteness_ordering(complete_df, ctrl_group, exp_group, max_sylls=None, stat='usage'):
+def sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group, max_sylls=None, stat='usage'):
     '''
     Computes the syllable ordering for the difference of the inputted groups (exp - ctrl).
     The sorted result will yield an array will indices depicting the largest positive (upregulated)
@@ -96,50 +103,60 @@ def get_syllable_muteness_ordering(complete_df, ctrl_group, exp_group, max_sylls
     complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
     ctrl_group (str): Control group.
     exp_group (str): Experimental group.
-    max_sylls (str): maximum number of syllables to include in ordering.
+    max_sylls (int): maximum number of syllables to include in ordering.
     stat (str): choice of statistic to order mutations by: {usage, duration, speed}.
 
     Returns
     -------
-    muteness_ordering (list): list of array indices for the new label mapping.
+    mutation_ordering (list): list of array indices for the new label mapping.
     '''
 
-    muteness_df = complete_df.groupby(['group', 'syllable'], as_index=False).mean()
+    # Prepare DataFrame
+    mutation_df = complete_df.groupby(['group', 'syllable'], as_index=False).mean()
 
-    control_df = muteness_df[muteness_df['group'] == ctrl_group]
-    exp_df = muteness_df[muteness_df['group'] == exp_group]
+    # Get groups to measure mutation by
+    control_df = mutation_df[mutation_df['group'] == ctrl_group]
+    exp_df = mutation_df[mutation_df['group'] == exp_group]
 
     # compute mean difference at each syll usage
     diff_df = exp_df.groupby('syllable', as_index=True).mean() \
         .sub(control_df.groupby('syllable', as_index=True).mean(), fill_value=0)
-    if max_sylls == None:
-        max_sylls = len(diff_df)
 
     # sort them from most mutant to least mutant
-    muteness_ordering = diff_df.sort_values(by=stat, ascending=False).index[:max_sylls+1] # adding 1 for sylls [0-40] (for example)
+    mutation_ordering = diff_df.sort_values(by=stat, ascending=False).index
 
-    return muteness_ordering
+    if max_sylls is not None:
+        mutation_ordering = mutation_ordering[:max_sylls]
+
+    return mutation_ordering
 
 
-def get_sorted_syllable_stat_ordering(complete_df, stat='usage'):
+def sort_syllables_by_stat(complete_df, stat='usage', max_sylls=None):
     '''
     Computes the sorted ordering of the given DataFrame with respect to the chosen stat.
 
     Parameters
     ----------
     complete_df (pd.DataFrame): DataFrame containing the statistical information about syllable data [usages, durs, etc.]
-    stat (str): choice of statistic to order mutations by: {usage, duration, speed}.
+    stat (str): choice of statistic to order syllables by: {usage, duration, speed}.
+    max_sylls (int or None): maximum number of syllables to include in ordering
 
     Returns
     -------
-    ordering (list): list of newly mapped array (syllable label) indices.
-    relabel_mapping (dict): dict of mappings from old to (descending-order y-label sorting) and ascending-order x range.
+    ordering (list): list of sorted syllables by stat.
+    relabel_mapping (dict): a dict with key-value pairs {old_ordering: new_ordering}.
     '''
 
-    tmp = complete_df.groupby(['syllable'], as_index=False).mean().copy()
-    tmp.sort_values(by=[stat], inplace=True, ascending=False)
+    tmp = complete_df.groupby('syllable', as_index=False).mean()
+    tmp = tmp.sort_values(by=stat, ascending=False)
 
-    ordering = tmp.syllable.to_numpy()
+    # Get sorted ordering
+    ordering = tmp.index.to_numpy()
+
+    if max_sylls is not None:
+        ordering = ordering[:max_sylls]
+
+    # Get order mapping
     relabel_mapping = {o: i for i, o in enumerate(ordering)}
 
     return ordering, relabel_mapping

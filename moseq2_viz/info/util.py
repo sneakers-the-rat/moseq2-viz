@@ -1,9 +1,15 @@
+'''
+Utility functions for computing syllable usage entropy, and syllable transition entropy rate.
+These can be used for measuring modeling model performance and group separability.
+'''
+
 import numpy as np
-from moseq2_viz.model.util import get_syllable_statistics, get_transition_matrix, relabel_by_usage
+from moseq2_viz.model.trans_graph import get_transition_matrix
+from moseq2_viz.model.util import get_syllable_statistics, relabel_by_usage
 
 
 def entropy(labels, truncate_syllable=40, smoothing=1.0,
-            relabel_by='usage'):
+            relabel_by='usage', get_session_sum=True):
     '''
     Computes syllable usage entropy, base 2.
 
@@ -13,6 +19,7 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0,
     truncate_syllable (int): truncate list of relabeled syllables
     smoothing (float): a constant added to label usages before normalization
     relabel_by (str): mode to relabel predicted labels.
+    get_session_sum (bool): Compute the sum of syllable usage entropies for each session.
 
     Returns
     -------
@@ -39,13 +46,18 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0,
         usages = usages[:truncate_point] + smoothing
         usages /= usages.sum()
 
-        ent.append(-np.sum(usages * np.log2(usages)))
+        if get_session_sum:
+            entropy = -np.sum(usages * np.log2(usages))
+        else:
+            entropy = -(usages * np.log2(usages))
+
+        ent.append(entropy)
 
     return ent
 
 
 def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
-                 smoothing=1.0, tm_smoothing=1.0, relabel_by='usage'):
+                 smoothing=1.0, tm_smoothing=1.0, relabel_by='usage', get_session_sum=True):
     '''
     Computes entropy rate, base 2 using provided syllable labels. If
     syllable labels have not been re-labeled by usage, this function will do so.
@@ -61,6 +73,7 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
     tm_smoothing (float): a constant added to label transtition counts before
             normalization.
     relabel_by (str): how to re-order labels. Options are: 'usage' and 'frames'.
+    get_session_sum (bool): Compute the sum of syllable usage entropies for each session.
 
     Returns
     -------
@@ -91,8 +104,8 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
                                    max_syllable=100,
                                    normalize='none',
                                    smoothing=0.0,
-
                                    disable_output=True)[0] + tm_smoothing
+
         tm = tm[:truncate_point, :truncate_point]
 
         if normalize == 'bigram':
@@ -102,6 +115,11 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
         elif normalize == 'columns':
             tm /= tm.sum(axis=0, keepdims=True)
 
-        ent.append(-np.sum(usages[:, None] * tm * np.log2(tm)))
+        if get_session_sum:
+            entropy_rate = -np.sum(usages * tm * np.log2(tm))
+        else:
+            entropy_rate = -(usages * tm * np.log2(tm))
+
+        ent.append(entropy_rate)
 
     return ent

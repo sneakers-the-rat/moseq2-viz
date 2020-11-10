@@ -20,7 +20,7 @@ from typing import Iterator, Any, Dict, Union
 from collections import defaultdict, OrderedDict
 from scipy.optimize import linear_sum_assignment
 from os.path import join, basename, dirname, exists
-from moseq2_viz.util import np_cache, h5_to_dict, star
+from moseq2_viz.util import h5_to_dict, star
 from moseq2_viz.model.trans_graph import _get_transitions
 from cytoolz import curry, valmap, compose, complement, itemmap, concat
 
@@ -357,7 +357,6 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
     return syllable_slices
 
 
-@np_cache
 def find_label_transitions(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
     '''
     Finds indices where a label transitions into another label. This
@@ -479,7 +478,7 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
         usages[s] = 0
         durations[s] = []
 
-    if type(data) is list or (type(data) is np.ndarray and data.dtype == np.object):
+    if isinstance(data, list) or (isinstance(data, np.ndarray) and data.dtype == np.object):
 
         for v in data:
             seq_array, locs = _get_transitions(v)

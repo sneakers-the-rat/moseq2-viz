@@ -7,7 +7,7 @@ from functools import reduce
 from unittest import TestCase
 import matplotlib.pyplot as plt
 from collections import OrderedDict
-from moseq2_viz.util import parse_index
+from moseq2_viz.util import parse_index, read_yaml
 from moseq2_viz.model.util import parse_model_results
 from moseq2_viz.model.trans_graph import get_pos, get_usage_dict, get_trans_graph_groups, \
     get_group_trans_mats, get_transition_matrix, graph_transition_matrix, get_stat_thresholded_ebunch, \
@@ -57,8 +57,8 @@ class TestModelTransGraph(TestCase):
         test_index = 'data/test_index.yaml'
         test_model = 'data/test_model.p'
         config_file = 'data/config.yaml'
-        with open(config_file, 'r') as f:
-            config_data = yaml.safe_load(f)
+
+        config_data = read_yaml(config_file)
 
         model = parse_model_results(joblib.load(test_model))
         index, sorted_index = parse_index(test_index)

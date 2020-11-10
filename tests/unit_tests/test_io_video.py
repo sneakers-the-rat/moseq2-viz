@@ -4,7 +4,7 @@ import joblib
 import numpy as np
 import ruamel.yaml as yaml
 from unittest import TestCase
-from moseq2_viz.util import parse_index
+from moseq2_viz.util import parse_index, read_yaml
 from moseq2_viz.model.util import parse_model_results, relabel_by_usage
 from moseq2_viz.io.video import write_crowd_movies, write_frames_preview, write_crowd_movie_info_file
 
@@ -31,9 +31,7 @@ class TestIOVideo(TestCase):
         output_dir = 'data/crowd_movies/'
         max_syllable = 5
 
-        with open(config_file, 'r') as f:
-            config_data = yaml.safe_load(f)
-
+        config_data = read_yaml(config_file)
         config_data['max_syllable'] = max_syllable
         config_data['crowd_syllables'] = range(max_syllable)
         config_data['progress_bar'] = False

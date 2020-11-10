@@ -5,7 +5,7 @@ import pandas as pd
 import ruamel.yaml as yaml
 from unittest import TestCase
 from cytoolz import merge_with
-from moseq2_viz.util import parse_index
+from moseq2_viz.util import parse_index, read_yaml
 from moseq2_viz.model.util import parse_model_results, h5_to_dict, results_to_dataframe
 from moseq2_viz.scalars.util import star_valmap, remove_nans_from_labels, convert_pxs_to_mm, is_legacy, \
     generate_empty_feature_dict, convert_legacy_scalars, get_scalar_map, get_scalar_triggered_average, \
@@ -20,9 +20,8 @@ class TestScalarUtils(TestCase):
         model_fit = 'data/mock_model.p'
         index_file = 'data/test_index_crowd.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
 
         model_data = parse_model_results(joblib.load(model_fit))
         lbl_dict = {}
@@ -105,11 +104,10 @@ class TestScalarUtils(TestCase):
     def test_get_scalar_map(self):
         index_file = 'data/test_index_crowd.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
-            for i, f in enumerate(index_data['files']):
-                index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
+        for i, f in enumerate(index_data['files']):
+            index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
 
         test_scalar_map = get_scalar_map(index_data)
         scalar_keys = ['angle', 'area_mm', 'area_px', 'centroid_x_mm', 'centroid_x_px',
@@ -129,11 +127,10 @@ class TestScalarUtils(TestCase):
         index_file = 'data/test_index_crowd.yaml'
         model_fit = 'data/mock_model.p'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
-            for i, f in enumerate(index_data['files']):
-                index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
+        for i, f in enumerate(index_data['files']):
+            index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
 
         model_data = parse_model_results(joblib.load(model_fit))
         lbl_dict = {}
@@ -186,11 +183,10 @@ class TestScalarUtils(TestCase):
                        'velocity_3d_px', 'velocity_theta', 'width_mm', 'width_px']
 
         num_frames = 908
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
-            for i, f in enumerate(index_data['files']):
-                index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
+        for i, f in enumerate(index_data['files']):
+            index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
 
         test_scalar_map = get_scalar_map(index_data)
         mapped = process_scalars(test_scalar_map, scalar_keys)
@@ -235,12 +231,11 @@ class TestScalarUtils(TestCase):
 
         total_frames = 1800
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
-            for i, f in enumerate(index_data['files']):
-                index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
-                index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
+        for i, f in enumerate(index_data['files']):
+            index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
+            index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
 
         scalar_df = scalars_to_dataframe(index_data)
 

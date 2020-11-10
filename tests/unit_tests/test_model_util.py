@@ -10,7 +10,7 @@ from copy import deepcopy
 import ruamel.yaml as yaml
 from functools import reduce
 from unittest import TestCase
-from moseq2_viz.util import parse_index, get_index_hits, load_changepoints, load_timestamps
+from moseq2_viz.util import parse_index, get_index_hits, load_changepoint_distribution, load_timestamps, read_yaml
 from moseq2_viz.model.trans_graph import _get_transitions
 from moseq2_viz.model.util import (relabel_by_usage, h5_to_dict, retrieve_pcs_from_slices,
     calculate_syllable_usage, compress_label_sequence, find_label_transitions, get_best_fit, 
@@ -43,11 +43,11 @@ class TestModelUtils(TestCase):
 
         assert len(hits) == 2
 
-    def test_load_changepoints(self):
+    def test_load_changepoint_distribution(self):
 
         cp_path = 'data/_pca/changepoints.h5'
 
-        cps = load_changepoints(cp_path)
+        cps = load_changepoint_distribution(cp_path)
 
         assert cps.shape == (51,)
 
@@ -131,9 +131,8 @@ class TestModelUtils(TestCase):
         model_fit = 'data/test_model.p'
         index_file = 'data/test_index_crowd.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
 
         model_data = parse_model_results(joblib.load(model_fit))
         lbl_dict = {}
@@ -154,9 +153,8 @@ class TestModelUtils(TestCase):
         model_fit = 'data/mock_model.p'
         index_file = 'data/test_index_crowd.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
 
         model_data = parse_model_results(joblib.load(model_fit))
         labels = model_data['labels']
@@ -241,9 +239,8 @@ class TestModelUtils(TestCase):
         model_fit = 'data/mock_model.p'
         index_file = 'data/test_index_crowd.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
 
         model_data = parse_model_results(joblib.load(model_fit))
         labels = model_data['labels']
@@ -314,9 +311,8 @@ class TestModelUtils(TestCase):
         index_file = 'data/test_index.yaml'
         max_syllable = 40
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
 
         model_dict = parse_model_results(model_fit)
         df, label_df = results_to_dataframe(model_dict, index_data, sort=True, max_syllable=max_syllable, compute_labels=True)
@@ -331,9 +327,8 @@ class TestModelUtils(TestCase):
     def test_normalize_pcs(self):
         index_file = 'data/test_index.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
 
         pca_scores = h5_to_dict(index_data['pca_path'], 'scores')
         norm = normalize_pcs(pca_scores)
@@ -388,9 +383,8 @@ class TestModelUtils(TestCase):
     def test_whiten_all(self):
         index_file = 'data/test_index.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
 
         pca_scores = h5_to_dict(index_data['pca_path'], 'scores')
         whitened_test = _whiten_all(pca_scores)
@@ -404,9 +398,8 @@ class TestModelUtils(TestCase):
 
         index_file = 'data/test_index.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
 
         pca_scores = h5_to_dict(index_data['pca_path'], 'scores')
 
@@ -418,9 +411,8 @@ class TestModelUtils(TestCase):
 
         index_file = 'data/test_index.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
 
         pca_scores = h5_to_dict(index_data['pca_path'], 'scores')
 
@@ -484,8 +476,7 @@ class TestModelUtils(TestCase):
         output_dir = 'data/test_movies/'
         config_file = 'data/config.yaml'
 
-        with open(config_file, 'r') as f:
-            config_data = yaml.safe_load(f)
+        config_data = read_yaml(config_file)
 
         _, sorted_index = parse_index(index_file)
 

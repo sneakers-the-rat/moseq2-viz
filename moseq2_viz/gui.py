@@ -11,6 +11,7 @@ CLI functions, then call the corresponding wrapper function with the given input
 from os.path import join
 import ruamel.yaml as yaml
 from .cli import plot_transition_graph, make_crowd_movies
+from moseq2_viz.util import read_yaml
 from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_stat_wrapper, \
     plot_scalar_summary_wrapper, plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, \
     plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper, get_best_fit_model_wrapper, \
@@ -31,8 +32,7 @@ def get_groups_command(index_file):
     '''
 
 
-    with open(index_file, 'r') as f:
-        index_data = yaml.safe_load(f)
+    index_data = read_yaml(index_file)
 
     groups, uuids = [], []
     subjectNames, sessionNames = [], []
@@ -251,8 +251,7 @@ def plot_transition_graph_command(index_file, model_fit, config_file, max_syllab
     fig (pyplot figure): figure to graph in Jupyter Notebook.
     '''
 
-    with open(config_file, 'r') as f:
-        config_data = yaml.safe_load(f)
+    config_data = read_yaml(config_file)
 
     # Get default CLI params
     params = {tmp.name: tmp.default for tmp in plot_transition_graph.params if not tmp.required}

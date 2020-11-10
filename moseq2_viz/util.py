@@ -12,31 +12,9 @@ from glob import glob
 import ruamel.yaml as yaml
 from cytoolz import curry, compose
 from cytoolz.curried import valmap
-from functools import lru_cache, wraps
 from cytoolz.dicttoolz import dissoc, assoc
 from cytoolz.itertoolz import first, groupby
 from os.path import join, exists, dirname, splitext
-
-
-# https://gist.github.com/jaytaylor/3660565
-_underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
-_underscorer2 = re.compile(r'([a-z0-9])([A-Z])')
-
-def np_cache(function):
-    @lru_cache(maxsize=None)
-    def cached_wrapper(hashable_array):
-        array = np.array(hashable_array)
-        return function(array)
-
-    @wraps(function)
-    def wrapper(array):
-        return cached_wrapper(tuple(array))
-
-    # copy lru_cache attributes over too
-    wrapper.cache_info = cached_wrapper.cache_info
-    wrapper.cache_clear = cached_wrapper.cache_clear
-
-    return wrapper
 
 
 def camel_to_snake(s):
@@ -51,9 +29,13 @@ def camel_to_snake(s):
     -------
     (str): snake_case string
     '''
+    # https://gist.github.com/jaytaylor/3660565
+    _underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
+    _underscorer2 = re.compile(r'([a-z0-9])([A-Z])')
 
     subbed = _underscorer1.sub(r'\1_\2', s)
     return _underscorer2.sub(r'\1_\2', subbed).lower()
+
 
 def get_index_hits(config_data, metadata, key, v):
     '''
@@ -86,6 +68,7 @@ def get_index_hits(config_data, metadata, key, v):
         hits = [re.search(v, meta[key]) is not None for meta in metadata]
 
     return hits
+
 
 def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, label_uuids, output_dir, ordering, sessions=False):
     '''
@@ -136,7 +119,7 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, la
 
 def clean_dict(dct):
     '''
-    Casts dict values to numpy arrays
+    Casts numpy array values into lists and `np.generic` data into scalar values.
 
     Parameters
     ----------
@@ -144,7 +127,7 @@ def clean_dict(dct):
 
     Returns
     -------
-    (dict): dictionary with standardized value type:list
+    (dict): dictionary with standardized value types. 
     '''
 
     def clean_entry(e):
@@ -167,12 +150,12 @@ def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
 
     Parameters
     ----------
-    file (opened h5py File): open h5py File object.
+    file (h5py.File): open h5py File object.
     path (str): path within h5 to dict to load.
 
     Returns
     -------
-    ans (dict): loaded dictionary from h5
+    ans (dict): loaded dictionary from h5 dataset or group
     '''
 
     ans = {}
@@ -208,11 +191,11 @@ def h5_to_dict(h5file, path: str = '/') -> dict:
     elif isinstance(h5file, (h5py.File, h5py.Group)):
         out = _load_h5_to_dict(h5file, path)
     else:
-        raise Exception('file input not understood - need h5 file path or file object')
+        raise Exception('File input not understood. Use an h5 file path or file handle')
     return out
 
 
-def get_timestamps_from_h5(h5file: str):
+def get_timestamps_from_h5(h5file: str) -> np.ndarray:
     '''
     Returns dict of timestamps from h5file.
 
@@ -222,11 +205,11 @@ def get_timestamps_from_h5(h5file: str):
 
     Returns
     -------
-    (dict): dictionary containing timestamp data.
+    (np.ndarray): timestamps from extraction within the h5file.
     '''
 
     with h5py.File(h5file, 'r') as f:
-        # v0.1.3 new data format
+        # v0.1.3 or greater data format
         is_new = 'timestamps' in f
     if is_new:
         return h5_to_dict(h5file, 'timestamps')['timestamps']
@@ -234,9 +217,9 @@ def get_timestamps_from_h5(h5file: str):
         return h5_to_dict(h5file, 'metadata/timestamps')['timestamps']
 
 
-def load_changepoints(cpfile):
+def load_changepoint_distribution(cpfile):
     '''
-    Loads PC changepoints array from given changepoints.h5 file.
+    Loads changepoint durations from given changepoints file `cpfile`.
 
     Parameters
     ----------
@@ -244,7 +227,7 @@ def load_changepoints(cpfile):
 
     Returns
     -------
-    (1d numpy array): Array of pre-computed principal components changepoints.
+    (1d numpy array): Array of changepoint durations.
     '''
 
     cps = h5_to_dict(cpfile, 'cps')
@@ -263,7 +246,7 @@ def load_timestamps(timestamp_file, col=0):
 
     Returns
     -------
-    ts (numpy array): loaded array of timestamps
+    ts (np.ndarray): loaded array of timestamps
     '''
 
     ts = np.loadtxt(timestamp_file, delimiter=' ')
@@ -271,8 +254,7 @@ def load_timestamps(timestamp_file, col=0):
         return ts[:, col]
     elif col > 0:
         raise Exception(f'Timestamp file {timestamp_file} does not have more than one column of data')
-    else:
-        return ts
+    return ts
 
 
 def parse_index(index_file: str) -> tuple:
@@ -394,7 +376,6 @@ def read_yaml(yaml_path: str):
     return loaded
 
 
-# dang this is fast!
 # from https://stackoverflow.com/questions/40084931/taking-subarrays-from-numpy-array-with-given-stride-stepsize/40085052#40085052
 def strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
     '''

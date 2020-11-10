@@ -59,9 +59,8 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
     Parameters
     ----------
     index_file (str): path to index file
-    TODO: update value and group docstrings to accept lists as well since they're handled in this function
-    value (str): SessionName value to search for
-    group (str): group name to allocate.
+    value (str or list): SessionName value(s) to search for and update with the corresponding group(s)
+    group (str or list): Respective group name(s) to set corresponding sessions as.
     exact (bool): indicate whether to search for exact match.
     lowercase (bool): indicate whether to convert all searched for names to lowercase.
     negative (bool): whether to update the inverse of the found selection.
@@ -155,7 +154,14 @@ def make_crowd_movies_command(index_file, model_path, output_dir, config_data=No
     index_file (str): path to index file.
     model_path (str): path to fit model.
     output_dir (str): path to directory to save crowd movies in.
-    config_data (dict): TODO: describe the parameters that this config_data can contain. For example, max_syllables, max_example
+    config_data (dict): dictionary conataining all the necessary parameters to generate the crowd movies.
+        E.g.: max_syllable: Maximum number of syllables to generate crowd movies for.
+              max_example: Maximum number of mouse examples to include in each crowd movie
+              specific_syllable: Set to a syllable number to only generate crowd movies of that syllable.
+                if value is None, command will generate crowd movies for all syllables with # <= max_syllable.
+              separate_by: ['default', 'groups', 'sessions', 'subjects']; If separate_by != 'default', the command
+                  will generate a separate crowd movie for each selected grouping per syllable.
+                  Resulting in (ngroups * max_syllable) movies.
 
     Returns
     -------

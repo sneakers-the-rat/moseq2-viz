@@ -40,8 +40,10 @@ def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='s
 
     Returns
     -------
-    TODO: enumerate parameters
-    validated function parameters 
+    ordering (1D list): list of syllable indices to display on x-axis
+    groups (1D list): list of unique groups to plot
+    colors (1D list): list of unique colors for each plotted group
+    figsize (tuple): plotted figure size (height, width)
     '''
 
     if not isinstance(figsize, (tuple, list)):

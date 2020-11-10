@@ -202,7 +202,7 @@ class TestViz(TestCase):
         assert crowd_matrix.shape[0] == 62, "Crowd movie number of frames is incorrect"
         assert crowd_matrix.shape == (62, 424, 512), "Crowd movie resolution is incorrect"
 
-        crowd_matrix = make_crowd_matrix(syllable_slices, dur_clip=None, nexamples=1)
+        crowd_matrix = make_crowd_matrix(syllable_slices, max_dur=None, nexamples=1)
         assert crowd_matrix.shape[0] == 61, "Crowd movie number of frames is incorrect"
         assert crowd_matrix.shape == (61, 424, 512), "Crowd movie resolution is incorrect"
 
@@ -216,7 +216,7 @@ class TestViz(TestCase):
             index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
 
         scalar_df = scalars_to_dataframe(index_data)
-        plt, ax = position_plot(scalar_df)
+        plt, ax, g = position_plot(scalar_df)
         outfile = 'data/test_position.png'
         plt.savefig(outfile)
 

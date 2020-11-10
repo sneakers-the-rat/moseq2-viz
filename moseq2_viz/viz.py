@@ -6,6 +6,7 @@ Visualization model containing all plotting functions and some dependent data pr
 
 import cv2
 import h5py
+import warnings
 import numpy as np
 import seaborn as sns
 from tqdm.auto import tqdm
@@ -13,7 +14,73 @@ from functools import wraps
 from scipy.stats import mode
 import matplotlib.pyplot as plt
 from matplotlib import lines, gridspec
-from moseq2_viz.model.label_util import get_sorted_syllable_stat_ordering, get_syllable_mutation_ordering
+from moseq2_viz.model.label_util import sort_syllables_by_stat, sort_syllables_by_stat_difference
+
+
+def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='stat', max_sylls=40, groups=None, ctrl_group=None, exp_group=None,
+            colors=None, figsize=(10, 5)):
+    '''
+    Validates input parameters and adjust parameters according to any user errors to run the
+    plotting function with some respective defaulting parameters. Also orders syllable labels
+    based on the average `stat` values per syllable.
+
+    Parameters
+    ----------
+    complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
+    stat (str): choice of statistic to plot: either usage, duration, or speed
+    ordering (str, list, None): "stat" for sorting syllables by their average `stat`. "diff" for sorting syllables by
+        the difference in `stat` between `exp_group` and `ctrl_group`. If a list, the user should supply
+        the order of syllable labels to plot. If None, the original syllable IDs are used.
+    max_sylls (int): maximum number of syllable to include in plot
+    groups (list): list of groups to include in plot. If groups=None, all groups will be plotted.
+    ctrl_group (str): name of control group to base mutation sorting on.
+    exp_group (str): name of experimental group to base mutation sorting on.
+    colors (list): list of user-selected colors to represent the data
+    figsize (tuple): tuple value of length = 2, representing (height x width) of the plotted figure dimensions
+
+    Returns
+    -------
+    TODO: enumerate parameters
+    validated function parameters 
+    '''
+
+    if not isinstance(figsize, (tuple, list)):
+        print('Invalid figsize. Input a integer-tuple or list of len(figsize) = 2')
+        figsize = (10, 5)
+
+    unique_groups = complete_df['group'].unique()
+
+    if groups is None or len(groups) == 0:
+        groups = unique_groups
+    elif isinstance(groups, str):
+        groups = [groups]
+
+    if isinstance(groups, (list, tuple, np.ndarray)):
+        diff = set(groups) - set(unique_groups)
+        if len(diff) > 0:
+            warnings.warn(f'Invalid group(s) entered: {", ".join(diff)}. Using all groups: {", ".join(unique_groups)}.')
+            groups = unique_groups
+
+    if stat.lower() not in ('usage', 'duration', 'speed'):
+        raise ValueError(f'Invalid stat entered: {stat}. Must be: usage, duration, or speed.')
+
+    if ordering is None:
+        ordering = np.arange(max_sylls)
+    elif ordering == "stat":
+        ordering, _ = sort_syllables_by_stat(complete_df, stat=stat, max_sylls=max_sylls)
+    elif ordering == "diff":
+        if ctrl_group is None or exp_group is None or not np.all(np.isin([ctrl_group, exp_group], groups)):
+            raise ValueError(f'Attempting to sort by {stat} differences, but {ctrl_group} or {exp_group} not in {groups}.')
+        ordering = sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group,
+                                                     max_sylls=max_sylls, stat=stat)
+
+    if colors is None or len(colors) == 0 or len(colors) != len(groups):
+        if len(colors) != len(groups):
+            warnings.warn(f'Number of inputted colors {len(colors)} does not match number of groups {len(groups)}. Using default.')
+        colors = sns.color_palette(n_colors=len(groups))
+
+    return ordering, groups, colors, figsize
+
 
 def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
                  tail_filter=None, tail_threshold=5):
@@ -45,7 +112,7 @@ def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
         for i in range(frames.shape[0]):
             for medfilt in medfilter_space:
                 if medfilt % 2 == 0:
-                    print('Inputted medfilter must be odd. Subtracting input by 1.')
+                    warnings.warn(f'medfilter_space kernel must be odd. Reducing {medfilt} to {medfilt - 1}')
                     medfilt -= 1
                 out[i] = cv2.medianBlur(out[i], medfilt)
 
@@ -56,7 +123,8 @@ def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
 
     return out
 
-def save_fig(fig, output_file, name='{}', **kwargs):
+
+def save_fig(fig, output_file, suffix=None, **kwargs):
     '''
     Convenience function for saving created/open matplotlib figures to PNG and PDF formats.
 
@@ -72,13 +140,15 @@ def save_fig(fig, output_file, name='{}', **kwargs):
     None
     '''
 
-    formatted_filename = name.format(output_file)
+    if suffix is not None:
+        output_file = output_file + suffix
 
-    fig.savefig(f'{formatted_filename}.png', **kwargs)
-    fig.savefig(f'{formatted_filename}.pdf', **kwargs)
+    fig.savefig(f'{output_file}.png', **kwargs)
+    fig.savefig(f'{output_file}.pdf', **kwargs)
+
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
-                      crop_size=(80, 80), dur_clip=1000, offset=(50, 50), scale=1,
+                      crop_size=(80, 80), max_dur=1000, min_dur=0, offset=(50, 50), scale=1,
                       center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
                       **kwargs):
     '''
@@ -86,13 +156,14 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
     Parameters
     ----------
-    slices (numpy array): video slices of specific syllable label
+    slices (np.ndarray): video slices of specific syllable label
     nexamples (int): maximum number of mice to include in crowd_matrix video
     pad (int): number of frame padding in video
     raw_size (tuple): video dimensions.
     frame_path (str): path to in-h5 frames variable
     crop_size (tuple): mouse crop size
-    dur_clip (int): maximum clip duration.
+    max_dur (int or None): maximum syllable duration.
+    min_dur (int): minimum syllable duration.
     offset (tuple): centroid offsets from cropped videos
     scale (int): mouse size scaling factor.
     center (bool): indicate whether mice are centered.
@@ -103,7 +174,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
     Returns
     -------
-    crowd_matrix (3D numpy array): crowd movie for a specific syllable.
+    crowd_matrix (np.ndarray): crowd movie for a specific syllable.
     '''
 
     if rotate and not center:
@@ -111,11 +182,12 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
     durs = np.array([i[1]-i[0] for i, j, k in slices])
 
-    if dur_clip is not None:
-        idx = np.where(np.logical_and(durs < dur_clip, durs > 0))[0]
+    if max_dur is not None:
+        idx = np.where(np.logical_and(durs < max_dur, durs > min_dur))[0]
         use_slices = [_ for i, _ in enumerate(slices) if i in idx]
     else:
-        idx = np.where(durs > 0)[0]
+        max_dur = durs.max()
+        idx = np.where(durs > min_dur)[0]
         use_slices = [_ for i, _ in enumerate(slices) if i in idx]
 
     if len(use_slices) > nexamples:
@@ -123,12 +195,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
     durs = np.array([i[1]-i[0] for i, j, k in use_slices])
 
-    if len(durs) < 1:
-        return None
-
-    max_dur = durs.max()
-
-    if max_dur < 0:
+    if len(durs) == 0 or durs.max() < 0:
         return None
 
     crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype='uint8')
@@ -216,10 +283,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
             if i >= pad and i <= pad + cur_len:
                 cv2.circle(new_frame_clip, (xc0, yc0), 3, (255, 255, 255), -1)
-            try:
                 new_frame[rr[0]:rr[-1], cc[0]:cc[-1]] = new_frame_clip
-            except Exception:
-                raise Exception
 
             if rotate:
                 rot_mat = cv2.getRotationMatrix2D((raw_size[0] // 2, raw_size[1] // 2),
@@ -240,7 +304,6 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
             old_frame[blend_coords] = .5 * old_frame[blend_coords] + .5 * new_frame[blend_coords]
             old_frame[overwrite_coords] = new_frame[overwrite_coords]
 
-            # crowd_matrix[i][rr[0]:rr[-1], cc[0]:cc[-1]] = old_frame
             crowd_matrix[i] = old_frame
 
         count += 1
@@ -252,7 +315,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
 
 def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
-                  sort_vars=['SubjectName', 'uuid'], group_var='group', sz=50, **kwargs):
+                  sort_vars=['SubjectName', 'uuid'], group_var='group', plt_kwargs=dict(linewidth=1)):
     '''
     Creates a position summary graph that shows all the
     mice's centroid path throughout the respective sessions.
@@ -263,79 +326,44 @@ def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
     centroid_vars (list): list of scalar variables to track mouse position
     sort_vars (list): list of variables to sort the dataframe by.
     group_var (str): groups df column to graph position plots for.
-    sz (int): plot size.
-    kwargs (dict): extra keyword arguments
+    plt_kwargs (dict): extra keyword arguments for plt.plot
 
     Returns
     -------
-    fig (pyplot figure): pyplot figure object
-    ax (pyplot axis): pyplot axis object
+    fig (pyplot figure): matplotlib figure object
+    ax (pyplot axis): matplotlib axis object
+    g (sns.FacetGrid): FacetGrid object the data was plotted with
     '''
 
-    grouped = scalar_df.groupby([group_var] + sort_vars)
+    assert len(centroid_vars) == 2, 'must supply 2 centroid vars (x, y) to plot position'
 
-    groups = [grp[0] for grp in grouped.groups]
-    uniq_groups = list(set(groups))
-    count = [len([grp1 for grp1 in groups if grp1 == grp]) for grp in uniq_groups]
+    if isinstance(sort_vars, str) :
+        sort_vars = [sort_vars]
+    else:
+        sort_vars = list(sort_vars)
 
-    grouped = scalar_df.groupby(group_var)
+    scalar_df = scalar_df.sort_values(by=[group_var] + sort_vars)
 
-    figsize = (np.round(2.5 * len(uniq_groups)), np.round(2.6 * np.max(count)))
-    lims = (np.min(scalar_df[centroid_vars].min()), np.max(scalar_df[centroid_vars].max()))
+    if 'uuid' in sort_vars:
+        uuid_map = scalar_df.groupby('uuid').first()
+    
+    g = sns.FacetGrid(data=scalar_df, col='uuid', col_wrap=5, height=2.5, hue=group_var)
+    g.map(plt.plot, centroid_vars[0], centroid_vars[1], **plt_kwargs)
+    g.set_titles(template='{col_name}')
+    for a in g.axes.flat:
+        uuid = a.get_title()
+        a.set_title(f"{uuid_map.loc[uuid, 'SubjectName']}\n{uuid_map.loc[uuid, 'SessionName']}", fontsize=8)
+        a.set_aspect('equal')
+    g.tight_layout()
+    g.add_legend()
 
-    fig = plt.figure(figsize=figsize)
-    gs = gridspec.GridSpec(nrows=np.max(count),
-                           ncols=len(uniq_groups),
-                           width_ratios=[1] * len(uniq_groups),
-                           wspace=0.0,
-                           hspace=0.0)
-
-    for i, (name, group) in enumerate(grouped):
-
-        group_session = group.groupby(sort_vars)
-
-        for j, (name2, group2) in enumerate(group_session):
-
-            ax = plt.subplot(gs[j, i])
-            ax.plot(group2[centroid_vars[0]],
-                    group2[centroid_vars[1]],
-                    linewidth=.5,
-                    **kwargs)
-            ax.set_xlim(lims)
-            ax.set_ylim(lims)
-            ax.axis('off')
-
-            if group_var == 'group':
-                if j == 0:
-                    ax.set_title(name)
-            else:
-                ax.set_title(name)
-
-
-            if i == 0 and j == len(group_session) - 1:
-                y_line = lines.Line2D([lims[0], lims[0]],
-                                      [lims[0], lims[0] + sz],
-                                      color='b',
-                                      alpha=1)
-                x_line = lines.Line2D([lims[0], lims[0] + sz],
-                                      [lims[0], lims[0]],
-                                      color='b',
-                                      alpha=1)
-                y_line.set_clip_on(False)
-                x_line.set_clip_on(False)
-                ax.add_line(y_line)
-                ax.add_line(x_line)
-                ax.text(lims[0] - 10, lims[0] - 60, f'{np.round(sz / 10).astype("int")} CM')
-
-            ax.set_aspect('auto')
-
-    return fig, ax
+    return g.fig, g.axes, g
 
 
 def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
                 show_scalars=['velocity_2d_mm', 'velocity_3d_mm',
                               'height_ave_mm', 'width_mm', 'length_mm'],
-                headless=False, colors=None, **kwargs):
+                headless=False, colors=None, plt_kwargs=dict(height=2, aspect=0.8)):
     '''
     Creates scatter plot of given scalar variables representing extraction results.
 
@@ -343,11 +371,11 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
     ----------
     scalar_df (pandas DataFrame):
     sort_vars (list): list of variables to sort the dataframe by.
-    group_var (str): groups df column to graph position plots for.
+    group_var (str): groups scalar plots into separate distributions.
     show_scalars (list): list of scalar variables to plot.
     headless (bool): exclude head of dataframe from plot.
     colors (list): list of color strings to indicate groups
-    kwargs (dict): extra keyword variables
+    plt_kwargs (dict): extra arguments for the swarmplot
 
     Returns
     -------
@@ -357,135 +385,27 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
     if headless:
         plt.switch_backend('agg')
 
-    if colors == None:
+    if colors is None or len(colors) == 0:
         colors = sns.color_palette()
-    elif len(colors) == 0:
-        colors = sns.color_palette()
-
-
-    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(8, 8))
 
     # sort scalars into a neat summary using group_vars
-    grp = scalar_df.groupby(sort_vars)[show_scalars]
+    summary = scalar_df.groupby(sort_vars)[show_scalars].aggregate(['mean', 'std']).reset_index()
+    summary = summary.melt(id_vars=group_var, value_vars=show_scalars)
+    groups = summary[group_var].unique()
+    
+    g = sns.FacetGrid(data=summary, row='variable_0', col='variable_1', sharey=False,
+                      hue=group_var, hue_order=groups, palette=colors, **plt_kwargs)
+    g.map(sns.swarmplot, group_var, 'value', order=groups)
+    g.set_titles(template='{col_name}')
+    for row_name, a in zip(show_scalars, g.axes[:, 0]):
+        a.set_ylabel(row_name)
+    g.fig.tight_layout()
 
-    summary = {
-        'Mean': grp.mean(),
-        'STD': grp.std()
-    }
+    return g.fig, g.axes
 
-    for i, (k, v) in tqdm(enumerate(summary.items())):
-        summary[k].reset_index(level=summary[k].index.names, inplace=True)
-        summary[k] = summary[k].melt(id_vars=group_var, value_vars=show_scalars)
-        sns.swarmplot(data=summary[k], x='variable', y='value', hue=group_var, ax=ax[i], palette=colors, **kwargs)
-        ax[i].set_ylabel(k)
-        ax[i].set_xlabel('')
 
-    fig.tight_layout()
-
-    return fig, ax
-
-def check_types(function):
-    '''
-    Decorator function to validate user input parameters for plotting syllable statistics, facilitated using
-    functools wraps
-
-    Parameters
-    ----------
-    function: plot_syll_stats_with_sem - the function to check parameters from.
-
-    Returns
-    -------
-    wrapped (function) returns the function to run
-    '''
-
-    @wraps(function)
-    def wrapped(complete_df, stat='usage', ordering=None, max_sylls=None, groups=None, ctrl_group=None, exp_group=None,
-                colors=None, figsize=(10, 5), *args, **kwargs):
-        '''
-        Wrapper function to validate input parameters and adjust parameters according to any user errors to run the
-        plotting function with some respective defaulting parameters.
-
-        Parameters
-        ----------
-        complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
-        stat (str): choice of statistic to plot: either usage, duration, or speed
-        ordering (str, list, None): "m" for mutated, f"{stat}" for descending ordering with respect to original usage ordering.
-        max_sylls (int): maximum number of syllable to include in plot
-        groups (list): list of groups to include in plot. If groups=None, all groups will be plotted.
-        ctrl_group (str): name of control group to base mutation sorting on.
-        exp_group (str): name of experimental group to base mutation sorting on.
-        colors (list): list of user-selected colors to represent the data
-        figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
-        args
-        kwargs
-
-        Returns
-        -------
-        function: executes function with validated input parameters
-        '''
-
-        if not isinstance(figsize, tuple) or isinstance(figsize, list):
-            print('Invalid figsize. Input a integer-tuple or list of len(figsize) = 2')
-            figsize = (10, 5)
-
-        if groups == None or len(groups) == 0:
-            groups = list(set(complete_df.group))
-        elif isinstance(groups, str):
-            groups = [groups]
-
-        if isinstance(groups, list) or isinstance(groups, tuple):
-            uniq_groups = set(complete_df.group)
-            if not set(groups).issubset(uniq_groups):
-                print('Invalid group entered. Displaying all groups.')
-                groups = uniq_groups
-
-        if max_sylls == None:
-            max_sylls = 40
-
-        if set(stat).issubset(set('usage')):
-            stat = 'usage'
-            try:
-                if (isinstance(ordering, str) or ordering.any() == None) and ordering != 'm':
-                    ordering = range(max_sylls)
-            except AttributeError:
-                ordering = range(max_sylls)
-        else:
-            if set(stat).issubset(set('duration')):
-                stat = 'duration'
-            elif set(stat).issubset(set('speed')):
-                stat = 'speed'
-            if isinstance(ordering, str) and ordering != 'm':
-                if not set(ordering).issubset(set('default')):
-                    print(f'Reordering syllables with respect to selected statistic: {stat}')
-                    ordering, _ = get_sorted_syllable_stat_ordering(complete_df, stat=stat)
-                else:
-                    ordering = range(max_sylls)
-
-        if isinstance(ordering, str):
-            if ordering[0] == 'm':
-                if (ctrl_group != None and exp_group != None) and (ctrl_group in groups and exp_group in groups):
-                    ordering = get_syllable_mutation_ordering(complete_df, ctrl_group=ctrl_group,
-                                                              exp_group=exp_group, max_sylls=max_sylls,
-                                                              stat=stat)
-                else:
-                    print('You must enter valid control and experimental group names found in your trained model and index file.\nPlotting descending order.')
-                    ordering, _ = get_sorted_syllable_stat_ordering(complete_df, stat=stat)
-
-        if colors == None or len(colors) == 0:
-            colors = [None] * len(groups)
-        else:
-            if len(colors) < len(groups):
-                print(f'Number of inputted colors {len(colors)} does not match number of groups {len(groups)}. Using default.')
-                colors = [None] * len(groups)
-
-        return function(complete_df, stat=stat, ordering=ordering, max_sylls=max_sylls, groups=groups, colors=colors, figsize=figsize,
-                        *args, **kwargs)
-
-    return wrapped
-
-@check_types
-def plot_syll_stats_with_sem(complete_df, stat='usage', ordering=None, max_sylls=None, groups=None, ctrl_group=None,
-                             exp_group=None, colors=None, fmt='o-', figsize=(10, 5)):
+def plot_syll_stats_with_sem(complete_df, stat='usage', ordering='stat', max_sylls=40, groups=None, ctrl_group=None,
+                             exp_group=None, colors=None, fmt='o', figsize=(10, 5)):
     '''
     Plots a line and/or point-plot of a given pre-computed syllable statistic (usage, duration, or speed),
     with a SEM error bar with respect to the group.
@@ -496,8 +416,10 @@ def plot_syll_stats_with_sem(complete_df, stat='usage', ordering=None, max_sylls
     ----------
     complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
     stat (str): choice of statistic to plot: either usage, duration, or speed
-    ordering (str, list, None): "m" for mutated, f"{stat}" for descending ordering with respect to original usage ordering.
-    max_sylls (int): maximum number of syllable to include in plot
+    ordering (str, list, None): "stat" for sorting syllables by their average `stat`. "diff" for sorting syllables by
+        the difference in `stat` between `exp_group` and `ctrl_group`. If a list, the user should supply
+        the order of syllable labels to plot. If None, the original syllable IDs are used.
+    max_sylls (int): maximum number of syllable to include in plot. default: 40
     groups (list): list of groups to include in plot. If groups=None, all groups will be plotted.
     ctrl_group (str): name of control group to base mutation sorting on.
     exp_group (str): name of experimental group to base mutation sorting on.
@@ -511,40 +433,35 @@ def plot_syll_stats_with_sem(complete_df, stat='usage', ordering=None, max_sylls
     ax (pyplot axis): plotted scalar axis
     '''
 
+    ordering, groups, colors, figsize = _validate_and_order_syll_stats_params(complete_df, stat=stat, ordering=ordering, max_sylls=max_sylls, groups=groups, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, figsize=figsize)
+
     fig, ax = plt.subplots(1, 1, figsize=figsize)
 
-    # separates each group's usage data into a separate array element, and computes their respective group-marginalized SEM
-    # also reorders data if using mutant ordering
-    shift = -(len(groups) - 1) / 10
-    for i, group in tqdm(enumerate(groups), total=len(groups)):
-        data_df = complete_df[complete_df['group'] == group][['syllable', stat]].groupby('syllable',
-                                                                             as_index=False).mean().reindex(ordering)
-        sem = complete_df.groupby('syllable')[[stat]].sem()[:max_sylls].reindex(ordering)
-        # plot each group with their corresponding SEM error bars
-        plt.errorbar(np.asarray(range(max_sylls)) + shift, data_df[stat].to_numpy()[:max_sylls],
-                     yerr=sem[stat][:max_sylls], label=group, fmt=fmt, color=colors[i])
-        shift += 0.1
+    # plot each group's stat data separately, computes groupwise SEM, and orders data based on the stat/ordering parameters
+    hue = 'group' if groups is not None else None
+    ax = sns.pointplot(data=complete_df, x='syllable', y=stat, hue=hue, order=ordering,
+                       join=False, dodge=True, ci=68, markers=fmt, ax=ax, hue_order=groups,
+                       palette=colors)
 
     if stat == 'usage':
         ylabel = 'P(syllable)'
-        xlabel = 'usage'
     elif stat == 'duration':
         ylabel = 'Mean Syllable Sequence Frame Duration'
-        xlabel = 'duration'
     elif stat == 'speed':
         ylabel = 'Mean Syllable Speed (mm/s)'
-        xlabel = 'speed'
 
-    lgd = plt.legend(bbox_to_anchor=(1.1, 1.05),
-               ncol=1, fancybox=True, shadow=True, fontsize=16)
-    plt.xticks(range(max_sylls), ordering)
+    xlabel = f'Syllables sorted by {stat}'
+    if ordering == 'diff':
+        xlabel += ' difference'
+
+    legend = ax.legend(frameon=False, bbox_to_anchor=(1, 1))
     plt.ylabel(ylabel, fontsize=12)
-    plt.ylim()
-    plt.xlabel(f'Syllable Label (indexed by {xlabel})', fontsize=12)
+    plt.xlabel(xlabel, fontsize=12)
 
     sns.despine()
 
-    return fig, lgd
+    return fig, legend
+
 
 def plot_mean_group_heatmap(pdfs, groups):
     '''
@@ -565,7 +482,7 @@ def plot_mean_group_heatmap(pdfs, groups):
     fig = plt.figure(figsize=((20, 5)))
     gs = plt.GridSpec(1, len(uniq_groups))
 
-    for i, group in tqdm(enumerate(uniq_groups), total=len(uniq_groups)):
+    for i, group in enumerate(tqdm(uniq_groups)):
         subplot = fig.add_subplot(gs[i])
         idx = np.array(groups) == group
 

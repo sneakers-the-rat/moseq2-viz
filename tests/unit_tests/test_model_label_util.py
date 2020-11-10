@@ -3,8 +3,8 @@ import pandas as pd
 from unittest import TestCase
 from moseq2_viz.util import parse_index
 from moseq2_viz.model.util import results_to_dataframe
-from moseq2_viz.model.label_util import syll_onset, syll_duration, syll_id, to_df, \
-    get_syllable_mutation_ordering, get_sorted_syllable_stat_ordering
+from moseq2_viz.model.label_util import syll_onset, syll_duration, syll_id, labels_to_df, \
+    sort_syllables_by_stat_difference, sort_syllables_by_stat
 
 class TestTrainLabelUtils(TestCase):
 
@@ -41,8 +41,8 @@ class TestTrainLabelUtils(TestCase):
         labels = [0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 0, 0, 0, 0]
         pd_labels = pd.Series(labels)
 
-        out1 = to_df(labels, ('id1'))
-        out2 = to_df(pd_labels, ('id1'))
+        out1 = labels_to_df(labels, ('id1'))
+        out2 = labels_to_df(pd_labels, ('id1'))
 
         assert (isinstance(out1, pd.DataFrame))
         assert (isinstance(out2, pd.DataFrame))
@@ -63,8 +63,8 @@ class TestTrainLabelUtils(TestCase):
 
         complete_df, _ = results_to_dataframe(test_model, sorted_index)
 
-        new_ordering = get_syllable_mutation_ordering(complete_df, ctrl_group, exp_group, max_sylls=None, stat='usage')
-        ordering = get_sorted_syllable_stat_ordering(complete_df, stat='usage')
+        new_ordering = sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group, max_sylls=None, stat='usage')
+        ordering = sort_syllables_by_stat(complete_df, stat='usage')
 
         assert list(new_ordering) != list(range(40))
         assert list(new_ordering) != list(ordering)
@@ -83,7 +83,7 @@ class TestTrainLabelUtils(TestCase):
 
         complete_df, _ = results_to_dataframe(test_model, sorted_index)
 
-        ordering, relabel_mapping = get_sorted_syllable_stat_ordering(complete_df, stat='usage')
+        ordering, relabel_mapping = sort_syllables_by_stat(complete_df, stat='usage')
 
         assert list(relabel_mapping.keys()) == list(ordering)
         assert isinstance(relabel_mapping, dict)

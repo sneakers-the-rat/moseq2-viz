@@ -15,7 +15,7 @@ from moseq2_viz.model.trans_graph import _get_transitions
 from moseq2_viz.model.util import (relabel_by_usage, h5_to_dict, retrieve_pcs_from_slices,
     calculate_syllable_usage, compress_label_sequence, find_label_transitions, get_best_fit, 
     get_syllable_statistics, parse_model_results, merge_models, get_mouse_syllable_slices, compute_model_changepoints,
-    syllable_slices_from_dict, get_syllable_slices, calculate_label_durations, labels_to_changepoints,
+    syllable_slices_from_dict, get_syllable_slices, calculate_syllable_durations, labels_to_changepoints,
     results_to_dataframe, _gen_to_arr, normalize_pcs, _whiten_all, simulate_ar_trajectory, whiten_pcs,
     make_separate_crowd_movies, get_syllable_usages)
 
@@ -203,7 +203,7 @@ class TestModelUtils(TestCase):
         onsets = np.concatenate((indices, [np.asarray(labels).size]))
         durations = np.diff(onsets)
 
-        durs = calculate_label_durations(np.asarray(labels))
+        durs = calculate_syllable_durations(np.asarray(labels))
 
         assert all(durations[1:] == durs)
 

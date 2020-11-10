@@ -24,6 +24,7 @@ from moseq2_viz.util import h5_to_dict, star
 from moseq2_viz.model.trans_graph import _get_transitions
 from cytoolz import curry, valmap, compose, complement, itemmap, concat
 
+
 def merge_models(model_dir, ext='p',count='usage'):
     '''
     Merges model states by using the Hungarian Algorithm:
@@ -243,10 +244,6 @@ def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[sli
     return slices
 
 
-any_nan = compose(np.any, np.isnan)
-non_nan = complement(any_nan)
-
-
 @curry
 def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], index: Dict,
                               filter_nans: bool = True) -> Dict[str, list]:
@@ -264,6 +261,8 @@ def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], inde
     -------
     vals (dict): key-value pairs of syllable slices per session uuid.
     '''
+    any_nan = compose(np.any, np.isnan)
+    non_nan = complement(any_nan)
 
     getter = curry(get_mouse_syllable_slices)(syllable)
     vals = valmap(getter, labels)
@@ -280,7 +279,6 @@ def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], inde
         vals = itemmap(star(filter_score), vals)
 
     vals = valmap(list, vals)
-    # TODO: array length mismatch warnings?
     return vals
 
 
@@ -403,7 +401,7 @@ def compress_label_sequence(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
         raise TypeError('passed the wrong datatype')
 
 
-def calculate_label_durations(label_arr: Union[dict, np.ndarray]) -> Union[dict, np.ndarray]:
+def calculate_syllable_durations(label_arr: Union[dict, np.ndarray]) -> Union[dict, np.ndarray]:
     '''
     Calculates syllable label durations.
 
@@ -417,7 +415,7 @@ def calculate_label_durations(label_arr: Union[dict, np.ndarray]) -> Union[dict,
     '''
 
     if isinstance(label_arr, dict):
-        return valmap(calculate_label_durations, label_arr)
+        return valmap(calculate_syllable_durations, label_arr)
     elif isinstance(label_arr, np.ndarray):
         tmp = np.concatenate((label_arr, [-5]))
         inds = find_label_transitions(tmp)
@@ -438,11 +436,15 @@ def calculate_syllable_usage(labels: Union[dict, pd.DataFrame]):
     '''
 
     if isinstance(labels, pd.DataFrame):
-        usage_df = labels.syllable.value_counts()
+        if 'syllable' not in labels:
+            raise ValueError('dataframe does not contain the "syllables" column. Cannot compute usages')
+        usage_df = labels['syllable'].value_counts(normalize=True)
     elif isinstance(labels, (dict, OrderedDict)):
         syllables = concat(compress_label_sequence(labels).values())
-        usage_df = pd.Series(syllables).value_counts()
-    return dict(zip(usage_df.index.to_numpy(), usage_df.to_numpy()))
+        usage_df = pd.Series(syllables).value_counts(normalize=True)
+    else:
+        raise TypeError('labels parameter not dataframe or dict. Cannot use to compute syllable usages')
+    return usage_df
 
 
 def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'):
@@ -520,18 +522,18 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
     return usages, durations
 
 
-def labels_to_changepoints(labels, fs=30.):
+def labels_to_changepoints(labels, fs=30):
     '''
-    Compute the transition matrix from a set of model labels.
+    Compute syllable durations and combine into a "changepoint" distribution.
 
     Parameters
     ----------
-    labels (list of np.array of ints): labels loaded from a model fit.
+    labels (list of np.ndarray of ints): labels loaded from a model fit.
     fs (float): sampling rate of camera.
 
     Returns
     -------
-    cp_dist (list of np.array of floats): list of block durations per element in labels list.
+    cp_dist (np.ndarray of floats): list of block durations per element in labels list.
     '''
 
     cp_dist = []
@@ -1018,7 +1020,7 @@ def _gen_to_arr(generator: Iterator[Any]) -> np.ndarray:
 
     Returns
     -------
-    np.array(list(generator)) (np.array): numpy array of generated list.
+    arr (np.ndarray): numpy array of generated list.
     '''
 
     return np.array(list(generator))

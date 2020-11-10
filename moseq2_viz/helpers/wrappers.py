@@ -212,7 +212,7 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     plt_scalars, _ = scalar_plot(scalar_df, group_var=groupby, show_scalars=show_scalars, colors=colors, headless=True)
 
     # Save figures
-    save_fig(plt_scalars, output_file, name='{}_summary')
+    save_fig(plt_scalars, output_file, suffix='_summary')
 
     return scalar_df
 
@@ -484,7 +484,7 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
                                 index_file=index_file, output_dir=output_dir)
 
     # Ensuring movie separation parameter is found
-    if config_data.get('separate_by', '') is not None:
+    if config_data.get('separate_by', None) is not None:
         separate_by = config_data['separate_by'].lower()
     else:
         separate_by = 'default'

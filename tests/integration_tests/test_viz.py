@@ -200,12 +200,12 @@ class TestViz(TestCase):
 
         crowd_matrix = make_crowd_matrix(syllable_slices, rotate=True, center=True)
         print(crowd_matrix.shape)
-        assert crowd_matrix.shape[0] == 1060, "Crowd movie number of frames is incorrect"
-        assert crowd_matrix.shape == (1060, 424, 512), "Crowd movie resolution is incorrect"
-
-        crowd_matrix = make_crowd_matrix(syllable_slices, max_dur=None, nexamples=1)
         assert crowd_matrix.shape[0] == 62, "Crowd movie number of frames is incorrect"
         assert crowd_matrix.shape == (62, 424, 512), "Crowd movie resolution is incorrect"
+
+        crowd_matrix = make_crowd_matrix(syllable_slices, max_dur=None, nexamples=1)
+        assert crowd_matrix.shape[0] == 61, "Crowd movie number of frames is incorrect"
+        assert crowd_matrix.shape == (61, 424, 512), "Crowd movie resolution is incorrect"
 
     def test_position_plot(self):
         index_file = 'data/test_index_crowd.yaml'

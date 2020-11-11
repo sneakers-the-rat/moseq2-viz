@@ -205,6 +205,9 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
     if len(durs) == 0 or durs.max() < 0:
         return None
 
+    if durs.max() < max_dur:
+        max_dur = durs.max()
+
     crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype='uint8')
 
     count = 0

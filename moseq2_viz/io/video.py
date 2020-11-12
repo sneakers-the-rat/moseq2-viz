@@ -106,7 +106,7 @@ def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
 
     # Convert numpy dtypes to their corresponding primitives
     for k, v in info_dict.items():
-        if isinstance(v, (np.ndarray, np.generic)):
+        if isinstance(v, (np.generic)):
             info_dict[k] = info_dict[k].item()
 
     # Write metadata info file

@@ -393,7 +393,7 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
         labels = relabel_by_usage(labels, count=config_data['count'])[0]
 
     # Get modeled session uuids to compute group-mean transition graph for
-    group, label_group, label_uuids = get_trans_graph_groups(model_data, index, sorted_index)
+    group, label_group, label_uuids = get_trans_graph_groups(model_data, sorted_index)
 
     print('Computing transition matrices...')
     try:

@@ -29,7 +29,7 @@ class TestModelTransGraph(TestCase):
         model = parse_model_results(joblib.load(test_model))
         index, sorted_index = parse_index(test_index)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, index, sorted_index)
+        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
 
         assert group == ['Group1']
         assert label_group == ['Group1', 'Group1']
@@ -43,7 +43,7 @@ class TestModelTransGraph(TestCase):
         model = parse_model_results(joblib.load(test_model))
         index, sorted_index = parse_index(test_index)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, index, sorted_index)
+        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
 
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
 
@@ -63,7 +63,7 @@ class TestModelTransGraph(TestCase):
         model = parse_model_results(joblib.load(test_model))
         index, sorted_index = parse_index(test_index)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, index, sorted_index)
+        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
 
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
         fig, _, _ = graph_transition_matrix(trans_mats,
@@ -228,7 +228,7 @@ class TestModelTransGraph(TestCase):
         model = parse_model_results(joblib.load(test_model))
         index, sorted_index = parse_index(test_index)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, index, sorted_index)
+        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
 
         usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')[1]
 
@@ -245,7 +245,7 @@ class TestModelTransGraph(TestCase):
         model = parse_model_results(joblib.load(test_model))
         index, sorted_index = parse_index(test_index)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, index, sorted_index)
+        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
 
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
 
@@ -265,7 +265,7 @@ class TestModelTransGraph(TestCase):
         model = parse_model_results(joblib.load(test_model))
         index, sorted_index = parse_index(test_index)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, index, sorted_index)
+        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
 
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
 
@@ -293,7 +293,7 @@ class TestModelTransGraph(TestCase):
         model = parse_model_results(joblib.load(test_model))
         index, sorted_index = parse_index(test_index)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, index, sorted_index)
+        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
         group += ['Group2']
         label_group[1] = 'Group2'
         group_names = group.copy()
@@ -331,7 +331,7 @@ class TestModelTransGraph(TestCase):
         model = parse_model_results(joblib.load(test_model))
         index, sorted_index = parse_index(test_index)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, index, sorted_index)
+        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
         group += ['Group2']
         label_group[1] = 'Group2'
         group_names = group.copy()
@@ -372,7 +372,7 @@ class TestModelTransGraph(TestCase):
         model = parse_model_results(joblib.load(test_model))
         index, sorted_index = parse_index(test_index)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, index, sorted_index)
+        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
 
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
 
@@ -406,7 +406,7 @@ class TestModelTransGraph(TestCase):
         model = parse_model_results(joblib.load(test_model))
         index, sorted_index = parse_index(test_index)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, index, sorted_index)
+        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
         group += ['Group2']
         label_group[1] = 'Group2'
         group_names = group.copy()
@@ -453,7 +453,7 @@ class TestModelTransGraph(TestCase):
         model = parse_model_results(joblib.load(test_model))
         index, sorted_index = parse_index(test_index)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, index, sorted_index)
+        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
         group += ['Group2']
         label_group[1] = 'Group2'
 

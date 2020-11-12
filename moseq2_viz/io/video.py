@@ -63,7 +63,7 @@ def check_video_parameters(index: dict) -> dict:
     # if there are multiple values for a parameter, raise error
     if incorrect_parameters:
         raise RuntimeError('The following parameters are not equal ' +
-                           f'across extractions: {incorrect_parameters.keys()}')
+                           f'across extractions: {list(incorrect_parameters)}')
 
     # grab the first value in the set
     vid_parameters = valmap(first, vid_parameters)
@@ -106,7 +106,7 @@ def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
 
     # Convert numpy dtypes to their corresponding primitives
     for k, v in info_dict.items():
-        if isinstance(v, (np.generic)):
+        if isinstance(v, np.generic):
             info_dict[k] = info_dict[k].item()
 
     # Write metadata info file
@@ -159,6 +159,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
                             index=sorted_index)
         
         with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
             slices = list(tqdm(pool.imap(slice_fun, config_data['crowd_syllables']),
                                total=config_data.get('max_syllable', 40), desc='Getting Syllable Slices',
                                disable=not progress_bar))
@@ -177,6 +178,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
 
         # Compute crowd matrices
         with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
             # creating crowd matrices
             crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=len(config_data['crowd_syllables']),
                                        desc='Getting Crowd Matrices', disable=not progress_bar))

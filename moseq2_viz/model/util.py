@@ -282,32 +282,33 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
     is a tuple of (slice, uuid, h5_file).
     '''
 
-    try:
-        h5s = [v['path'][0] for v in index['files'].values()]
-        h5_uuids = list(index['files'].keys())
-    except:
-        h5s = [v['path'][0] for v in index['files']]
-        h5_uuids = [v['uuid'] for v in index['files']]
-
+    if isinstance(index['files'], (dict, OrderedDict)):
+        h5s = {k: v['path'][0] for k, v in index['files'].items()}
+    elif isinstance(index['files'], (tuple, list, np.ndarray)):
+        h5s = {v['uuid']: v['path'][0] for v in index['files']}
+    else:
+        raise TypeError('"files" key in index not readable')
 
     # grab the original indices from the pca file as well...
     if trim_nans:
         with h5py.File(index['pca_path'], 'r') as f:
             score_idx = h5_to_dict(f, 'scores_idx')
 
-    sorted_h5s = [h5s[h5_uuids.index(uuid)] for uuid in label_uuids]
     syllable_slices = []
 
-    for label_arr, label_uuid, h5 in zip(labels, label_uuids, sorted_h5s):
+    for label_arr, label_uuid in zip(labels, label_uuids):
+        h5 = h5s[label_uuid]
 
         if trim_nans:
             idx = score_idx[label_uuid]
 
             if len(idx) > len(label_arr):
-                warnings.warn(f'Index length {len(idx)} and label array length {len(label_arr)} in {h5}')
+                warnings.warn(f'Index length {len(idx)} and label array length {len(label_arr)} in {h5}.'
+                               ' Setting index length to label array length.')
                 idx = idx[:len(label_arr)]
             elif len(idx) < len(label_arr):
-                warnings.warn(f'Index length {len(idx)} and label array length {len(label_arr)} in {h5}')
+                warnings.warn(f'Index length {len(idx)} and label array length {len(label_arr)} in {h5}.'
+                               ' Skipping trim for this session.')
                 continue
 
             missing_frames = np.where(np.isnan(idx))[0]
@@ -562,10 +563,9 @@ def parse_batch_modeling(filename):
                           for fname in f['filenames']],
             'labels': np.squeeze(f['labels'][()]),
             'loglikes': np.squeeze(f['metadata/loglikes'][()]),
-            'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list']]
+            'label_uuids': [str(_, 'utf-8') for _ in f['/metadata/train_list']],
+            'scan_parameters': dict((x, get(x, params, None)) for x in scans)
         }
-
-        results_dict['scan_parameters'] = dict((x, get(x, params, None)) for x in scans)
 
     return results_dict
 
@@ -664,6 +664,7 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 
     return sorted_labels, sorting
 
+# TODO: figure out the difference between this and `results_to_dataframe`
 def get_frame_label_df(labels, uuids, groups):
     '''
     Returns a DataFrame with rows for each session, frame indices as columns,
@@ -683,7 +684,7 @@ def get_frame_label_df(labels, uuids, groups):
 
     '''
 
-    total_columns = len(max(labels, key=len))
+    total_columns = max(map(len, labels))
     label_df = pd.DataFrame(labels, columns=range(total_columns), index=[groups, uuids])
     return label_df
 
@@ -853,7 +854,7 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
     filename_index (list): list of filenames associated with each model.
     '''
 
-    parameters = np.hstack(kwargs.values())
+    parameters = np.hstack(list(kwargs.values()))
     param_sets = np.unique(parameters, axis=0)
     param_dict = {k: np.unique(v[np.isfinite(v)]) for k, v in kwargs.items()}
 
@@ -1093,11 +1094,12 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, la
 
     cm_paths = {}
     for k, v in group_keys.items():
+        # TODO: figure out what is going on here
         # Filter group labels to pair with respective UUIDs
         group_labels = np.array(labels)[v]
         group_label_uuids = np.array(label_uuids)[v]
 
-        if sessions == True:
+        if sessions:
             group_labels = [group_labels]
             group_label_uuids = [group_label_uuids]
 

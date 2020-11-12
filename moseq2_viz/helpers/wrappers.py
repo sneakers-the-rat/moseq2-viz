@@ -23,8 +23,8 @@ from moseq2_viz.scalars.util import (scalars_to_dataframe, compute_mean_syll_sca
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, plot_mean_group_heatmap,
                             plot_verbose_heatmap, save_fig, plot_cp_comparison)
 from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models,
-                                   results_to_dataframe, get_best_fit, compute_model_changepoints,
-                                   make_separate_crowd_movies)
+                                   results_to_dataframe, get_best_fit,
+                                   make_separate_crowd_movies, labels_to_changepoints)
 
 def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, output_file=None):
     '''
@@ -156,7 +156,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     model_results = {}
     for model_name in models:
         model_results[model_name] = parse_model_results(joblib.load(join(model_dir, model_name)))
-        model_results[model_name]['changepoints'] = compute_model_changepoints(model_results[model_name], fps=fps)
+        model_results[model_name]['changepoints'] = labels_to_changepoints(model_results[model_name]['labels'], fps=fps)
 
     # Find the best fit model by comparing their median durations with the PC scores changepoints
     best_model, pca_changepoints = get_best_fit(cp_file, model_results)

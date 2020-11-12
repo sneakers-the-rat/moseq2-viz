@@ -117,7 +117,7 @@ def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
 
     return plt
 
-def _get_transitions(label_sequence):
+def get_transitions(label_sequence):
     '''
     Computes labels switch to another label. Throws out the first state (usually
     labeled as -5).
@@ -140,7 +140,7 @@ def _get_transitions(label_sequence):
 
     return transitions, locs
 
-def normalize_matrix(init_matrix, normalize):
+def normalize_transition_matrix(init_matrix, normalize):
     '''
     Normalizes a transition matrix by given criteria.
 
@@ -194,14 +194,14 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
 
         for v in labels:
             # Get syllable transitions
-            transitions = _get_transitions(v)[0]
+            transitions = get_transitions(v)[0]
 
             # Populate matrix array with transition data
             for (i, j) in zip(transitions, transitions[1:]):
                 if i <= max_syllable and j <= max_syllable:
                     init_matrix[i, j] += 1
 
-            init_matrix = normalize_matrix(init_matrix, normalize)
+            init_matrix = normalize_transition_matrix(init_matrix, normalize)
 
         all_mats = init_matrix
     else:
@@ -211,7 +211,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
             init_matrix = np.zeros((max_syllable + 1, max_syllable + 1), dtype='float32') + smoothing
 
             # Get syllable transitions
-            transitions = _get_transitions(v)[0]
+            transitions = get_transitions(v)[0]
 
             # Populate matrix array with transition data
             for (i, j) in zip(transitions, transitions[1:]):
@@ -219,7 +219,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
                     init_matrix[i, j] += 1
 
             # Normalize matrix
-            init_matrix = normalize_matrix(init_matrix, normalize)
+            init_matrix = normalize_transition_matrix(init_matrix, normalize)
             all_mats.append(init_matrix)
 
     return all_mats

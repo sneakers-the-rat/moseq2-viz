@@ -21,7 +21,7 @@ from collections import defaultdict, OrderedDict
 from scipy.optimize import linear_sum_assignment
 from os.path import join, basename, dirname, exists
 from moseq2_viz.util import h5_to_dict, star
-from moseq2_viz.model.trans_graph import _get_transitions
+from moseq2_viz.model.trans_graph import get_transitions
 from cytoolz import curry, valmap, compose, complement, itemmap, concat
 
 
@@ -122,7 +122,7 @@ def get_best_fit(cp_path, model_results):
     pca_cps = np.concatenate([np.diff(cp, axis=0) for k, cp in cps.items()]).flatten()
     
     best_model = None
-    min_dist = 9999999
+    min_dist = np.inf
     
     for model in model_results.keys():
         # Load current models changepoints
@@ -141,26 +141,6 @@ def get_best_fit(cp_path, model_results):
         
     return best_model, pca_cps
 
-def compute_model_changepoints(model, fps=30.):
-    '''
-    Computes the given trained model's syllable label changepoints.
-
-    Parameters
-    ----------
-    model (dict): dict of parsed trained model results.
-    fps (int): frames per second.
-
-    Returns
-    -------
-    model_cps (1d np.array): 1-dimensional list of syllable block durations.
-    '''
-
-    model_cps = []
-    for _labels in model["labels"]:
-        locs = _get_transitions(_labels)[1] / fps
-        model_cps += list(np.diff(locs))
-
-    return np.array(model_cps)
 
 def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
     '''
@@ -355,7 +335,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
     return syllable_slices
 
 
-def find_label_transitions(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
+def find_label_transitions(label_arr: Union[dict, np.ndarray, pd.Series]) -> np.ndarray:
     '''
     Finds indices where a label transitions into another label. This
     function is cached to increase performance because it is called frequently.
@@ -371,14 +351,14 @@ def find_label_transitions(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
 
     if isinstance(label_arr, dict):
         return valmap(find_label_transitions, label_arr)
-    elif isinstance(label_arr, np.ndarray):
+    elif isinstance(label_arr, (np.ndarray, pd.Series)):
         inds = np.where(np.diff(label_arr) != 0)[0] + 1
         return inds
     else:
         raise TypeError('passed the wrong datatype')
 
 
-def compress_label_sequence(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
+def compress_label_sequence(label_arr: Union[dict, np.ndarray, pd.Series]) -> np.ndarray:
     '''
     Removes repeating values from a label sequence. It assumes the first
     label is '-5', which is unused for behavioral analysis, and removes it.
@@ -394,7 +374,7 @@ def compress_label_sequence(label_arr: Union[dict, np.ndarray]) -> np.ndarray:
 
     if isinstance(label_arr, dict):
         return valmap(compress_label_sequence, label_arr)
-    elif isinstance(label_arr, np.ndarray):
+    elif isinstance(label_arr, (np.ndarray, pd.Series)):
         inds = find_label_transitions(label_arr)
         return label_arr[inds]
     else:
@@ -422,26 +402,38 @@ def calculate_syllable_durations(label_arr: Union[dict, np.ndarray]) -> Union[di
         return np.diff(inds)
 
 
-def calculate_syllable_usage(labels: Union[dict, pd.DataFrame]):
+def calculate_syllable_usage(labels: Union[dict, pd.DataFrame], usage_type='rle', normalize=False):
     '''
     Calculates a dictionary of uuid to syllable usage key-values pairs.
 
     Parameters
     ----------
     label_arr (dict or pd.DataFrame): list or DataFrame of predicted syllable labels.
+    usage_type (str): either rle (run-length encoding or syllable trials) or occupancy
+        (number of frames a syllable occupies)
+    normalize (bool): if True, normalizes syllable usages so that they sum to 1.
 
     Returns
     -------
     (dict): dictionary of syllable usage probabilities.
     '''
+    if usage_type not in ('rle', 'occupancy'):
+        raise ValueError(f'usage_type must be "rle" or "occupancy". You entered "{usage_type}"')
 
     if isinstance(labels, pd.DataFrame):
         if 'syllable' not in labels:
             raise ValueError('dataframe does not contain the "syllables" column. Cannot compute usages')
-        usage_df = labels['syllable'].value_counts(normalize=True)
+        if usage_type == 'rle':
+            usage_df = pd.Series(compress_label_sequence(labels['syllable'])).value_counts(normalize=normalize)
+        else:
+            usage_df = labels['syllable'].value_counts(normalize=normalize)
+    elif isinstance(labels, (pd.Series, np.ndarray)):
+        if usage_type == 'rle':
+            usage_df = pd.Series(compress_label_sequence(labels)).value_counts(normalize=normalize)
+        else:
+            usage_df = pd.Series(labels).value_counts(normalize=normalize)
     elif isinstance(labels, (dict, OrderedDict)):
-        syllables = concat(compress_label_sequence(labels).values())
-        usage_df = pd.Series(syllables).value_counts(normalize=True)
+        return valmap(calculate_syllable_usage, labels)
     else:
         raise TypeError('labels parameter not dataframe or dict. Cannot use to compute syllable usages')
     return usage_df
@@ -483,7 +475,7 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
     if isinstance(data, list) or (isinstance(data, np.ndarray) and data.dtype == np.object):
 
         for v in data:
-            seq_array, locs = _get_transitions(v)
+            seq_array, locs = get_transitions(v)
             to_rem = np.where(np.logical_or(seq_array > max_syllable,
                                             seq_array == fill_value))
 
@@ -500,7 +492,7 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
 
     else:#elif type(data) is np.ndarray and data.dtype == 'int16':
 
-        seq_array, locs = _get_transitions(data)
+        seq_array, locs = get_transitions(data)
         to_rem = np.where(seq_array > max_syllable)[0]
 
         seq_array = np.delete(seq_array, to_rem)
@@ -539,7 +531,7 @@ def labels_to_changepoints(labels, fs=30):
     cp_dist = []
 
     for lab in labels:
-        cp_dist.append(np.diff(_get_transitions(lab)[1].squeeze()) / fs)
+        cp_dist.append(np.diff(get_transitions(lab)[1].squeeze()) / fs)
 
     return np.concatenate(cp_dist)
 
@@ -966,10 +958,12 @@ def whiten_pcs(pca_scores, method='all', center=True):
     return whitened_scores
 
 
-def normalize_pcs(pca_scores: dict, method: str = 'z') -> dict:
+def normalize_pcs(pca_scores: dict, method: str = 'zscore') -> dict:
     '''
     Normalize PC scores. Options are: demean, zscore, ind-zscore.
+    zscore: standardize pc scores using all data
     demean: subtract the mean from each score.
+    ind-zscore: zscore each session independently
 
     Parameters
     ----------
@@ -980,30 +974,23 @@ def normalize_pcs(pca_scores: dict, method: str = 'z') -> dict:
     -------
     norm_scores (dict): a dictionary of normalized PC scores.
     '''
+    if method not in ('zscore', 'demean', 'ind-zscore'):
+        raise ValueError(f'normalization {method} not supported. Please use: "zscore", "demean", or "ind-zscore"')
 
     norm_scores = deepcopy(pca_scores)
-    if method.lower()[0] == 'z':
+    if method.lower() == 'zscore':
         all_values = np.concatenate(list(norm_scores.values()), axis=0)
         mu = np.nanmean(all_values, axis=0)
         sig = np.nanstd(all_values, axis=0)
+        norm_scores = valmap(lambda v: (v - mu) / sig, norm_scores)
         for k, v in norm_scores.items():
             norm_scores[k] = (v - mu) / sig
-    elif method.lower()[0] == 'm':
+    elif method.lower() == 'demean':
         all_values = np.concatenate(list(norm_scores.values()), axis=0)
         mu = np.nanmean(all_values, axis=0)
-        for k, v in norm_scores.items():
-            norm_scores[k] = v - mu
+        norm_scores = valmap(lambda v: v - mu, norm_scores)
     elif method == 'ind-zscore':
-        for k, v in norm_scores.items():
-            norm_scores[k] = (v - np.nanmean(v)) / np.nanstd(v)
-    else:
-        print('Using default: z-score')
-        all_values = np.concatenate(list(norm_scores.values()), axis=0)
-        mu = np.nanmean(all_values, axis=0)
-        sig = np.nanstd(all_values, axis=0)
-        for k, v in norm_scores.items():
-            norm_scores[k] = (v - mu) / sig
-
+        norm_scores = valmap(lambda v: (v - np.nanmean(v, axis=0)) / np.nanstd(v, axis=0), norm_scores)
 
     return norm_scores
 

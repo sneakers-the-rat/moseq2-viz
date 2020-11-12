@@ -11,7 +11,7 @@ from moseq2_viz.util import parse_index, read_yaml
 from moseq2_viz.model.util import parse_model_results
 from moseq2_viz.model.trans_graph import get_pos, get_usage_dict, get_trans_graph_groups, \
     get_group_trans_mats, get_transition_matrix, graph_transition_matrix, get_stat_thresholded_ebunch, \
-    _get_transitions, make_transition_graphs, make_difference_graphs, make_graph, draw_graph, normalize_matrix, \
+    get_transitions, make_transition_graphs, make_difference_graphs, make_graph, draw_graph, normalize_transition_matrix, \
     convert_ebunch_to_graph, convert_transition_matrix_to_ebunch, compute_and_graph_grouped_TMs, floatRgb, \
     threshold_edges, handle_graph_layout
 
@@ -81,12 +81,12 @@ class TestModelTransGraph(TestCase):
         test_model = 'data/test_model.p'
         model = parse_model_results(joblib.load(test_model))
 
-        transitions, locs = _get_transitions(model['labels'][0])
+        transitions, locs = get_transitions(model['labels'][0])
 
         assert len(transitions) == 859
         assert len(locs) == 859
 
-        transitions, locs = _get_transitions(model['labels'][1])
+        transitions, locs = get_transitions(model['labels'][1])
 
         assert len(transitions) == 859
         assert len(locs) == 859
@@ -95,7 +95,7 @@ class TestModelTransGraph(TestCase):
         durs = [3, 4, 2, 6, 7]
         arr = make_sequence(true_labels, durs)
 
-        trans, locs = _get_transitions(arr)
+        trans, locs = get_transitions(arr)
 
         assert true_labels[1:] == list(trans), 'syllable labels do not match with the transitions'
         assert list(np.diff(locs)) == durs[1:-1], 'syllable locations do not match their durations'
@@ -113,7 +113,7 @@ class TestModelTransGraph(TestCase):
 
         for v in model['labels']:
             # Get syllable transitions
-            transitions = _get_transitions(v)[0]
+            transitions = get_transitions(v)[0]
 
             # Populate matrix array with transition data
             for (i, j) in zip(transitions, transitions[1:]):
@@ -121,7 +121,7 @@ class TestModelTransGraph(TestCase):
                     init_matrix[i, j] += 1
 
         for norm in normalizations:
-            normed_mtx = normalize_matrix(deepcopy(init_matrix), norm)
+            normed_mtx = normalize_transition_matrix(deepcopy(init_matrix), norm)
             assert np.any(np.not_equal(init_matrix, normed_mtx))
 
     def test_get_transition_matrix(self):

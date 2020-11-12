@@ -15,7 +15,7 @@ from multiprocessing import Pool
 from collections import defaultdict
 from os.path import join, exists, dirname
 from sklearn.neighbors import KernelDensity
-from moseq2_viz.model.util import _get_transitions
+from moseq2_viz.model.util import get_transitions
 from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
                              h5_filepath_from_sorted, get_timestamps_from_h5)
 
@@ -287,7 +287,7 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
     for k, v in scalar_map.items():
 
         labels = model_labels[k]
-        seq_array, locs = _get_transitions(labels)
+        seq_array, locs = get_transitions(labels)
 
         for i in range(max_syllable):
             hits = locs[np.where(seq_array == i)[0]]

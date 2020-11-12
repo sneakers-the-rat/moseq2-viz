@@ -90,6 +90,7 @@ def add_group_wrapper(index_file, config_data):
     -------
     None
     '''
+    new_index_path = f'{index_file.replace(".yaml", "")}_update.yaml'
 
     # Read index file contents
     index = parse_index(index_file)[0]
@@ -99,7 +100,7 @@ def add_group_wrapper(index_file, config_data):
     value = config_data['value']
     key = config_data['key']
 
-    if type(value) is str:
+    if isinstance(value, str):
         value = [value]
 
     # Search for inputted key-value pair and relabel all found instances in index
@@ -116,15 +117,11 @@ def add_group_wrapper(index_file, config_data):
             if hit:
                 index['files'][position]['group'] = config_data['group']
 
-    # Atomically write updated index file
-    new_index = f'{index_file.replace(".yaml", "")}_update.yaml'
 
-    try:
-        with open(new_index, 'w+') as f:
-            yaml.safe_dump(index, f)
-        shutil.move(new_index, index_file)
-    except Exception:
-        raise Exception
+    # Atomically write updated index file
+    with open(new_index_path, 'w+') as f:
+        yaml.safe_dump(index, f)
+    shutil.move(new_index_path, index_file)
 
     print('Group(s) added successfully.')
 
@@ -393,7 +390,7 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
         labels = relabel_by_usage(labels, count=config_data['count'])[0]
 
     # Get modeled session uuids to compute group-mean transition graph for
-    group, label_group, label_uuids = get_trans_graph_groups(model_data, sorted_index)
+    group, label_group, label_uuids = get_trans_graph_groups(model_data, index, sorted_index)
 
     print('Computing transition matrices...')
     try:

@@ -143,22 +143,24 @@ def normalize_transition_matrix(init_matrix, normalize):
     Parameters
     ----------
     init_matrix (2D np.array): transition matrix to normalize.
-    normalize (str): normalization criteria; ['bigram', 'rows', 'columns']
+    normalize (str): normalization criteria; ['bigram', 'rows', 'columns', or None]
 
     Returns
     -------
     init_matrix (2D np.array): normalized transition matrix
     '''
-    warnings.filterwarnings('ignore')
+    if normalize is None or normalize not in ('bigram', 'rows', 'columns'):
+        return init_matrix
 
-    if normalize == 'bigram':
-        init_matrix /= init_matrix.sum()
-    elif normalize == 'rows':
-        init_matrix /= init_matrix.sum(axis=1, keepdims=True)
-    elif normalize == 'columns':
-        init_matrix /= init_matrix.sum(axis=0, keepdims=True)
-    else:
-        pass
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore')
+
+        if normalize == 'bigram':
+            init_matrix /= init_matrix.sum()
+        elif normalize == 'rows':
+            init_matrix /= init_matrix.sum(axis=1, keepdims=True)
+        elif normalize == 'columns':
+            init_matrix /= init_matrix.sum(axis=0, keepdims=True)
 
     return init_matrix
 

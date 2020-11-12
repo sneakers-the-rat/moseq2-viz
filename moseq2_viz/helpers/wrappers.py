@@ -153,7 +153,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     model_results = {}
     for model_name in models:
         model_results[model_name] = parse_model_results(joblib.load(join(model_dir, model_name)))
-        model_results[model_name]['changepoints'] = labels_to_changepoints(model_results[model_name]['labels'], fps=fps)
+        model_results[model_name]['changepoints'] = labels_to_changepoints(model_results[model_name]['labels'], fs=fps)
 
     # Find the best fit model by comparing their median durations with the PC scores changepoints
     best_model, pca_changepoints = get_best_fit(cp_file, model_results)

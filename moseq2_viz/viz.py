@@ -408,6 +408,12 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
     g.set_titles(template='{col_name}')
     for row_name, a in zip(show_scalars, g.axes[:, 0]):
         a.set_ylabel(row_name)
+
+    # rotate x-axis labels
+    for ax in g.axes.flat:
+        for label in ax.get_xticklabels():
+            label.set_rotation(45)
+
     g.fig.tight_layout()
 
     return g.fig, g.axes

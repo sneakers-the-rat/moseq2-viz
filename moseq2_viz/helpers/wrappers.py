@@ -491,7 +491,8 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     # Optionally generate crowd movies from independent sources, i.e. groups, or individual sessions.
     if separate_by == 'groups':
         # Get the groups to separate the arrays by
-        groups = list(set(model_fit['metadata']['groups']))
+        groups = list(set(model_fit['metadata']['groups'].values()))
+
         if len(groups) == 0:
             # Load groups from index file if groups not found in model
             groups = list(set([v['group'] for v in sorted_index['files'].values()]))

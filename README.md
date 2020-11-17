@@ -29,6 +29,11 @@ Commands:
   plot-verbose-position-heatmaps  Plots a position heatmap for each session...
 ```
 
+### Exclusive GUI Function
+```
+  get_groups_command(index_file)  Prints the given index file's current session metadata groupings.
+```
+
 Run any command with the `--help` flag to display all available options and their descriptions.
 
 ## Documentation

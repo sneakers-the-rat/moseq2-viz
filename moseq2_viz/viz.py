@@ -559,8 +559,8 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
 
 def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
     '''
-    Plot the changepoint-duration distributions of a given 1D arrays of model
-     and principal component changepoints.
+    Plot the duration distributions for model labels and
+    principal component changepoints.
 
     Parameters
     ----------

@@ -11,6 +11,7 @@ import h5py
 import shutil
 import psutil
 import joblib
+from glob import glob
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
@@ -147,7 +148,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     '''
 
     # Get models
-    models = [f for f in os.listdir(model_dir) if f.endswith(ext)]
+    models = glob(join(model_dir, f'*.{ext}'), recursive=True)
 
     # Load models into a single dict and compute their changepoints
     model_results = {}

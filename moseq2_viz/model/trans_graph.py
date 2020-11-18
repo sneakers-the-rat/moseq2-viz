@@ -201,7 +201,7 @@ def get_transition_matrix(labels, max_syllable=99, normalize='bigram',
     if combine:
         init_matrix = []
 
-        for v in tqdm(labels, disample=disable_output):
+        for v in tqdm(labels, disable=disable_output):
             # Get syllable transitions
             transitions = get_transitions(v)[0]
 

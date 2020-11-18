@@ -47,7 +47,7 @@ def add_group(index_file, **config_data):
 @click.argument('cp-path', type=click.Path(exists=True, resolve_path=True))
 @click.argument('output-file', type=click.Path(exists=False, resolve_path=True))
 @click.option('--plot-all', is_flag=True, help="Plot all included model results")
-@click.option('--ext', type=str, default='.p', help="Model extensions found in input directory")
+@click.option('--ext', type=str, default='p', help="Model extensions found in input directory")
 @click.option('--fps', type=int, default=30, help="Frames per second")
 def get_best_fit_model(model_dir, cp_path, output_file, plot_all, ext, fps):
 

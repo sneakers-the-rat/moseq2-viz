@@ -11,6 +11,7 @@ import h5py
 import shutil
 import psutil
 import joblib
+import numpy as np
 from glob import glob
 from sys import platform
 import ruamel.yaml as yaml
@@ -150,6 +151,8 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
 
     # Get models
     models = glob(join(model_dir, f'*.{ext}'), recursive=True)
+
+    print(f'Found {len(models)} models in given input folder: {model_dir}')
 
     # Load models into a single dict and compute their changepoints
     model_results = {}

@@ -600,9 +600,16 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
             else:
                 kappa = 'default'
 
-            sns.distplot(model_results[k]['changepoints'], ax=ax, kde_kws={'gridsize': 600, 'linestyle': ls, 'alpha': alpha},
-                         hist_kws={'alpha': .2}, bins=np.linspace(0, 4, 100), hist=False, kde=True,
-                         color=sns.color_palette('dark')[i], label=f'Model Changepoints Kappa={kappa}')
+            try:
+                sns.distplot(model_results[k]['changepoints'], ax=ax, kde_kws={'gridsize': 600, 'linestyle': ls, 'alpha': alpha},
+                             hist_kws={'alpha': .2}, bins=np.linspace(0, 4, 100), hist=False, kde=True,
+                             color=sns.color_palette('dark')[i], label=f'Model Changepoints Kappa={kappa}')
+            except RuntimeError:
+                # if seaborn cannot automatically estimate the bandwidth, it will be manually set.
+                sns.distplot(model_results[k]['changepoints'], ax=ax,
+                             kde_kws={'gridsize': 600, 'linestyle': ls, 'alpha': alpha, 'bw': 0.1},
+                             hist_kws={'alpha': .2}, bins=np.linspace(0, 4, 100), hist=False, kde=True,
+                             color=sns.color_palette('dark')[i], label=f'Model Changepoints Kappa={kappa}')
 
     # Format plot
     plt.xlim(0, 2)

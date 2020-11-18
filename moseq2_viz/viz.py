@@ -215,8 +215,8 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
     xc0 = crop_size[1] // 2
     yc0 = crop_size[0] // 2
 
-    xc = np.array(list(range(-xc0, +xc0 + 1)), dtype='int16')
-    yc = np.array(list(range(-yc0, +yc0 + 1)), dtype='int16')
+    xc = np.array(list(range(-xc0, xc0 + 1)), dtype='int16')
+    yc = np.array(list(range(-yc0, yc0 + 1)), dtype='int16')
 
     for idx, uuid, fname in use_slices:
 
@@ -230,9 +230,9 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
         if use_idx[0] < 0 or use_idx[1] >= nframes - 1:
             continue
 
-        if 'centroid_x' in h5['scalars'].keys():
+        if 'centroid_x' in h5['scalars']:
             use_names = ('scalars/centroid_x', 'scalars/centroid_y')
-        elif 'centroid_x_px' in h5['scalars'].keys():
+        elif 'centroid_x_px' in h5['scalars']:
             use_names = ('scalars/centroid_x_px', 'scalars/centroid_y_px')
 
         centroid_x = h5[use_names[0]][use_idx[0]:use_idx[1]] + offset[0]

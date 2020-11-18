@@ -7,6 +7,7 @@ General utility functions to facilitate loading and organizing data.
 import re
 import os
 import h5py
+import joblib
 import numpy as np
 from glob import glob
 import ruamel.yaml as yaml
@@ -15,6 +16,7 @@ from cytoolz.curried import valmap
 from cytoolz.dicttoolz import dissoc, assoc
 from cytoolz.itertoolz import first, groupby
 from os.path import join, exists, dirname, splitext
+from moseq2_viz.model.util import parse_model_results
 
 
 def camel_to_snake(s):
@@ -415,3 +417,28 @@ def star(f, args):
     '''
 
     return f(*args)
+
+
+def assert_model_and_index_uuids_match(model, index):
+    '''
+    Asserts that both the model and index file contain the same set of UUIDs.
+
+    Parameters
+    ----------
+    model (str or dict): if str, must be a path to the model. If dict, it contains the
+        model data after parsing the model results
+    index (str or dict): if str, must be a path to the index file. If dict, it contains
+        the parsed and sorted index.
+    '''
+    if isinstance(model, str) and exists(model):
+        # Load the model
+        model = parse_model_results(joblib.load(model))
+    if isinstance(index, str) and exists(index):
+        # Read index file
+        index = get_sorted_index(index)
+
+    index_uuids = set(index['files'])
+    model_uuids = set(model['metadata']['uuids'])
+
+    assert index_uuids == model_uuids, 'Index file UUIDS must match the model UUIDs.'
+    

@@ -111,7 +111,7 @@ def copy_h5_metadata_to_yaml_command(input_dir, h5_metadata_path):
 
     copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path)
 
-def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30):
+def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30, ext='p'):
     '''
     Given a directory containing multiple models, and the path to the pca scores they were trained on,
      this function returns the path to the model that has the closest median syllable duration to that of
@@ -139,7 +139,8 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30)
     changepoint_path = join(progress_paths['pca_dirname'], progress_paths['changepoints_path'] + '.h5')
 
     # Get best fit model and plot requested curves
-    best_fit_model, fig = get_best_fit_model_wrapper(model_dir, changepoint_path, output_file, plot_all=plot_all, fps=fps)
+    best_fit_model, fig = get_best_fit_model_wrapper(model_dir, changepoint_path, output_file,
+                                                     plot_all=plot_all, ext=ext, fps=fps)
     fig.show(warn=False)
 
     return best_fit_model

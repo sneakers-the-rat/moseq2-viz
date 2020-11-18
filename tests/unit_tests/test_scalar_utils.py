@@ -221,7 +221,6 @@ class TestScalarUtils(TestCase):
 
     def test_scalars_to_dataframe(self):
         index_file = 'data/test_index.yaml'
-        model_file = 'data/mock_model.p'
 
         df_cols = ['angle', 'area_mm', 'area_px', 'centroid_x_mm', 'centroid_x_px',
        'centroid_y_mm', 'centroid_y_px', 'height_ave_mm', 'length_mm',

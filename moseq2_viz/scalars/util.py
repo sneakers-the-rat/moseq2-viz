@@ -519,6 +519,9 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     scalar_dict = defaultdict(list)
 
     files = index['files']
+    pca_path = index['pca_path']
+
+    scores_dict = h5_to_dict(pca_path)
     # use dset from first animal to generate a list of scalars
     try:
         uuids = list(files.keys())
@@ -527,6 +530,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         # Get ROI shape to compute distance to center
         roi = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='metadata/extraction/roi')['roi'].shape
         dset['dist_to_center_px'] = compute_mouse_dist_to_center(roi, dset['centroid_x_px'], dset['centroid_y_px'])
+
     except:
         dset = h5_to_dict(h5_filepath_from_sorted(files[0]), path='scalars')
 
@@ -567,9 +571,21 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         if is_legacy(dset) and force_conversion:
             dset = convert_legacy_scalars(dset, force=force_conversion)
 
+        # Get PCA Scores timestamps
+        try:
+            dset_frame_idx = scores_dict['scores_idx'][v['uuid']]
+        except KeyError:
+            dset_frame_idx = scores_dict['scores_idx'][k]
+
+        nan_indices = ~np.isnan(dset_frame_idx)
         # add scalar data for this animal
         for scalar in scalar_names:
-            scalar_dict[scalar] += dset[scalar].tolist()
+            tmp = dset[scalar].tolist()
+            nan_indices = nan_indices[:len(tmp)] # match lengths
+
+            # filter out dropped frames
+            filtered_scalars = list(np.where(nan_indices == True, tmp, np.nan))
+            scalar_dict[scalar] += filtered_scalars
 
         # Count number of session frames
         nframes = len(dset[scalar_names[0]])

@@ -265,9 +265,14 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     if stat == 'speed':
         # Compute each rodent's centroid speed in mm/s
         scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
+        scalar_df['syllable'] = np.inf
+        for i, indexes in enumerate(label_df.index):
+            session_label_idx = scalar_df[scalar_df['uuid'] == indexes[1]].index
+            scalar_df.loc[session_label_idx, 'syllable'] = list(label_df.iloc[i])[:len(session_label_idx)]
 
         # Compute the average rodent syllable velocity based on the corresponding centroid speed at each labeled frame
-        df = compute_mean_syll_scalar(df, scalar_df, label_df, groups=group, max_sylls=max_syllable)
+        df = compute_mean_syll_scalar(df, scalar_df, max_sylls=max_syllable)
+        df = df.rename(columns={'centroid_speed_mm': 'speed'})
 
     # Plot and save syllable stat plot
     plt, lgd = plot_syll_stats_with_sem(df, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,

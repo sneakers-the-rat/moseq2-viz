@@ -692,7 +692,7 @@ def compute_session_centroid_speeds(scalar_df, grouping_keys=['uuid', 'group'],
 
     return sc_speed
 
-def compute_mean_syll_scalar(complete_df, scalar_df, label_df, scalar='centroid_speed_mm', groups=None, max_sylls=40):
+def compute_mean_syll_scalar(complete_df, scalar_df, scalar='centroid_speed_mm', max_sylls=40):
     '''
     Computes the mean syllable scalar-value based on the time-series scalar dataframe and the selected scalar.
     Finds the frame indices with corresponding each of the label values (up to max syllables) and looks up the scalar
@@ -701,10 +701,8 @@ def compute_mean_syll_scalar(complete_df, scalar_df, label_df, scalar='centroid_
     Parameters
     ----------
     complete_df (pd.DataFrame): DataFrame containing syllable statistic results for each uuid.
-    scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
-    label_df (pd.DataFrame): DataFrame containing syllable labels at each frame (nsessions rows x max(nframes) cols)
-    scalar (str): Selected scalar column to compute mean value for syllables
-    groups (list): list of strings corresponding to group names to only compute scalars for.
+    scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid and syllable columns for all stacked sessions
+    scalar (str or list): Selected scalar column(s) to compute mean value for syllables
     max_sylls (int): maximum amount of syllables to include in output.
 
     Returns
@@ -714,67 +712,20 @@ def compute_mean_syll_scalar(complete_df, scalar_df, label_df, scalar='centroid_
 
     warnings.filterwarnings('ignore')
 
-    lbl_df = label_df.T
-    columns = lbl_df.columns
-    gk = ['group', 'uuid']
+    keep_cols = ['group', 'uuid', 'syllable']
 
-    # Get selected scalar and groups to compute syllable scalars for.
-    scalar_columns = scalar_df[[scalar] + gk]
-    if isinstance(groups, (list, tuple)):
-        if len(groups) == 0:
-            groups = None
+    if isinstance(scalar, str):
+        use_cols = [scalar] + keep_cols
+    elif isinstance(scalar, list):
+        use_cols = scalar + keep_cols
 
-    # Handling dict input keys for certain scalars
-    if scalar == 'centroid_speed_mm':
-        dict_scalar = 'speed'
-    elif scalar == 'dist_to_center_px':
-        dict_scalar = 'dist_to_center'
-    else:
-        dict_scalar = scalar
+    scalar_df = scalar_df[scalar_df.syllable >= 0]
 
-    all_sessions = []
-    # Iterate through all found sessions
-    for col in tqdm(columns, total=len(columns), desc=f'Computing Per Session Syll {dict_scalar}'):
-        if groups != None:
-            if col[0] not in groups:
-                continue
+    syll_mean_df = scalar_df.groupby(['syllable', 'uuid', 'group'], as_index=False).mean()[use_cols]
+    syll_scalar_df = syll_mean_df[syll_mean_df.syllable <= max_sylls]
+    syll_scalar_df.syllable = syll_scalar_df.syllable.astype(int)
 
-        # Get session label and scalar time-series arrays
-        sess_lbls = lbl_df[col].iloc[3:].reset_index().dropna(axis=0, how='all')
-        sess_scalar = scalar_columns[scalar_columns['uuid'] == col[1]].iloc[3:].reset_index()
-
-        # Create session scalar dict
-        sess_dict = {
-            'uuid': [],
-            'syllable': [],
-            f'{dict_scalar}': []
-        }
-
-        # Computing the mean value of the scalar for all syllables, up to max_sylls.
-        for lbl in range(max_sylls):
-            indices = (sess_lbls[col] == lbl)
-            mean_lbl_scalar = np.nanmean(sess_scalar[:len(indices)][indices][f'{scalar}'])
-
-            sess_dict['uuid'].append(col[1])
-            sess_dict['syllable'].append(lbl)
-            sess_dict[f'{dict_scalar}'].append(mean_lbl_scalar)
-
-        all_sessions.append(sess_dict)
-
-    # Compiling all the session dicts into a singular pandas DataFrame
-    all_session_scalars_df = pd.DataFrame.from_dict(all_sessions[0])
-    y = all_session_scalars_df[f'{dict_scalar}']
-    all_session_scalars_df[f'{dict_scalar}'] = np.where(y.between(0, 300), y, 0)
-
-    for i in range(1, len(all_sessions)):
-        tmp_df = pd.DataFrame.from_dict(all_sessions[i])
-        y = tmp_df[f'{dict_scalar}']
-        tmp_df[f'{dict_scalar}'] = np.where(y.between(0, 300), tmp_df[f'{dict_scalar}'], 0)
-
-        all_session_scalars_df = all_session_scalars_df.append(tmp_df)
-
-    # Merge/update the mean syllable scalar DataFrame with the syllable results DataFrame
-    complete_df = pd.merge(complete_df, all_session_scalars_df, on=['uuid', 'syllable'])
+    complete_df = pd.merge(complete_df, syll_scalar_df, on=['uuid', 'syllable', 'group'])
 
     return complete_df
 

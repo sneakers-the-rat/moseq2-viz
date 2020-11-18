@@ -1077,7 +1077,7 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, label_dict
     sorted_index (dict): Loaded index file and sorted files in list.
     group_keys (dict): Dict of group/session name keys paired with UUIDS to match with labels.
     labels (2d list): list of syllable label lists for all sessions.
-    label_uuids (list): list of corresponding session UUIDs for all sessions included in labels.
+    label_dict (dict): dict of corresponding session UUIDs for all sessions included in labels.
     output_dir (str): Path to output directory to save crowd movies in.
     ordering (list): ordering for the new mapping of the relabeled syllable usages.
     sessions (bool): indicates whether session crowd movies are being generated.

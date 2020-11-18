@@ -2,7 +2,6 @@ import joblib
 import numpy as np
 from operator import add
 from copy import deepcopy
-import ruamel.yaml as yaml
 from functools import reduce
 from unittest import TestCase
 import matplotlib.pyplot as plt
@@ -76,7 +75,7 @@ class TestModelTransGraph(TestCase):
 
         assert type(fig) == type(test_fig)
 
-    def test__get_transitions(self):
+    def test_get_transitions(self):
 
         test_model = 'data/test_model.p'
         model = parse_model_results(joblib.load(test_model))
@@ -152,7 +151,7 @@ class TestModelTransGraph(TestCase):
 
         graph = convert_ebunch_to_graph(ebunch)
 
-        assert graph.number_of_nodes() == 13
+        assert graph.number_of_nodes() == 12
 
     def test_floatRgb(self):
 
@@ -217,8 +216,8 @@ class TestModelTransGraph(TestCase):
                                                               edge_threshold=edge_threshold,
                                                               max_syllable=max_syllable)
 
-        assert len(ebunch) == 14
-        assert len(orphans) == 427
+        assert len(ebunch) == 13
+        assert len(orphans) == 428
 
     def test_get_usage_dict(self):
 
@@ -282,7 +281,7 @@ class TestModelTransGraph(TestCase):
                            edge_threshold=edge_threshold,
                            usages_anchor=usages_anchor)
 
-        assert graph.number_of_nodes() == 12
+        assert graph.number_of_nodes() == 10
 
     def test_make_difference_graph(self):
 
@@ -461,6 +460,6 @@ class TestModelTransGraph(TestCase):
 
         fig, ax, pos = graph_transition_matrix(trans_mats, usages=usages, groups=group)
 
-        assert len(pos.keys()) == 12
+        assert len(pos.keys()) == 10
         assert ax.shape == (2, 2)
         assert fig != None

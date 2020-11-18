@@ -295,11 +295,15 @@ class TestScalarUtils(TestCase):
         complete_df, label_df = results_to_dataframe(test_model, sorted_index, compute_labels=True)
 
         scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
+        scalar_df['syllable'] = np.inf
+        for i, indexes in enumerate(label_df.index):
+            session_label_idx = scalar_df[scalar_df['uuid'] == indexes[1]].index
+            scalar_df.loc[session_label_idx, 'syllable'] = list(label_df.iloc[i])[:len(session_label_idx)]
 
-        complete_df = compute_mean_syll_scalar(complete_df, scalar_df, label_df, max_sylls=40)
+        complete_df = compute_mean_syll_scalar(complete_df, scalar_df, scalar='centroid_speed_mm', max_sylls=40)
 
-        assert 'speed' in complete_df.columns
-        assert not complete_df.speed.isnull().all()
+        assert 'centroid_speed_mm' in complete_df.columns
+        assert not complete_df.centroid_speed_mm.isnull().all()
 
     def test_compute_mouse_dist_to_center(self):
 

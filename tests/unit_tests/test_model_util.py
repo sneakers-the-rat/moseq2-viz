@@ -9,6 +9,7 @@ from operator import add
 from copy import deepcopy
 from functools import reduce
 from unittest import TestCase
+from cytoolz import keyfilter, groupby
 from moseq2_viz.util import parse_index, get_index_hits, load_changepoint_distribution, load_timestamps, read_yaml
 from moseq2_viz.model.trans_graph import get_transitions
 from moseq2_viz.model.util import (relabel_by_usage, h5_to_dict, retrieve_pcs_from_slices,
@@ -317,9 +318,9 @@ class TestModelUtils(TestCase):
             norm_scores[k] = (v - mu) / sig
 
         assert norm_scores.keys() == norm.keys()
-        np.testing.assert_array_almost_equal(np.asarray(list(norm_scores.values())), np.asarray(list(norm.values())))
+        assert np.all(np.not_equal(list(norm_scores.values()), list(norm.values())))
 
-        norm2 = normalize_pcs(pca_scores, 'm')
+        norm2 = normalize_pcs(pca_scores, 'zscore')
         norm_scores = deepcopy(pca_scores)
         all_values = np.concatenate(list(norm_scores.values()), axis=0)
         mu = np.nanmean(all_values, axis=0)
@@ -327,7 +328,7 @@ class TestModelUtils(TestCase):
             norm_scores[k] = v - mu
 
         assert norm_scores.keys() == norm2.keys()
-        np.testing.assert_array_almost_equal(np.asarray(list(norm_scores.values())), np.asarray(list(norm2.values())))
+        assert np.all(np.not_equal(list(norm_scores.values()), list(norm2.values())))
 
         norm3 = normalize_pcs(pca_scores, 'ind-zscore')
         norm_scores = deepcopy(pca_scores)
@@ -335,15 +336,15 @@ class TestModelUtils(TestCase):
             norm_scores[k] = (v - np.nanmean(v)) / np.nanstd(v)
 
         assert norm_scores.keys() == norm3.keys()
-        np.testing.assert_array_almost_equal(np.asarray(list(norm_scores.values())), np.asarray(list(norm3.values())))
+        assert np.all(np.not_equal(list(norm_scores.values()), list(norm3.values())))
 
-        norm4 = normalize_pcs(pca_scores, 'ind-zscor12344e')
+        norm4 = normalize_pcs(pca_scores, 'demean')
         norm_scores = deepcopy(pca_scores)
         for k, v in norm_scores.items():
             norm_scores[k] = (v - np.nanmean(v)) / np.nanstd(v)
 
         assert norm_scores.keys() == norm4.keys()
-        np.testing.assert_array_almost_equal(np.asarray(list(norm.values())), np.asarray(list(norm4.values())))
+        assert np.all(np.not_equal(list(norm_scores.values()), list(norm4.values())))
 
     def test_gen_to_arr(self):
         syllable = 2
@@ -388,7 +389,7 @@ class TestModelUtils(TestCase):
 
         pca_scores = h5_to_dict(index_data['pca_path'], 'scores')
 
-        pca_scores = normalize_pcs(pca_scores, method='z')
+        pca_scores = normalize_pcs(pca_scores, method='zscore')
 
         # [(match_idx[i], match_idx[j] + 1), label_uuid, h5]
         slices = [[(23, 32), '5c72bf30-9596-4d4d-ae38-db9a7a28e912', 'path'],
@@ -430,8 +431,8 @@ class TestModelUtils(TestCase):
 
     def test_make_separate_crowd_movies(self):
 
-        index_file = 'data/test_index.yaml'
-        model_path = 'data/test_model.p'
+        index_file = 'data/test_index_crowd.yaml'
+        model_path = 'data/mock_model.p'
         output_dir = 'data/test_movies/'
         config_file = 'data/config.yaml'
 
@@ -441,23 +442,32 @@ class TestModelUtils(TestCase):
 
         model_data = parse_model_results(joblib.load(model_path))
 
+        # Get list of syllable labels for all sessions
         labels = model_data['labels']
-        label_uuids = model_data['metadata']['uuids']
 
-        groups = list(set(model_data['metadata']['groups']))
-        group_keys = {'Group1': [] for g in groups}
+        # Relabel syllable labels by usage sorting and save the ordering for crowd-movie file naming
+        if config_data.get('sort', True):
+            labels, ordering = relabel_by_usage(labels, count=config_data.get('count', 'usage'))
+        else:
+            ordering = list(range(config_data['max_syllable']))
 
-        for i, v in enumerate(sorted_index['files'].values()):
-            group_keys[v['group']].append(i)
+        # get train list uuids if available, otherwise default to 'keys'
+        label_uuids = model_data.get('train_list', model_data['keys'])
+        label_dict = dict(zip(label_uuids, labels))
 
-        uuid_set = set(label_uuids) & set(sorted_index['files'].keys())
-
+        # Get uuids found in both the labels and the index
+        uuid_set = set(label_uuids) & set(sorted_index['files'])
         # Make sure the files exist
         uuid_set = [uuid for uuid in uuid_set if os.path.exists(sorted_index['files'][uuid]['path'][0])]
+        # filter to only include existing UUIDs
+        sorted_index['files'] = keyfilter(lambda k: k in uuid_set, sorted_index['files'])
+        label_dict = keyfilter(lambda k: k in uuid_set, label_dict)
 
-        # Synchronize arrays such that each label array index corresponds to the correct uuid index
-        labels = [label_arr for label_arr, uuid in zip(labels, label_uuids) if uuid in uuid_set]
-        label_uuids = [uuid for uuid in label_uuids if uuid in uuid_set]
+        labels = list(label_dict.values())
+        label_uuids = list(label_dict)
+
+        group_keys = groupby(lambda k: sorted_index['files'][k]['group'], label_uuids)
+
         sorted_index['files'] = {k: v for k, v in sorted_index['files'].items() if k in uuid_set}
         sorted_index['pca_path'] = 'data/test_scores.h5'
 
@@ -471,29 +481,11 @@ class TestModelUtils(TestCase):
         config_data['scale'] = 1
         config_data['legacy_jitter_fix'] = False
 
-        path_dict = make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, label_uuids, output_dir, ordering)
+        path_dict = make_separate_crowd_movies(config_data, sorted_index, group_keys, label_dict, output_dir, ordering)
 
         assert len(path_dict['Group1']) == 5
         for value in path_dict['Group1']:
             assert os.path.exists(value)
-
-        shutil.rmtree(output_dir)
-
-        sessions = list(set(model_data['metadata']['uuids']))
-
-        session_names = {}
-        for i, s in enumerate(sessions):
-            session_name = sorted_index['files'][s]['metadata']['SessionName']
-            session_names[session_name] = i
-
-        # Write crowd movies for each session
-        cm_paths = make_separate_crowd_movies(config_data, sorted_index, session_names,
-                                              labels, label_uuids, output_dir, ordering, sessions=True)
-
-        for sess in session_names.keys():
-            assert len(cm_paths[sess]) == 5
-            for value in cm_paths[sess]:
-                assert os.path.exists(value)
 
         shutil.rmtree(output_dir)
 

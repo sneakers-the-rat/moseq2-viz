@@ -130,9 +130,6 @@ class TestGUI(TestCase):
             'changepoints_path': 'changepoints'
         }
 
-        if not os.path.exists(progress_paths['plot_path']):
-            os.makedirs(progress_paths['plot_path'])
-
         best_model = get_best_fit_model(progress_paths, plot_all=True)
         assert best_model != None
         shutil.rmtree(progress_paths['plot_path'])

@@ -38,15 +38,12 @@ class TestCLI(TestCase):
         cp_file = 'data/_pca/changepoints.h5'
         output_file = 'data/gen_plots/model_vs_pc_changepoints'
 
-        runner = CliRunner()
-
         run_params = [input_dir, cp_file, output_file]
 
-        if not os.path.exists(output_file):
-            os.makedirs(os.path.dirname(output_file))
+        print(' '.join(run_params))
 
-        results = runner.invoke(get_best_fit_model, run_params)
-        assert (results.exit_code == 0), "CLI Command did not complete successfully"
+        os.system(f'moseq2-viz get-best-model {" ".join(run_params)}')
+
         assert os.path.exists(output_file+'.png')
         shutil.rmtree(os.path.dirname(output_file))
 

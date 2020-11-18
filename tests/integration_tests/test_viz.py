@@ -54,7 +54,7 @@ def get_fake_movie():
     fake_movie = np.tile(tmp_image, (20, 1, 1))
     return fake_movie
 
-def get_ebunch(max_syllable=40, ret_trans=False):
+def get_ebunch(max_syllable=40, group = ('Group1', 'default'), ret_trans=False):
     model_fit = 'data/test_model.p'
     index_file = 'data/test_index_crowd.yaml'
     config_file = 'data/config.yaml'
@@ -64,7 +64,6 @@ def get_ebunch(max_syllable=40, ret_trans=False):
 
     config_data = read_yaml(config_file)
 
-    group = ('Group1', 'default')
     anchor = 0
 
     model_data = parse_model_results(joblib.load(model_fit))
@@ -170,9 +169,9 @@ class TestViz(TestCase):
             assert all((r,g,b)) >= 0 and all((r,g,b)) <= 1.0, "floatRgb value is invalid."
 
     def test_graph_transition_matrix(self):
-        trans_mats, usages = get_ebunch(ret_trans=True)
-        groups = ['Group1', 'Group2']
-        plt, _, _ = graph_transition_matrix(trans_mats, groups=groups)
+        group = ['Group1']
+        trans_mats, usages = get_ebunch(group=group, ret_trans=True)
+        plt, _, _ = graph_transition_matrix(trans_mats, groups=group)
 
         outfile = 'data/test_transition.png'
         plt.savefig(outfile)

@@ -718,10 +718,7 @@ def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', max_
 
     # by default the keys are the uuids
 
-    if 'train_list' in model_dict.keys():
-        label_uuids = model_dict['train_list']
-    else:
-        label_uuids = model_dict['keys']
+    label_uuids = model_dict.get('train_list', model_dict['keys'])
 
     df_dict = {
         'usage': [],

@@ -22,7 +22,7 @@ from scipy.optimize import linear_sum_assignment
 from os.path import join, basename, dirname, exists
 from moseq2_viz.util import h5_to_dict, star
 from moseq2_viz.model.trans_graph import get_transitions
-from cytoolz import curry, valmap, compose, complement, itemmap, concat
+from cytoolz import curry, valmap, compose, complement, itemmap, concat, keyfilter
 
 
 def merge_models(model_dir, ext='p',count='usage'):
@@ -1069,7 +1069,7 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
     return syllable_matrix
 
 
-def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, label_uuids, output_dir, ordering, sessions=False):
+def make_separate_crowd_movies(config_data, sorted_index, group_keys, label_dict, output_dir, ordering, sessions=False):
     '''
     Helper function that writes syllable crowd movies for each given grouping found in group_keys, and returns
      a dictionary with session/group name keys paired with paths to their respective generated crowd movies.
@@ -1093,27 +1093,22 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, la
     from moseq2_viz.io.video import write_crowd_movies
 
     cm_paths = {}
-    for k, v in group_keys.items():
-        # TODO: figure out what is going on here
+    for k, uuids in group_keys.items():
         # Filter group labels to pair with respective UUIDs
-        group_labels = np.array(labels)[v]
-        group_label_uuids = np.array(label_uuids)[v]
-
-        if sessions:
-            group_labels = [group_labels]
-            group_label_uuids = [group_label_uuids]
+        labels = [label_dict[uuid] for uuid in uuids]
 
         # Get subset of sorted_index including only included session sources
-        group_index = {'files': {k1: v1 for k1, v1 in sorted_index['files'].items() if k1 in group_label_uuids},
-                       'pca_path': sorted_index['pca_path']}
+        group_index = {
+            'files': keyfilter(lambda k: k in uuids, sorted_index['files']),
+            'pca_path': sorted_index['pca_path']
+        }
 
         # create a subdirectory for each group
-        output_subdir = join(output_dir, k + '/')
-        if not exists(output_subdir):
-            os.makedirs(output_subdir)
+        output_subdir = join(output_dir, k)
+        os.makedirs(output_subdir, exist_ok=True)
 
         # Write crowd movie for given group and syllable(s)
         cm_paths[k] = write_crowd_movies(group_index, config_data, ordering,
-                                         group_labels, group_label_uuids, output_subdir)
+                                         labels, uuids, output_subdir)
 
     return cm_paths

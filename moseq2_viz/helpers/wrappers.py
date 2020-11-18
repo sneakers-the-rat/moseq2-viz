@@ -15,7 +15,7 @@ from glob import glob
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
-from cytoolz import keyfilter
+from cytoolz import keyfilter, groupby
 from os.path import isdir, exists, join, dirname, basename
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.model.trans_graph import get_trans_graph_groups, compute_and_graph_grouped_TMs
@@ -392,7 +392,7 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
         labels = relabel_by_usage(labels, count=config_data['count'])[0]
 
     # Get modeled session uuids to compute group-mean transition graph for
-    group, label_group, label_uuids = get_trans_graph_groups(model_data, index, sorted_index)
+    group, label_group, label_uuids = get_trans_graph_groups(model_data, sorted_index)
 
     print('Computing transition matrices...')
     try:
@@ -459,18 +459,14 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
 
     # Get uuids found in both the labels and the index
     uuid_set = set(label_uuids) & set(sorted_index['files'])
-    # Make sure the files exist
+    # Make sure the files exist 
     uuid_set = [uuid for uuid in uuid_set if exists(sorted_index['files'][uuid]['path'][0])]
-
-    # Synchronize arrays such that each label array index corresponds to the correct uuid index
+    # filter to only include existing UUIDs
+    sorted_index['files'] = keyfilter(lambda k: k in uuid_set, sorted_index['files'])
     label_dict = keyfilter(lambda k: k in uuid_set, label_dict)
 
     labels = list(label_dict.values())
     label_uuids = list(label_dict)
-    # labels = [label_arr for label_arr, uuid in zip(labels, label_uuids) if uuid in uuid_set]
-    # label_uuids = [uuid for uuid in label_uuids if uuid in uuid_set]
-    sorted_index['files'] = keyfilter(lambda k: k in uuid_set, sorted_index['files'])
-    # sorted_index['files'] = {k: v for k, v in sorted_index['files'].items() if k in uuid_set}
 
     # Get syllable(s) to create crowd movies of
     if config_data['specific_syllable'] is not None:
@@ -489,42 +485,21 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     # Optionally generate crowd movies from independent sources, i.e. groups, or individual sessions.
     if separate_by == 'groups':
         # Get the groups to separate the arrays by
-        try:
-            groups = list(set(model_fit['metadata']['groups'].values()))
-        except AttributeError:
-            # get groups from legacy model dict
-            groups = list(set(model_fit['metadata']['groups']))
-
-        if len(groups) == 0:
-            # Load groups from index file if groups not found in model
-            groups = list(set([v['group'] for v in sorted_index['files'].values()]))
-
-        group_keys = {g: [] for g in groups}
-
-        for i, v in enumerate(sorted_index['files'].values()):
-            group_keys[v['group']].append(i)
+        group_keys = groupby(lambda k: sorted_index['files'][k]['group'], label_uuids)
 
         # Write crowd movies for each group
         cm_paths = make_separate_crowd_movies(config_data, sorted_index, group_keys,
-                                              labels, label_uuids, output_dir, ordering)
-    elif separate_by == 'sessions' or separate_by == 'subjects':
+                                              label_dict, output_dir, ordering)
+    elif separate_by in ('sessions', 'subjects'):
         grouping = 'SessionName'
         if separate_by == 'subjects':
             grouping = 'SubjectName'
-
-        # Separate the arrays by session
-        sessions = list(set(model_fit['metadata']['uuids']))
-
-        session_names = {}
-        for i, s in enumerate(sessions):
-            session_name = sorted_index['files'][s]['metadata'][grouping]
-
-            if session_name in config_data['session_names']:
-                session_names[session_name] = i
+        # group UUIDs by grouping
+        group_keys = groupby(lambda k: sorted_index['files'][k]['metadata'][grouping], label_uuids)
 
         # Write crowd movies for each session
-        cm_paths = make_separate_crowd_movies(config_data, sorted_index, session_names,
-                                              labels, label_uuids, output_dir, ordering, sessions=True)
+        cm_paths = make_separate_crowd_movies(config_data, sorted_index, group_keys,
+                                              label_dict, output_dir, ordering)
     else:
         # Write movies using all sessions as the source
         cm_paths = {'all': write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir)}

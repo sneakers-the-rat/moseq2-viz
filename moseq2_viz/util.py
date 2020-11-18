@@ -7,6 +7,7 @@ General utility functions to facilitate loading and organizing data.
 import re
 import os
 import h5py
+import joblib
 import numpy as np
 from glob import glob
 import ruamel.yaml as yaml
@@ -68,53 +69,6 @@ def get_index_hits(config_data, metadata, key, v):
         hits = [re.search(v, meta[key]) is not None for meta in metadata]
 
     return hits
-
-
-def make_separate_crowd_movies(config_data, sorted_index, group_keys, labels, label_uuids, output_dir, ordering, sessions=False):
-    '''
-    Helper function that writes syllable crowd movies for each given grouping found in group_keys, and returns
-     a dictionary with session/group name keys paired with paths to their respective generated crowd movies.
-
-    Parameters
-    ----------
-    config_data (dict): Loaded crowd movie writing configuration parameters.
-    sorted_index (dict): Loaded index file and sorted files in list.
-    group_keys (dict): Dict of group/session name keys paired with UUIDS to match with labels.
-    labels (2d list): list of syllable label lists for all sessions.
-    label_uuids (list): list of corresponding session UUIDs for all sessions included in labels.
-    output_dir (str): Path to output directory to save crowd movies in.
-    ordering (list): ordering for the new mapping of the relabeled syllable usages.
-
-    Returns
-    -------
-    cm_paths (dict): group/session name keys paired with paths to their respectively generated syllable crowd movies.
-    '''
-    from moseq2_viz.io.video import write_crowd_movies
-
-    cm_paths = {}
-    for k, v in group_keys.items():
-        # Filter group labels to pair with respective UUIDs
-        group_labels = np.array(labels)[v]
-        group_label_uuids = np.array(label_uuids)[v]
-
-        if sessions == True:
-            group_labels = [group_labels]
-            group_label_uuids = [group_label_uuids]
-
-        # Get subset of sorted_index including only included session sources
-        group_index = {'files': {k1: v1 for k1, v1 in sorted_index['files'].items() if k1 in group_label_uuids},
-                       'pca_path': sorted_index['pca_path']}
-
-        # create a subdirectory for each group
-        output_subdir = join(output_dir, k + '/')
-        if not exists(output_subdir):
-            os.makedirs(output_subdir)
-
-        # Write crowd movie for given group and syllable(s)
-        cm_paths[k] = write_crowd_movies(group_index, config_data, ordering,
-                                         group_labels, group_label_uuids, output_subdir)
-
-    return cm_paths
 
 
 def clean_dict(dct):
@@ -415,3 +369,29 @@ def star(f, args):
     '''
 
     return f(*args)
+
+
+def assert_model_and_index_uuids_match(model, index):
+    '''
+    Asserts that both the model and index file contain the same set of UUIDs.
+
+    Parameters
+    ----------
+    model (str or dict): if str, must be a path to the model. If dict, it contains the
+        model data after parsing the model results
+    index (str or dict): if str, must be a path to the index file. If dict, it contains
+        the parsed and sorted index.
+    '''
+    from moseq2_viz.model.util import parse_model_results
+    if isinstance(model, str) and exists(model):
+        # Load the model
+        model = parse_model_results(joblib.load(model))
+    if isinstance(index, str) and exists(index):
+        # Read index file
+        index = get_sorted_index(index)
+
+    index_uuids = set(index['files'])
+    model_uuids = set(model['metadata']['uuids'])
+
+    assert index_uuids == model_uuids, 'Index file UUIDS must match the model UUIDs.'
+    

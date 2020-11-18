@@ -8,8 +8,8 @@ import cv2
 import warnings
 import subprocess
 import numpy as np
-from tqdm import tqdm
 from os.path import join
+from tqdm.auto import tqdm
 import ruamel.yaml as yaml
 import multiprocessing as mp
 from functools import partial
@@ -63,7 +63,7 @@ def check_video_parameters(index: dict) -> dict:
     # if there are multiple values for a parameter, raise error
     if incorrect_parameters:
         raise RuntimeError('The following parameters are not equal ' +
-                           f'across extractions: {incorrect_parameters.keys()}')
+                           f'across extractions: {list(incorrect_parameters)}')
 
     # grab the first value in the set
     vid_parameters = valmap(first, vid_parameters)
@@ -105,12 +105,10 @@ def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
     info_dict['index_path'] = index_file
 
     # Convert numpy dtypes to their corresponding primitives
-    for k, v in info_dict.items():
-        if isinstance(v, (np.ndarray, np.generic)):
-            info_dict[k] = info_dict[k].item()
+    info_dict = valmap(lambda v: v.item() if isinstance(v, np.generic) else v, info_dict)
 
     # Write metadata info file
-    with open(info_file, 'w+') as f:
+    with open(info_file, 'w') as f:
         yaml.safe_dump(info_dict, f)
 
 def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir):
@@ -142,9 +140,9 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
 
     # Set crowd movie filename format based on whether syllables were relabeled
     if config_data.get('sort', True):
-        filename_format = 'syllable_sorted-id-{:d} ({})_original-id-{:d}.mp4'
+        filename_format = 'syllable_sorted-id-{:02d} ({})_original-id-{:02d}.mp4'
     else:
-        filename_format = 'syllable_{:d}.mp4'
+        filename_format = 'syllable_{:02d}.mp4'
 
     # Ensure all video metadata parameters are consistent
     vid_parameters = check_video_parameters(sorted_index)
@@ -157,11 +155,6 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
                             labels=labels,
                             label_uuids=label_uuids,
                             index=sorted_index)
-        
-        with warnings.catch_warnings():
-            slices = list(tqdm(pool.imap(slice_fun, config_data['crowd_syllables']),
-                               total=config_data.get('max_syllable', 40), desc='Getting Syllable Slices',
-                               disable=not progress_bar))
 
         matrix_fun = partial(make_crowd_matrix,
                              nexamples=config_data.get('max_examples', 20),
@@ -177,6 +170,10 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
 
         # Compute crowd matrices
         with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            slices = list(tqdm(pool.imap(slice_fun, config_data['crowd_syllables']),
+                               total=config_data.get('max_syllable', 40), desc='Getting Syllable Slices',
+                               disable=not progress_bar))
             # creating crowd matrices
             crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=len(config_data['crowd_syllables']),
                                        desc='Getting Crowd Matrices', disable=not progress_bar))
@@ -289,7 +286,7 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
     use_cmap = plt.get_cmap(cmap)
 
     # Write movie
-    for i in tqdm(range(frames.shape[0]), desc="Writing frames", disable=~progress_bar):
+    for i in tqdm(range(frames.shape[0]), desc="Writing frames", disable=not progress_bar):
         disp_img = frames[i, :].copy().astype('float32')
         disp_img = (disp_img-depth_min)/(depth_max-depth_min)
         disp_img[disp_img < 0] = 0

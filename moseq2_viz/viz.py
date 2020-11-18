@@ -187,82 +187,75 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
     if rotate and not center:
         raise NotImplementedError('Rotating without centering not supported')
 
-    durs = np.array([i[1]-i[0] for i, j, k in slices])
+    xc0, yc0 = crop_size[1] // 2, crop_size[0] // 2
+    xc = np.arange(-xc0, xc0 + 1, dtype='int16')
+    yc = np.arange(-yc0, yc0 + 1, dtype='int16')
+
+    durs = np.array([i[1]-i[0] for i, _, _ in slices])
 
     if max_dur is not None:
         idx = np.where(np.logical_and(durs < max_dur, durs > min_dur))[0]
-        use_slices = [_ for i, _ in enumerate(slices) if i in idx]
+        use_slices = [_slice for i, _slice in enumerate(slices) if i in idx]
     else:
         max_dur = durs.max()
         idx = np.where(durs > min_dur)[0]
-        use_slices = [_ for i, _ in enumerate(slices) if i in idx]
+        use_slices = [_slice for i, _slice in enumerate(slices) if i in idx]
 
     if len(use_slices) > nexamples:
-        use_slices = [use_slices[i] for i in np.random.permutation(np.arange(len(use_slices)))[:nexamples]]
+        use_slices = np.random.permutation(use_slices)[:nexamples]
+        # use_slices = [use_slices[i] for i in np.random.permutation(np.arange(len(use_slices)))[:nexamples]]
 
-    durs = np.array([i[1]-i[0] for i, j, k in use_slices])
+    max_dur = max(i[1]-i[0] for i, _, _ in use_slices)
 
-    if len(durs) == 0 or durs.max() < 0:
+    if len(use_slices) == 0 or max_dur < 0:
         return None
-
-    if durs.max() < max_dur:
-        max_dur = durs.max()
 
     crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype='uint8')
 
-    count = 0
-
-    xc0 = crop_size[1] // 2
-    yc0 = crop_size[0] // 2
-
-    xc = np.array(list(range(-xc0, +xc0 + 1)), dtype='int16')
-    yc = np.array(list(range(-yc0, +yc0 + 1)), dtype='int16')
-
     for idx, uuid, fname in use_slices:
+        use_idx = (idx[0] - pad, idx[0] + max_dur + pad)
+        idx_slice = slice(*use_idx)
 
         # get the frames, combine in a way that's alpha-aware
+        with h5py.File(fname, 'r') as h5:
+            nframes = len(h5[frame_path])
 
-        h5 = h5py.File(fname, 'r')
-        nframes = h5[frame_path].shape[0]
-        cur_len = idx[1] - idx[0]
-        use_idx = (idx[0] - pad, idx[1] + pad + (max_dur - cur_len))
+            if 'centroid_x' in h5['scalars']:
+                use_names = ('scalars/centroid_x', 'scalars/centroid_y')
+            elif 'centroid_x_px' in h5['scalars']:
+                use_names = ('scalars/centroid_x_px', 'scalars/centroid_y_px')
 
-        if use_idx[0] < 0 or use_idx[1] >= nframes - 1:
-            continue
+            if use_idx[0] < 0 or use_idx[1] >= nframes - 1:
+                continue
 
-        if 'centroid_x' in h5['scalars'].keys():
-            use_names = ('scalars/centroid_x', 'scalars/centroid_y')
-        elif 'centroid_x_px' in h5['scalars'].keys():
-            use_names = ('scalars/centroid_x_px', 'scalars/centroid_y_px')
+            centroid_x = h5[use_names[0]][idx_slice] + offset[0]
+            centroid_y = h5[use_names[1]][idx_slice] + offset[1]
 
-        centroid_x = h5[use_names[0]][use_idx[0]:use_idx[1]] + offset[0]
-        centroid_y = h5[use_names[1]][use_idx[0]:use_idx[1]] + offset[1]
+            if center:
+                centroid_x -= centroid_x[pad]
+                centroid_x += raw_size[0] // 2
+                centroid_y -= centroid_y[pad]
+                centroid_y += raw_size[1] // 2
 
-        if center:
-            centroid_x -= centroid_x[pad]
-            centroid_x += raw_size[0] // 2
-            centroid_y -= centroid_y[pad]
-            centroid_y += raw_size[1] // 2
+            angles = h5['scalars/angle'][idx_slice]
+            frames = clean_frames((h5[frame_path][idx_slice] / scale).astype('uint8'), **kwargs)
 
-        angles = h5['scalars/angle'][use_idx[0]:use_idx[1]]
-        frames = clean_frames((h5[frame_path][use_idx[0]:use_idx[1]] / scale).astype('uint8'), **kwargs)
-
-        if 'flips' in h5['metadata/extraction'].keys():
-            # h5 format as of v0.1.3
-            flips = h5['metadata/extraction/flips'][use_idx[0]:use_idx[1]]
-            angles[np.where(flips == True)] -= np.pi
-        elif 'flips' in h5['metadata'].keys():
-            # h5 format prior to v0.1.3
-            flips = h5['metadata/flips'][use_idx[0]:use_idx[1]]
-            angles[np.where(flips == True)] -= np.pi
-        else:
-            flips = np.zeros(angles.shape, dtype='bool')
+            if 'flips' in h5['metadata/extraction']:
+                # h5 format as of v0.1.3
+                flips = h5['metadata/extraction/flips'][idx_slice]
+                angles[np.where(flips == True)] -= np.pi
+            elif 'flips' in h5['metadata']:
+                # h5 format prior to v0.1.3
+                flips = h5['metadata/flips'][idx_slice]
+                angles[np.where(flips == True)] -= np.pi
+            else:
+                flips = np.zeros(angles.shape, dtype='bool')
 
         angles = np.rad2deg(angles)
 
         for i in range(len(centroid_x)):
 
-            if np.isnan(centroid_x[i]) or np.isnan(centroid_y[i]):
+            if np.any(np.isnan([centroid_x[i], centroid_y[i]])):
                 continue
 
             rr = (yc + centroid_y[i]).astype('int16')
@@ -280,7 +273,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
             old_frame = crowd_matrix[i]
             new_frame = np.zeros_like(old_frame)
-            new_frame_clip = frames[i]
+            new_frame_clip = frames[i].copy()
 
             # change from fliplr, removes jitter since we now use rot90 in moseq2-extract
             if flips[i] and legacy_jitter_fix:
@@ -291,14 +284,15 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
             new_frame_clip = cv2.warpAffine(new_frame_clip.astype('float32'),
                                             rot_mat, crop_size).astype(frames.dtype)
 
-            if i >= pad and i <= pad + cur_len:
+            if i >= pad and i <= pad + (idx[1] - idx[0]):
                 cv2.circle(new_frame_clip, (xc0, yc0), 3, (255, 255, 255), -1)
-                new_frame[rr[0]:rr[-1], cc[0]:cc[-1]] = new_frame_clip
+            
+            new_frame[rr[0]:rr[-1], cc[0]:cc[-1]] = new_frame_clip
 
             if rotate:
                 rot_mat = cv2.getRotationMatrix2D((raw_size[0] // 2, raw_size[1] // 2),
-                                                  -angles[pad] + flips[pad] * 180,
-                                                  1)
+                                                -angles[pad] + flips[pad] * 180,
+                                                1)
                 new_frame = cv2.warpAffine(new_frame, rot_mat, raw_size).astype(new_frame.dtype)
 
             # zero out based on min_height before taking the non-zeros
@@ -315,11 +309,6 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
             old_frame[overwrite_coords] = new_frame[overwrite_coords]
 
             crowd_matrix[i] = old_frame
-
-        count += 1
-
-        if count >= nexamples:
-            break
 
     return crowd_matrix
 
@@ -565,8 +554,8 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
 
 def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
     '''
-    Plot the changepoint-duration distributions of a given 1D arrays of model
-     and principal component changepoints.
+    Plot the duration distributions for model labels and
+    principal component changepoints.
 
     Parameters
     ----------

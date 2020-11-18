@@ -13,7 +13,7 @@ from cytoolz import keyfilter, curry
 from moseq2_viz.util import strided_app, h5_to_dict
 from scipy.spatial.distance import squareform, pdist
 from moseq2_viz.model.util import (whiten_pcs, parse_model_results,
-                                   simulate_ar_trajectory, _get_transitions,
+                                   simulate_ar_trajectory, get_transitions,
                                    get_syllable_slices, retrieve_pcs_from_slices, normalize_pcs)
 from moseq2_viz.scalars.util import get_scalar_map, get_scalar_triggered_average, process_scalars
 
@@ -301,7 +301,7 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
             continue
 
         labels = model_labels[k]
-        seq_array, locs = _get_transitions(labels)
+        seq_array, locs = get_transitions(labels)
 
         padded_scores = np.pad(v,((win // 2, win // 2), (0,0)),
                                'constant', constant_values = np.nan)

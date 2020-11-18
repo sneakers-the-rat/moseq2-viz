@@ -87,6 +87,7 @@ def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
 @click.option('--legacy-jitter-fix', default=False, type=bool, help="Set to true if you notice jitter in your crowd movies")
 @click.option('--frame-path', default='frames', type=str, help='Path to depth frames in h5 file')
 @click.option('--progress-bar', '-p', is_flag=True, help='Show verbose progress bars.')
+@click.option('--pad', default=30, help='Pad crowd movie videos with this many frames.')
 def make_crowd_movies(index_file, model_path, output_dir, **config_data):
 
     make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir)

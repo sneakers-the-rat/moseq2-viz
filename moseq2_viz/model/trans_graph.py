@@ -5,15 +5,16 @@ Syllable transition graph creation and utility functions.
 '''
 
 import math
-import tqdm
 import warnings
 import numpy as np
 import networkx as nx
 from copy import deepcopy
+from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
+from cytoolz import sliding_window
 from collections import OrderedDict
 
-def get_trans_graph_groups(model_fit, index, sorted_index):
+def get_trans_graph_groups(model_fit, sorted_index):
     '''
     Wrapper helper function to get the groups and their respective session uuids
     to use in transition graph generation.
@@ -28,25 +29,20 @@ def get_trans_graph_groups(model_fit, index, sorted_index):
     -------
     group (list): list of unique groups included
     label_group (list): list of groups for each included session
-    label_uuids (list): list of corresponding UUIDs for each included session
+    model_uuids (list): list of corresponding UUIDs for each included session in the model
     '''
 
-    if 'train_list' in model_fit.keys():
-        label_uuids = model_fit['train_list']
+    if 'train_list' in model_fit:
+        model_uuids = model_fit['train_list']
     else:
-        label_uuids = model_fit['keys']
+        model_uuids = model_fit['keys']
 
     # Loading modeled groups from index file by looking up their session's corresponding uuid
-    if 'group' in index['files'][0].keys():
-        label_group = [sorted_index['files'][uuid]['group'] \
-                           if uuid in sorted_index['files'].keys() else '' for uuid in label_uuids]
-        group = list(set(label_group))
-    else:
-        # If no index file is found, set session grouping as nameless default to plot a single transition graph
-        label_group = [''] * len(model_fit['labels'])
-        group = list(set(label_group))
+    files = sorted_index['files']
+    label_group = [files[uuid].get('group', 'default') if uuid in files else '' for uuid in model_uuids]
+    group = list(set(label_group))
 
-    return group, label_group, label_uuids
+    return group, label_group, model_uuids
 
 def get_group_trans_mats(labels, label_group, group, max_sylls, normalize='bigram'):
     '''
@@ -117,7 +113,7 @@ def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
 
     return plt
 
-def _get_transitions(label_sequence):
+def get_transitions(label_sequence):
     '''
     Computes labels switch to another label. Throws out the first state (usually
     labeled as -5).
@@ -140,34 +136,46 @@ def _get_transitions(label_sequence):
 
     return transitions, locs
 
-def normalize_matrix(init_matrix, normalize):
+def normalize_transition_matrix(init_matrix, normalize):
     '''
     Normalizes a transition matrix by given criteria.
 
     Parameters
     ----------
     init_matrix (2D np.array): transition matrix to normalize.
-    normalize (str): normalization criteria; ['bigram', 'rows', 'columns']
+    normalize (str): normalization criteria; ['bigram', 'rows', 'columns', or None]
 
     Returns
     -------
     init_matrix (2D np.array): normalized transition matrix
     '''
-    warnings.filterwarnings('ignore')
+    if normalize is None or normalize not in ('bigram', 'rows', 'columns'):
+        return init_matrix
 
-    if normalize == 'bigram':
-        init_matrix /= init_matrix.sum()
-    elif normalize == 'rows':
-        init_matrix /= init_matrix.sum(axis=1, keepdims=True)
-    elif normalize == 'columns':
-        init_matrix /= init_matrix.sum(axis=0, keepdims=True)
-    else:
-        pass
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore')
+
+        if normalize == 'bigram':
+            init_matrix /= init_matrix.sum()
+        elif normalize == 'rows':
+            init_matrix /= init_matrix.sum(axis=1, keepdims=True)
+        elif normalize == 'columns':
+            init_matrix /= init_matrix.sum(axis=0, keepdims=True)
 
     return init_matrix
 
+
+def n_gram_transition_matrix(labels, n=2, max_label=99):
+    trans_mat = np.zeros((max_label + 1, ) * n, dtype='float')
+    for loc in sliding_window(n, labels):
+        if any(l >= max_label for l in loc):
+            continue
+        trans_mat[loc] += 1
+    return trans_mat
+
+
 # per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
-def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
+def get_transition_matrix(labels, max_syllable=99, normalize='bigram',
                           smoothing=0.0, combine=False, disable_output=False) -> list:
     '''
     Compute the transition matrix from a set of model labels.
@@ -184,42 +192,35 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
 
     Returns
     -------
-    transition_matrix (list): list of 2d np.arrays that represent the transitions
-            from syllable i (row) to syllable j (column)
+    transition_matrix (list or np.ndarray): list of 2d np.arrays that represent the transitions
+            from syllable i (row) to syllable j (column) or a single transition matrix combined
+            from all sessions in `labels`
     '''
 
     # Compute a singular transition matrix
     if combine:
-        init_matrix = np.zeros((max_syllable + 1, max_syllable + 1), dtype='float32') + smoothing
+        init_matrix = []
 
-        for v in labels:
+        for v in tqdm(labels, disample=disable_output):
             # Get syllable transitions
-            transitions = _get_transitions(v)[0]
+            transitions = get_transitions(v)[0]
 
-            # Populate matrix array with transition data
-            for (i, j) in zip(transitions, transitions[1:]):
-                if i <= max_syllable and j <= max_syllable:
-                    init_matrix[i, j] += 1
+            trans_mat = n_gram_transition_matrix(transitions, n=2, max_label=max_syllable)
+            init_matrix.append(trans_mat)
 
-            init_matrix = normalize_matrix(init_matrix, normalize)
-
-        all_mats = init_matrix
+        init_matrix = np.sum(init_matrix, axis=0) + smoothing
+        all_mats = normalize_transition_matrix(init_matrix, normalize)
     else:
         # Compute a transition matrix for each session label list
         all_mats = []
-        for v in tqdm.tqdm(labels, disable=disable_output):
-            init_matrix = np.zeros((max_syllable + 1, max_syllable + 1), dtype='float32') + smoothing
-
+        for v in tqdm(labels, disable=disable_output):
             # Get syllable transitions
-            transitions = _get_transitions(v)[0]
+            transitions = get_transitions(v)[0]
 
-            # Populate matrix array with transition data
-            for (i, j) in zip(transitions, transitions[1:]):
-                if i <= max_syllable and j <= max_syllable:
-                    init_matrix[i, j] += 1
+            trans_mat = n_gram_transition_matrix(transitions, n=2, max_label=max_syllable) + smoothing
 
             # Normalize matrix
-            init_matrix = normalize_matrix(init_matrix, normalize)
+            init_matrix = normalize_transition_matrix(trans_mat, normalize)
             all_mats.append(init_matrix)
 
     return all_mats

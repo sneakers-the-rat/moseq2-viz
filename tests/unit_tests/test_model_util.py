@@ -10,10 +10,10 @@ from copy import deepcopy
 from functools import reduce
 from unittest import TestCase
 from moseq2_viz.util import parse_index, get_index_hits, load_changepoint_distribution, load_timestamps, read_yaml
-from moseq2_viz.model.trans_graph import _get_transitions
+from moseq2_viz.model.trans_graph import get_transitions
 from moseq2_viz.model.util import (relabel_by_usage, h5_to_dict, retrieve_pcs_from_slices,
     compress_label_sequence, find_label_transitions, get_best_fit,
-    get_syllable_statistics, parse_model_results, merge_models, get_mouse_syllable_slices, compute_model_changepoints,
+    get_syllable_statistics, parse_model_results, merge_models, get_mouse_syllable_slices,
     syllable_slices_from_dict, get_syllable_slices, calculate_syllable_durations, labels_to_changepoints,
     results_to_dataframe, _gen_to_arr, normalize_pcs, _whiten_all, simulate_ar_trajectory, whiten_pcs,
     make_separate_crowd_movies, get_syllable_usages)
@@ -89,7 +89,7 @@ class TestModelUtils(TestCase):
         durs = [3, 4, 2, 6, 7]
         arr = make_sequence(true_labels, durs)
 
-        trans, locs = _get_transitions(arr)
+        trans, locs = get_transitions(arr)
 
         assert true_labels[1:] == list(trans), 'syllable labels do not match with the transitions'
         assert list(np.diff(locs)) == durs[1:-1], 'syllable locations do not match their durations'
@@ -415,10 +415,10 @@ class TestModelUtils(TestCase):
         model_path_2 = 'data/test_model.p'
         cp_file = 'data/_pca/changepoints.h5'
         model_data1 = parse_model_results(joblib.load(model_path_1))
-        model_data1['changepoints'] = compute_model_changepoints(model_data1)
+        model_data1['changepoints'] = labels_to_changepoints(model_data1['labels'])
 
         model_data2 = parse_model_results(joblib.load(model_path_2))
-        model_data2['changepoints'] = compute_model_changepoints(model_data2)
+        model_data2['changepoints'] = labels_to_changepoints(model_data2['labels'])
 
         model_results = {
                             'model1': model_data1,
@@ -427,19 +427,6 @@ class TestModelUtils(TestCase):
 
         best_model, pca_cps = get_best_fit(cp_file, model_results)
         assert best_model == 'model1'
-
-    def test_compute_model_changepoints(self):
-
-        model_path = 'data/test_model.p'
-        model_data = parse_model_results(joblib.load(model_path))
-        changepoints = compute_model_changepoints(model_data)
-
-        ntransitions = 0
-        for lbls in model_data['labels']:
-            locs = _get_transitions(lbls)[1] / 30
-            ntransitions += len(np.diff(list(locs)))
-
-        assert len(changepoints) == ntransitions == 1716
 
     def test_make_separate_crowd_movies(self):
 

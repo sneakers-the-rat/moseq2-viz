@@ -15,6 +15,7 @@ from glob import glob
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
+from cytoolz import keyfilter
 from os.path import isdir, exists, join, dirname, basename
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.model.trans_graph import get_trans_graph_groups, compute_and_graph_grouped_TMs
@@ -47,24 +48,24 @@ def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, outp
     '''
 
     # Set up output directory to save crowd movies in
-    if output_dir != None:
+    if output_dir is not None:
         if not exists(output_dir):
             os.makedirs(output_dir)
 
     # Set up output directory to save plots in
-    if output_file != None:
+    if output_file is not None:
         if not exists(dirname(output_file)):
             os.makedirs(dirname(output_file))
 
     # Get sorted index dict
-    if index_file != None:
+    if index_file is not None:
         index, sorted_index = parse_index(index_file)
     else:
         index, sorted_index = None, None
 
     model_data = None
     # Load trained model data
-    if model_fit != None:
+    if model_fit is not None:
         # If the user passes model directory, merge model states by
         # minimum distance between them relative to first model in list
         if isdir(model_fit):
@@ -94,7 +95,7 @@ def add_group_wrapper(index_file, config_data):
     new_index_path = f'{index_file.replace(".yaml", "")}_update.yaml'
 
     # Read index file contents
-    index = parse_index(index_file)[0]
+    index, _ = parse_index(index_file)
     h5_uuids = [f['uuid'] for f in index['files']]
     metadata = [f['metadata'] for f in index['files']]
 
@@ -434,7 +435,7 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     '''
 
     # Load index file and model data
-    index, sorted_index, model_fit = init_wrapper_function(index_file, model_fit=model_path, output_dir=output_dir)
+    _, sorted_index, model_fit = init_wrapper_function(index_file, model_fit=model_path, output_dir=output_dir)
 
     # Get number of CPUs to optimize crowd movie creation and writing speed
     if platform in ['linux', 'linux2']:
@@ -446,28 +447,30 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     # Get list of syllable labels for all sessions
     labels = model_fit['labels']
 
-    # Get modeled session uuids
-    if 'train_list' in model_fit:
-        label_uuids = model_fit['train_list']
-    else:
-        label_uuids = model_fit['keys']
-
     # Relabel syllable labels by usage sorting and save the ordering for crowd-movie file naming
     if config_data.get('sort', True):
         labels, ordering = relabel_by_usage(labels, count=config_data.get('count', 'usage'))
     else:
         ordering = list(range(config_data['max_syllable']))
 
-    # Get uuids found in both the labels and the index
-    uuid_set = set(label_uuids) & set(sorted_index['files'].keys())
+    # get train list uuids if available, otherwise default to 'keys'
+    label_uuids = model_fit.get('train_list', model_fit['keys'])
+    label_dict = dict(zip(label_uuids, labels))
 
+    # Get uuids found in both the labels and the index
+    uuid_set = set(label_uuids) & set(sorted_index['files'])
     # Make sure the files exist
     uuid_set = [uuid for uuid in uuid_set if exists(sorted_index['files'][uuid]['path'][0])]
 
     # Synchronize arrays such that each label array index corresponds to the correct uuid index
-    labels = [label_arr for label_arr, uuid in zip(labels, label_uuids) if uuid in uuid_set]
-    label_uuids = [uuid for uuid in label_uuids if uuid in uuid_set]
-    sorted_index['files'] = {k: v for k, v in sorted_index['files'].items() if k in uuid_set}
+    label_dict = keyfilter(lambda k: k in uuid_set, label_dict)
+
+    labels = list(label_dict.values())
+    label_uuids = list(label_dict)
+    # labels = [label_arr for label_arr, uuid in zip(labels, label_uuids) if uuid in uuid_set]
+    # label_uuids = [uuid for uuid in label_uuids if uuid in uuid_set]
+    sorted_index['files'] = keyfilter(lambda k: k in uuid_set, sorted_index['files'])
+    # sorted_index['files'] = {k: v for k, v in sorted_index['files'].items() if k in uuid_set}
 
     # Get syllable(s) to create crowd movies of
     if config_data['specific_syllable'] is not None:
@@ -481,10 +484,7 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
                                 index_file=index_file, output_dir=output_dir)
 
     # Ensuring movie separation parameter is found
-    if config_data.get('separate_by', None) is not None:
-        separate_by = config_data['separate_by'].lower()
-    else:
-        separate_by = 'default'
+    separate_by = config_data.get('separate_by', 'default').lower()
 
     # Optionally generate crowd movies from independent sources, i.e. groups, or individual sessions.
     if separate_by == 'groups':

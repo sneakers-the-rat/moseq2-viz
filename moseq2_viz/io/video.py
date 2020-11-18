@@ -105,12 +105,10 @@ def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
     info_dict['index_path'] = index_file
 
     # Convert numpy dtypes to their corresponding primitives
-    for k, v in info_dict.items():
-        if isinstance(v, np.generic):
-            info_dict[k] = info_dict[k].item()
+    info_dict = valmap(lambda v: v.item() if isinstance(v, np.generic) else v, info_dict)
 
     # Write metadata info file
-    with open(info_file, 'w+') as f:
+    with open(info_file, 'w') as f:
         yaml.safe_dump(info_dict, f)
 
 def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir):

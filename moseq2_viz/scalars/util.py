@@ -519,7 +519,8 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
     return pdfs, groups, sessions, subjectNames
 
 
-def compute_mean_syll_scalar(complete_df, scalar_df, scalar='centroid_speed_mm', max_sylls=40):
+def compute_mean_syll_scalar(complete_df, scalar_df, scalar='centroid_speed_mm', max_sylls=40,
+                             keep_cols=['group', 'uuid', 'labels (usage sort)']):
     '''
     Computes the mean syllable scalar-value based on the time-series scalar dataframe and the selected scalar.
     Finds the frame indices with corresponding each of the label values (up to max syllables) and looks up the scalar
@@ -531,6 +532,7 @@ def compute_mean_syll_scalar(complete_df, scalar_df, scalar='centroid_speed_mm',
     scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid and syllable columns for all stacked sessions
     scalar (str or list): Selected scalar column(s) to compute mean value for syllables
     max_sylls (int): maximum amount of syllables to include in output.
+    keep_cols (list): list of columns to group the scalar_df by
 
     Returns
     -------
@@ -539,20 +541,25 @@ def compute_mean_syll_scalar(complete_df, scalar_df, scalar='centroid_speed_mm',
 
     warnings.filterwarnings('ignore')
 
-    keep_cols = ['group', 'uuid', 'syllable']
-
     if isinstance(scalar, str):
         use_cols = [scalar] + keep_cols
     elif isinstance(scalar, list):
         use_cols = scalar + keep_cols
 
-    scalar_df = scalar_df[scalar_df.syllable >= 0]
+    # filter out -5 padding values
+    scalar_df = scalar_df[scalar_df['labels (usage sort)'] >= 0]
 
-    syll_mean_df = scalar_df.groupby(['syllable', 'uuid', 'group'], as_index=False).mean()[use_cols]
-    syll_scalar_df = syll_mean_df[syll_mean_df.syllable <= max_sylls]
-    syll_scalar_df.syllable = syll_scalar_df.syllable.astype(int)
+    syll_mean_df = scalar_df.groupby(keep_cols, as_index=False).mean()[use_cols]
 
-    complete_df = pd.merge(complete_df, syll_scalar_df, on=['uuid', 'syllable', 'group'])
+    # filter out syllables > max_sylls and cast to int
+    syll_scalar_df = syll_mean_df[syll_mean_df['labels (usage sort)'] <= max_sylls]
+    syll_scalar_df['labels (usage sort)'] = syll_scalar_df['labels (usage sort)'].astype(int)
+
+    # handling column names for safe df merge
+    syll_scalar_df = syll_scalar_df.rename(columns={'labels (usage sort)': 'syllable'})
+    keep_cols[keep_cols.index('labels (usage sort)')] = 'syllable'
+
+    complete_df = pd.merge(complete_df, syll_scalar_df, on=keep_cols)
 
     return complete_df
 
@@ -632,7 +639,7 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
         return H
 
     filtered_df = scalar_df[scalar_df[syllable_key].isin(syllables)]
-    hists = filtered_df.groupby(['group', 'uuid', syllable_key]).apply(_compute_histogram)
+    hists = filtered_df.groupby(['group', 'uuid', 'SessionName', 'SubjectName', syllable_key]).apply(_compute_histogram)
 
     return hists
 

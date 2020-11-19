@@ -476,6 +476,26 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         if has_model and k in labels_df.index:
             _tmp_df = pd.merge(_tmp_df, labels_df.loc[k], on='frame index', how='outer')
 
+        dfs.append(_tmp_df)
+
+    # return scalar_dict
+    scalar_df = pd.concat(dfs, ignore_index=True)
+
+    return scalar_df
+
+
+def make_a_heatmap(position):
+    '''
+    Uses a kernel density function to create a heatmap representing the mouse position throughout a single session.
+
+    Parameters
+    ----------
+    position (2d numpy array): 2d array of mouse centroid coordinates (for a single session),
+     computed from compute_session_centroid_speeds.
+
+
+    Returns
+    -------
     pdf (2d numpy array): shape (50, 50) representing the PDF for the mouse position over the whole session.
 
     '''
@@ -484,6 +504,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 
     # Set up the bounds over which to build the KDE
     X, Y = np.meshgrid(*[np.linspace(*np.percentile(d, [0.01, 99.99]), num=n_grid)
+                         for d in (position[:, 0], position[:, 1])
                        ])
     position_grid = np.hstack((X.ravel()[:, None], Y.ravel()[:, None]))
     bandwidth = (X.max() - X.min()) / 25.0

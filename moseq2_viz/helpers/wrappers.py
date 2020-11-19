@@ -7,26 +7,22 @@ Each wrapper function executes the functionality from end-to-end given it's depe
 '''
 
 import os
-import h5py
 import shutil
 import psutil
-import joblib
-import numpy as np
 from glob import glob
 from sys import platform
 import ruamel.yaml as yaml
 from tqdm.auto import tqdm
 from cytoolz import keyfilter, groupby
-from os.path import isdir, exists, join, dirname, basename
+from os.path import exists, join, dirname, basename
+from moseq2_viz.scalars.util import (scalars_to_dataframe, compute_all_pdf_data)
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
+from moseq2_viz.util import (parse_index, get_index_hits, get_metadata_path, clean_dict,
+                             h5_to_dict, recursive_find_h5s)
 from moseq2_viz.model.trans_graph import get_trans_graph_groups, compute_and_graph_grouped_TMs
-from moseq2_viz.util import (parse_index, recursive_find_h5s, h5_to_dict, clean_dict, get_index_hits,
-                             get_metadata_path)
-from moseq2_viz.scalars.util import (scalars_to_dataframe, compute_mean_syll_scalar, compute_all_pdf_data,
-                            compute_session_centroid_speeds)
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, plot_mean_group_heatmap,
                             plot_verbose_heatmap, save_fig, plot_cp_comparison)
-from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models,
+from moseq2_viz.model.util import (relabel_by_usage, parse_model_results,
                                    get_best_fit, compute_behavioral_statistics,
                                    make_separate_crowd_movies, labels_to_changepoints)
 
@@ -38,7 +34,7 @@ def _make_directories(crowd_movie_path, plot_path):
         os.makedirs(crowd_movie_path, exist_ok=True)
     # Set up output directory to save plots in
     if plot_path is not None:
-        os.makedirs(dirname(plot_path))
+        os.makedirs(dirname(plot_path), exist_ok=True)
 
 
 def init_wrapper_function(index_file=None, output_dir=None, output_file=None):

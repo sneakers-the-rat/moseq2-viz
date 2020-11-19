@@ -58,9 +58,8 @@ def get_best_fit_model(model_dir, cp_path, output_file, plot_all, ext, fps):
 # and copy the contents to a new directory
 @cli.command(name="copy-h5-metadata-to-yaml", help='Copies metadata within an h5 file to a yaml file.')
 @click.option('--input-dir', '-i', type=click.Path(), default=os.getcwd(), help='Directory to find h5 files')
-@click.option('--h5-metadata-path', default='/metadata/acquisition', type=str, help='Path to acquisition metadata in h5 files')
-def copy_h5_metadata_to_yaml(input_dir, h5_metadata_path):
-    copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path)
+def copy_h5_metadata_to_yaml(input_dir):
+    copy_h5_metadata_to_yaml_wrapper(input_dir)
 
 
 @cli.command(name='make-crowd-movies', help='Writes movies of overlaid examples of the rodent perform a given syllable')
@@ -148,15 +147,14 @@ def plot_transition_graph(index_file, model_fit, output_file, **config_data):
 @cli.command(name='plot-stats', help="Plots syllable usages with different sorting,coloring and grouping capabilities")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
 @click.argument('model-fit', type=click.Path(exists=True, resolve_path=True))
-@click.option('--stat', type=click.Choice(['usage', 'speed', 'duration']), default='usage', help="Statistic to plot.")
+@click.option('--stat', type=str, default='usage', help="Statistic to plot.")
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'syll_stat'), help="Filename to store plot")
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
-@click.option('--figsize', type=tuple, default=(10, 5), help="Size dimensions of the plotted figure.")
+@click.option('--figsize', type=tuple, default=(10, 5), help="Size in inches (w x h) of the plotted figure.")
 @click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
 @click.option('-g', '--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
-@click.option('-o', '--ordering', type=click.Choice(['usage', 'speed', 'duration', 'mutation']), default='usage',
-              help="How to order the groups")
+@click.option('-o', '--ordering', type=str, default='usage', help="How to order the groups")
 @click.option('--ctrl-group', type=str, default=None, help="Name of control group. Only if ordering = 'm'")
 @click.option('--exp-group', type=str, default=None, help="Name of experimental group. Only if ordering = 'm'")
 @click.option('-c', '--colors', type=str, default=None, help="Colors to plot groups with.", multiple=True)

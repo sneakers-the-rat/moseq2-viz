@@ -16,7 +16,7 @@ from matplotlib import gridspec
 import matplotlib.pyplot as plt
 from os.path import dirname, exists
 from cytoolz import groupby, valmap
-from moseq2_viz.model.label_util import sort_syllables_by_stat, sort_syllables_by_stat_difference
+from moseq2_viz.model.util import sort_syllables_by_stat, sort_syllables_by_stat_difference
 
 
 def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='stat', max_sylls=40, groups=None, ctrl_group=None, exp_group=None,

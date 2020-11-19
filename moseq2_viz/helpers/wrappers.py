@@ -27,7 +27,7 @@ from moseq2_viz.scalars.util import (scalars_to_dataframe, compute_mean_syll_sca
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, plot_mean_group_heatmap,
                             plot_verbose_heatmap, save_fig, plot_cp_comparison)
 from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models,
-                                   results_to_dataframe, get_best_fit, compute_behavioral_statistics,
+                                   get_best_fit, compute_behavioral_statistics,
                                    make_separate_crowd_movies, labels_to_changepoints)
 
 
@@ -41,7 +41,7 @@ def _make_directories(crowd_movie_path, plot_path):
         os.makedirs(dirname(plot_path))
 
 
-def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, output_file=None):
+def init_wrapper_function(index_file=None, output_dir=None, output_file=None):
     '''
     Helper function that will optionally load the index file and a trained model given their respective paths.
     The function will also create any output directories given path to the output file or directory.
@@ -68,20 +68,7 @@ def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, outp
     else:
         index, sorted_index = None, None
 
-    model_data = None
-    # Load trained model data
-    if model_fit is not None:
-        # If the user passes model directory, merge model states by
-        # minimum distance between them relative to first model in list
-        if isdir(model_fit):
-            model_data = merge_models(model_fit, 'p')
-        elif model_fit.endswith(('.p', '.pz')):
-            model_data = parse_model_results(joblib.load(model_fit))
-        elif model_fit.endswith('.h5'):
-            # TODO: add h5 file model parsing capability
-            pass
-
-    return index, sorted_index, model_data
+    return index, sorted_index
 
 
 def add_group_wrapper(index_file, config_data):
@@ -156,17 +143,18 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     '''
 
     # Get models
-    if not ext.startswith('.'):
-        ext = '.' + ext
+    if not ext.startswith('.'): ext = '.' + ext
     models = glob(join(model_dir, f'*{ext}'), recursive=True)
 
     print(f'Found {len(models)} models in given input folder: {model_dir}')
 
     # Load models into a single dict and compute their changepoints
-    model_results = {}
-    for model_name in models:
-        model_results[model_name] = parse_model_results(joblib.load(model_name))
-        model_results[model_name]['changepoints'] = labels_to_changepoints(model_results[model_name]['labels'], fs=fps)
+    def _load_models(pth):
+        mdl = parse_model_results(pth)
+        mdl['changepoints'] = labels_to_changepoints(mdl['labels'], fs=fps)
+        return mdl
+
+    model_results = {name: _load_models(name) for name in models}
 
     # Find the best fit model by comparing their median durations with the PC scores changepoints
     best_model, pca_changepoints = get_best_fit(cp_file, model_results)
@@ -212,7 +200,7 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     '''
 
     # Get loaded index dict
-    index, sorted_index, _ = init_wrapper_function(index_file, output_file=output_file)
+    _, sorted_index = init_wrapper_function(index_file, output_file=output_file)
 
     # Parse index dict files to return pandas DataFrame of all computed scalars from extraction step
     scalar_df = scalars_to_dataframe(sorted_index)
@@ -259,7 +247,7 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     '''
 
     # Load index file and model data
-    _, sorted_index, _ = init_wrapper_function(index_file, output_file=output_file)
+    _, sorted_index = init_wrapper_function(index_file, output_file=output_file)
 
     scalar_df = scalars_to_dataframe(sorted_index, model_path=model_fit)
 
@@ -297,7 +285,7 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file, normalize=True
     '''
 
     # Get loaded index dicts via decorator
-    _, sorted_index, _ = init_wrapper_function(index_file, output_file=output_file)
+    _, sorted_index = init_wrapper_function(index_file, output_file=output_file)
 
     # Load scalar dataframe to compute position PDF heatmap
     scalar_df = scalars_to_dataframe(sorted_index)
@@ -334,7 +322,7 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=True):
     '''
 
     # Get loaded index dicts via decorator
-    _, sorted_index, _ = init_wrapper_function(index_file, output_file=output_file)
+    _, sorted_index = init_wrapper_function(index_file, output_file=output_file)
 
     # Load scalar dataframe to compute position PDF heatmap
     scalar_df = scalars_to_dataframe(sorted_index)
@@ -373,18 +361,15 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
     '''
 
     # Load index file and model data
-    index, sorted_index, model_data = init_wrapper_function(index_file, model_fit=model_fit, output_file=output_file)
+    model_data = parse_model_results(model_fit)
+    _, sorted_index = init_wrapper_function(index_file, output_file=output_file)
 
     # Optionally load pygraphviz for transition graph layout configuration
-    if config_data.get('layout').lower()[:8] == 'graphviz':
+    if 'graphviz' in config_data.get('layout').lower():
         try:
             import pygraphviz
         except ImportError:
             raise ImportError('pygraphviz must be installed to use graphviz layout engines')
-
-    # Set groups to plot
-    if config_data.get('group') != None:
-        group = config_data['group']
 
     # Get labels and optionally relabel them by usage sorting
     labels = model_data['labels']
@@ -392,7 +377,7 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
         labels = relabel_by_usage(labels, count=config_data['count'])[0]
 
     # Get modeled session uuids to compute group-mean transition graph for
-    group, label_group, label_uuids = get_trans_graph_groups(model_data, sorted_index)
+    group, label_group, _ = get_trans_graph_groups(model_data, sorted_index)
 
     print('Computing transition matrices...')
     try:
@@ -435,7 +420,8 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     '''
 
     # Load index file and model data
-    _, sorted_index, model_fit = init_wrapper_function(index_file, model_fit=model_path, output_dir=output_dir)
+    model_fit = parse_model_results(model_path)
+    _, sorted_index = init_wrapper_function(index_file, output_dir=output_dir)
 
     # Get number of CPUs to optimize crowd movie creation and writing speed
     if platform in ['linux', 'linux2']:

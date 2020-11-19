@@ -238,8 +238,7 @@ def get_scalar_map(index, fill_nans=True, force_conversion=False):
 
         for k, v_scl in scalars.items():
             if fill_nans:
-                scalar_map[uuid][k] = np.zeros((len(idx), ), dtype='float32')
-                scalar_map[uuid][k][:] = np.nan
+                scalar_map[uuid][k] = np.full((len(idx), ), np.nan, dtype='float32')
                 scalar_map[uuid][k][~np.isnan(idx)] = v_scl
             else:
                 scalar_map[uuid][k] = v_scl

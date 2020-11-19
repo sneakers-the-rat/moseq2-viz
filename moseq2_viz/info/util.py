@@ -9,7 +9,7 @@ from moseq2_viz.model.util import get_syllable_statistics, relabel_by_usage
 
 
 def entropy(labels, truncate_syllable=40, smoothing=1.0,
-            relabel_by='usage', get_session_sum=True):
+            relabel_by='usage', get_session_sum=False):
     '''
     Computes syllable usage entropy, base 2.
 
@@ -32,7 +32,7 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0,
     for v in labels:
         usages = get_syllable_statistics([v])[0]
 
-        syllables = np.array(list(usages.keys()))
+        syllables = np.array(list(usages))
         truncate_point = np.where(syllables == truncate_syllable)[0]
 
         if truncate_point is None or len(truncate_point) != 1:
@@ -57,7 +57,7 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0,
 
 
 def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
-                 smoothing=1.0, tm_smoothing=1.0, relabel_by='usage', get_session_sum=True):
+                 smoothing=1.0, tm_smoothing=1.0, relabel_by='usage', get_session_sum=False):
     '''
     Computes entropy rate, base 2 using provided syllable labels. If
     syllable labels have not been re-labeled by usage, this function will do so.

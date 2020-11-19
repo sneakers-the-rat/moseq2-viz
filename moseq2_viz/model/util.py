@@ -22,6 +22,7 @@ from collections import defaultdict, OrderedDict
 from scipy.optimize import linear_sum_assignment
 from os.path import join, basename, dirname, exists
 from moseq2_viz.model.trans_graph import get_transitions
+from moseq2_viz.util import load_changepoint_distribution
 from cytoolz import curry, valmap, compose, complement, itemmap, concat, keyfilter
 
 
@@ -52,7 +53,7 @@ def merge_models(model_dir, ext='p',count='usage'):
     model_paths = [m for m in glob.glob(tmp)]
     model_data = {}
 
-    for m, model_fit in enumerate(model_paths):
+    for _, model_fit in enumerate(model_paths):
         unit_data = parse_model_results(joblib.load(model_fit), \
                                         sort_labels_by_usage=True, count=count)
         for k, v in unit_data.items():
@@ -118,32 +119,23 @@ def get_best_fit(cp_path, model_results):
     pca_cps (1D array): 1-dimensional list of pc score block durations.
     '''
 
-    # Load changepoints
-    with h5py.File(cp_path, 'r') as f:
-        cps = h5_to_dict(f, 'cps')
-
-    # Compute changepoint distribution
-    pca_cps = np.concatenate([np.diff(cp, axis=0) for k, cp in cps.items()]).flatten()
+    # Load PCA changepoints
+    pca_cps = load_changepoint_distribution(cp_path)
     
-    best_model = None
-    min_dist = np.inf
+    def _compute_cp_dist(args):
+        _, model = args
+        return np.abs(np.nanmedian(pca_cps) - np.nanmedian(model['changepoints']))
     
-    for model in model_results.keys():
-        # Load current models changepoints
-        model_cps = model_results[model]['changepoints']
-        try:
-            # Get syllable duration difference
-            syll_dur = abs(np.median(pca_cps) - np.median(model_cps))
+    best_model, dist = min(model_results.items(), key=_compute_cp_dist)
 
-            # If syllable duration is less than last saved value, update best model key
-            if syll_dur < min_dist:
-                min_dist = syll_dur
-                best_model = model
-        except:
-            print('model doesnt match pcs')
-            pass
-        
-    return best_model, pca_cps
+    info = {
+        'best model via median duration': best_model,
+        'min duration distance (frames)': dist,
+        # 'best model via jsd of duration distribution': best_jsd_model,
+        # 'min jensen-shannon distance': jsd_dist
+    }
+    
+    return info, pca_cps
 
 
 def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
@@ -340,71 +332,16 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
     return syllable_slices
 
 
-def find_label_transitions(label_arr: Union[dict, np.ndarray, pd.Series]) -> np.ndarray:
+def add_duration_column(scalar_df):
     '''
-    Finds indices where a label transitions into another label. This
-    function is cached to increase performance because it is called frequently.
-
-    Parameters
-    ----------
-    label_arr (dict or np.ndarray): list or dict of predicted syllable labels.
-
-    Returns
-    -------
-    inds (np.ndarray): Array of syllable transition indices for each session uuid.
+    Adds syllable duration column to scalar dataframe if it also contains syllable labels.
     '''
-
-    if isinstance(label_arr, dict):
-        return valmap(find_label_transitions, label_arr)
-    elif isinstance(label_arr, (np.ndarray, pd.Series)):
-        inds = np.where(np.diff(label_arr) != 0)[0] + 1
-        return inds
-    else:
-        raise TypeError('passed the wrong datatype')
-
-
-def compress_label_sequence(label_arr: Union[dict, np.ndarray, pd.Series]) -> np.ndarray:
-    '''
-    Removes repeating values from a label sequence. It assumes the first
-    label is '-5', which is unused for behavioral analysis, and removes it.
-
-    Parameters
-    ----------
-    label_arr (dict or np.ndarray): list or dict of predicted syllable labels.
-
-    Returns
-    -------
-    label_arr[inds] (dict or np.ndarray): the compressed version of the label arrays.
-    '''
-
-    if isinstance(label_arr, dict):
-        return valmap(compress_label_sequence, label_arr)
-    elif isinstance(label_arr, (np.ndarray, pd.Series)):
-        inds = find_label_transitions(label_arr)
-        return label_arr[inds]
-    else:
-        raise TypeError('passed the wrong datatype')
-
-
-def calculate_syllable_durations(label_arr: Union[dict, np.ndarray]) -> Union[dict, np.ndarray]:
-    '''
-    Calculates syllable label durations.
-
-    Parameters
-    ----------
-    label_arr (dict or np.ndarray): list or dict of predicted syllable labels.
-
-    Returns
-    -------
-    np.diffs(inds) (np.ndarray): list of durations for each syllable in respective label order.
-    '''
-
-    if isinstance(label_arr, dict):
-        return valmap(calculate_syllable_durations, label_arr)
-    elif isinstance(label_arr, np.ndarray):
-        tmp = np.concatenate((label_arr, [-5]))
-        inds = find_label_transitions(tmp)
-        return np.diff(inds)
+    if 'labels (original)' not in scalar_df.columns and 'onset' not in scalar_df.columns:
+        raise ValueError('scalar_df must contain model labels in order to add duration')
+    durs = syll_duration(scalar_df['labels (original)'].to_numpy())
+    scalar_df.loc[scalar_df['onset'], 'duration'] = durs
+    scalar_df['duration'] = scalar_df['duration'].ffill().astype('uint16')
+    return scalar_df
 
 
 def syll_onset(labels: np.ndarray) -> np.ndarray:
@@ -748,126 +685,6 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 
     return sorted_labels, sorting
 
-# TODO: figure out the difference between this and `results_to_dataframe`
-def get_frame_label_df(labels, uuids, groups):
-    '''
-    Returns a DataFrame with rows for each session, frame indices as columns,
-    and syllable label values corresponding to these frames+sessions for each frame.
-
-    Parameters
-    ----------
-    labels (2D np.array): list of np arrays containing syllable labels with respect to individually labeled frames.
-     Index by uuids.
-    uuids (list): list of uuid strings corresponding to each "row" in labels.
-    groups (list): list of group strings corresponding to each "row" in labels.
-
-    Returns
-    -------
-    label_df (pd.DataFrame): Dataframe of shape (nsessions x max(len(labels))). At columns exceeding session's labeled frame
-    count, values will be np.NaN. Rows are indexed by Multi-Index([['group', 'uuid'],...)
-
-    '''
-
-    total_columns = max(map(len, labels))
-    label_df = pd.DataFrame(labels, columns=range(total_columns), index=[groups, uuids])
-    return label_df
-
-def results_to_dataframe(model_dict, index_dict, sort=False, count='usage', max_syllable=40,
-                         include_meta=['SessionName', 'SubjectName', 'StartTime'], compute_labels=False):
-    '''
-    Converts inputted model dictionary to DataFrame with user specified metadata columns.
-    Also generates a DataFrame containing frame-by-frame syllable labels for all sessions.
-
-    Parameters
-    ----------
-    model_dict (dict): loaded model results dictionary.
-    index_dict (dict): loaded index file dictionary
-    sort (bool): indicate whether to relabel syllables by usage.
-    count (str): indicate what to sort the labels by: usage, or frames
-    normalize (bool): unused.
-    max_syllable (int): maximum number of syllables to include in dataframe.
-    include_meta (list): mouse metadata to include in dataframe.
-
-    Returns
-    -------
-    df (pd.DataFrame): DataFrame containing model results and metadata.
-    label_df (pd.DataFrame): DataFrame containing syllable labels at each frame (nsessions rows x max(nframes) cols)
-    '''
-
-    if type(model_dict) is str:
-        model_dict = parse_model_results(model_dict)
-
-    if sort:
-        model_dict['labels'] = relabel_by_usage(model_dict['labels'], count=count)[0]
-
-    # by default the keys are the uuids
-
-    label_uuids = model_dict.get('train_list', model_dict['keys'])
-
-    df_dict = {
-        'usage': [],
-        'duration': [],
-        'uuid': [],
-        'group': [],
-        'syllable': []
-    }
-
-    for key in include_meta:
-        df_dict[key] = []
-
-    try:
-        groups = [index_dict['files'][uuid].get('group', 'default') for uuid in label_uuids]
-    except:
-        groups = []
-        try:
-            for i, uuid in enumerate(label_uuids):
-                groups.append(index_dict['files'][i].get('group', 'default'))
-        except:
-            print('WARNING: model results uuids do not match index file uuids.')
-            groups.append('default')
-
-    try:
-        metadata = [index_dict['files'][uuid]['metadata'] for uuid in label_uuids]
-    except:
-        metadata = []
-        for i, uuid in enumerate(label_uuids):
-            metadata.append(index_dict['files'][i].get('metadata', {}))
-
-    # get frame-by-frame label DataFrame
-    if compute_labels:
-        try:
-            label_df = get_frame_label_df(model_dict['labels'], label_uuids, groups)
-        except:
-            label_df = []
-            print('Could not compute frame-label dataframe.')
-    else:
-        label_df = []
-
-    for i, label_arr in enumerate(model_dict['labels']):
-        tmp_usages, tmp_durations = get_syllable_statistics(label_arr, count=count, max_syllable=max_syllable)
-        total_usage = np.sum(list(tmp_usages.values()))
-        if total_usage <= 0:
-            total_usage = 1.0
-        for k, v in tmp_usages.items():
-            # average syll duration will be sum of all syllable durations divided by number of total sequences
-            durs = tmp_durations[k]
-            num_seqs = len(durs)
-            if len(durs) == 0:
-                num_seqs = 1.0
-
-            df_dict['duration'].append(sum(durs) / num_seqs)
-            df_dict['usage'].append(v / total_usage)
-            df_dict['syllable'].append(k)
-            df_dict['group'].append(groups[i])
-            df_dict['uuid'].append(label_uuids[i])
-
-            for meta_key in include_meta:
-                df_dict[meta_key].append(metadata[i][meta_key])
-
-    df = pd.DataFrame.from_dict(data=df_dict)
-
-    return df, label_df
-
 
 def compute_syllable_onset(labels):
     onset = pd.Series(labels).diff().fillna(1) != 0
@@ -1179,8 +996,7 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
             km.fit(syllable_matrix)
             syllable_matrix = km.cluster_centers_.reshape(subsampling, max_dur, npcs)
         except Exception:
-            syllable_matrix = np.zeros((subsampling, max_dur, npcs))
-            syllable_matrix[:] = np.nan
+            syllable_matrix = np.full((subsampling, max_dur, npcs), np.nan)
 
     return syllable_matrix
 
@@ -1228,3 +1044,68 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, label_dict
                                          labels, uuids, output_subdir)
 
     return cm_paths
+
+
+def sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group, max_sylls=None, stat='usage'):
+    '''
+    Computes the syllable ordering for the difference of the inputted groups (exp - ctrl).
+    The sorted result will yield an array will indices depicting the largest positive (upregulated)
+    difference between exp and ctrl groups on the left, and vice versa on the right.
+
+    Parameters
+    ----------
+    complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
+    ctrl_group (str): Control group.
+    exp_group (str): Experimental group.
+    max_sylls (int): maximum number of syllables to include in ordering.
+    stat (str): choice of statistic to order mutations by: {usage, duration, speed}.
+
+    Returns
+    -------
+    ordering (list): list of array indices for the new label mapping.
+    '''
+
+    # Prepare DataFrame
+    mutation_df = complete_df.groupby(['group', 'syllable']).mean()
+
+    # Get groups to measure mutation by
+    control_df = mutation_df.loc[ctrl_group]
+    exp_df = mutation_df.loc[exp_group]
+
+    # compute mean difference at each syll usage and reorder based on difference
+    ordering = (exp_df[stat] - control_df[stat]).sort_values(by=stat, ascending=False).index
+
+    if max_sylls is not None:
+        ordering = ordering[:max_sylls]
+
+    return list(ordering)
+
+
+def sort_syllables_by_stat(complete_df, stat='usage', max_sylls=None):
+    '''
+    Computes the sorted ordering of the given DataFrame with respect to the chosen stat.
+
+    Parameters
+    ----------
+    complete_df (pd.DataFrame): DataFrame containing the statistical information about syllable data [usages, durs, etc.]
+    stat (str): choice of statistic to order syllables by: {usage, duration, speed}.
+    max_sylls (int or None): maximum number of syllables to include in ordering
+
+    Returns
+    -------
+    ordering (list): list of sorted syllables by stat.
+    relabel_mapping (dict): a dict with key-value pairs {old_ordering: new_ordering}.
+    '''
+
+    tmp = complete_df.groupby('syllable').mean().sort_values(by=stat, ascending=False).index
+
+    # Get sorted ordering
+    ordering = list(tmp)
+
+    if max_sylls is not None:
+        ordering = ordering[:max_sylls]
+
+    # Get order mapping
+    relabel_mapping = {o: i for i, o in enumerate(ordering)}
+
+    return ordering, relabel_mapping

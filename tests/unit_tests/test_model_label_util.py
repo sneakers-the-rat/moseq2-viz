@@ -2,9 +2,7 @@ import numpy as np
 import pandas as pd
 from unittest import TestCase
 from moseq2_viz.util import parse_index
-from moseq2_viz.model.util import results_to_dataframe
-from moseq2_viz.model.label_util import syll_onset, syll_duration, syll_id, labels_to_df, \
-    sort_syllables_by_stat_difference, sort_syllables_by_stat
+from moseq2_viz.model.util import results_to_dataframe, sort_syllables_by_stat_difference, sort_syllables_by_stat
 
 class TestTrainLabelUtils(TestCase):
 

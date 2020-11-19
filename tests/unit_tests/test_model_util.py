@@ -265,19 +265,21 @@ class TestModelUtils(TestCase):
         np.testing.assert_array_equal(model_dict2['labels'], list(model_dict3['labels'].values()))
 
     def test_relabel_by_usage(self):
-        labels = np.asarray([[-5, -5, -5, 1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 5, 5, 5, 5],
-                             [-5, -5, -5, 4, 4, 4, 4, 4, 1, 1, 1, 2, 2, 2, 5, 5, 5, 5]])
+        labels = dict(
+                      session1=np.array([1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 5, 5, 5, 5]),
+                      session2=np.array([4, 4, 4, 4, 4, 1, 1, 1, 2, 2, 2, 5, 5, 5, 5])
+                      )
         rel, ordering = relabel_by_usage(labels)
 
         actual_labels = []
-        for arr in rel:
+        for arr in rel.values():
             subarr = []
             for i in arr:
                 actual = ordering[i]
                 subarr.append(actual)
             actual_labels.append(subarr)
 
-        np.testing.assert_array_equal(actual_labels, labels)
+        np.testing.assert_array_equal(actual_labels, list(labels.values()))
 
     def test_results_to_dataframe(self):
         model_fit = 'data/test_model.p'

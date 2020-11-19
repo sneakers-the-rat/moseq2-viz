@@ -532,6 +532,7 @@ def compute_mean_syll_scalar(scalar_df, scalar='velocity_3d_mm', max_sylls=40, s
     max_sylls (int): maximum amount of syllables to include in output.
     syllable_key (str): column in scalar_df that points to the syllable labels to use.
 
+
     Returns
     -------
     mean_df (pd.DataFrame): updated input dataframe with a speed value for each syllable merge in as a new column.
@@ -604,7 +605,7 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
         return H
 
     filtered_df = scalar_df[scalar_df[syllable_key].isin(syllables)]
-    hists = filtered_df.groupby(['group', 'uuid', syllable_key]).apply(_compute_histogram)
+    hists = filtered_df.groupby(['group', 'uuid', 'SessionName', 'SubjectName', syllable_key]).apply(_compute_histogram)
 
     return hists
 

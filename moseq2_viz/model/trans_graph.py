@@ -601,7 +601,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
 
     for i, tm in enumerate(trans_mats):
         if isinstance(scalars, dict):
-            speeds = scalars['speed'][i]
+            speeds = scalars['speeds_2d'][i]
         else:
             speeds = None
 

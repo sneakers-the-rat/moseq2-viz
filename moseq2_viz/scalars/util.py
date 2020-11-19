@@ -440,7 +440,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 
     # check if files is dictionary from sorted_index or list from unsorted index, then sort
     if isinstance(index['files'], list):
-        index = parse_index(index)
+        index = parse_index(index)[1]
 
     dfs = []
     # Iterate through index file session info and paths

@@ -2,16 +2,15 @@ import joblib
 import unittest
 import numpy as np
 import pandas as pd
-import ruamel.yaml as yaml
 from unittest import TestCase
 from cytoolz import merge_with
 from moseq2_viz.util import parse_index, read_yaml
 from moseq2_viz.model.util import parse_model_results, h5_to_dict, results_to_dataframe
-from moseq2_viz.scalars.util import star_valmap, remove_nans_from_labels, convert_pxs_to_mm, is_legacy, \
+from moseq2_viz.scalars.util import star_valmap, convert_pxs_to_mm, is_legacy, \
     generate_empty_feature_dict, convert_legacy_scalars, get_scalar_map, get_scalar_triggered_average, \
-    nanzscore, _pca_matches_labels, process_scalars, find_and_load_feedback, scalars_to_dataframe, \
+    nanzscore, _pca_matches_labels, process_scalars, scalars_to_dataframe, \
     make_a_heatmap, compute_all_pdf_data, compute_session_centroid_speeds, compute_mean_syll_scalar, \
-    compute_syllable_position_heatmaps, handle_feedback_data, get_syllable_pdfs, compute_mouse_dist_to_center, \
+    compute_syllable_position_heatmaps, get_syllable_pdfs, compute_mouse_dist_to_center, \
     h5_filepath_from_sorted
 
 class TestScalarUtils(TestCase):
@@ -34,7 +33,7 @@ class TestScalarUtils(TestCase):
         def merger(d):
             return merge_with(tuple, scores_idx, d)
 
-        out = star_valmap(remove_nans_from_labels, merger(lbl_dict))
+        out = star_valmap(np.isnan, merger(lbl_dict))
 
         assert isinstance(out, dict)
         for v in out.values():
@@ -202,31 +201,15 @@ class TestScalarUtils(TestCase):
             assert np.asarray(v1).shape == (17, 908)
             assert np.asarray(v2).shape == (17, 908)
 
-    def test_find_and_load_feedback(self):
-        extract_path = 'data/proc/'
-        input_path = 'data/'
-        feedback_ts, feedback_status = find_and_load_feedback(extract_path, input_path)
-        assert feedback_ts == None
-        assert feedback_status == None
-
-
-    def test_remove_nans_from_labels(self):
-        lbls = np.array([[np.nan, np.nan, np.nan, 1,2,3,4,5],
-                         [np.nan, np.nan, np.nan, 1,2,3,4,5]])
-
-
-
-        out = remove_nans_from_labels(lbls, lbls)
-        assert all(out == [1,2,3,4,5,1,2,3,4,5])
-
     def test_scalars_to_dataframe(self):
         index_file = 'data/test_index.yaml'
 
         df_cols = ['angle', 'area_mm', 'area_px', 'centroid_x_mm', 'centroid_x_px',
-       'centroid_y_mm', 'centroid_y_px', 'height_ave_mm', 'length_mm',
-       'length_px', 'velocity_2d_mm', 'velocity_2d_px', 'velocity_3d_mm',
-       'velocity_3d_px', 'velocity_theta', 'width_mm', 'width_px', 'dist_to_center_px',
-       'SessionName', 'SubjectName', 'StartTime', 'group', 'uuid']
+                   'centroid_y_mm', 'centroid_y_px', 'height_ave_mm', 'length_mm',
+                   'length_px', 'velocity_2d_mm', 'velocity_2d_px', 'velocity_3d_mm',
+                   'velocity_3d_px', 'velocity_theta', 'width_mm', 'width_px',
+                   'dist_to_center_px', 'group', 'uuid', 'h5_path', 'timestamps',
+                   'frame index', 'SessionName', 'SubjectName', 'StartTime']
 
         total_frames = 1800
 
@@ -241,9 +224,6 @@ class TestScalarUtils(TestCase):
         assert isinstance(scalar_df, pd.DataFrame)
         assert all(scalar_df.columns == df_cols)
         assert scalar_df.shape == (total_frames, len(df_cols))
-
-        # feedback timestamps
-        self.assertRaises(ValueError, scalars_to_dataframe, index_data, include_feedback=True)
 
     def test_make_a_heatmap(self):
 
@@ -325,28 +305,6 @@ class TestScalarUtils(TestCase):
 
         assert len(dist_to_center) == 900
         assert all(x < 1.2 for x in dist_to_center)
-
-    def test_handle_feedback_data(self):
-
-        test_index = 'data/test_index.yaml'
-
-        _, sorted_index = parse_index(test_index)
-
-        files = sorted_index['files']
-
-        uuids = list(files.keys())
-
-        nframes = 900
-        dct = h5_to_dict(h5_filepath_from_sorted(files[uuids[1]]), path='scalars')
-        scalar_dict = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='scalars')
-        input_file = h5_filepath_from_sorted(files[uuids[1]])
-        pth = 'proc/'
-
-        scalar_dict['feedback_status'] = []
-        scalar_dict, skip = handle_feedback_data(scalar_dict, dct, pth, input_file, nframes)
-
-        assert skip == True
-        assert scalar_dict['feedback_status'] == [-1] * nframes
 
     def test_compute_syllable_position_heatmaps(self):
 

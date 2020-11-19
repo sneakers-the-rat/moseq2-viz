@@ -392,24 +392,21 @@ def compute_mouse_dist_to_center(roi, centroid_x_px, centroid_y_px):
 
     Returns
     -------
-    dist_to_center (1D np.array): array of normalized mouse centroid distance to the bucket center.
+    dist_to_center (1D np.array): array of distance to the arena center in pixels.
     '''
 
     # Get (x,y) bucket center coordinate
-    xmin, xmax = 0, roi[0]
-    center_x = (xmax - xmin) / 2.0 + xmin
-    ymin, ymax = 0, roi[1]
-    center_y = (ymax - ymin) / 2.0 + ymin
+    ymin, xmin = 0, 0
+    ymax, xmax = roi
+    center_x = np.mean([xmin, xmax])
+    center_y = np.mean([ymin, ymax])
 
-    # Get normalized (x,y) distances to bucket center throughout the session recording.
-    norm_x = centroid_x_px - center_x
-    norm_x /= (center_x - xmin)
-
-    norm_y = centroid_y_px - center_y
-    norm_y /= (center_y - ymin)
+    # Get (x,y) distances to bucket center throughout the session recording.
+    dx = centroid_x_px - center_x
+    dy = centroid_y_px - center_y
 
     # Compute distance to center
-    return np.hypot(norm_x, norm_y)
+    return np.hypot(dx, dy)
 
 
 def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'SubjectName', 'StartTime'],
@@ -447,7 +444,6 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     for k, v in tqdm(index['files'].items(), disable=disable_output):
         # Get path to extraction h5 file
         pth = h5_filepath_from_sorted(v)
-
         # Load scalars from h5
         dset = h5_to_dict(pth, 'scalars')
 
@@ -475,6 +471,10 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         # make sure we have labels for this UUID before merging
         if has_model and k in labels_df.index:
             _tmp_df = pd.merge(_tmp_df, labels_df.loc[k], on='frame index', how='outer')
+            # fill any NaNs for metadata columns
+            _tmp_df[include_keys + ['uuid', 'h5_path', 'group']] = _tmp_df[include_keys + ['uuid', 'h5_path', 'group']].fillna(method='ffill')
+            # interpolate NaN timestamp values
+            _tmp_df['timestamps'] = _tmp_df['timestamps'].interpolate()
 
         dfs.append(_tmp_df)
 

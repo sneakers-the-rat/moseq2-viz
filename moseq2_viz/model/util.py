@@ -1093,7 +1093,7 @@ def sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group, max_sy
     exp_df = mutation_df.loc[exp_group]
 
     # compute mean difference at each syll usage and reorder based on difference
-    ordering = (exp_df[stat] - control_df[stat]).sort_values(by=stat, ascending=False).index
+    ordering = (exp_df[stat] - control_df[stat]).sort_values(ascending=False).index
 
     if max_sylls is not None:
         ordering = ordering[:max_sylls]

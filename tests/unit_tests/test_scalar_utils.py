@@ -250,19 +250,14 @@ class TestScalarUtils(TestCase):
         assert len(new_col) == len(scalar_df)
 
     def test_compute_mean_syll_speed(self):
-        test_index = 'data/test_index.yaml'
-        test_model = 'data/test_model.p'
+        test_index = 'data/test_index_crowd.yaml'
+        test_model = 'data/mock_model.p'
 
         _, sorted_index = parse_index(test_index)
-        scalar_df = scalars_to_dataframe(sorted_index)
-        complete_df, label_df = results_to_dataframe(test_model, sorted_index, compute_labels=True)
-
+        scalar_df = scalars_to_dataframe(sorted_index, model_path=test_model)
         scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
-        scalar_df['syllable'] = np.inf
-        for i, indexes in enumerate(label_df.index):
-            session_label_idx = scalar_df[scalar_df['uuid'] == indexes[1]].index
-            scalar_df.loc[session_label_idx, 'syllable'] = list(label_df.iloc[i])[:len(session_label_idx)]
 
+        complete_df, _ = results_to_dataframe(test_model, sorted_index)
         complete_df = compute_mean_syll_scalar(complete_df, scalar_df, scalar='centroid_speed_mm', max_sylls=40)
 
         assert 'centroid_speed_mm' in complete_df.columns
@@ -288,7 +283,6 @@ class TestScalarUtils(TestCase):
         dist_to_center = compute_mouse_dist_to_center(roi, centroid_x_px, centroid_y_px)
 
         assert len(dist_to_center) == 900
-        assert all(x < 1.2 for x in dist_to_center)
 
     def test_compute_syllable_position_heatmaps(self):
 

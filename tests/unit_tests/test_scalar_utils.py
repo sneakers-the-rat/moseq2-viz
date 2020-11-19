@@ -9,7 +9,7 @@ from moseq2_viz.model.util import parse_model_results, h5_to_dict, results_to_da
 from moseq2_viz.scalars.util import star_valmap, convert_pxs_to_mm, is_legacy, \
     generate_empty_feature_dict, convert_legacy_scalars, get_scalar_map, get_scalar_triggered_average, \
     nanzscore, _pca_matches_labels, process_scalars, scalars_to_dataframe, \
-    make_a_heatmap, compute_all_pdf_data, compute_session_centroid_speeds, compute_mean_syll_scalar, \
+    compute_all_pdf_data, compute_session_centroid_speeds, compute_mean_syll_scalar, \
     compute_syllable_position_heatmaps, get_syllable_pdfs, compute_mouse_dist_to_center, \
     h5_filepath_from_sorted
 
@@ -225,27 +225,11 @@ class TestScalarUtils(TestCase):
         assert all(scalar_df.columns == df_cols)
         assert scalar_df.shape == (total_frames, len(df_cols))
 
-    def test_make_a_heatmap(self):
-
-        index_file = 'data/test_index.yaml'
-
-        index, sorted_index = parse_index(index_file)
-        scalar_df = scalars_to_dataframe(sorted_index)
-
-        sess = list(set(scalar_df.uuid))[0]
-        centroid_vars = ['centroid_x_mm', 'centroid_y_mm']
-
-        position = scalar_df[scalar_df['uuid'] == sess][centroid_vars].dropna(how='all').to_numpy()
-
-        test_pdf = make_a_heatmap(position)
-        assert test_pdf.shape == (50, 50)
-        assert test_pdf.all() != 0
-
     def test_compute_all_pdf_data(self):
 
         index_file = 'data/test_index.yaml'
 
-        index, sorted_index = parse_index(index_file)
+        _, sorted_index = parse_index(index_file)
         scalar_df = scalars_to_dataframe(sorted_index)
 
         test_pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df)

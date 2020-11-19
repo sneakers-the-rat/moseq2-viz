@@ -471,7 +471,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         # make sure we have labels for this UUID before merging
         if has_model and k in labels_df.index:
             _tmp_df = pd.merge(_tmp_df, labels_df.loc[k], on='frame index', how='outer')
-            _tmp_df = _tmp_df.sort_values(by='syllable index').reset_index(drop=True).drop(columns=['syllable index'])
+            _tmp_df = _tmp_df.sort_values(by='syllable index').reset_index(drop=True)
             # fill any NaNs for metadata columns
             _tmp_df[include_keys + ['uuid', 'h5_path', 'group']] = _tmp_df[include_keys + ['uuid', 'h5_path', 'group']].ffill().bfill()
             # interpolate NaN timestamp values
@@ -484,37 +484,6 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 
     return scalar_df
 
-
-def make_a_heatmap(position):
-    '''
-    Uses a kernel density function to create a heatmap representing the mouse position throughout a single session.
-
-    Parameters
-    ----------
-    position (2d numpy array): 2d array of mouse centroid coordinates (for a single session),
-     computed from compute_session_centroid_speeds.
-
-
-    Returns
-    -------
-    pdf (2d numpy array): shape (50, 50) representing the PDF for the mouse position over the whole session.
-
-    '''
-
-    n_grid = 50
-
-    # Set up the bounds over which to build the KDE
-    X, Y = np.meshgrid(*[np.linspace(*np.percentile(d, [0.01, 99.99]), num=n_grid)
-                         for d in (position[:, 0], position[:, 1])
-                       ])
-    position_grid = np.hstack((X.ravel()[:, None], Y.ravel()[:, None]))
-    bandwidth = (X.max() - X.min()) / 25.0
-
-    # Set up the KDE
-    kde = KernelDensity(bandwidth=bandwidth)
-    kde.fit(position)
-    pdf = np.exp(kde.score_samples(position_grid)).reshape(n_grid, n_grid)
-    return pdf
 
 def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
                          key='SubjectName', bins=20):

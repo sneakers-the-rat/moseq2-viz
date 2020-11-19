@@ -227,6 +227,7 @@ def parse_index(index: Union[str, dict]) -> tuple:
     sorted_index (dict): index where the files have been sorted by UUID and pca_score path.
     '''
 
+    index_dir = os.getcwd() # set default to avoid reference before assignment
     if isinstance(index, str):
         index_dir = dirname(index)
         index = read_yaml(index)

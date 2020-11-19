@@ -26,7 +26,7 @@ from moseq2_viz.scalars.util import (scalars_to_dataframe, compute_mean_syll_sca
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, plot_mean_group_heatmap,
                             plot_verbose_heatmap, save_fig, plot_cp_comparison)
 from moseq2_viz.model.util import (relabel_by_usage, parse_model_results, merge_models,
-                                   results_to_dataframe, get_best_fit,
+                                   results_to_dataframe, get_best_fit, compute_behavioral_statistics,
                                    make_separate_crowd_movies, labels_to_changepoints)
 
 
@@ -235,14 +235,15 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     model_fit (str): path to trained model file.
     index_file (str): path to index file.
     output_file (str): filename for syllable usage graph.
-    stat (str): syllable statistic to plot: ['usage', 'speed', 'duration']
+    stat (str): syllable statistic to plot. It can be any of the scalars (i.e., velocity_2d_mm) in addition
+        to: 'usage' and 'duration'
     sort (bool): sort syllables by usage.
     count (str): method to compute usages 'usage' or 'frames'.
     group (tuple, list, None): tuple or list of groups to separately model usages. (None to graph all groups)
     max_syllable (int): maximum number of syllables to plot.
     ordering (list, range, str, None): order to list syllables. Default is None to graph syllables [0-max_syllable).
-     Setting ordering to "m" will graph mutated syllable usage difference between ctrl_group and exp_group.
-     None to graph default [0,max_syllable] in order. "usage" to plot descending order of usage values.
+        Setting ordering to "m" will graph mutated syllable usage difference between ctrl_group and exp_group.
+        None to graph default [0,max_syllable] in order. "usage" to plot descending order of usage values.
     ctrl_group (str): Control group to graph when plotting mutation differences via setting ordering to 'm'.
     exp_group (str): Experimental group to directly compare with control group.
     colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
@@ -254,32 +255,16 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     '''
 
     # Load index file and model data
-    index, sorted_index, model_data = init_wrapper_function(index_file, model_fit=model_fit, output_file=output_file)
+    _, sorted_index, _ = init_wrapper_function(index_file, output_file=output_file)
 
-    compute_labels = False
-    if stat == 'speed':
-        # Load scalar Dataframe to compute syllable speeds
-        scalar_df = scalars_to_dataframe(sorted_index)
-        compute_labels = True
+    scalar_df = scalars_to_dataframe(sorted_index, model_path=model_fit)
 
-    # Compute a syllable summary Dataframe containing usage-based
-    # sorted/relabeled syllable usage and duration information from [0, max_syllable] inclusive
-    df, label_df = results_to_dataframe(model_data, sorted_index, count=count,
-                                        max_syllable=max_syllable, sort=sort, compute_labels=compute_labels)
-    if stat == 'speed':
-        # Compute each rodent's centroid speed in mm/s
-        scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
-        scalar_df['syllable'] = np.inf
-        for i, indexes in enumerate(label_df.index):
-            session_label_idx = scalar_df[scalar_df['uuid'] == indexes[1]].index
-            scalar_df.loc[session_label_idx, 'syllable'] = list(label_df.iloc[i])[:len(session_label_idx)]
-
-        # Compute the average rodent syllable velocity based on the corresponding centroid speed at each labeled frame
-        df = compute_mean_syll_scalar(df, scalar_df, max_sylls=max_syllable)
-        df = df.rename(columns={'centroid_speed_mm': 'speed'})
+    syll_key = f'labels ({count} sort)'
+    features = compute_behavioral_statistics(scalar_df, count=count, syllable_key=syll_key)
+    features = features.query('syllable <= @max_syllable').copy()
 
     # Plot and save syllable stat plot
-    plt, lgd = plot_syll_stats_with_sem(df, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,
+    plt, lgd = plot_syll_stats_with_sem(features, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,
                                         ordering=ordering, stat=stat, max_sylls=max_syllable, figsize=figsize)
 
     # Save

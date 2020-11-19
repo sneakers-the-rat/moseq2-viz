@@ -14,15 +14,19 @@ import pandas as pd
 from copy import deepcopy
 from itertools import starmap
 from numpy import linalg as LA
-from cytoolz.curried import get
 from sklearn.cluster import KMeans
+from cytoolz.curried import get, get_in
+from moseq2_viz.util import h5_to_dict, star
 from typing import Iterator, Any, Dict, Union
 from collections import defaultdict, OrderedDict
 from scipy.optimize import linear_sum_assignment
 from os.path import join, basename, dirname, exists
-from moseq2_viz.util import h5_to_dict, star
 from moseq2_viz.model.trans_graph import get_transitions
 from cytoolz import curry, valmap, compose, complement, itemmap, concat, keyfilter
+
+
+def _assert_models_have_same_kappa(model_paths):
+    pass
 
 
 def merge_models(model_dir, ext='p',count='usage'):
@@ -476,6 +480,44 @@ def get_syllable_usages(data, max_syllable=100, count='usage'):
     return dict(usages)
 
 
+def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='usage', fps=30,
+                                  usage_normalization=True, syllable_key='labels (usage sort)'):
+    if count not in ('usage', 'frames'):
+        raise ValueError('`count` must be either "usage" or "frames"')
+
+    if isinstance(groupby, str):
+        groupby = [groupby]
+
+    scalar_df = scalar_df.query('`labels (original)` >= 0')
+
+    feature_cols = (scalar_df.dtypes == 'float32') | (scalar_df.dtypes == 'float')
+    feature_cols = feature_cols[feature_cols].index
+
+    # get syllable usages
+    if count == 'usage':
+        usages = scalar_df.query('onset').groupby(groupby)[syllable_key].value_counts(normalize=usage_normalization)
+    else:
+        usages = scalar_df.groupby(groupby)[syllable_key].value_counts(normalize=usage_normalization)
+    usages.name = 'usage'
+    
+    # get durationss
+    trials = scalar_df['onset'].cumsum()
+    trials.name = 'trials'
+    durations = scalar_df.groupby(groupby + [syllable_key, trials])['onset'].count()
+    # average duration in seconds
+    durations = durations.groupby(groupby + [syllable_key]).mean() / fps
+    durations.name = 'duration'
+
+    features = scalar_df.groupby(groupby + [syllable_key])[feature_cols].mean()
+
+    # merge usage and duration
+    features = pd.merge(features, usages, on=groupby + [syllable_key], how='outer')
+    features = pd.merge(features, durations, on=groupby + [syllable_key], how='outer')
+    features['syllable key'] = syllable_key
+
+    return features.reset_index().rename(columns={syllable_key: 'syllable'})
+
+
 def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'):
     '''
     Compute the syllable statistics from a set of model labels
@@ -854,7 +896,8 @@ def prepare_model_dataframe(model_path, pca_path):
         'labels (usage sort)': usage[k],
         'labels (frames sort)': frames[k],
         'onset': compute_syllable_onset(v),
-        'frame index': scores_idx[k]
+        'frame index': scores_idx[k],
+        'syllable index': np.arange(len(v))
     }) for k, v in labels.items()), ignore_index=True)
 
     return _df

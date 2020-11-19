@@ -48,7 +48,7 @@ def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='s
     '''
 
     if not isinstance(figsize, (tuple, list)):
-        print('Invalid figsize. Input a integer-tuple or list of len(figsize) = 2')
+        print('Invalid figsize. Input a integer-tuple or list of len(figsize) = 2. Setting figsize to (10, 5)')
         figsize = (10, 5)
 
     unique_groups = complete_df['group'].unique()
@@ -64,8 +64,8 @@ def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='s
             warnings.warn(f'Invalid group(s) entered: {", ".join(diff)}. Using all groups: {", ".join(unique_groups)}.')
             groups = unique_groups
 
-    if stat.lower() not in ('usage', 'duration', 'speed'):
-        raise ValueError(f'Invalid stat entered: {stat}. Must be: usage, duration, or speed.')
+    if stat.lower() not in complete_df.columns:
+        raise ValueError(f'Invalid stat entered: {stat}. Must be a column in the supplied dataframe.')
 
     if ordering is None:
         ordering = np.arange(max_sylls)
@@ -144,8 +144,7 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
     None
     '''
 
-    if not exists(dirname(output_file)):
-        os.makedirs(dirname(output_file))
+    os.makedirs(dirname(output_file), exist_ok=True)
 
     if suffix is not None:
         output_file = output_file + suffix
@@ -408,7 +407,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
     return g.fig, g.axes
 
 
-def plot_syll_stats_with_sem(complete_df, stat='usage', ordering='stat', max_sylls=40, groups=None, ctrl_group=None,
+def plot_syll_stats_with_sem(scalar_df, stat='usage', ordering='stat', max_sylls=40, groups=None, ctrl_group=None,
                              exp_group=None, colors=None, figsize=(10, 5)):
     '''
     Plots a line and/or point-plot of a given pre-computed syllable statistic (usage, duration, or speed),
@@ -440,7 +439,7 @@ def plot_syll_stats_with_sem(complete_df, stat='usage', ordering='stat', max_syl
     if ordering == 'diff':
         xlabel += ' difference'
 
-    ordering, groups, colors, figsize = _validate_and_order_syll_stats_params(complete_df,
+    ordering, groups, colors, figsize = _validate_and_order_syll_stats_params(scalar_df,
                                                                               stat=stat,
                                                                               ordering=ordering,
                                                                               max_sylls=max_sylls,
@@ -454,21 +453,12 @@ def plot_syll_stats_with_sem(complete_df, stat='usage', ordering='stat', max_syl
 
     # plot each group's stat data separately, computes groupwise SEM, and orders data based on the stat/ordering parameters
     hue = 'group' if groups is not None else None
-    ax = sns.pointplot(data=complete_df, x='syllable', y=stat, hue=hue, order=ordering,
+    ax = sns.pointplot(data=scalar_df, x='syllable', y=stat, hue=hue, order=ordering,
                        join=False, dodge=True, ci=68, ax=ax, hue_order=groups,
                        palette=colors)
 
-    if stat == 'usage':
-        ylabel = 'P(syllable)'
-    elif stat == 'duration':
-        ylabel = 'Mean Syllable Sequence Frame Duration'
-    elif stat == 'speed':
-        ylabel = 'Mean Syllable Speed (mm/s)'
-
     legend = ax.legend(frameon=False, bbox_to_anchor=(1, 1))
-    plt.ylabel(ylabel, fontsize=12)
     plt.xlabel(xlabel, fontsize=12)
-
     sns.despine()
 
     return fig, legend

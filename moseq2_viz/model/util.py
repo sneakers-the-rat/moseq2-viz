@@ -11,26 +11,33 @@ import joblib
 import warnings
 import numpy as np
 import pandas as pd
+from numpy import linalg
 from copy import deepcopy
-from itertools import starmap
-from numpy import linalg as LA
 from sklearn.cluster import KMeans
+from itertools import starmap, product
 from cytoolz.curried import get, get_in
 from moseq2_viz.util import h5_to_dict, star
 from typing import Iterator, Any, Dict, Union
 from collections import defaultdict, OrderedDict
 from scipy.optimize import linear_sum_assignment
 from os.path import join, basename, dirname, exists
+from scipy.spatial.distance import jensenshannon, dice
 from moseq2_viz.model.trans_graph import get_transitions
 from moseq2_viz.util import load_changepoint_distribution
 from cytoolz import curry, valmap, compose, complement, itemmap, concat, keyfilter
 
 
 def _assert_models_have_same_kappa(model_paths):
-    pass
+    get_kappa = get_in(['model_parameters', 'kappa'])
+    def _load_kappa(pth):
+        return get_kappa(parse_model_results(pth))
+    kappas = set(map(_load_kappa, model_paths))
+    if len(kappas) > 1:
+        raise ValueError('You cannot merge models trained with different kappas')
 
 
-def merge_models(model_dir, ext='p',count='usage'):
+def merge_models(model_dir, ext='p',count='usage', force_merge=False,
+                 cost_function='ar_norm'):
     '''
     Merges model states by using the Hungarian Algorithm:
     a minimum distance state matching algorithm. User inputs a
@@ -42,6 +49,11 @@ def merge_models(model_dir, ext='p',count='usage'):
     model_dir (str): path to directory containing all the models to merge.
     ext (str): model extension to search for.
     count (str): method to compute usages 'usage' or 'frames'.
+    force_merge (bool): whether or not to force a merge. Keeping this false will
+        protect you from merging models trained with different kappa values.
+    cost_function (str): either ar_norm or label - if ar_norm, uses the ar matrices
+        to find the most similar syllables. If label, finds the syllable labels that
+        are most overlapping
 
     Returns
     -------
@@ -51,60 +63,57 @@ def merge_models(model_dir, ext='p',count='usage'):
 
     tmp = join(model_dir, '*.'+ext.strip('.'))
     model_paths = [m for m in glob.glob(tmp)]
-    model_data = {}
 
-    for _, model_fit in enumerate(model_paths):
-        unit_data = parse_model_results(joblib.load(model_fit), \
-                                        sort_labels_by_usage=True, count=count)
-        for k, v in unit_data.items():
-            if k not in list(model_data.keys()):
-                model_data[k] = v
-            else:
-                if k == 'model_parameters':
-                    try:
-                        prev = model_data[k]['ar_mat']
-                        curr_arrays = v['ar_mat']
-                        cost = np.zeros((len(prev), len(curr_arrays)))
+    if not force_merge:
+        _assert_models_have_same_kappa(model_paths)
 
-                        for i, state1 in enumerate(prev):
-                            for j, state2 in enumerate(curr_arrays):
-                                distance = LA.norm(abs(state1 - state2))
-                                cost[i][j] = distance
+    # TODO: choosing the first model biases the re-labeling. Leave as is for now, but think about this for the future...
+    template = parse_model_results(model_paths[0], sort_labels_by_usage=True, count=count, map_uuid_to_keys=True)
 
-                        row_ind, col_ind = linear_sum_assignment(cost)
-                        mapping = {c:r for r,c in zip(row_ind, col_ind)}
+    model_data = {
+        'template': model_paths[0],
+        model_paths[0]: template
+    }
 
-                        adjusted_labels = []
-                        for session in unit_data['labels']:
-                            for oldlbl in session:
-                                try:
-                                    adjusted_labels.append(mapping[oldlbl])
-                                except:
-                                    pass
-                            model_data['labels'].append(np.array(adjusted_labels))
-                    except:
-                        print('Error, trying to merge models with unequal number of PCs. Skipping.')
-                        pass
-                elif k == 'keys' or k == 'train_list':
-                    for i in v:
-                        if i not in model_data[k]:
-                            model_data[k].append(i)
-                elif k == 'metadata':
-                    for k1, v1 in unit_data[k].items():
-                        if k1 == 'groups':
-                            if isinstance(model_data[k][k1], dict):
-                                model_data[k][k1].update(v1)
-                            elif isinstance(model_data[k][k1], list):
-                                model_data[k][k1] += v1
-                        elif k1 == 'uuids':
-                            for val in v1:
-                                if val not in model_data[k][k1]:
-                                    model_data[k][k1] = list(model_data[k][k1])
-                                    model_data[k][k1].append(val)
+    for pth in model_paths[1:]:
+        unit_data = parse_model_results(pth, sort_labels_by_usage=True, count=count, map_uuid_to_keys=True)
+
+        # compute cost function
+        if cost_function == 'ar_mat':
+            prev_ar = template['model_parameters']['ar_mat']
+            curr_ar = unit_data['model_parameters']['ar_mat']
+            cost = np.zeros((len(prev_ar), len(curr_ar)))
+            for i, state1 in enumerate(prev_ar):
+                for j, state2 in enumerate(curr_ar):
+                    cost[i, j] = linalg.norm(abs(state1 - state2))
+            # row_ind is old state, col_ind is new state
+            row_ind, col_ind = linear_sum_assignment(cost)
+            mapping = dict(zip(col_ind, row_ind))
+        elif cost_function == 'label':
+            uuids = set(unit_data['labels']) & set(template['labels'])
+            l1 = template['labels']
+            l2 = unit_data['labels']
+            max_s1 = np.max(np.concatenate(list(l1.values())))
+            max_s2 = np.max(np.concatenate(list(l2.values())))
+            cost = np.zeros((max_s1, max_s2))
+            for s1, s2 in product(range(max_s1), range(max_s2)):
+                mu_dice = np.mean([dice(l1[uuid] == s1, l2[uuid] == s2) for uuid in uuids])
+                cost[s1, s2] = mu_dice
+            # row_ind is old state, col_ind is new state
+            row_ind, col_ind = linear_sum_assignment(cost)
+            mapping = dict(zip(col_ind, row_ind))
+        mapping[-5] = -5
+
+        def _map_sylls(labels):
+            return pd.Series(labels).map(mapping).to_numpy()
+        
+        unit_data['labels'] = valmap(_map_sylls, unit_data['labels'])
+        model_data[pth] = unit_data
 
     return model_data
 
-def get_best_fit(cp_path, model_results):
+
+def get_best_fit(cp_path, model_results, fs=30):
     '''
     Returns the model with the closest median syllable duration to the PCA changepoints.
 
@@ -120,19 +129,28 @@ def get_best_fit(cp_path, model_results):
     '''
 
     # Load PCA changepoints
-    pca_cps = load_changepoint_distribution(cp_path)
+    pca_cps = load_changepoint_distribution(cp_path, fs=30)
     
     def _compute_cp_dist(args):
         _, model = args
         return np.abs(np.nanmedian(pca_cps) - np.nanmedian(model['changepoints']))
+
+    def _compute_jsd_dist(args):
+        _, model = args
+        h1, _ = np.histogram(pca_cps, bins=np.linspace(0, 2, 50), density=True)
+        h2, _ = np.histogram(model['changepoints'], bins=np.linspace(0, 2, 50), density=True)
+        return jensenshannon(h1, h2)
     
     best_model, dist = min(model_results.items(), key=_compute_cp_dist)
+    best_jsd_model, jsd_dist = min(model_results.items(), key=_compute_jsd_dist)
 
     info = {
-        'best model via median duration': best_model,
-        'min duration distance (frames)': dist,
-        # 'best model via jsd of duration distribution': best_jsd_model,
-        # 'min jensen-shannon distance': jsd_dist
+        'best model - duration': best_model,
+        'best model - duration kappa': model_results[best_model]['model_parameters']['kappa'],
+        'min duration distance (seconds)': dist,
+        'best model - jsd': best_jsd_model,
+        'best model - jsd kappa': model_results[best_jsd_model]['model_parameters']['kappa'],
+        'min jensen-shannon distance': jsd_dist
     }
     
     return info, pca_cps
@@ -169,6 +187,7 @@ def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
 
     return whitened_scores
 
+
 def get_normalized_syllable_usages(model_data, max_syllable=100, count='usage'):
     '''
     Computes the overall syllable usages, and returns a 1D array of their corresponding usage values.
@@ -194,6 +213,7 @@ def get_normalized_syllable_usages(model_data, max_syllable=100, count='usage'):
     syllable_usages = np.sum(usages_by_mouse, axis=0) / np.sum(usages_by_mouse)
 
     return syllable_usages
+
 
 def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[slice]:
     '''

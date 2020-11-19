@@ -555,64 +555,55 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
     ax (pyplot axis): plotted scalar axis
     '''
 
-    fig, ax = plt.subplots(1, 1, figsize=(8, 8))
-
+    fig, ax = plt.subplots(1, 1, figsize=(8, 5))
     # Plot KDEs
-    ax = sns.distplot(pc_cps, kde_kws={'gridsize': 600}, hist_kws={'alpha': .2}, bins=np.linspace(0, 4, 100),
-                      hist=False, kde=True, color='orange', label='PCA Changepoints')
+    ax = sns.kdeplot(pc_cps, color='orange', label='PCA Changepoints', ax=ax)
 
     if not plot_all:
-        if best_model != None and plot_all == False:
+        if best_model is not None:
             model_cps = model_results[best_model]['changepoints']
 
+        kappa = 'default'
         if '-' in best_model:
             kappa = best_model.split("-")[1].split(".")[0]
-        else:
-            kappa = 'default'
 
-        _ = sns.distplot(model_cps, ax=ax, kde_kws={'gridsize': 600}, hist_kws={'alpha': .2}, bins=np.linspace(0, 4, 100),
-                         hist=False, kde=True, color='blue', label=f'Model Changepoints Kappa={kappa}')
-
+        _ = sns.kdeplot(model_cps, ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa}')
     else:
-        for i, k in enumerate(model_results.keys()):
+        palette = sns.color_palette('dark', n_colors=len(model_results))
+        for i, (k, v) in enumerate(model_results.items()):
             # Set default curve formatting
             ls, alpha = '--', 0.5
             if k == best_model:
                 ls, alpha = '-', 1 # Solid line for best fit
 
+            kappa = 'default'
             if '-' in k:
                 kappa = k.split("-")[1].split(".")[0]
-            else:
-                kappa = 'default'
 
             try:
-                sns.distplot(model_results[k]['changepoints'], ax=ax, kde_kws={'gridsize': 600, 'linestyle': ls, 'alpha': alpha},
-                             hist_kws={'alpha': .2}, bins=np.linspace(0, 4, 100), hist=False, kde=True,
-                             color=sns.color_palette('dark')[i], label=f'Model Changepoints Kappa={kappa}')
+                sns.kdeplot(v['changepoints'], ax=ax, linestyle=ls, alpha=alpha,
+                            color=palette[i], label=f'Model Changepoints Kappa={kappa}')
             except RuntimeError:
                 # if seaborn cannot automatically estimate the bandwidth, it will be manually set.
-                sns.distplot(model_results[k]['changepoints'], ax=ax,
-                             kde_kws={'gridsize': 600, 'linestyle': ls, 'alpha': alpha, 'bw': 0.1},
-                             hist_kws={'alpha': .2}, bins=np.linspace(0, 4, 100), hist=False, kde=True,
-                             color=sns.color_palette('dark')[i], label=f'Model Changepoints Kappa={kappa}')
-
+                sns.kdeplot(v['changepoints'], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=0.5,
+                            color=palette[i], label=f'Model Changepoints Kappa={kappa}')
     # Format plot
-    plt.xlim(0, 2)
+    ax.set_xlim(0, 2)
 
     if isinstance(model_results, dict):
-        model_results = model_results[best_model]['changepoints']
+        model_cps = model_results[best_model]['changepoints']
 
     # Plot best model description
-    s = f'Best Model CP Stats: Mean, median, mode (s) = {np.mean(model_results):.4f},' \
-        f' {np.median(model_results):.4f}, {mode(model_results)[0][0]:.4f}'
+    s = f'Best Model CP Stats: Mean, median, mode (s) = {np.nanmean(model_cps):.4f},' \
+        f' {np.nanmedian(model_cps):.4f}, {mode(model_cps)[0][0]:.4f}'
     # Plot PC CP description
-    t = f'PC CP Stats: Mean, median, mode (s) = {np.mean(pc_cps):.4f}, ' \
-        f'{np.median(pc_cps):.4f}, {mode(pc_cps)[0][0]:.4f}'
+    t = f'PC CP Stats: Mean, median, mode (s) = {np.nanmean(pc_cps):.4f}, ' \
+        f'{np.nanmedian(pc_cps):.4f}, {mode(pc_cps)[0][0]:.4f}'
 
-    plt.text(.5, 2, s, fontsize=12)
-    plt.text(.5, 1.8, t, fontsize=12)
-    plt.xlabel('Block duration (s)')
-    plt.ylabel('P(duration)')
+    ax.text(.5, 2, s, fontsize=12)
+    ax.text(.5, 1.8, t, fontsize=12)
+    ax.set_xlabel('Block duration (s)')
+    ax.set_ylabel('P(duration)')
     sns.despine()
 
     return fig, ax

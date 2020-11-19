@@ -84,7 +84,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
     # make sure the index only uses (a) files that exist and (b) files in the model fit
     # master uuid list...uuid exists in PCA file, model file, and index
 
-    uuid_set = set(model_fit['labels'].keys()) & set(index['files'].keys())
+    uuid_set = set(model_fit['labels']) & set(index['files'])
 
     # only keep animals that were modeled and in the files within the sorted_index
     in_uuid_set = curry(keyfilter)(lambda x: x in uuid_set)
@@ -215,7 +215,6 @@ def get_behavioral_distance(index, model_file, whiten='all',
             full_dist_mat = dtw_ndim.distance_matrix(pc_mat, parallel=parallel, show_progress=True)
             reduced_mat = reformat_dtw_distances(full_dist_mat, len(pc_slices))
             dist_dict['combined'] = reduced_mat
-
 
     return dist_dict
 

@@ -172,6 +172,28 @@ def get_timestamps_from_h5(h5file: str) -> np.ndarray:
         return h5_to_dict(h5file, 'metadata/timestamps')['timestamps']
 
 
+def get_metadata_path(h5file):
+    '''
+    Return path within h5 file that contains the kinect extraction metadata.
+
+    Parameters
+    ----------
+    h5file (str): path to h5 file.
+
+    Returns
+    -------
+    (str): path to acquistion metadata within h5 file.
+    '''
+
+    with h5py.File(h5file, 'r') as f:
+        if '/metadata/acquisition' in f:
+            return '/metadata/acquisition'
+        elif '/metadata/extraction' in f:
+            return '/metadata/extraction'
+        else:
+            raise KeyError('acquisition metadata not found')
+
+
 def load_changepoint_distribution(cpfile):
     '''
     Loads changepoint durations from given changepoints file `cpfile`.

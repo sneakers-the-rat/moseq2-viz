@@ -20,7 +20,8 @@ from cytoolz import keyfilter, groupby
 from os.path import isdir, exists, join, dirname, basename
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.model.trans_graph import get_trans_graph_groups, compute_and_graph_grouped_TMs
-from moseq2_viz.util import (parse_index, recursive_find_h5s, h5_to_dict, clean_dict, get_index_hits)
+from moseq2_viz.util import (parse_index, recursive_find_h5s, h5_to_dict, clean_dict, get_index_hits,
+                             get_metadata_path)
 from moseq2_viz.scalars.util import (scalars_to_dataframe, compute_mean_syll_scalar, compute_all_pdf_data,
                             compute_session_centroid_speeds)
 from moseq2_viz.viz import (plot_syll_stats_with_sem, scalar_plot, plot_mean_group_heatmap,
@@ -38,7 +39,6 @@ def _make_directories(crowd_movie_path, plot_path):
     # Set up output directory to save plots in
     if plot_path is not None:
         os.makedirs(dirname(plot_path))
-
 
 
 def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, output_file=None):
@@ -82,6 +82,7 @@ def init_wrapper_function(index_file=None, model_fit=None, output_dir=None, outp
             pass
 
     return index, sorted_index, model_data
+
 
 def add_group_wrapper(index_file, config_data):
     '''
@@ -132,6 +133,7 @@ def add_group_wrapper(index_file, config_data):
 
     print('Group(s) added successfully.')
 
+
 def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, ext='p', fps=30):
     '''
     Given a directory containing multiple models trained on different kappa values,
@@ -144,7 +146,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     cp_file (str): Path to PCA changepoints
     output_file (str): Path to file to save figure to.
     plot_all (bool): Plot all model changepoint distributions.
-    ext (str): Model extension to search for
+    ext (str): File extension to search for models with
     fps (int): Frames per second
 
     Returns
@@ -154,7 +156,9 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     '''
 
     # Get models
-    models = glob(join(model_dir, f'*.{ext}'), recursive=True)
+    if not ext.startswith('.'):
+        ext = '.' + ext
+    models = glob(join(model_dir, f'*{ext}'), recursive=True)
 
     print(f'Found {len(models)} models in given input folder: {model_dir}')
 
@@ -272,7 +276,7 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
 
     return plt
 
-def plot_mean_group_position_pdf_wrapper(index_file, output_file):
+def plot_mean_group_position_pdf_wrapper(index_file, output_file, normalize=True):
     '''
     Wrapper function that computes the PDF of the rodent's position throughout the respective sessions,
     and averages these values with respect to their groups to graph a mean position heatmap for each group.
@@ -293,13 +297,13 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file):
     '''
 
     # Get loaded index dicts via decorator
-    index, sorted_index, _ = init_wrapper_function(index_file, output_file=output_file)
+    _, sorted_index, _ = init_wrapper_function(index_file, output_file=output_file)
 
     # Load scalar dataframe to compute position PDF heatmap
     scalar_df = scalars_to_dataframe(sorted_index)
 
     # Compute Position PDF Heatmaps for all sessions
-    pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df, normalize=True)
+    pdfs, groups, _, _ = compute_all_pdf_data(scalar_df, normalize=normalize)
 
     # Plot the average Position PDF Heatmap for each group
     fig = plot_mean_group_heatmap(pdfs, groups)
@@ -309,7 +313,7 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file):
 
     return fig
 
-def plot_verbose_pdfs_wrapper(index_file, output_file):
+def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=True):
     '''
     Wrapper function that computes the PDF for the mouse position for each session in the index file.
     Will plot each session's heatmap with a "SessionName: Group"-like title.
@@ -336,7 +340,7 @@ def plot_verbose_pdfs_wrapper(index_file, output_file):
     scalar_df = scalars_to_dataframe(sorted_index)
 
     # Compute PDF Heatmaps for all sessions
-    pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df)
+    pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df, normalize=normalize)
 
     # Plot all session heatmaps in columns organized by groups
     fig = plot_verbose_heatmap(pdfs, sessions, groups, subjectNames)
@@ -502,14 +506,13 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
 
     return cm_paths
 
-def copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path):
+def copy_h5_metadata_to_yaml_wrapper(input_dir):
     '''
     Copy h5 metadata dictionary contents into the respective file's yaml file.
 
     Parameters
     ----------
     input_dir (str): path to directory that contains h5 files.
-    h5_metadata_path (str): path to data within h5 file to update yaml with.
 
     Returns
     -------
@@ -522,16 +525,12 @@ def copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path):
 
     # load in all of the h5 files, grab the extraction metadata, reformat to improve readability
     # then stage the copy
-    for i, tup in tqdm(enumerate(to_load), total=len(to_load), desc='Copying data to yamls'):
-        with h5py.File(tup[2], 'r') as f:
-            tmp = clean_dict(h5_to_dict(f, h5_metadata_path))
-            tup[0]['metadata'] = dict(tmp)
+    for _dict, _yml, _h5 in tqdm(to_load, desc='Copying data to yamls'):
+        metadata_path = get_metadata_path(_h5)
+        _dict['metadata'] = clean_dict(h5_to_dict(_h5, metadata_path))
 
         # Atomically write updated yaml
-        try:
-            new_file = f'{basename(tup[1])}_update.yaml'
-            with open(new_file, 'w+') as f:
-                yaml.safe_dump(tup[0], f)
-            shutil.move(new_file, tup[1])
-        except Exception:
-            raise Exception
+        new_file = f'{basename(_yml)}_update.yaml'
+        with open(new_file, 'w+') as f:
+            yaml.safe_dump(_dict, f)
+        shutil.move(new_file, _yml)

@@ -15,6 +15,7 @@ from scipy.stats import mode
 from matplotlib import gridspec
 import matplotlib.pyplot as plt
 from os.path import dirname, exists
+from cytoolz import groupby, valmap
 from moseq2_viz.model.label_util import sort_syllables_by_stat, sort_syllables_by_stat_difference
 
 
@@ -479,23 +480,25 @@ def plot_mean_group_heatmap(pdfs, groups):
     '''
 
     uniq_groups = np.unique(groups)
+    groups = np.array(groups)
+    pdfs = np.array(pdfs)
 
-    fig = plt.figure(figsize=((20, 5)))
-    gs = plt.GridSpec(1, len(uniq_groups))
+    fig, ax = plt.subplots(nrows=len(uniq_groups), ncols=1, sharex=True, sharey=True,
+                           figsize=(4, 5 * len(uniq_groups)))
+    for a, group in zip(ax.flat, uniq_groups):
+        idx = groups == group
 
-    for i, group in enumerate(tqdm(uniq_groups)):
-        subplot = fig.add_subplot(gs[i])
-        idx = np.array(groups) == group
+        avg_hist = np.mean(pdfs[idx], axis=0)
+        vmax = np.percentile(avg_hist, 97.5)
+        im = a.imshow(avg_hist, vmax=vmax)
+        fig.colorbar(im, ax=a, pad=0.04)
 
-        im = plt.imshow(pdfs[idx].mean(0) / pdfs[idx].mean(0).max())
-        plt.colorbar(im, fraction=0.046, pad=0.04)
-
-        plt.xticks([])
-        plt.yticks([])
-
-        subplot.set_title(group, fontsize=14)
+        a.set_xticks([])
+        a.set_yticks([])
+        a.set_title(group, fontsize=14)
 
     return fig
+
 
 def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
     '''
@@ -504,7 +507,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
     Parameters
     ----------
     pdfs (list): list of 2d probability density functions (heatmaps) describing mouse position.
-    groups (list): list of sessions corresponding to the pdfs indices
+    sessions (list): list of sessions corresponding to the pdfs indices
     groups (list): list of groups corresponding to the pdfs indices
     subjectNames (list): list of subjectNames corresponding to the pdfs indices
 
@@ -513,32 +516,24 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
     fig (pyplot figure): plotted scalar scatter plot
     '''
 
-    uniq_groups = np.unique(groups)
-    count = [len([grp1 for grp1 in groups if grp1 == grp]) for grp in uniq_groups]
-    figsize = (np.round(2.5 * len(uniq_groups)), np.round(2.6 * np.max(count)))
+    grouped_pdfs = groupby(0, zip(groups, pdfs))
+    grouped_names = groupby(0, zip(groups, subjectNames))
+    # only keep the pdfs in the groupby
+    grouped_pdfs = valmap(lambda v: [x[1] for x in v], grouped_pdfs)
+    counts = valmap(len, grouped_pdfs)
+    # standardize the max value for every session
+    vmax = np.percentile(pdfs, 97.5)
 
-    fig = plt.figure(figsize=figsize)
-    gs = gridspec.GridSpec(nrows=np.max(count),
-                           ncols=len(uniq_groups),
-                           width_ratios=[1] * len(uniq_groups),
-                           wspace=0.5,
-                           hspace=0.5)
-
-    for i, group in tqdm(enumerate(uniq_groups), total=len(uniq_groups)):
-        idx = np.array(groups) == group
-        tmp_sessions = np.asarray(sessions)[idx]
-        names = np.asarray(subjectNames)[idx]
-        for j, sess in enumerate(tmp_sessions):
-            idx = np.array(sessions) == sess
-            plt.subplot(gs[j, i])
-
-            im = plt.imshow(pdfs[idx].mean(0) / pdfs[idx].mean(0).max())
-            plt.colorbar(im, fraction=0.046, pad=0.04)
-
-            plt.xticks([])
-            plt.yticks([])
-
-            plt.title(f'{group}: {names[j]}', fontsize=10)
+    figsize = (2.5 * len(counts), 2.6 * max(counts.values()))
+    fig, ax = plt.subplots(nrows=max(counts.values()), ncols=len(counts), sharex=True,
+                           sharey=True, figsize=figsize)
+    for col_ax, (group, pdfs) in zip(ax.T, grouped_pdfs.items()):
+        for a, pdf, (_, subject_name) in zip(col_ax, pdfs, grouped_names[group]):
+            im = a.imshow(pdf, vmax=vmax)
+            fig.colorbar(im, ax=a)
+            a.set_xticks([])
+            a.set_yticks([])
+            a.set_title(f'{group}: {subject_name}', fontsize=10)
 
     return fig
 

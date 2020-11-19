@@ -55,27 +55,23 @@ def sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group, max_sy
 
     Returns
     -------
-    mutation_ordering (list): list of array indices for the new label mapping.
+    ordering (list): list of array indices for the new label mapping.
     '''
 
     # Prepare DataFrame
-    mutation_df = complete_df.groupby(['group', 'syllable'], as_index=False).mean()
+    mutation_df = complete_df.groupby(['group', 'syllable']).mean()
 
     # Get groups to measure mutation by
-    control_df = mutation_df[mutation_df['group'] == ctrl_group]
-    exp_df = mutation_df[mutation_df['group'] == exp_group]
+    control_df = mutation_df.loc[ctrl_group]
+    exp_df = mutation_df.loc[exp_group]
 
-    # compute mean difference at each syll usage
-    diff_df = exp_df.groupby('syllable', as_index=True).mean() \
-        .sub(control_df.groupby('syllable', as_index=True).mean(), fill_value=0)
-
-    # sort them from most mutant to least mutant
-    mutation_ordering = diff_df.sort_values(by=stat, ascending=False).index
+    # compute mean difference at each syll usage and reorder based on difference
+    ordering = (exp_df[stat] - control_df[stat]).sort_values(by=stat, ascending=False).index
 
     if max_sylls is not None:
-        mutation_ordering = mutation_ordering[:max_sylls]
+        ordering = ordering[:max_sylls]
 
-    return mutation_ordering
+    return list(ordering)
 
 
 def sort_syllables_by_stat(complete_df, stat='usage', max_sylls=None):
@@ -94,11 +90,10 @@ def sort_syllables_by_stat(complete_df, stat='usage', max_sylls=None):
     relabel_mapping (dict): a dict with key-value pairs {old_ordering: new_ordering}.
     '''
 
-    tmp = complete_df.groupby('syllable', as_index=False).mean()
-    tmp = tmp.sort_values(by=stat, ascending=False)
+    tmp = complete_df.groupby('syllable').mean().sort_values(by=stat, ascending=False).index
 
     # Get sorted ordering
-    ordering = tmp.index.to_numpy()
+    ordering = list(tmp)
 
     if max_sylls is not None:
         ordering = ordering[:max_sylls]

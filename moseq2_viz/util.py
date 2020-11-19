@@ -227,9 +227,11 @@ def parse_index(index: Union[str, dict]) -> tuple:
     sorted_index (dict): index where the files have been sorted by UUID and pca_score path.
     '''
 
+    from_dict = True
     if isinstance(index, str):
         index_dir = dirname(index)
         index = read_yaml(index)
+        from_dict = False
 
     files = index['files']
 
@@ -239,12 +241,15 @@ def parse_index(index: Union[str, dict]) -> tuple:
     # remove redundant uuid entry
     sorted_index = valmap(lambda d: dissoc(d, 'uuid'), sorted_index)
     # tuple-ize the path entry, join with the index file dirname
-    sorted_index = valmap(lambda d: assoc(d, 'path', tuple(join(index_dir, x) for x in d['path'])),
-                          sorted_index)
+    if not from_dict:
+        sorted_index = valmap(lambda d: assoc(d, 'path', tuple(join(index_dir, x) for x in d['path'])),
+                            sorted_index)
+    else:
+        sorted_index = valmap(lambda d: assoc(d, 'path', tuple(d['path'])), sorted_index)
 
     uuid_sorted = {
         'files': sorted_index,
-        'pca_path': join(index_dir, index['pca_path'])
+        'pca_path': join(index_dir, index['pca_path']) if not from_dict else index['pca_path']
     }
 
     return index, uuid_sorted

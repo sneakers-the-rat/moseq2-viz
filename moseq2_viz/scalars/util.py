@@ -535,22 +535,16 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
     subjectNames (list): list of strings of subjectNames corresponding to pdfs index.
     '''
 
-    sessions = scalar_df.uuid.unique()
-    groups, positions, subjectNames = [], [], []
+    sessions, groups, subjectNames, pdfs = [], [], [], []
 
-    for sess in tqdm(sessions):
-        is_sess = scalar_df['uuid'] == sess
-        groups.append(scalar_df[is_sess]['group'].iloc[0])
-        positions.append(scalar_df[is_sess][centroid_vars].dropna(how='all').to_numpy())
-        subjectNames.append(scalar_df[is_sess][key].iloc[0])
+    for uuid, _df in scalar_df.groupby('uuid', sort=False):
+        sessions.append(uuid)
+        groups.append(_df['group'].iat[0])
+        subjectNames.append(_df[key].iat[0])
 
-    pool_ = Pool()
-    pdfs = pool_.map(make_a_heatmap, positions)
-    pdfs = np.stack(pdfs).copy()
-    pool_.close()
-
-    if normalize:
-        return np.stack([p / p.sum() for p in pdfs]), groups, sessions, subjectNames
+        pos = _df[centroid_vars].dropna(how='any')
+        H, _, _ = np.histogram2d(pos.iloc[:, 0], pos.iloc[:, 1], bins=50, density=normalize)
+        pdfs.append(H)
 
     return pdfs, groups, sessions, subjectNames
 

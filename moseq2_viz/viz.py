@@ -537,6 +537,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
 
     return fig
 
+
 def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
     '''
     Plot the duration distributions for model labels and

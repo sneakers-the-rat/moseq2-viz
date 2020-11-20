@@ -113,7 +113,7 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
     return model_data
 
 
-def get_best_fit(cp_path, model_results, fs=30):
+def get_best_fit(cp_path, model_results):
     '''
     Returns the model with the closest median syllable duration to the PCA changepoints.
 
@@ -129,7 +129,7 @@ def get_best_fit(cp_path, model_results, fs=30):
     '''
 
     # Load PCA changepoints
-    pca_cps = load_changepoint_distribution(cp_path, fs=30)
+    pca_cps = load_changepoint_distribution(cp_path)
     
     def _compute_cp_dist(args):
         _, model = args

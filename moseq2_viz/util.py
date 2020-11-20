@@ -194,7 +194,7 @@ def get_metadata_path(h5file):
             raise KeyError('acquisition metadata not found')
 
 
-def load_changepoint_distribution(cpfile, fs=30):
+def load_changepoint_distribution(cpfile):
     '''
     Loads changepoint durations from given changepoints file `cpfile`.
 
@@ -209,7 +209,7 @@ def load_changepoint_distribution(cpfile, fs=30):
 
     cps = h5_to_dict(cpfile, 'cps')
     cp_dist = map(compose(np.diff, np.squeeze), cps.values())
-    return np.concatenate(list(cp_dist)) / fs
+    return np.concatenate(list(cp_dist))
 
 
 def load_timestamps(timestamp_file, col=0):

@@ -157,7 +157,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     model_results = {name: _load_models(name) for name in models}
 
     # Find the best fit model by comparing their median durations with the PC scores changepoints
-    best_model_info, pca_changepoints = get_best_fit(cp_file, model_results, fs=fps)
+    best_model_info, pca_changepoints = get_best_fit(cp_file, model_results)
 
     print('Model closest to PC scores:', best_model_info[f'best model - {objective}'])
 

@@ -297,7 +297,7 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file, normalize=True
     fig = plot_mean_group_heatmap(pdfs, groups)
 
     # Save figure
-    save_fig(fig, output_file)
+    save_fig(fig, output_file, bbox_inches='tight')
 
     return fig
 
@@ -334,7 +334,7 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=True):
     fig = plot_verbose_heatmap(pdfs, sessions, groups, subjectNames)
 
     # Save figure
-    save_fig(fig, output_file)
+    save_fig(fig, output_file, bbox_inches='tight')
 
     return fig
 

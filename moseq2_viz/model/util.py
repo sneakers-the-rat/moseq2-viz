@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 from numpy import linalg
 from copy import deepcopy
+from operator import itemgetter
 from sklearn.cluster import KMeans
 from itertools import starmap, product
 from cytoolz.curried import get, get_in
@@ -141,8 +142,8 @@ def get_best_fit(cp_path, model_results):
         h2, _ = np.histogram(model['changepoints'], bins=np.linspace(0, 2, 50), density=True)
         return jensenshannon(h1, h2)
     
-    best_model, dist = min(model_results.items(), key=_compute_cp_dist)
-    best_jsd_model, jsd_dist = min(model_results.items(), key=_compute_jsd_dist)
+    best_model, dist = min(valmap(_compute_cp_dist, model_results).items(), key=itemgetter(1))
+    best_jsd_model, jsd_dist = min(valmap(_compute_jsd_dist, model_results).items(), key=itemgetter(1))
 
     info = {
         'best model - duration': best_model,

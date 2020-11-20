@@ -255,7 +255,9 @@ class TestModelTransGraph(TestCase):
         ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
             trans_mats[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
             keep_orphans=True, usages=usages_anchor,
-            usage_threshold=0, max_syllable=20)
+            usage_threshold=0, max_syllable=19)
+
+        print(ebunch_anchor, orphans)
 
         graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
         nnodes = len(graph_anchor.nodes())
@@ -293,7 +295,7 @@ class TestModelTransGraph(TestCase):
         ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
             trans_mats[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
             keep_orphans=True, usages=usages_anchor,
-            usage_threshold=0, max_syllable=20)
+            usage_threshold=0, max_syllable=19)
 
         graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
         nnodes = len(graph_anchor.nodes())

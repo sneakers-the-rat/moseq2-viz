@@ -7,6 +7,7 @@ Syllable transition graph creation and utility functions.
 import math
 import warnings
 import numpy as np
+import pandas as pd
 import networkx as nx
 from copy import deepcopy
 from tqdm.auto import tqdm
@@ -193,6 +194,8 @@ def get_transition_matrix(labels, max_syllable=99, normalize='bigram',
             from syllable i (row) to syllable j (column) or a single transition matrix combined
             from all sessions in `labels`
     '''
+    if not isinstance(labels[0], (list, np.ndarray, pd.Series)):
+        labels = [labels]
 
     # Compute a singular transition matrix
     if combine:

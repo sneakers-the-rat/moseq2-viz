@@ -492,7 +492,7 @@ def plot_mean_group_heatmap(pdfs, groups):
         avg_hist = pdfs[idx].mean(0)/pdfs[idx].mean(0).max()
 
         im = a.imshow(avg_hist)
-        fig.colorbar(im, ax=a, pad=0.04)
+        fig.colorbar(im, ax=a, fraction=0.046, pad=0.04)
 
         a.set_xticks([])
         a.set_yticks([])
@@ -529,13 +529,16 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
         idx = np.array(groups) == group
         tmp_sessions = np.asarray(sessions)[idx]
         names = np.asarray(subjectNames)[idx]
+        norm = pdfs[idx].mean(0) / pdfs[idx].mean(0).max()
+        vmax = np.percentile(norm, 97.5)
         for j, sess in enumerate(tmp_sessions):
             idx = np.array(sessions) == sess
             plt.subplot(ax[j, i])
 
             avg = pdfs[idx].mean(0) / pdfs[idx].mean(0).max()
-            im = plt.imshow(avg)
-            plt.colorbar(im, pad=0.04)
+
+            im = plt.imshow(avg, vmax=vmax)
+            plt.colorbar(im, fraction=0.046, pad=0.04)
 
             plt.xticks([])
             plt.yticks([])

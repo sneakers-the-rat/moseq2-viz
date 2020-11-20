@@ -13,10 +13,9 @@ from cytoolz import keyfilter, groupby
 from moseq2_viz.util import parse_index, get_index_hits, load_changepoint_distribution, load_timestamps, read_yaml
 from moseq2_viz.model.trans_graph import get_transitions
 from moseq2_viz.model.util import (relabel_by_usage, h5_to_dict, retrieve_pcs_from_slices,
-    compress_label_sequence, find_label_transitions, get_best_fit,
-    get_syllable_statistics, parse_model_results, merge_models, get_mouse_syllable_slices,
-    syllable_slices_from_dict, get_syllable_slices, calculate_syllable_durations, labels_to_changepoints,
-    results_to_dataframe, _gen_to_arr, normalize_pcs, _whiten_all, simulate_ar_trajectory, whiten_pcs,
+    get_best_fit, get_syllable_statistics, parse_model_results, merge_models, get_mouse_syllable_slices,
+    syllable_slices_from_dict, get_syllable_slices, labels_to_changepoints,
+    _gen_to_arr, normalize_pcs, _whiten_all, simulate_ar_trajectory, whiten_pcs,
     make_separate_crowd_movies, get_normalized_syllable_usages)
 
 def make_sequence(lbls, durs):
@@ -77,14 +76,6 @@ class TestModelUtils(TestCase):
 
         os.remove(ts_path)
 
-    def test_merge_models(self):
-        model_paths = 'data/'
-        ext = 'p'
-        model_data = merge_models(model_paths, ext)
-
-        assert len(model_data.keys()) > 0
-        assert len(model_data['keys']) == 2
-
     def test_get_transitions(self):
         true_labels = [1, 2, 4, 1, 5]
         durs = [3, 4, 2, 6, 7]
@@ -108,15 +99,6 @@ class TestModelUtils(TestCase):
         mean_usages = get_normalized_syllable_usages(model, max_syllable=40, count='usage')
         assert len(mean_usages) == 40
         assert math.isclose(sum(mean_usages), 1.0)
-
-    def test_merge_models(self):
-
-        model_paths = 'data/'
-        ext = 'p'
-        model_data = merge_models(model_paths, ext)
-
-        assert len(model_data.keys()) > 0
-        assert len(model_data['keys']) == 2
 
     def test_get_mouse_syllable_slices(self):
         syllable = 2
@@ -172,40 +154,6 @@ class TestModelUtils(TestCase):
         assert np.asarray(syllable_slices).shape == (2*len(list(ret.values())[0]), 3)
         assert len(syllable_slices) == 2*len(list(ret.values())[0])
         assert len(list(ret.values())[0]) == len(list(ret.values())[1])
-
-
-    def test_find_label_transitions(self):
-        lbls = [-5, 1, 3, 1, 4]
-        durs = [3, 4, 10, 4, 12]
-        arr = make_sequence(lbls, durs)
-
-        inds = find_label_transitions(arr)
-
-        assert list(inds) == list(np.cumsum(durs[:-1])), 'label indices do not align'
-
-
-    def test_compress_label_sequence(self):
-        lbls = [-5, 1, 3, 1, 4]
-        durs = [3, 4, 10, 4, 12]
-        arr = make_sequence(lbls, durs)
-
-        compressed = compress_label_sequence(arr)
-
-        assert lbls[1:] == list(compressed), 'compressed sequence does not match original'
-
-    def test_calculate_label_durations(self):
-        labels = [-5, -5, 1, 1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 5, 5, 5, 5]
-        change = np.diff(labels) != 0
-        indices = np.where(change)[0]
-        indices += 1
-        indices = np.concatenate(([0], indices))
-
-        onsets = np.concatenate((indices, [np.asarray(labels).size]))
-        durations = np.diff(onsets)
-
-        durs = calculate_syllable_durations(np.asarray(labels))
-
-        assert all(durations[1:] == durs)
 
     def test_get_syllable_statistics(self):
         # For now this just tests if there are any function-related errors
@@ -280,24 +228,6 @@ class TestModelUtils(TestCase):
             actual_labels.append(subarr)
 
         np.testing.assert_array_equal(actual_labels, list(labels.values()))
-
-    def test_results_to_dataframe(self):
-        model_fit = 'data/test_model.p'
-        index_file = 'data/test_index.yaml'
-        max_syllable = 40
-
-        index_data = read_yaml(index_file)
-        index_data['pca_path'] = 'data/test_scores.h5'
-
-        model_dict = parse_model_results(model_fit)
-        df, label_df = results_to_dataframe(model_dict, index_data, sort=True, max_syllable=max_syllable, compute_labels=True)
-
-        assert isinstance(label_df, pd.DataFrame)
-        assert isinstance(df, pd.DataFrame)
-
-        columns = ['duration', 'usage', 'uuid', 'group', 'syllable', 'SessionName', 'SubjectName', 'StartTime']
-        assert set(columns) == set(df.columns)
-        assert df.shape == ((max_syllable)*2, len(columns))
 
     def test_normalize_pcs(self):
         index_file = 'data/test_index.yaml'
@@ -429,9 +359,9 @@ class TestModelUtils(TestCase):
                          }
 
         best_model, pca_cps = get_best_fit(cp_file, model_results)
-        assert best_model == 'model1'
+        assert best_model['best model - duration'] == 'model1'
 
-    def test_make_separate_crowd_movies(self):
+    def _test_make_separate_crowd_movies(self):
 
         index_file = 'data/test_index_crowd.yaml'
         model_path = 'data/mock_model.p'

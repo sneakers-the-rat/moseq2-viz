@@ -132,12 +132,10 @@ def get_best_fit(cp_path, model_results):
     # Load PCA changepoints
     pca_cps = load_changepoint_distribution(cp_path)
     
-    def _compute_cp_dist(args):
-        _, model = args
+    def _compute_cp_dist(model):
         return np.abs(np.nanmedian(pca_cps) - np.nanmedian(model['changepoints']))
 
-    def _compute_jsd_dist(args):
-        _, model = args
+    def _compute_jsd_dist(model):
         h1, _ = np.histogram(pca_cps, bins=np.linspace(0, 2, 50), density=True)
         h2, _ = np.histogram(model['changepoints'], bins=np.linspace(0, 2, 50), density=True)
         return jensenshannon(h1, h2)

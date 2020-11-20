@@ -95,21 +95,20 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
         else:
             print('ERROR, did not enter equal number of substring values -> groups.')
 
-def copy_h5_metadata_to_yaml_command(input_dir, h5_metadata_path):
+def copy_h5_metadata_to_yaml_command(input_dir):
     '''
     Reads h5 metadata from a specified metadata h5 path.
 
     Parameters
     ----------
     input_dir (str): path to directory containing h5 file
-    h5_metadata_path (str): path to metadata within h5 file
 
     Returns
     -------
     None
     '''
 
-    copy_h5_metadata_to_yaml_wrapper(input_dir, h5_metadata_path)
+    copy_h5_metadata_to_yaml_wrapper(input_dir)
 
 def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30, ext='p'):
     '''
@@ -171,7 +170,6 @@ def make_crowd_movies_command(index_file, model_path, output_dir, config_data=No
 
     # Get default CLI params
     objs = make_crowd_movies.params
-
     defaults = {tmp.name: tmp.default for tmp in objs if not tmp.required}
 
     if config_data is None:

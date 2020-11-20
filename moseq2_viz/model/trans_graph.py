@@ -32,14 +32,12 @@ def get_trans_graph_groups(model_fit, sorted_index):
     model_uuids (list): list of corresponding UUIDs for each included session in the model
     '''
 
-    if 'train_list' in model_fit:
-        model_uuids = model_fit['train_list']
-    else:
-        model_uuids = model_fit['keys']
+    model_uuids = model_fit.get('train_list', model_fit['keys'])
 
     # Loading modeled groups from index file by looking up their session's corresponding uuid
     files = sorted_index['files']
     label_group = [files[uuid].get('group', 'default') if uuid in files else '' for uuid in model_uuids]
+    # unique groups
     group = list(set(label_group))
 
     return group, label_group, model_uuids
@@ -60,8 +58,7 @@ def get_group_trans_mats(labels, label_group, group, max_sylls, normalize='bigra
     trans_mats (list of 2D np.ndarrays): list of transition matrices for each given group.
     usages (list of lists): list of corresponding usage statistics for each group.
     '''
-
-    # Importing within function to avoid
+    # Importing within function to avoid import loops
     from moseq2_viz.model.util import get_syllable_statistics
 
     trans_mats = []
@@ -74,7 +71,7 @@ def get_group_trans_mats(labels, label_group, group, max_sylls, normalize='bigra
         trans_mats.append(get_transition_matrix(use_labels,
                                                 normalize=normalize,
                                                 combine=True,
-                                                max_syllable=max_sylls - 1))
+                                                max_syllable=max_sylls))
 
         # Getting usage information for node scaling
         usages.append(get_syllable_statistics(use_labels, max_syllable=max_sylls)[0])
@@ -225,6 +222,7 @@ def get_transition_matrix(labels, max_syllable=99, normalize='bigram',
 
     return all_mats
 
+
 def convert_ebunch_to_graph(ebunch):
     '''
     Convert transition matrices to transition DAGs.
@@ -243,32 +241,6 @@ def convert_ebunch_to_graph(ebunch):
 
     return g
 
-def floatRgb(mag, cmin, cmax):
-    '''
-    Return a tuple of floats between 0 and 1 for R, G, and B.
-
-    Parameters
-    ----------
-    mag (float): color intensity.
-    cmin (float): minimum color value
-    cmax (float): maximum color value
-
-    Returns
-    -------
-    red (float): red value
-    green (float): green value
-    blue (float): blue value
-    '''
-
-    # Normalize to 0-1
-    try: x = float(mag-cmin)/(cmax-cmin)
-    except ZeroDivisionError: x = 0.5 # cmax == cmin
-
-    blue = min((max((4*(0.75-x), 0.)), 1.))
-    red = min((max((4*(x-0.25), 0.)), 1.))
-    green = min((max((4*math.fabs(x-0.5)-1., 0.)), 1.))
-
-    return red, green, blue
 
 def get_stat_thresholded_ebunch(ebunch, stat, stat_threshold):
     '''

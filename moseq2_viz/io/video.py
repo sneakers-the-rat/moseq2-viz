@@ -140,7 +140,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
 
     # Set crowd movie filename format based on whether syllables were relabeled
     if config_data.get('sort', True):
-        filename_format = 'syllable_sorted-id-{:02d} ({})_original-id-{:02d}.mp4'
+        filename_format = 'syllable_sorted-id-{:02d}_({})_original-id-{:02d}.mp4'
     else:
         filename_format = 'syllable_{:02d}.mp4'
 

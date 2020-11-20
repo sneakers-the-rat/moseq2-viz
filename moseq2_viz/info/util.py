@@ -118,7 +118,7 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
     return ent
 
 
-def syllable_transition_entropy(labels, tm_smoothing=0, truncate_syllable=40, transition_type='incoming',
+def transition_entropy(labels, tm_smoothing=0, truncate_syllable=40, transition_type='incoming',
                                 relabel_by='usage'):
     '''
     Computes syllable transition entropy.

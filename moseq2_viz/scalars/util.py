@@ -516,7 +516,7 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
         H, _, _ = np.histogram2d(pos.iloc[:, 0], pos.iloc[:, 1], bins=bins, density=normalize)
         pdfs.append(H)
 
-    return pdfs, groups, sessions, subjectNames
+    return np.array(pdfs), groups, sessions, subjectNames
 
 
 def compute_mean_syll_scalar(scalar_df, scalar='velocity_3d_mm', max_sylls=40, syllable_key='labels (usage sort)'):

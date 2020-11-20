@@ -3,7 +3,7 @@ import shutil
 from unittest import TestCase
 from click.testing import CliRunner
 from moseq2_viz.cli import add_group, copy_h5_metadata_to_yaml, plot_scalar_summary, \
-    plot_group_position_heatmaps, plot_verbose_position_heatmaps, plot_transition_graph, make_crowd_movies, get_best_fit_model
+    plot_group_position_heatmaps, plot_verbose_position_heatmaps, plot_transition_graph, make_crowd_movies
 
 
 
@@ -52,8 +52,7 @@ class TestCLI(TestCase):
         input_dir = 'data/'
 
         runner = CliRunner()
-        results = runner.invoke(copy_h5_metadata_to_yaml, ['--h5-metadata-path', '/metadata/acquisition',
-                                                           '-i', input_dir])
+        results = runner.invoke(copy_h5_metadata_to_yaml, ['-i', input_dir])
 
         assert (results.exit_code == 0)
 
@@ -89,7 +88,8 @@ class TestCLI(TestCase):
         runner = CliRunner()
 
         results = runner.invoke(plot_verbose_position_heatmaps, ['--output-file', gen_dir + 'heatmaps',
-                                                      input_dir + 'test_index.yaml'])
+                                                      input_dir + 'test_index_crowd.yaml'])
+        print(' '.join(['--output-file', gen_dir + 'heatmaps', input_dir + 'test_index_crowd.yaml']))
 
         assert (results.exit_code == 0), "CLI Command did not complete successfully"
         assert (os.path.exists(gen_dir + 'heatmaps.png')), "Position Heatmap PNG not found"
@@ -125,16 +125,15 @@ class TestCLI(TestCase):
 
     def test_plot_all_stats(self):
 
-        for stat in ['usage', 'speed', 'duration']:
+        for stat in ['usage', 'duration']:
             gen_dir = 'data/gen_plots/'
 
-            use_params = ['data/test_index.yaml',
-                          'data/test_model.p',
+            use_params = ['data/test_index_crowd.yaml',
+                          'data/mock_model.p',
                           '--output-file', gen_dir + f'test_{stat}',
                           '--stat', stat]
 
-            print(' '.join(use_params))
-
+            print(f'moseq2-viz plot-stats {" ".join(use_params)}')
             os.system(f'moseq2-viz plot-stats {" ".join(use_params)}')
 
             assert (os.path.exists(gen_dir + f'test_{stat}.png')), f"{stat} plot PNG not found"
@@ -164,6 +163,7 @@ class TestCLI(TestCase):
                         '--legacy-jitter-fix', str(False),
                         '--max-examples', str(max_examples)]
 
+        print(' '.join(crowd_params))
         results = runner.invoke(make_crowd_movies, crowd_params)
 
         assert (results.exit_code == 0), "CLI Command did not complete successfully"

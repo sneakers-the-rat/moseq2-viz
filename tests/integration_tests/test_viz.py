@@ -4,15 +4,14 @@ import joblib
 import unittest
 import numpy as np
 import networkx as nx
-import ruamel.yaml as yaml
 from unittest import TestCase
 import matplotlib.pyplot as plt
 from moseq2_viz.util import parse_index, read_yaml
-from moseq2_viz.model.trans_graph import convert_ebunch_to_graph, floatRgb, \
-    convert_transition_matrix_to_ebunch, get_transition_matrix, graph_transition_matrix
+from moseq2_viz.model.trans_graph import convert_ebunch_to_graph, convert_transition_matrix_to_ebunch,\
+                                         get_transition_matrix, graph_transition_matrix
 from moseq2_viz.scalars.util import scalars_to_dataframe
 from moseq2_viz.model.util import parse_model_results, get_syllable_statistics, \
-    relabel_by_usage, get_syllable_slices, results_to_dataframe
+    relabel_by_usage, get_syllable_slices, compute_behavioral_statistics
 from moseq2_viz.viz import clean_frames, make_crowd_matrix, position_plot, scalar_plot, plot_syll_stats_with_sem, save_fig
 
 def get_fake_movie():
@@ -161,13 +160,6 @@ class TestViz(TestCase):
         g = convert_ebunch_to_graph(ebunch_anchor)
         assert isinstance(g, nx.DiGraph), "Return type is not a networkx Digraph"
 
-
-    def test_floatRgb(self):
-        for i in range(0, 10):
-            x = float(i)/10
-            r, g, b = floatRgb(x, x, x)
-            assert all((r,g,b)) >= 0 and all((r,g,b)) <= 1.0, "floatRgb value is invalid."
-
     def test_graph_transition_matrix(self):
         group = ['Group1']
         trans_mats, usages = get_ebunch(group=group, ret_trans=True)
@@ -241,16 +233,17 @@ class TestViz(TestCase):
         os.remove(outfile)
 
     def test_plot_syll_stats_with_sem(self):
-        test_index = 'data/test_index.yaml'
-        test_model = 'data/test_model.p'
+        test_index = 'data/test_index_crowd.yaml'
+        test_model = 'data/mock_model.p'
 
         _, sorted_index = parse_index(test_index)
-
         for i, (k, v) in enumerate(sorted_index['files'].items()):
             if i == 1:
                 sorted_index['files'][k]['group'] = 'Group2'
 
-        complete_df, _ = results_to_dataframe(test_model, sorted_index, max_syllable=41)
+        scalar_df = scalars_to_dataframe(sorted_index, model_path=test_model)
+
+        complete_df = compute_behavioral_statistics(scalar_df)
 
         # mutation order plot with correct parameters
         fig, lgd = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='diff', max_sylls=None, groups=None,

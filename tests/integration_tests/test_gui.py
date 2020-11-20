@@ -61,10 +61,10 @@ class TestGUI(TestCase):
         os.remove(tmp_yaml)
 
     def test_plot_all_stats(self):
-        for stat in ['usage', 'speed', 'duration']:
+        for stat in ['usage', 'duration']:
             gen_dir = 'data/gen_plots/'
-            index_file = 'data/test_index.yaml'
-            model_path = 'data/test_model.p'
+            index_file = 'data/test_index_crowd.yaml'
+            model_path = 'data/mock_model.p'
             output_file = gen_dir + f'test_{stat}s'
 
             plot_stats_command(model_path, index_file, output_file)
@@ -86,7 +86,7 @@ class TestGUI(TestCase):
         shutil.rmtree(gen_dir)
 
     def test_plot_mean_group_position_heatmaps_command(self):
-        index_file = 'data/test_index.yaml'
+        index_file = 'data/test_index_crowd.yaml'
         gen_dir = 'data/gen_plots/'
         output_file = gen_dir + 'test_gHeatmaps'
 

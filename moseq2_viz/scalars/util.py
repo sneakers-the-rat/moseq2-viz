@@ -573,7 +573,7 @@ def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='grou
     mean_pdfs = pdf_df.groupby([groupby, syllable_key]).apply(np.mean)
 
     if normalize:
-        mean_pdfs = mean_pdfs.apply(lambda x: x / np.nanmax(x))
+        mean_pdfs['pdf'] = mean_pdfs['pdf'].apply(lambda x: x / np.nanmax(x))
 
     return mean_pdfs, groups
 

@@ -5,13 +5,11 @@ import pandas as pd
 from unittest import TestCase
 from cytoolz import merge_with
 from moseq2_viz.util import parse_index, read_yaml
-from moseq2_viz.model.util import parse_model_results, h5_to_dict, results_to_dataframe
+from moseq2_viz.model.util import parse_model_results, h5_to_dict
 from moseq2_viz.scalars.util import star_valmap, convert_pxs_to_mm, is_legacy, \
     generate_empty_feature_dict, convert_legacy_scalars, get_scalar_map, get_scalar_triggered_average, \
     nanzscore, _pca_matches_labels, process_scalars, scalars_to_dataframe, \
-    compute_all_pdf_data, compute_session_centroid_speeds, compute_mean_syll_scalar, \
-    compute_syllable_position_heatmaps, get_syllable_pdfs, compute_mouse_dist_to_center, \
-    h5_filepath_from_sorted
+    compute_all_pdf_data, compute_mouse_dist_to_center, h5_filepath_from_sorted
 
 class TestScalarUtils(TestCase):
 
@@ -236,32 +234,7 @@ class TestScalarUtils(TestCase):
 
         assert len(test_pdfs) == len(groups) == len(sessions) == len(subjectNames)
         for i in range(len(test_pdfs)):
-            assert test_pdfs[i].shape == (50, 50)
-
-    def test_compute_session_centroid_speeds(self):
-        index_file = 'data/test_index.yaml'
-
-        index, sorted_index = parse_index(index_file)
-        scalar_df = scalars_to_dataframe(sorted_index)
-
-        new_col = compute_session_centroid_speeds(scalar_df)
-
-        assert str(new_col.iloc[0]) == 'nan' # no speed recorded in first frame of recording
-        assert len(new_col) == len(scalar_df)
-
-    def test_compute_mean_syll_speed(self):
-        test_index = 'data/test_index_crowd.yaml'
-        test_model = 'data/mock_model.p'
-
-        _, sorted_index = parse_index(test_index)
-        scalar_df = scalars_to_dataframe(sorted_index, model_path=test_model)
-        scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
-
-        complete_df, _ = results_to_dataframe(test_model, sorted_index)
-        complete_df = compute_mean_syll_scalar(complete_df, scalar_df, scalar='centroid_speed_mm', max_sylls=40)
-
-        assert 'centroid_speed_mm' in complete_df.columns
-        assert not complete_df.centroid_speed_mm.isnull().all()
+            assert test_pdfs[i].shape == (20, 20)
 
     def test_compute_mouse_dist_to_center(self):
 
@@ -283,46 +256,6 @@ class TestScalarUtils(TestCase):
         dist_to_center = compute_mouse_dist_to_center(roi, centroid_x_px, centroid_y_px)
 
         assert len(dist_to_center) == 900
-
-    def test_compute_syllable_position_heatmaps(self):
-
-        test_index = 'data/test_index.yaml'
-        test_model = 'data/test_model.p'
-        max_sylls = 20
-
-        _, sorted_index = parse_index(test_index)
-
-        scalar_df = scalars_to_dataframe(sorted_index)
-
-        model = parse_model_results(joblib.load(test_model))
-        df, label_df = results_to_dataframe(model_dict=model, index_dict=sorted_index, sort=True, compute_labels=True)
-
-        df = compute_syllable_position_heatmaps(df, scalar_df, label_df, syllables=range(max_sylls))
-
-        assert 'pdf' in df.columns
-        assert all(x.all() != np.zeros((50, 50)).all() for x in df['pdf'])
-        assert len(df['pdf']) == 40
-
-    def test_get_syllable_pdfs(self):
-
-        test_index = 'data/test_index.yaml'
-        test_model = 'data/test_model.p'
-        max_sylls = 20
-
-        _, sorted_index = parse_index(test_index)
-
-        scalar_df = scalars_to_dataframe(sorted_index)
-
-        model = parse_model_results(joblib.load(test_model))
-        df, label_df = results_to_dataframe(model_dict=model, index_dict=sorted_index, sort=True, compute_labels=True)
-
-        df = compute_syllable_position_heatmaps(df, scalar_df, label_df, syllables=range(max_sylls))
-
-        gdf, groups = get_syllable_pdfs(df, normalize=True, syllables=range(max_sylls), groupby='group')
-
-        assert len(gdf) == 1
-        assert gdf[0].shape == (20, 50, 50)
-        assert len(groups) == 1
 
 if __name__ == '__main__':
     unittest.main()

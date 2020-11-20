@@ -9,10 +9,9 @@ from collections import OrderedDict
 from moseq2_viz.util import parse_index, read_yaml
 from moseq2_viz.model.util import parse_model_results
 from moseq2_viz.model.trans_graph import get_pos, get_usage_dict, get_trans_graph_groups, \
-    get_group_trans_mats, get_transition_matrix, graph_transition_matrix, get_stat_thresholded_ebunch, \
-    get_transitions, make_transition_graphs, make_difference_graphs, make_graph, draw_graph, normalize_transition_matrix, \
-    convert_ebunch_to_graph, convert_transition_matrix_to_ebunch, compute_and_graph_grouped_TMs, floatRgb, \
-    threshold_edges, handle_graph_layout
+    get_group_trans_mats, get_transition_matrix, graph_transition_matrix,  get_transitions, make_transition_graphs, \
+    make_difference_graphs, make_graph, draw_graph, normalize_transition_matrix, \
+    convert_ebunch_to_graph, convert_transition_matrix_to_ebunch, compute_and_graph_grouped_TMs, handle_graph_layout
 
 def make_sequence(lbls, durs):
     arr = [[x] * y for x, y in zip(lbls, durs)]
@@ -47,7 +46,7 @@ class TestModelTransGraph(TestCase):
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
 
         assert len(trans_mats) == 1
-        assert trans_mats[0].shape == (20, 20)
+        assert trans_mats[0].shape == (21, 21)
         assert len(usages) == 1
         assert len(usages[0]) == 20
 
@@ -153,55 +152,6 @@ class TestModelTransGraph(TestCase):
 
         assert graph.number_of_nodes() == 12
 
-    def test_floatRgb(self):
-
-        mag = 1
-        cmin = 0
-        cmax = 1
-
-        r, g, b = floatRgb(mag, cmin, cmax)
-        assert isinstance(r, float) and r <= 1
-        assert isinstance(g, float) and g <= 1
-        assert isinstance(b, float) and b <= 1
-
-    def test_get_stat_thresholded_ebunch(self):
-
-        test_model = 'data/test_model.p'
-
-        model = parse_model_results(joblib.load(test_model))
-        max_syllable = 20
-
-        tm = get_transition_matrix(model['labels'], max_syllable=max_syllable)[0]
-
-        ebunch = convert_transition_matrix_to_ebunch(tm, tm,
-                                                     edge_threshold=0,
-                                                     keep_orphans=False,
-                                                     max_syllable=tm.shape[0])[0]
-
-        usages = get_group_trans_mats(model['labels'], ['Group 1', 'Group 1'], ['Group 1'], 21, normalize='bigram')[1][0]
-
-        new_ebunch = get_stat_thresholded_ebunch(deepcopy(ebunch), usages, 0)
-        assert new_ebunch == ebunch
-
-    def test_threshold_edges(self):
-
-        test_model = 'data/test_model.p'
-
-        model = parse_model_results(joblib.load(test_model))
-        max_syllable = 20
-        edge_threshold = .0025
-
-        tm = get_transition_matrix(model['labels'], max_syllable=max_syllable)[0]
-
-        ebunch, orphans = convert_transition_matrix_to_ebunch(
-            tm, tm, keep_orphans=True, max_syllable=tm.shape[0])
-
-        for i, v in np.ndenumerate(tm):
-            new_ebunch, new_orphans = threshold_edges(deepcopy(ebunch), deepcopy(orphans), edge_threshold, tm, i, edge=v)
-
-        assert ebunch == new_ebunch
-        assert len(orphans) == len(new_orphans)-1
-
     def test_convert_transition_matrix_to_ebunch(self):
 
         test_model = 'data/test_model.p'
@@ -281,7 +231,7 @@ class TestModelTransGraph(TestCase):
                            edge_threshold=edge_threshold,
                            usages_anchor=usages_anchor)
 
-        assert graph.number_of_nodes() == 10
+        assert graph.number_of_nodes() == 12
 
     def test_make_difference_graph(self):
 
@@ -305,7 +255,9 @@ class TestModelTransGraph(TestCase):
         ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
             trans_mats[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
             keep_orphans=True, usages=usages_anchor,
-            usage_threshold=0, max_syllable=20)
+            usage_threshold=0, max_syllable=19)
+
+        print(ebunch_anchor, orphans)
 
         graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
         nnodes = len(graph_anchor.nodes())
@@ -343,7 +295,7 @@ class TestModelTransGraph(TestCase):
         ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
             trans_mats[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
             keep_orphans=True, usages=usages_anchor,
-            usage_threshold=0, max_syllable=20)
+            usage_threshold=0, max_syllable=19)
 
         graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
         nnodes = len(graph_anchor.nodes())
@@ -460,6 +412,6 @@ class TestModelTransGraph(TestCase):
 
         fig, ax, pos = graph_transition_matrix(trans_mats, usages=usages, groups=group)
 
-        assert len(pos.keys()) == 10
+        assert len(pos.keys()) == 12
         assert ax.shape == (2, 2)
         assert fig != None

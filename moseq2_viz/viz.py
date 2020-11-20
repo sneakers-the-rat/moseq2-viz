@@ -485,6 +485,8 @@ def plot_mean_group_heatmap(pdfs, groups):
 
     fig, ax = plt.subplots(nrows=len(uniq_groups), ncols=1, sharex=True, sharey=True,
                            figsize=(4, 5 * len(uniq_groups)))
+    if not isinstance(ax, np.ndarray):
+        ax = np.array([ax])
     for a, group in zip(ax.flat, uniq_groups):
         idx = groups == group
 
@@ -527,7 +529,10 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
     figsize = (2.5 * len(counts), 2.6 * max(counts.values()))
     fig, ax = plt.subplots(nrows=max(counts.values()), ncols=len(counts), sharex=True,
                            sharey=True, figsize=figsize)
+
     for col_ax, (group, pdfs) in zip(ax.T, grouped_pdfs.items()):
+        if len(counts) == 1:
+            col_ax = [col_ax]
         for a, pdf, (_, subject_name) in zip(col_ax, pdfs, grouped_names[group]):
             im = a.imshow(pdf, vmax=vmax)
             fig.colorbar(im, ax=a)

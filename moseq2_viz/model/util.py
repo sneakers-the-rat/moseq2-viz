@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 from numpy import linalg
 from copy import deepcopy
+from operator import itemgetter
 from sklearn.cluster import KMeans
 from itertools import starmap, product
 from cytoolz.curried import get, get_in
@@ -141,16 +142,16 @@ def get_best_fit(cp_path, model_results):
         h2, _ = np.histogram(model['changepoints'], bins=np.linspace(0, 2, 50), density=True)
         return jensenshannon(h1, h2)
     
-    best_model, _ = min(model_results.items(), key=_compute_cp_dist)
-    best_jsd_model, _ = min(model_results.items(), key=_compute_jsd_dist)
+    best_model, dist = min(valmap(_compute_cp_dist, model_results).items(), key=itemgetter(1))
+    best_jsd_model, jsd_dist = min(valmap(_compute_jsd_dist, model_results).items(), key=itemgetter(1))
 
     info = {
         'best model - duration': best_model,
         'best model - duration kappa': model_results[best_model]['model_parameters']['kappa'],
-        'min duration distance (seconds)': _compute_cp_dist((best_model, model_results[best_model])),
+        'min duration distance (seconds)': dist,
         'best model - jsd': best_jsd_model,
         'best model - jsd kappa': model_results[best_jsd_model]['model_parameters']['kappa'],
-        'min jensen-shannon distance': _compute_jsd_dist((best_jsd_model, model_results[best_jsd_model]))
+        'min jensen-shannon distance': jsd_dist
     }
     
     return info, pca_cps

@@ -14,7 +14,6 @@ from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 from cytoolz import sliding_window, complement
-from moseq2_viz.model.util import normalize_usages
 
 def get_trans_graph_groups(model_fit):
     '''
@@ -271,10 +270,8 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     # TODO: figure out if I ever need the transition_matrix variable
     # Cap the number of included syllable states
     if max_syllable is not None:
-        weights = weights[:max_syllable]
-        weights = weights[:, :max_syllable]
-        transition_matrix = transition_matrix[:max_syllable]
-        transition_matrix = transition_matrix[:, :max_syllable]
+        weights = weights[:max_syllable, :max_syllable]
+        transition_matrix = transition_matrix[:max_syllable, :max_syllable]
 
     def _filter_ebunch(arg):
         _, _, w = arg
@@ -508,6 +505,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
         graph = make_graph(tm, ebunch_anchor, edge_threshold, usages_anchor, speeds)
 
         # get edge widths
+        assert all(edge not in orphans for edge in graph.edges()), 'graph contains orphans'
         width = [tm[u][v] * edge_width_scale if (u, v) not in orphans else orphan_weight
                  for u, v in graph.edges()]
         widths.append(width)
@@ -521,7 +519,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
             node_sizes.append(node_size)
 
         # Draw network to matplotlib figure
-        if np.array(ax).all() is not None:
+        if ax is not None:
             draw_graph(graph, group_names, width, pos, node_color='w',
                        node_size=node_size, node_edge_colors='r', arrows=arrows,
                        font_size=font_size, ax=ax, i=i, j=i)
@@ -665,6 +663,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     ax (pyplot axis): figure axis object.
     pos (dict): dict figure information.
     '''
+    from moseq2_viz.model.util import normalize_usages
 
     if headless:
         plt.switch_backend('agg')

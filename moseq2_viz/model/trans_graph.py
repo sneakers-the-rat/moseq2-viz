@@ -14,8 +14,9 @@ from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 from cytoolz import sliding_window, complement
+from moseq2_viz.model.util import normalize_usages
 
-def get_trans_graph_groups(model_fit, sorted_index):
+def get_trans_graph_groups(model_fit):
     '''
     Wrapper helper function to get the groups and their respective session uuids
     to use in transition graph generation.
@@ -34,14 +35,9 @@ def get_trans_graph_groups(model_fit, sorted_index):
     '''
 
     model_uuids = model_fit.get('train_list', model_fit['keys'])
+    label_group = [model_fit['metadata']['groups'][k] for k in model_uuids]
 
-    # Loading modeled groups from index file by looking up their session's corresponding uuid
-    files = sorted_index['files']
-    label_group = [files[uuid].get('group', 'default') if uuid in files else '' for uuid in model_uuids]
-    # unique groups
-    group = list(set(label_group))
-
-    return group, label_group, model_uuids
+    return label_group, model_uuids
 
 def get_group_trans_mats(labels, label_group, group, max_sylls, normalize='bigram'):
     '''
@@ -76,7 +72,6 @@ def get_group_trans_mats(labels, label_group, group, max_sylls, normalize='bigra
 
         # Getting usage information for node scaling
         usages.append(get_syllable_statistics(use_labels, max_syllable=max_sylls)[0])
-
     return trans_mats, usages
 
 def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
@@ -273,6 +268,7 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     ebunch (list): syllable transition data.
     orphans (list): syllables with no edges.
     '''
+    # TODO: figure out if I ever need the transition_matrix variable
     # Cap the number of included syllable states
     if max_syllable is not None:
         weights = weights[:max_syllable]
@@ -280,7 +276,6 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
         transition_matrix = transition_matrix[:max_syllable]
         transition_matrix = transition_matrix[:, :max_syllable]
 
-    # TODO: figure out if I ever need the transition_matrix variable
     def _filter_ebunch(arg):
         _, _, w = arg
         w = abs(w)
@@ -317,6 +312,7 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     return ebunch, [o[:-1] for o in orphans]
 
 
+# TODO: get rid of this function - it's so confusing
 def get_usage_dict(usages):
     '''
     Convert usages numpy array to an OrderedDict
@@ -338,41 +334,6 @@ def get_usage_dict(usages):
             usages[i] = d
 
     return usages
-
-def handle_graph_layout(trans_mats, usages, anchor):
-    '''
-    Computes node usage "anchors"/positions.
-
-    Parameters
-    ----------
-    trans_mats (np.ndarray): syllable transition matrix
-    usages (OrderedDict): OrderedDict of syllable usage counts
-    anchor (int): Center of the transition graph
-
-    Returns
-    -------
-    usages (OrderedDict): OrderedDict of syllable usage ratios
-    anchor (int): Center of the transition graph
-    usages_anchor (int): node placement reference value
-    ngraphs (int): number of total transition matrices
-    '''
-
-    ngraphs = len(trans_mats)
-
-    if anchor > ngraphs:
-        print('Setting anchor to 0')
-        anchor = 0
-
-    if usages is not None:
-        for i in range(len(usages)):
-            usage_total = sum(usages[i].values())
-            for k, v in usages[i].items():
-                usages[i][k] = v / usage_total
-        usages_anchor = usages[anchor]
-    else:
-        usages_anchor = None
-
-    return usages, anchor, usages_anchor, ngraphs
 
 
 def make_graph(tm, ebunch_anchor, edge_threshold, usages_anchor, speeds=None, speed_threshold=-50):
@@ -716,14 +677,15 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     assert isinstance(trans_mats, (np.ndarray, list)), "Transition matrix must be a numpy array or list of arrays"
 
     # Ensure transition matrices are 2D
-    if isinstance(trans_mats, np.ndarray) and trans_mats.ndim == 2:
+    if isinstance(trans_mats, np.ndarray):
+        assert trans_mats.ndim == 2, 'Transition matrix needs to be 2 dimensional'
         trans_mats = [trans_mats]
 
-    # Convert usages np.ndarray to OrderedDict
-    usages = get_usage_dict(usages)
-
     # Get shared node anchors based on usages
-    usages, anchor, usages_anchor, ngraphs = handle_graph_layout(trans_mats, usages, anchor)
+    ngraphs = len(trans_mats)
+    usages = [normalize_usages(u) for u in usages]
+    anchor = anchor if anchor < len(trans_mats) else 0
+    usages_anchor = usages[anchor]
 
     # Create transition graph metadata from transition matrix
     ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(

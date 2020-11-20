@@ -191,7 +191,8 @@ def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
 
 def get_normalized_syllable_usages(model_data, max_syllable=100, count='usage'):
     '''
-    Computes the overall syllable usages, and returns a 1D array of their corresponding usage values.
+    Computes syllable usages and normalizes.
+    Returns a 1D array of their corresponding usage values.
 
     Parameters
     ----------
@@ -205,15 +206,14 @@ def get_normalized_syllable_usages(model_data, max_syllable=100, count='usage'):
     '''
 
     # process the syllable usages over all frames/emissions in the entire cohort
-    usages_by_mouse = np.array([list(get_syllable_statistics(data=labels,
-                                                             fill_value=-5,
-                                                             count=count,
-                                                             max_syllable=max_syllable)[0].values()) \
-                                for labels in model_data['labels']])
+    syllable_usages, _ = get_syllable_statistics(model_data['labels'], count=count, max_syllable=max_syllable)
+    total = sum(syllable_usages.values())
+    return np.array([v / total for v in syllable_usages.values()])
 
-    syllable_usages = np.sum(usages_by_mouse, axis=0) / np.sum(usages_by_mouse)
 
-    return syllable_usages
+def normalize_usages(usage_dict):
+    total = sum(usage_dict.values())
+    return valmap(lambda v: v / total, usage_dict)
 
 
 def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[slice]:

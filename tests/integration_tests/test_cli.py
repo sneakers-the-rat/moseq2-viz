@@ -3,7 +3,7 @@ import shutil
 from unittest import TestCase
 from click.testing import CliRunner
 from moseq2_viz.cli import add_group, copy_h5_metadata_to_yaml, plot_scalar_summary, \
-    plot_group_position_heatmaps, plot_verbose_position_heatmaps, plot_transition_graph, make_crowd_movies, get_best_fit_model
+    plot_group_position_heatmaps, plot_verbose_position_heatmaps, plot_transition_graph, make_crowd_movies
 
 
 

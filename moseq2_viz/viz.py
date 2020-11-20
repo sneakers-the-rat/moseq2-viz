@@ -485,6 +485,7 @@ def plot_mean_group_heatmap(pdfs, groups):
 
     fig, ax = plt.subplots(nrows=len(uniq_groups), ncols=1, sharex=True, sharey=True,
                            figsize=(4, 5 * len(uniq_groups)))
+    ax = np.array(ax)
     for a, group in zip(ax.flat, uniq_groups):
         idx = groups == group
 

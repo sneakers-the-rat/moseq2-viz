@@ -117,7 +117,8 @@ def add_group_wrapper(index_file, config_data):
     print('Group(s) added successfully.')
 
 
-def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, ext='p', fps=30):
+def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, ext='p', fps=30,
+                               objective='duration'):
     '''
     Given a directory containing multiple models trained on different kappa values,
     finds the model with the closest median syllable duration to the PC changepoints.
@@ -131,6 +132,9 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     plot_all (bool): Plot all model changepoint distributions.
     ext (str): File extension to search for models with
     fps (int): Frames per second
+    objective (str): can be either duration or jsd. The objective finds the best model
+        based on either median changepoint durations or the jensen-shannon divergence
+        beteween changepoint duration distributions
 
     Returns
     -------
@@ -153,22 +157,22 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     model_results = {name: _load_models(name) for name in models}
 
     # Find the best fit model by comparing their median durations with the PC scores changepoints
-    best_model, pca_changepoints = get_best_fit(cp_file, model_results)
+    best_model_info, pca_changepoints = get_best_fit(cp_file, model_results)
 
-    print('Model with median duration closest to PC scores:', best_model)
+    print('Model closest to PC scores:', best_model_info[f'best model - {objective}'])
 
     if plot_all:
         # Graph all the model CP dists
-        fig, ax = plot_cp_comparison(model_results, pca_changepoints, plot_all=plot_all, best_model=best_model)
+        fig, ax = plot_cp_comparison(model_results, pca_changepoints, plot_all=plot_all, best_model=best_model_info[f'best model - {objective}'])
     else:
         # Graph the best-fit model CP difference
-        fig, ax = plot_cp_comparison(model_results, pca_changepoints, best_model=best_model)
+        fig, ax = plot_cp_comparison(model_results, pca_changepoints, best_model=best_model_info[f'best model - {objective}'])
 
     # Save the figure
     if output_file != None:
         save_fig(fig, output_file)
 
-    return best_model, fig
+    return best_model_info, fig
 
 def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None,
                                 show_scalars=['velocity_2d_mm', 'velocity_3d_mm',

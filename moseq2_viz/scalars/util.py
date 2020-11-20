@@ -516,11 +516,10 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
         H, _, _ = np.histogram2d(pos.iloc[:, 0], pos.iloc[:, 1], bins=bins, density=normalize)
         pdfs.append(H)
 
-    return pdfs, groups, sessions, subjectNames
+    return np.array(pdfs), groups, sessions, subjectNames
 
 
-def compute_mean_syll_scalar(complete_df, scalar_df, scalar='centroid_speed_mm', max_sylls=40,
-                             keep_cols=['group', 'uuid', 'labels (usage sort)']):
+def compute_mean_syll_scalar(scalar_df, scalar='velocity_3d_mm', max_sylls=40, syllable_key='labels (usage sort)'):
     '''
     Computes the mean syllable scalar-value based on the time-series scalar dataframe and the selected scalar.
     Finds the frame indices with corresponding each of the label values (up to max syllables) and looks up the scalar
@@ -528,42 +527,28 @@ def compute_mean_syll_scalar(complete_df, scalar_df, scalar='centroid_speed_mm',
 
     Parameters
     ----------
-    complete_df (pd.DataFrame): DataFrame containing syllable statistic results for each uuid.
     scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid and syllable columns for all stacked sessions
     scalar (str or list): Selected scalar column(s) to compute mean value for syllables
     max_sylls (int): maximum amount of syllables to include in output.
-    keep_cols (list): list of columns to group the scalar_df by
+    syllable_key (str): column in scalar_df that points to the syllable labels to use.
+
 
     Returns
     -------
-    complete_df (pd.DataFrame): updated input dataframe with a speed value for each syllable merge in as a new column.
+    mean_df (pd.DataFrame): updated input dataframe with a speed value for each syllable merge in as a new column.
     '''
+    if syllable_key not in scalar_df:
+        raise ValueError('scalar_df must be loaded with labels. Supply a model path to scalars_to_dataframe.')
 
-    warnings.filterwarnings('ignore')
+    mask = (scalar_df[syllable_key] >= 0) & (scalar_df[syllable_key] <= max_sylls)
+    mean_df = scalar_df[mask].groupby(['group', 'uuid', syllable_key])[scalar].mean()
+    mean_df = mean_df.reset_index()
 
-    if isinstance(scalar, str):
-        use_cols = [scalar] + keep_cols
-    elif isinstance(scalar, list):
-        use_cols = scalar + keep_cols
+    return mean_df
 
-    # filter out -5 padding values
-    scalar_df = scalar_df[scalar_df['labels (usage sort)'] >= 0]
 
-    syll_mean_df = scalar_df.groupby(keep_cols, as_index=False).mean()[use_cols]
-
-    # filter out syllables > max_sylls and cast to int
-    syll_scalar_df = syll_mean_df[syll_mean_df['labels (usage sort)'] <= max_sylls]
-    syll_scalar_df['labels (usage sort)'] = syll_scalar_df['labels (usage sort)'].astype(int)
-
-    # handling column names for safe df merge
-    syll_scalar_df = syll_scalar_df.rename(columns={'labels (usage sort)': 'syllable'})
-    keep_cols[keep_cols.index('labels (usage sort)')] = 'syllable'
-
-    complete_df = pd.merge(complete_df, syll_scalar_df, on=keep_cols)
-
-    return complete_df
-
-def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='group'):
+def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='group',
+                      syllable_key='labels (usage sort)'):
     '''
 
     Computes the mean syllable position PDF/Heatmap for the given groupings.
@@ -583,33 +568,14 @@ def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='grou
     groups (list): list of corresponding names to each row in the group_syll_pdfs list
     '''
 
-    # Get DataFrame subset containing only relevant columns
-    mini_df = pdf_df[['pdf', 'group', 'SessionName', 'SubjectName', 'syllable']]
-
     # Get unique groups to iterate by
-    if groupby == 'group':
-        groups = list(mini_df.group.unique())
-    else:
-        groups = list(mini_df[groupby].unique())
+    groups = pdf_df[groupby].unique()
+    mean_pdfs = pdf_df.groupby([groupby, syllable_key]).apply(np.mean)
 
-    # Get means of grouping PDFs
-    group_syll_pdfs = []
-    for g in groups:
-        g_df = mini_df[mini_df[groupby] == g]
+    if normalize:
+        mean_pdfs = mean_pdfs.apply(lambda x: x / np.nanmax(x))
 
-        # Get mean syllable PDF for all found group names
-        syll_pdfs = []
-        for i in syllables:
-            pdf = g_df[g_df['syllable'] == i].pdf.to_numpy().mean(axis=0)
-            syll_pdfs.append(pdf)
-
-        # Optionally scale the PDFs
-        if normalize:
-            group_syll_pdfs.append(np.stack([p / p.sum() for p in syll_pdfs]))
-        else:
-            group_syll_pdfs.append(syll_pdfs)
-
-    return group_syll_pdfs, groups
+    return mean_pdfs, groups
 
 
 def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage sort)', syllables=range(40),

@@ -490,10 +490,10 @@ def plot_mean_group_heatmap(pdfs, groups):
     for a, group in zip(ax.flat, uniq_groups):
         idx = groups == group
 
-        avg_hist = np.mean(pdfs[idx], axis=0)
-        vmax = np.percentile(avg_hist, 97.5)
-        im = a.imshow(avg_hist, vmax=vmax)
-        fig.colorbar(im, ax=a, pad=0.04)
+        avg_hist = pdfs[idx].mean(0)/pdfs[idx].mean(0).max()
+
+        im = a.imshow(avg_hist)
+        fig.colorbar(im, ax=a, fraction=0.046, pad=0.04)
 
         a.set_xticks([])
         a.set_yticks([])
@@ -518,27 +518,33 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
     fig (pyplot figure): plotted scalar scatter plot
     '''
 
-    grouped_pdfs = groupby(0, zip(groups, pdfs))
-    grouped_names = groupby(0, zip(groups, subjectNames))
-    # only keep the pdfs in the groupby
-    grouped_pdfs = valmap(lambda v: [x[1] for x in v], grouped_pdfs)
-    counts = valmap(len, grouped_pdfs)
-    # standardize the max value for every session
-    vmax = np.percentile(pdfs, 97.5)
+    uniq_groups = np.unique(groups)
+    count = [len([grp1 for grp1 in groups if grp1 == grp]) for grp in uniq_groups]
+    figsize = (np.round(2.5 * len(uniq_groups)), np.round(2.6 * np.max(count)))
 
-    figsize = (2.5 * len(counts), 2.6 * max(counts.values()))
-    fig, ax = plt.subplots(nrows=max(counts.values()), ncols=len(counts), sharex=True,
+    fig, ax = plt.subplots(nrows=np.max(count), ncols=len(uniq_groups), sharex=True,
                            sharey=True, figsize=figsize)
 
-    for col_ax, (group, pdfs) in zip(ax.T, grouped_pdfs.items()):
-        if len(counts) == 1:
-            col_ax = [col_ax]
-        for a, pdf, (_, subject_name) in zip(col_ax, pdfs, grouped_names[group]):
-            im = a.imshow(pdf, vmax=vmax)
-            fig.colorbar(im, ax=a)
-            a.set_xticks([])
-            a.set_yticks([])
-            a.set_title(f'{group}: {subject_name}', fontsize=10)
+    ax = np.reshape(np.array(ax), (np.max(count), len(uniq_groups)))
+    for i, group in tqdm(enumerate(uniq_groups), total=len(uniq_groups)):
+        idx = np.array(groups) == group
+        tmp_sessions = np.asarray(sessions)[idx]
+        names = np.asarray(subjectNames)[idx]
+        norm = pdfs[idx].mean(0) / pdfs[idx].mean(0).max()
+        vmax = np.percentile(norm, 97.5)
+        for j, sess in enumerate(tmp_sessions):
+            idx = np.array(sessions) == sess
+            plt.subplot(ax[j, i])
+
+            avg = pdfs[idx].mean(0) / pdfs[idx].mean(0).max()
+
+            im = plt.imshow(avg, vmax=vmax)
+            plt.colorbar(im, fraction=0.046, pad=0.04)
+
+            plt.xticks([])
+            plt.yticks([])
+
+            plt.title(f'{group}: {names[j]}', fontsize=10)
 
     return fig
 
@@ -606,8 +612,8 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
     t = f'PC CP Stats: Mean, median, mode (s) = {np.nanmean(pc_cps):.4f}, ' \
         f'{np.nanmedian(pc_cps):.4f}, {mode(pc_cps)[0][0]:.4f}'
 
-    ax.text(.5, 2, s, fontsize=12)
-    ax.text(.5, 1.8, t, fontsize=12)
+    ax.text(.5, 1.8, s, fontsize=12)
+    ax.text(.5, 1.6, t, fontsize=12)
     ax.set_xlabel('Block duration (s)')
     ax.set_ylabel('Probability density')
     sns.despine()

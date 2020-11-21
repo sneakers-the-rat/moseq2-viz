@@ -41,10 +41,8 @@ class TestInfoUtils(TestCase):
             ents.append(-(usages * np.log2(usages)))
 
         test_ent = entropy(labels)
-        test_ents = entropy(labels, get_session_sum=False)
 
         assert len(test_ent) == 2 # for 2 sessions in modeling
-        assert len(test_ents) == 2 # for 2 sessions in modeling
 
     def test_entropy_rate(self):
 
@@ -96,7 +94,5 @@ class TestInfoUtils(TestCase):
                 tmp.append(real_er)
             
             test_er = entropy_rate(labels, normalize=norm, truncate_syllable=truncate_syllable, smoothing=smoothing, tm_smoothing=tm_smoothing)
-            test_ers = entropy_rate(labels, normalize=norm, truncate_syllable=truncate_syllable, smoothing=smoothing, tm_smoothing=tm_smoothing, get_session_sum=False)
 
             assert len(test_er) == len(tmp) == 2
-            assert len(test_ers) == len(tmp_er) == 2

@@ -121,7 +121,7 @@ class TestGUI(TestCase):
         assert (os.path.exists(output_file + '.pdf')), "Transition PDF graph was not saved"
         shutil.rmtree(gen_dir)
 
-    def test_get_fit_model(self):
+    def test_get_best_fit_model(self):
 
         progress_paths = {
             'plot_path': 'data/gen_plots/',

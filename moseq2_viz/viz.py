@@ -609,7 +609,7 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
     ax.text(.5, 2, s, fontsize=12)
     ax.text(.5, 1.8, t, fontsize=12)
     ax.set_xlabel('Block duration (s)')
-    ax.set_ylabel('P(duration)')
+    ax.set_ylabel('Probability density')
     sns.despine()
 
     return fig, ax

@@ -128,6 +128,7 @@ def get_transitions(label_sequence):
 
     return transitions, locs
 
+
 def normalize_transition_matrix(init_matrix, normalize):
     '''
     Normalizes a transition matrix by given criteria.
@@ -309,7 +310,6 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     return ebunch, [o[:-1] for o in orphans]
 
 
-# TODO: get rid of this function - it's so confusing
 def get_usage_dict(usages):
     '''
     Convert usages numpy array to an OrderedDict
@@ -324,11 +324,11 @@ def get_usage_dict(usages):
     '''
 
     if usages is not None and isinstance(usages[0], (list, np.ndarray)):
-        for i, u in enumerate(usages):
-            d = OrderedDict()
-            for j, v in enumerate(u):
-                d[j] = v
-            usages[i] = d
+        usage_dicts = []
+        for u in usages:
+            d = OrderedDict(enumerate(u))
+            usage_dicts.append(d)
+        usages = usage_dicts
 
     return usages
 
@@ -563,7 +563,7 @@ def get_pos(graph_anchor, layout, nnodes):
 
     if isinstance(layout, str) and layout.lower() == 'spring':
         k = 1.5 / np.sqrt(nnodes)
-        pos = nx.spring_layout(graph_anchor, k=k)
+        pos = nx.spring_layout(graph_anchor, k=k, seed=0)
     elif isinstance(layout, str) and layout.lower() == 'circular':
         pos = nx.circular_layout(graph_anchor)
     elif isinstance(layout, str) and layout.lower() == 'spectral':

@@ -469,6 +469,10 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 
         # make sure we have labels for this UUID before merging
         if has_model and k in labels_df.index:
+            if _tmp_df['group'].unique() != labels_df.loc[k, 'group'].unique():
+                warnings.warn('Group labels from index.yaml and model results do not match! Setting group labels '
+                              'to ones used in the model.')
+                _tmp_df = _tmp_df.drop(columns=['group'])
             _tmp_df = pd.merge(_tmp_df, labels_df.loc[k], on='frame index', how='outer')
             _tmp_df = _tmp_df.sort_values(by='syllable index').reset_index(drop=True)
             # fill any NaNs for metadata columns

@@ -151,7 +151,7 @@ class TestViz(TestCase):
         ebunch_anchor, orphans = get_ebunch(max_syllable=max_syllable)
 
         assert all([isinstance(v, tuple) for v in ebunch_anchor]), "Ebunch return types != tuple"
-        assert len(ebunch_anchor) == (max_syllable + 1) * (max_syllable + 1), \
+        assert len(ebunch_anchor) == (max_syllable) * (max_syllable), \
             "Incorrect Number of transition matrix nodes"
         assert len(orphans) == 0, "Unwanted orphan nodes were generated"
 

@@ -253,7 +253,7 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
 
     syll_key = f'labels ({count} sort)'
     features = compute_behavioral_statistics(scalar_df, count=count, syllable_key=syll_key)
-    features = features.query('syllable <= @max_syllable').copy()
+    features = features.query('syllable < @max_syllable').copy()
 
     # Plot and save syllable stat plot
     plt, lgd = plot_syll_stats_with_sem(features, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,

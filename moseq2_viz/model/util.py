@@ -40,6 +40,7 @@ def _assert_models_have_same_kappa(model_paths):
 def merge_models(model_dir, ext='p',count='usage', force_merge=False,
                  cost_function='ar_norm'):
     '''
+    WARNING: THIS IS EXPERIMENTAL. USE AT YOUR OWN RISK.
     Merges model states by using the Hungarian Algorithm:
     a minimum distance state matching algorithm. User inputs a
     directory containing models to merge, (and the name of the latest-trained
@@ -79,15 +80,16 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
     for pth in model_paths[1:]:
         unit_data = parse_model_results(pth, sort_labels_by_usage=True, count=count, map_uuid_to_keys=True)
 
+        curr_ar = deepcopy(unit_data['model_parameters']['ar_mat'])
         # compute cost function
         if cost_function == 'ar_mat':
             prev_ar = template['model_parameters']['ar_mat']
-            curr_ar = unit_data['model_parameters']['ar_mat']
             cost = np.zeros((len(prev_ar), len(curr_ar)))
             for i, state1 in enumerate(prev_ar):
                 for j, state2 in enumerate(curr_ar):
-                    cost[i, j] = linalg.norm(abs(state1 - state2))
-            # row_ind is old state, col_ind is new state
+                    # remove offset term
+                    cost[i, j] = linalg.norm(abs(state1[:, :-1] - state2[:, :-1]))
+            # row_ind is template state, col_ind is unit_data state
             row_ind, col_ind = linear_sum_assignment(cost)
             mapping = dict(zip(col_ind, row_ind))
         elif cost_function == 'label':
@@ -100,7 +102,7 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
             for s1, s2 in product(range(max_s1), range(max_s2)):
                 mu_dice = np.mean([dice(l1[uuid] == s1, l2[uuid] == s2) for uuid in uuids])
                 cost[s1, s2] = mu_dice
-            # row_ind is old state, col_ind is new state
+            # row_ind is template state, col_ind is unit_data state
             row_ind, col_ind = linear_sum_assignment(cost)
             mapping = dict(zip(col_ind, row_ind))
         mapping[-5] = -5
@@ -109,6 +111,10 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
             return pd.Series(labels).map(mapping).to_numpy()
         
         unit_data['labels'] = valmap(_map_sylls, unit_data['labels'])
+
+        # remap the AR matrix
+        for k, v in filter(lambda k: k[0] != -5, mapping.items()):
+            unit_data['model_parameters']['are_mat'][k] = curr_ar[v]
         model_data[pth] = unit_data
 
     return model_data
@@ -733,7 +739,8 @@ def prepare_model_dataframe(model_path, pca_path):
         'labels (frames sort)': frames[k],
         'onset': compute_syllable_onset(v),
         'frame index': scores_idx[k],
-        'syllable index': np.arange(len(v))
+        'syllable index': np.arange(len(v)),
+        'group': mdl['metadata']['groups'][k]
     }) for k, v in labels.items()), ignore_index=True)
 
     return _df

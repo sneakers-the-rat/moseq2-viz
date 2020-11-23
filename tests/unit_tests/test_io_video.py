@@ -2,6 +2,7 @@ import os
 import shutil
 import joblib
 import numpy as np
+from glob import glob
 from unittest import TestCase
 from moseq2_viz.util import parse_index, read_yaml
 from moseq2_viz.model.util import parse_model_results, relabel_by_usage
@@ -56,7 +57,7 @@ class TestIOVideo(TestCase):
         write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir)
 
         assert (os.path.exists(output_dir))
-        assert (len(os.listdir(output_dir)) == max_syllable)
+        assert len(glob(os.path.join(output_dir, '*.mp4'))) == max_syllable
         shutil.rmtree(output_dir)
 
     def test_write_frames_preview(self):

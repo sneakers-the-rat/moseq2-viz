@@ -192,8 +192,8 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
         if len(config_data['crowd_syllables']) > 1:
             crowd_movie_paths = [cm[0] for cm in crowd_movies]
         else:
-            crowd_movies[0][0] = crowd_movies[0][0].replace('-0 ', f'-{config_data["crowd_syllables"][0]}')
-            crowd_movies[0][0] = crowd_movies[0][0].replace(f'-{ordering[0]}.', f'-{ordering[config_data["crowd_syllables"][0]]}.')
+            crowd_movies[0][0] = crowd_movies[0][0].replace('-00', f'-{str(config_data["crowd_syllables"][0])}')
+            crowd_movies[0][0] = crowd_movies[0][0].replace(f'-{str(ordering[0])}.', f'-{str(ordering[config_data["crowd_syllables"][0]])}.')
             crowd_movie_paths = [cm[0] for cm in crowd_movies]
 
         # write movie

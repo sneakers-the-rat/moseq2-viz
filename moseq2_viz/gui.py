@@ -151,11 +151,12 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30,
     return best_fit_model
 
 @partial(_alias, dec_func=make_crowd_movies_wrapper)
-def make_crowd_movies_command(*args, config_data=None, **kwargs):
+def make_crowd_movies_command(*args, **kwargs):
     # Get default CLI params
     objs = make_crowd_movies.params
     defaults = {tmp.name: tmp.default for tmp in objs if not tmp.required}
 
+    config_data = kwargs.pop('config_data', None) if len(args) < 4 else args[-1]
     if config_data is None:
         config_data = defaults
     elif isinstance(config_data, dict):

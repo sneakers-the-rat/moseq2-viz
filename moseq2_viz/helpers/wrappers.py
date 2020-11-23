@@ -227,9 +227,9 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     count (str): method to sort syllables: 'usage' or 'frames'.
     group (tuple, list, None): tuple or list of groups to include in usage plot. (None to graph all groups)
     max_syllable (int): maximum number of syllables to plot.
-    ordering (list, range, str, None): order to list syllables. Default is None to graph syllables [0-max_syllable).
-        Setting ordering to "diff" will sort syllables based the difference in "stat" between ctrl_group and exp_group.
-        None to graph default [0, max_syllable] in order. "usage" to plot descending order of usage values.
+    ordering (list, range, str, None): order to list syllables. Default is None to graph syllables [0-max_syllable)
+        in numerical order. Setting ordering to "diff" will sort syllables based the difference in "stat"
+        between ctrl_group and exp_group. "stat" to order syllables by stat values.
     ctrl_group (str): Control group to graph.
     exp_group (str): Experimental group to compare with control group.
     colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.

@@ -154,7 +154,7 @@ def plot_transition_graph(index_file, model_fit, output_file, **config_data):
 @click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
 @click.option('-g', '--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
-@click.option('-o', '--ordering', type=str, default='usage', help="How to order the groups")
+@click.option('-o', '--ordering', type=str, default='stat', help="How to order syllables in plot")
 @click.option('--ctrl-group', type=str, default=None, help="Name of control group. Only if ordering = 'm'")
 @click.option('--exp-group', type=str, default=None, help="Name of experimental group. Only if ordering = 'm'")
 @click.option('-c', '--colors', type=str, default=None, help="Colors to plot groups with.", multiple=True)

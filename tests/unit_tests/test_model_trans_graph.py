@@ -157,7 +157,7 @@ class TestModelTransGraph(TestCase):
 
         tm = get_transition_matrix(model['labels'], max_syllable=max_syllable)[0]
 
-        ebunch, orphans = convert_transition_matrix_to_ebunch(tm, tm,
+        ebunch, orphans = convert_transition_matrix_to_ebunch(tm, tm, keep_orphans=True,
                                                               edge_threshold=edge_threshold,
                                                               max_syllable=max_syllable)
 

@@ -359,8 +359,8 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usage_kwargs,
                         scalars[key].append(df_scalar)
 
             # make difference graph
-            ebunch, orphans = convert_transition_matrix_to_ebunch(df, df, edge_threshold=difference_threshold, indices=indices,
-                                                                  keep_orphans=True, max_syllable=tm.shape[0], **speed_kwargs, **usage_kwargs)
+            ebunch, _ = convert_transition_matrix_to_ebunch(df, df, edge_threshold=difference_threshold, indices=indices,
+                                                            keep_orphans=False, max_syllable=tm.shape[0], **speed_kwargs, **usage_kwargs)
             # get graph from ebunch
             graph = convert_ebunch_to_graph(ebunch)
 
@@ -398,9 +398,9 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usage_kwargs,
             group_names.append(curr_name)
 
             if ax is not None:
-                draw_graph(graph, curr_name, weight, pos, node_color='w', node_size=node_size,
+                draw_graph(graph, weight, pos, node_color='w', node_size=node_size,
                            node_edge_colors=node_edge_color, arrows=arrows, edge_colors=edge_colors,
-                           font_size=font_size, ax=ax, i=i, j=i+j+1)
+                           font_size=font_size, ax=ax[i][i + j + 1], title=curr_name)
 
     return usages, group_names, difference_graphs, widths, node_sizes, node_edge_colors, scalars
 
@@ -474,9 +474,9 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usage_kwargs,
 
         # Draw network to matplotlib figure
         if ax is not None:
-            draw_graph(graph, group_names, width, pos, node_color='w',
+            draw_graph(graph, width, pos, node_color='w',
                        node_size=node_size, node_edge_colors='r', arrows=arrows,
-                       font_size=font_size, ax=ax, i=i, j=i)
+                       font_size=font_size, ax=ax[i][i], title=group_names[i])
 
         node_edge_colors.append('r')
         graphs.append(graph)
@@ -534,9 +534,9 @@ def get_pos(graph_anchor, layout, nnodes):
     return pos
 
 
-def draw_graph(graph, groups, width, pos, node_color,
+def draw_graph(graph, width, pos, node_color,
                node_size, node_edge_colors, ax, arrows=False,
-               font_size=12, edge_colors='k', i=0, j=0):
+               font_size=12, edge_colors='k', title=None):
     '''
     Draws transition graph to existing matplotlib axes.
 
@@ -562,16 +562,12 @@ def draw_graph(graph, groups, width, pos, node_color,
 
     # Draw nodes and edges on matplotlib figure
     nx.draw(graph, pos=pos, with_labels=True, font_size=font_size, alpha=1,
-            width=width, edgecolors=node_edge_colors, ax=ax[i][j], cmap='turbo',
+            width=width, edgecolors=node_edge_colors, ax=ax, cmap='turbo',
             node_size=node_size, node_color=node_color, arrows=arrows,
             edge_color=edge_colors, linewidths=1.5)
 
     # Set titles
-    if groups is not None:
-        if isinstance(groups, str):
-            ax[i][j].set_title(f'{groups}')
-        elif len(groups) > 1:
-            ax[i][j].set_title(f'{groups[i]}')
+    ax.set_title(title)
 
 
 def graph_transition_matrix(trans_mats, usages=None, groups=None,

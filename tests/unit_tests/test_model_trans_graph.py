@@ -127,7 +127,7 @@ class TestModelTransGraph(TestCase):
         trans_mats = get_transition_matrix(model['labels'], max_syllable=max_syllable)
 
         assert len(trans_mats) == 2
-        assert trans_mats[0].shape == (21, 21)
+        assert trans_mats[0].shape == (20, 20)
 
     def test_convert_ebunch_to_graph(self):
 

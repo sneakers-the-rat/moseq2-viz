@@ -171,10 +171,11 @@ plot_stats_command = _alias(plot_syllable_stat_wrapper)
 plot_scalar_summary_command = _alias(plot_scalar_summary_wrapper)
 
 @partial(_alias, dec_func=plot_transition_graph_wrapper)
-def plot_transition_graph_command(*args, config_data=None, **kwargs):
+def plot_transition_graph_command(*args, **kwargs):
     # Get default CLI params
     params = {tmp.name: tmp.default for tmp in plot_transition_graph.params if not tmp.required}
 
+    config_data = kwargs.pop('config_data', None) if len(args) < 4 else args[-1]
     if config_data is not None:
         config_data = {**params, **config_data}
     else:
@@ -183,7 +184,7 @@ def plot_transition_graph_command(*args, config_data=None, **kwargs):
     # config_data['max_syllable'] = max_syllable
     # config_data['group'] = group
 
-    return plot_transition_graph_wrapper(*args, config_data, **kwargs)
+    return plot_transition_graph_wrapper(*args, config_data=config_data, **kwargs)
 
 plot_mean_group_position_heatmaps_command = _alias(plot_mean_group_position_pdf_wrapper)
 

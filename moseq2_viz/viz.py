@@ -489,16 +489,11 @@ def plot_mean_group_heatmap(pdfs, groups, normalize=False):
         ax = np.array(ax)
     for a, group in zip(ax.flat, uniq_groups):
         idx = groups == group
-        # add 1 to make LogNorm work
-        histograms = pdfs[idx]
-        if histograms.max() > 1:
-            histograms += 1
-
-        avg_hist = histograms.mean(axis=0)
+        avg_hist = pdfs[idx].mean(axis=0)
         if normalize:
             avg_hist /= avg_hist.max()
 
-        im = a.imshow(avg_hist, norm=mpl.colors.LogNorm(), vmin=0)
+        im = a.imshow(avg_hist, norm=mpl.colors.LogNorm())
         # fraction to make the colorbar match image height
         fig.colorbar(im, ax=a, fraction=0.046, pad=0.04)
 
@@ -546,7 +541,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False):
             if normalize:
                 avg_hist /= avg_hist.max()
 
-            im = a.imshow(avg_hist, norm=mpl.colors.LogNorm(), vmin=0)
+            im = a.imshow(avg_hist, norm=mpl.colors.LogNorm())
             fig.colorbar(im, ax=a, fraction=0.046, pad=0.04)
 
             a.set_xticks([])

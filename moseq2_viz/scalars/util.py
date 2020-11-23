@@ -489,7 +489,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 
 
 def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
-                         key='SubjectName', bins=20):
+                         key='SubjectName', bins=20, smoothing=1):
     '''
     Computes a position PDF for all sessions and returns the pdfs with corresponding lists of
      groups, session uuids, and subjectNames.
@@ -518,7 +518,7 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
 
         pos = _df[centroid_vars].dropna(how='any')
         H, _, _ = np.histogram2d(pos.iloc[:, 1], pos.iloc[:, 0], bins=bins, density=normalize)
-        pdfs.append(H)
+        pdfs.append(H + smoothing)
 
     return np.array(pdfs), groups, sessions, subjectNames
 
@@ -583,7 +583,8 @@ def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='grou
 
 
 def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage sort)', syllables=range(40),
-                                       centroid_keys=['centroid_x_mm', 'centroid_y_mm'], normalize=False, bins=20):
+                                       centroid_keys=['centroid_x_mm', 'centroid_y_mm'], normalize=False, bins=20,
+                                       smoothing=1):
     '''
     Computes position heatmaps for each syllable on a session-by-session basis
 
@@ -607,7 +608,7 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
     def _compute_histogram(df):
         df = df[centroid_keys].dropna(how='any')
         H, _, _ = np.histogram2d(df.iloc[:, 1], df.iloc[:, 0], bins=bins, density=normalize)
-        return H
+        return H + smoothing
 
     filtered_df = scalar_df[scalar_df[syllable_key].isin(syllables)]
     hists = filtered_df.groupby(['group', 'uuid', 'SessionName', 'SubjectName', syllable_key]).apply(_compute_histogram)

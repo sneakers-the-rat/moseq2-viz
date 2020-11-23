@@ -635,7 +635,8 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
     # Get shared node anchors based on usages
     ngraphs = len(trans_mats)
-    usages = [normalize_usages(u) for u in usages]
+    if usages is not None:
+        usages = [normalize_usages(u) for u in usages]
     anchor = anchor if anchor < len(trans_mats) else 0
     usages_anchor = usages[anchor]
 

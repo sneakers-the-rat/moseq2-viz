@@ -549,7 +549,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
     return fig
 
 
-def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
+def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, bw_adjust=0.4):
     '''
     Plot the duration distributions for model labels and
     principal component changepoints.
@@ -569,17 +569,14 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
 
     fig, ax = plt.subplots(1, 1, figsize=(8, 5))
     # Plot KDEs
-    ax = sns.kdeplot(pc_cps, color='orange', label='PCA Changepoints', ax=ax)
+    ax = sns.kdeplot(pc_cps, color='orange', label='PCA Changepoints', ax=ax, bw_adjust=bw_adjust)
 
-    if not plot_all:
-        if best_model is not None:
-            model_cps = model_results[best_model]['changepoints']
+    if not plot_all and best_model is not None:
+        _mdl = model_results[best_model]
+        model_cps = _mdl['changepoints']
+        kappa = _mdl['model_parameters']['kappa']
 
-        kappa = 'default'
-        if '-' in best_model:
-            kappa = best_model.split("-")[1].split(".")[0]
-
-        _ = sns.kdeplot(model_cps, ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa}')
+        _ = sns.kdeplot(model_cps, ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa:1.02E}')
     else:
         palette = sns.color_palette('dark', n_colors=len(model_results))
         for i, (k, v) in enumerate(model_results.items()):
@@ -588,17 +585,9 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
             if k == best_model:
                 ls, alpha = '-', 1 # Solid line for best fit
 
-            kappa = 'default'
-            if '-' in k:
-                kappa = k.split("-")[1].split(".")[0]
-
-            try:
-                sns.kdeplot(v['changepoints'], ax=ax, linestyle=ls, alpha=alpha,
-                            color=palette[i], label=f'Model Changepoints Kappa={kappa}')
-            except RuntimeError:
-                # if seaborn cannot automatically estimate the bandwidth, it will be manually set.
-                sns.kdeplot(v['changepoints'], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=0.5,
-                            color=palette[i], label=f'Model Changepoints Kappa={kappa}')
+            kappa = v['model_parameters']['kappa']
+            sns.kdeplot(v['changepoints'], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=bw_adjust,
+                        color=palette[i], label=f'Model Changepoints Kappa={kappa:1.02E}')
     # Format plot
     ax.set_xlim(0, 2)
 
@@ -612,10 +601,11 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
     t = f'PC CP Stats: Mean, median, mode (s) = {np.nanmean(pc_cps):.4f}, ' \
         f'{np.nanmedian(pc_cps):.4f}, {mode(pc_cps)[0][0]:.4f}'
 
-    ax.text(.5, 1.8, s, fontsize=12)
-    ax.text(.5, 1.6, t, fontsize=12)
+    ax.text(0.5, 1.8, s, fontsize=12)
+    ax.text(0.5, 1.6, t, fontsize=12)
     ax.set_xlabel('Block duration (s)')
     ax.set_ylabel('Probability density')
+    ax.legend(frameon=False, bbox_to_anchor=(1, 0), loc='lower left')
     sns.despine()
 
     return fig, ax

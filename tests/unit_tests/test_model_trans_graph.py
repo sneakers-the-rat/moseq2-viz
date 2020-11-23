@@ -162,7 +162,7 @@ class TestModelTransGraph(TestCase):
                                                               max_syllable=max_syllable)
 
         assert len(ebunch) == 13
-        assert len(orphans) == 428
+        assert len(orphans) == 387
 
     def test_make_difference_graph(self):
 

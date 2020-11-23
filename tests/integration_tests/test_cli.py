@@ -44,6 +44,7 @@ class TestCLI(TestCase):
         results = runner.invoke(get_best_fit_model, run_params)
 
         print(' '.join(run_params))
+        print(results.output)
         assert (results.exit_code == 0), "CLI Command did not complete successfully"
         assert os.path.exists(output_file+'.png')
         shutil.rmtree(os.path.dirname(output_file))

@@ -9,13 +9,14 @@ Each wrapper function executes the functionality from end-to-end given it's depe
 import os
 import shutil
 import psutil
+import matplotlib as mpl
 from glob import glob
+from ruamel import yaml
 from sys import platform
-import ruamel.yaml as yaml
 from tqdm.auto import tqdm
 from cytoolz import keyfilter, groupby
 from os.path import exists, join, dirname, basename
-from moseq2_viz.scalars.util import (scalars_to_dataframe, compute_all_pdf_data)
+from moseq2_viz.scalars.util import scalars_to_dataframe, compute_all_pdf_data
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.util import (parse_index, get_index_hits, get_metadata_path, clean_dict,
                              h5_to_dict, recursive_find_h5s)
@@ -169,8 +170,9 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
         fig, ax = plot_cp_comparison(model_results, pca_changepoints, best_model=best_model_info[f'best model - {objective}'])
 
     # Save the figure
-    if output_file != None:
-        save_fig(fig, output_file)
+    if output_file is not None:
+        legends = [c for c in ax.get_children() if isinstance(c, mpl.legend.Legend)]
+        save_fig(fig, output_file, bbox_extra_artists=legends, bbox_inches='tight')
 
     return best_model_info, fig
 

@@ -89,7 +89,7 @@ def copy_h5_metadata_to_yaml(input_dir):
 @click.option('--pad', default=30, help='Pad crowd movie videos with this many frames.')
 def make_crowd_movies(index_file, model_path, output_dir, **config_data):
 
-    make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir)
+    make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data)
 
     print(f'Crowd movies successfully generated in {output_dir}.')
 

@@ -10,9 +10,9 @@ import h5py
 import warnings
 import numpy as np
 import seaborn as sns
+import matplotlib as mpl
 from tqdm.auto import tqdm
 from scipy.stats import mode
-from matplotlib import gridspec
 import matplotlib.pyplot as plt
 from os.path import dirname, exists
 from cytoolz import groupby, valmap
@@ -465,7 +465,7 @@ def plot_syll_stats_with_sem(scalar_df, stat='usage', ordering='stat', max_sylls
     return fig, legend
 
 
-def plot_mean_group_heatmap(pdfs, groups):
+def plot_mean_group_heatmap(pdfs, groups, normalize=False):
     '''
     Computes the overall group mean of the computed PDFs and plots them.
 
@@ -486,13 +486,20 @@ def plot_mean_group_heatmap(pdfs, groups):
     fig, ax = plt.subplots(nrows=len(uniq_groups), ncols=1, sharex=True, sharey=True,
                            figsize=(4, 5 * len(uniq_groups)))
     if not isinstance(ax, np.ndarray):
-        ax = np.array([ax])
+        ax = np.array(ax)
     for a, group in zip(ax.flat, uniq_groups):
         idx = groups == group
+        # add 1 to make LogNorm work
+        histograms = pdfs[idx]
+        if histograms.max() > 1:
+            histograms += 1
 
-        avg_hist = pdfs[idx].mean(0)/pdfs[idx].mean(0).max()
+        avg_hist = histograms.mean(axis=0)
+        if normalize:
+            avg_hist /= avg_hist.max()
 
-        im = a.imshow(avg_hist)
+        im = a.imshow(avg_hist, norm=mpl.colors.LogNorm(), vmin=0)
+        # fraction to make the colorbar match image height
         fig.colorbar(im, ax=a, fraction=0.046, pad=0.04)
 
         a.set_xticks([])
@@ -502,7 +509,7 @@ def plot_mean_group_heatmap(pdfs, groups):
     return fig
 
 
-def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
+def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False):
     '''
     Plots the PDF position heatmap for each session, titled with the group and subjectName.
 
@@ -525,26 +532,27 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
     fig, ax = plt.subplots(nrows=np.max(count), ncols=len(uniq_groups), sharex=True,
                            sharey=True, figsize=figsize)
 
-    ax = np.reshape(np.array(ax), (np.max(count), len(uniq_groups)))
-    for i, group in tqdm(enumerate(uniq_groups), total=len(uniq_groups)):
+    if not isinstance(ax, np.ndarray):
+        ax = np.array([[ax]])
+    for i, group in enumerate(tqdm(uniq_groups)):
         idx = np.array(groups) == group
         tmp_sessions = np.asarray(sessions)[idx]
         names = np.asarray(subjectNames)[idx]
-        norm = pdfs[idx].mean(0) / pdfs[idx].mean(0).max()
-        vmax = np.percentile(norm, 97.5)
-        for j, sess in enumerate(tmp_sessions):
+        for sess, name, a in zip(tmp_sessions, names, ax[:, i]):
             idx = np.array(sessions) == sess
-            plt.subplot(ax[j, i])
 
-            avg = pdfs[idx].mean(0) / pdfs[idx].mean(0).max()
+            avg_hist = pdfs[idx].mean(axis=0)
 
-            im = plt.imshow(avg, vmax=vmax)
-            plt.colorbar(im, fraction=0.046, pad=0.04)
+            if normalize:
+                avg_hist /= avg_hist.max()
 
-            plt.xticks([])
-            plt.yticks([])
+            im = a.imshow(avg_hist, norm=mpl.colors.LogNorm(), vmin=0)
+            fig.colorbar(im, ax=a, fraction=0.046, pad=0.04)
 
-            plt.title(f'{group}: {names[j]}', fontsize=10)
+            a.set_xticks([])
+            a.set_yticks([])
+
+            a.set_title(f'{group}: {name}', fontsize=10)
 
     return fig
 

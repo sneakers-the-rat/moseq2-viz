@@ -8,15 +8,35 @@ CLI functions, then call the corresponding wrapper function with the given input
 
 '''
 
+from ruamel import yaml
 from os.path import join
-import ruamel.yaml as yaml
-from .cli import plot_transition_graph, make_crowd_movies
+from functools import wraps, partial
 from moseq2_viz.util import read_yaml
+from moseq2_viz.cli import plot_transition_graph, make_crowd_movies
 from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_stat_wrapper, \
     plot_scalar_summary_wrapper, plot_transition_graph_wrapper, copy_h5_metadata_to_yaml_wrapper, \
     plot_verbose_pdfs_wrapper, plot_mean_group_position_pdf_wrapper, get_best_fit_model_wrapper, \
     make_crowd_movies_wrapper
 
+
+def _alias(func, dec_func=None):
+    '''
+    Copies documentation and function signatures across re-used functions (but with different names).
+
+    Parameters
+    ----------
+    func (function): if not used as a wrapper function, this is the function to alias. Else, it is the function to wrap.
+    dec_func (function): if _alias is used as a wrapper function, this is the function to alias.
+
+    '''
+    @wraps(func if dec_func is None else dec_func)
+    def inner(*args, **kwargs):
+        return func(*args, **kwargs)
+    if dec_func is None:
+        inner.__doc__ = f'This is an alias of {func.__name__}\n' + func.__doc__
+    else:
+        inner.__doc__ = f'This is an alias of {dec_func.__name__}\n' + dec_func.__doc__
+    return inner
 
 def get_groups_command(index_file):
     '''
@@ -83,7 +103,6 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
             'group': group,
         })
         add_group_wrapper(index_file, gui_data)
-
     elif isinstance(value, list) and isinstance(group, list):
         if len(value) == len(group):
             for v, g in zip(value, group):
@@ -95,20 +114,7 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
         else:
             print('ERROR, did not enter equal number of substring values -> groups.')
 
-def copy_h5_metadata_to_yaml_command(input_dir):
-    '''
-    Reads h5 metadata from a specified metadata h5 path.
-
-    Parameters
-    ----------
-    input_dir (str): path to directory containing h5 file
-
-    Returns
-    -------
-    None
-    '''
-
-    copy_h5_metadata_to_yaml_wrapper(input_dir)
+copy_h5_metadata_to_yaml_command = _alias(copy_h5_metadata_to_yaml_wrapper)
 
 def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30, ext='p'):
     '''
@@ -144,30 +150,8 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30,
 
     return best_fit_model
 
-def make_crowd_movies_command(index_file, model_path, output_dir, config_data=None):
-    '''
-    Runs CLI function to write crowd movies, due to multiprocessing
-    compatibilty issues with Jupyter notebook's scheduler.
-
-    Parameters
-    ----------
-    index_file (str): path to index file.
-    model_path (str): path to fit model.
-    output_dir (str): path to directory to save crowd movies in.
-    config_data (dict): dictionary conataining all the necessary parameters to generate the crowd movies.
-        E.g.: max_syllable: Maximum number of syllables to generate crowd movies for.
-              max_example: Maximum number of mouse examples to include in each crowd movie
-              specific_syllable: Set to a syllable number to only generate crowd movies of that syllable.
-                if value is None, command will generate crowd movies for all syllables with # <= max_syllable.
-              separate_by: ['default', 'groups', 'sessions', 'subjects']; If separate_by != 'default', the command
-                  will generate a separate crowd movie for each selected grouping per syllable.
-                  Resulting in (ngroups * max_syllable) movies.
-
-    Returns
-    -------
-    (str): Success string.
-    '''
-
+@partial(_alias, dec_func=make_crowd_movies_wrapper)
+def make_crowd_movies_command(*args, config_data=None, **kwargs):
     # Get default CLI params
     objs = make_crowd_movies.params
     defaults = {tmp.name: tmp.default for tmp in objs if not tmp.required}
@@ -179,128 +163,27 @@ def make_crowd_movies_command(index_file, model_path, output_dir, config_data=No
     else:
         raise TypeError('config_data needs to be a dictionary')
 
-    make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir)
+    return make_crowd_movies_wrapper(*args, config_data=config_data, **kwargs)
 
-def plot_stats_command(model_fit, index_file, output_file, stat='usage', max_syllable=40, count='usage', group=None, sort=True,
-                        ordering=None, ctrl_group=None, exp_group=None, colors=None, figsize=(10, 5)):
-    '''
-    Graph given syllable statistic from fit model data.
-    Parameters
-    ----------
-    model_fit (str): path to fit model.
-    index_file (str): path to index file
-    output_file (str): name of saved usages graph.
-    stat (str): syllable statistic to plot: ['usage', 'speed', 'duration']
-    max_syllable (int): max number of syllables to plot.
-    count (str): method to calculate syllable usages, either by 'frames' or 'usage'
-    group (tuple): groups to include in usage plot. If empty, plots default average of all groups.
-    sort (bool): sort by usages.
-    ordering (list, range, str, None): order to list syllables. Default is None to graph syllables [0-max_syllable).
-     Setting ordering to "m" will graph mutated syllable usage difference between ctrl_group and exp_group.
-     None to graph default [0,max_syllable] in order. "usage" to plot descending order of usage values.
-    ctrl_group (str): Control group to graph when plotting mutation differences via setting ordering to 'm'.
-    exp_group (str): Experimental group to directly compare with control group.
-    colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
-    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
-    Returns
-    -------
-    fig (pyplot figure): figure to graph in Jupyter Notebook.
-    '''
+plot_stats_command = _alias(plot_syllable_stat_wrapper)
 
+plot_scalar_summary_command = _alias(plot_scalar_summary_wrapper)
 
-    fig = plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat=stat, max_syllable=max_syllable,
-                                     sort=sort, count=count, group=group, ordering=ordering,
-                                     ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, figsize=figsize)
-
-    print(f'{stat} plot successfully generated')
-    return fig
-
-def plot_scalar_summary_command(index_file, output_file, show_scalars=['velocity_2d_mm', 'velocity_3d_mm',
-                              'height_ave_mm', 'width_mm', 'length_mm'], colors=None, groupby='group'):
-    '''
-    Creates a scalar summary graph and a position summary graph.
-
-    Parameters
-    ----------
-    index_file (str): path to index file
-    output_file (str): prefix name of scalar summary images
-    show_scalars (list): list of scalar variables to plot.
-    colors (list): list of colors to serve as the sns palette in the scalar summary
-    groupby (str): scalar_df column to group sessions by when graphing scalar and position summaries
-
-    Returns
-    -------
-    scalar_df (pandas DataFrame): DataFrame containing all of scalar values for debugging.
-    '''
-
-    scalar_df = plot_scalar_summary_wrapper(index_file, output_file, groupby=groupby,
-                                            colors=colors, show_scalars=show_scalars)
-    return scalar_df
-
-def plot_transition_graph_command(index_file, model_fit, config_file, max_syllable, group, output_file):
-    '''
-    Creates transition graphs given groups to process.
-
-    Parameters
-    ----------
-    index_file (str): path to index file
-    model_fit (str): path to fit model
-    config_file (str): path to config file
-    max_syllable (int): maximum number of syllables to include in graph
-    group (tuple): tuple of names of groups to graph transition graphs for
-    output_file (str): name of the transition graph saved image
-
-    Returns
-    -------
-    fig (pyplot figure): figure to graph in Jupyter Notebook.
-    '''
-
-    config_data = read_yaml(config_file)
-
+@partial(_alias, dec_func=plot_transition_graph_wrapper)
+def plot_transition_graph_command(*args, config_data=None, **kwargs):
     # Get default CLI params
     params = {tmp.name: tmp.default for tmp in plot_transition_graph.params if not tmp.required}
 
-    config_data = {**params, **config_data}
+    if config_data is not None:
+        config_data = {**params, **config_data}
+    else:
+        config_data = params
 
-    config_data['max_syllable'] = max_syllable
-    config_data['group'] = group
+    # config_data['max_syllable'] = max_syllable
+    # config_data['group'] = group
 
-    fig = plot_transition_graph_wrapper(index_file, model_fit, config_data, output_file)
+    return plot_transition_graph_wrapper(*args, config_data, **kwargs)
 
-    print('Transition graph(s) successfully generated')
-    return fig
+plot_mean_group_position_heatmaps_command = _alias(plot_mean_group_position_pdf_wrapper)
 
-def plot_mean_group_position_heatmaps_command(index_file, output_file):
-    '''
-    Plots the average mouse position in a PDF-derived heatmap for each group found in the inputted index file.
-    Parameters
-    ----------
-    index_file (str): path to index file.
-    output_file (str): filename for syllable duration graph.
-
-    Returns
-    -------
-    fig (pyplot figure): figure to graph in Jupyter Notebook.
-    '''
-
-    fig = plot_mean_group_position_pdf_wrapper(index_file, output_file)
-
-    return fig
-
-def plot_verbose_position_heatmaps(index_file, output_file):
-    '''
-    Plots a PDF-derived heatmap of each session found in the index file titled with the session name and group.
-
-    Parameters
-    ----------
-    index_file (str): path to index file.
-    output_file (str): filename for syllable duration graph.
-
-    Returns
-    -------
-    fig (pyplot figure): figure to graph in Jupyter Notebook.
-    '''
-
-    fig = plot_verbose_pdfs_wrapper(index_file, output_file)
-
-    return fig
+plot_verbose_position_heatmaps = _alias(plot_verbose_pdfs_wrapper)

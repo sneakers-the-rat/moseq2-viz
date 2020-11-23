@@ -409,7 +409,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
 
 
 def plot_syll_stats_with_sem(scalar_df, stat='usage', ordering='stat', max_sylls=40, groups=None, ctrl_group=None,
-                             exp_group=None, colors=None, figsize=(10, 5)):
+                             exp_group=None, colors=None, join=False, figsize=(10, 5)):
     '''
     Plots a line and/or point-plot of a given pre-computed syllable statistic (usage, duration, or speed),
     with a SEM error bar with respect to the group.
@@ -455,7 +455,7 @@ def plot_syll_stats_with_sem(scalar_df, stat='usage', ordering='stat', max_sylls
     # plot each group's stat data separately, computes groupwise SEM, and orders data based on the stat/ordering parameters
     hue = 'group' if groups is not None else None
     ax = sns.pointplot(data=scalar_df, x='syllable', y=stat, hue=hue, order=ordering,
-                       join=False, dodge=True, ci=68, ax=ax, hue_order=groups,
+                       join=join, dodge=True, ci=68, ax=ax, hue_order=groups,
                        palette=colors)
 
     legend = ax.legend(frameon=False, bbox_to_anchor=(1, 1))

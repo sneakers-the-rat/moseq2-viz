@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 from collections import OrderedDict
 from moseq2_viz.util import parse_index, read_yaml
 from moseq2_viz.model.util import parse_model_results
-from moseq2_viz.model.trans_graph import get_pos, get_usage_dict, get_trans_graph_groups, \
+from moseq2_viz.model.trans_graph import get_pos, get_trans_graph_groups, \
     get_group_trans_mats, get_transition_matrix, graph_transition_matrix,  get_transitions, make_transition_graphs, \
-    make_difference_graphs, make_graph, draw_graph, normalize_transition_matrix, \
-    convert_ebunch_to_graph, convert_transition_matrix_to_ebunch, compute_and_graph_grouped_TMs, handle_graph_layout
+    make_difference_graphs, draw_graph, normalize_transition_matrix, \
+    convert_ebunch_to_graph, convert_transition_matrix_to_ebunch, compute_and_graph_grouped_TMs
 
 def make_sequence(lbls, durs):
     arr = [[x] * y for x, y in zip(lbls, durs)]
@@ -21,27 +21,23 @@ class TestModelTransGraph(TestCase):
 
     def test_get_trans_graph_groups(self):
 
-        test_index = 'data/test_index.yaml'
         test_model = 'data/test_model.p'
 
-        model = parse_model_results(joblib.load(test_model))
-        index, sorted_index = parse_index(test_index)
+        model = parse_model_results(test_model)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
+        label_group, label_uuids = get_trans_graph_groups(model)
 
-        assert group == ['Group1']
         assert label_group == ['Group1', 'Group1']
         assert label_uuids == ['5c72bf30-9596-4d4d-ae38-db9a7a28e912', 'abe92017-1d40-495e-95ef-e420b7f0f4b9']
 
     def test_get_group_trans_mats(self):
 
-        test_index = 'data/test_index.yaml'
         test_model = 'data/test_model.p'
 
-        model = parse_model_results(joblib.load(test_model))
-        index, sorted_index = parse_index(test_index)
+        model = parse_model_results(test_model)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
+        label_group, _ = get_trans_graph_groups(model)
+        group = set(label_group)
 
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
 
@@ -52,16 +48,15 @@ class TestModelTransGraph(TestCase):
 
     def test_compute_and_graph_TMs(self):
 
-        test_index = 'data/test_index.yaml'
         test_model = 'data/test_model.p'
         config_file = 'data/config.yaml'
 
         config_data = read_yaml(config_file)
 
-        model = parse_model_results(joblib.load(test_model))
-        index, sorted_index = parse_index(test_index)
+        model = parse_model_results(test_model)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
+        label_group, _ = get_trans_graph_groups(model)
+        group = set(label_group)
 
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
         fig, _, _ = graph_transition_matrix(trans_mats,
@@ -77,7 +72,7 @@ class TestModelTransGraph(TestCase):
     def test_get_transitions(self):
 
         test_model = 'data/test_model.p'
-        model = parse_model_results(joblib.load(test_model))
+        model = parse_model_results(test_model)
 
         transitions, locs = get_transitions(model['labels'][0])
 
@@ -103,7 +98,7 @@ class TestModelTransGraph(TestCase):
         normalizations = ['bigram', 'rows', 'columns']
         test_model = 'data/test_model.p'
 
-        model = parse_model_results(joblib.load(test_model))
+        model = parse_model_results(test_model)
         max_syllable = 20
         smoothing = 0.0
 
@@ -126,7 +121,7 @@ class TestModelTransGraph(TestCase):
 
         test_model = 'data/test_model.p'
 
-        model = parse_model_results(joblib.load(test_model))
+        model = parse_model_results(test_model)
         max_syllable = 20
 
         trans_mats = get_transition_matrix(model['labels'], max_syllable=max_syllable)
@@ -138,7 +133,7 @@ class TestModelTransGraph(TestCase):
 
         test_model = 'data/test_model.p'
 
-        model = parse_model_results(joblib.load(test_model))
+        model = parse_model_results(test_model)
         max_syllable = 20
         edge_threshold = .0025
 
@@ -156,7 +151,7 @@ class TestModelTransGraph(TestCase):
 
         test_model = 'data/test_model.p'
 
-        model = parse_model_results(joblib.load(test_model))
+        model = parse_model_results(test_model)
         max_syllable = 20
         edge_threshold = .0025
 
@@ -169,88 +164,23 @@ class TestModelTransGraph(TestCase):
         assert len(ebunch) == 13
         assert len(orphans) == 428
 
-    def test_get_usage_dict(self):
-
-        test_index = 'data/test_index.yaml'
-        test_model = 'data/test_model.p'
-
-        model = parse_model_results(joblib.load(test_model))
-        index, sorted_index = parse_index(test_index)
-
-        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
-
-        usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')[1]
-
-        usage_dict = get_usage_dict(usages)[0]
-
-        assert isinstance(usage_dict, OrderedDict)
-        assert len(usage_dict.keys()) == 20
-
-    def test_handle_graph_layout(self):
-
-        test_index = 'data/test_index.yaml'
-        test_model = 'data/test_model.p'
-
-        model = parse_model_results(joblib.load(test_model))
-        index, sorted_index = parse_index(test_index)
-
-        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
-
-        trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
-
-        usages, anchor, usages_anchor, ngraphs = handle_graph_layout(trans_mats, usages, anchor=0)
-
-        assert all([isinstance(usage_dict, OrderedDict) for usage_dict in usages]) == True
-        assert anchor == 0
-        assert usages_anchor == usages[0]
-        assert ngraphs == 1
-
-    def test_make_graph(self):
-
-        test_index = 'data/test_index.yaml'
-        test_model = 'data/test_model.p'
-        edge_threshold = 0.0025
-
-        model = parse_model_results(joblib.load(test_model))
-        index, sorted_index = parse_index(test_index)
-
-        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
-
-        trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
-
-        usages = get_usage_dict(usages)
-        usages, anchor, usages_anchor, ngraphs = handle_graph_layout(trans_mats, usages, anchor=0)
-
-        ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
-            trans_mats[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
-            keep_orphans=True, usages=usages_anchor,
-            usage_threshold=0, max_syllable=20)
-
-        graph = make_graph(trans_mats[anchor],
-                           ebunch_anchor=ebunch_anchor,
-                           edge_threshold=edge_threshold,
-                           usages_anchor=usages_anchor)
-
-        assert graph.number_of_nodes() == 12
-
     def test_make_difference_graph(self):
 
-        test_index = 'data/test_index.yaml'
         test_model = 'data/test_model.p'
         edge_threshold = 0.0025
 
-        model = parse_model_results(joblib.load(test_model))
-        index, sorted_index = parse_index(test_index)
+        model = parse_model_results(test_model)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
+        label_group, _ = get_trans_graph_groups(model)
+        group = list(set(label_group))
         group += ['Group2']
         label_group[1] = 'Group2'
         group_names = group.copy()
 
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
 
-        usages = get_usage_dict(usages)
-        usages, anchor, usages_anchor, ngraphs = handle_graph_layout(trans_mats, usages, anchor=0)
+        anchor = 0
+        usages_anchor = usages[anchor]
 
         ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
             trans_mats[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
@@ -263,10 +193,9 @@ class TestModelTransGraph(TestCase):
         nnodes = len(graph_anchor.nodes())
         pos = get_pos(graph_anchor, 'circular', nnodes)
 
-        new_usages, new_group_names, new_difference_graphs, \
-        new_widths, new_node_sizes, new_node_edge_colors, new_scalars = \
-            make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor,
-                                   trans_mats, pos, ebunch_anchor, node_edge_colors=['r'])
+        new_usages, new_group_names, new_difference_graphs, _, _, _, _ = \
+            make_difference_graphs(trans_mats, usages, group, group_names, {'usages': usages_anchor},
+                                   trans_mats, pos, indices=[e[:-1] for e in ebunch_anchor], node_edge_colors=['r'])
 
         assert len(new_usages) == 3
         assert len(new_group_names) == 3
@@ -275,22 +204,21 @@ class TestModelTransGraph(TestCase):
 
     def test_make_transition_graphs(self):
 
-        test_index = 'data/test_index.yaml'
         test_model = 'data/test_model.p'
         edge_threshold = 0.0025
 
-        model = parse_model_results(joblib.load(test_model))
-        index, sorted_index = parse_index(test_index)
+        model = parse_model_results(test_model)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
+        label_group, _ = get_trans_graph_groups(model)
+        group = list(set(label_group))
         group += ['Group2']
         label_group[1] = 'Group2'
         group_names = group.copy()
 
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
 
-        usages = get_usage_dict(usages)
-        usages, anchor, usages_anchor, ngraphs = handle_graph_layout(trans_mats, usages, anchor=0)
+        anchor = 0
+        usages_anchor = usages[anchor]
 
         ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
             trans_mats[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
@@ -302,8 +230,8 @@ class TestModelTransGraph(TestCase):
         pos = get_pos(graph_anchor, 'circular', nnodes)
 
         usages, group_names, widths, node_sizes, node_edge_colors, graphs, scalars = \
-            make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor,
-                                   pos, ebunch_anchor, orphans, edge_threshold=.0025,
+            make_transition_graphs(trans_mats, usages, group, group_names, {'usages': usages_anchor},
+                                   pos, indices=[e[:-1] for e in ebunch_anchor], orphans=orphans, edge_threshold=.0025,
                                    difference_threshold=.0005, orphan_weight=0)
 
         assert len(usages) == 3
@@ -316,24 +244,23 @@ class TestModelTransGraph(TestCase):
 
     def test_get_pos(self):
 
-        test_index = 'data/test_index.yaml'
         test_model = 'data/test_model.p'
         edge_threshold = 0.0025
 
-        model = parse_model_results(joblib.load(test_model))
-        index, sorted_index = parse_index(test_index)
+        model = parse_model_results(test_model)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
+        label_group, _ = get_trans_graph_groups(model)
+        group = set(label_group)
 
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
 
-        usages = get_usage_dict(usages)
-        usages, anchor, usages_anchor, ngraphs = handle_graph_layout(trans_mats, usages, anchor=0)
+        anchor = 0
+        usages_anchor = usages[anchor]
 
-        ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
+        ebunch_anchor, _ = convert_transition_matrix_to_ebunch(
             trans_mats[anchor], trans_mats[anchor],
             edge_threshold=edge_threshold,
-            keep_orphans=True, usages=usages_anchor,
+            keep_orphans=False, usages=usages_anchor,
             usage_threshold=0, max_syllable=20)
 
         graph_anchor = convert_ebunch_to_graph(ebunch_anchor)
@@ -349,23 +276,23 @@ class TestModelTransGraph(TestCase):
                 assert len(pos.keys()) == len(usages_anchor.keys())
 
     def test_draw_graphs(self):
-        test_index = 'data/test_index.yaml'
         test_model = 'data/test_model.p'
         width_per_group = 8
         edge_threshold = 0.0025
 
-        model = parse_model_results(joblib.load(test_model))
-        index, sorted_index = parse_index(test_index)
+        model = parse_model_results(test_model)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
+        label_group, _ = get_trans_graph_groups(model)
+        group = list(set(label_group))
         group += ['Group2']
         label_group[1] = 'Group2'
         group_names = group.copy()
 
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
 
-        usages = get_usage_dict(usages)
-        usages, anchor, usages_anchor, ngraphs = handle_graph_layout(trans_mats, usages, anchor=0)
+        anchor = 0
+        usages_anchor = usages[anchor]
+        ngraphs = len(trans_mats)
 
         ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
             trans_mats[anchor], trans_mats[anchor], edge_threshold=edge_threshold,
@@ -376,9 +303,9 @@ class TestModelTransGraph(TestCase):
         nnodes = len(graph_anchor.nodes())
         pos = get_pos(graph_anchor, 'circular', nnodes)
 
-        usages, group_names, widths, node_sizes, node_edge_colors, graphs, scalars = \
-            make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor,
-                                   pos, ebunch_anchor, orphans, edge_threshold=.0025,
+        usages, group_names, widths, node_sizes, node_edge_colors, graphs, _ = \
+            make_transition_graphs(trans_mats, usages, group, group_names, {'usages': usages_anchor},
+                                   pos, orphans, edge_threshold=.0025, indices=[e[:-1] for e in ebunch_anchor], 
                                    difference_threshold=.0005, orphan_weight=0)
 
         fig, ax = plt.subplots(ngraphs, ngraphs,
@@ -388,23 +315,21 @@ class TestModelTransGraph(TestCase):
         for i, graph in enumerate(graphs):
             if i == ngraphs:
                 i = 0
-                j = 1
-            draw_graph(graph, group_names[i], widths[i], pos, node_color='w',
+            draw_graph(graph, widths[i], pos, node_color='w',
                        node_size=node_sizes[i], node_edge_colors=node_edge_colors[i],
-                       ax=ax, i=i, j=i)
+                       ax=ax[i][i], title=group_names[i])
 
-        assert fig != None
+        assert fig is not None
         assert ax.shape == (2, 2)
 
     def test_graph_transition_matrix(self):
 
-        test_index = 'data/test_index.yaml'
         test_model = 'data/test_model.p'
 
-        model = parse_model_results(joblib.load(test_model))
-        index, sorted_index = parse_index(test_index)
+        model = parse_model_results(test_model)
 
-        group, label_group, label_uuids = get_trans_graph_groups(model, sorted_index)
+        label_group, _ = get_trans_graph_groups(model)
+        group = list(set(label_group))
         group += ['Group2']
         label_group[1] = 'Group2'
 

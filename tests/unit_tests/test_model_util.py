@@ -90,7 +90,7 @@ class TestModelUtils(TestCase):
 
         test_model = 'data/test_model.p'
 
-        model = parse_model_results(joblib.load(test_model))
+        model = parse_model_results(test_model)
 
         mean_usages = get_normalized_syllable_usages(model, count='usage')
         assert len(mean_usages) == 100
@@ -116,7 +116,7 @@ class TestModelUtils(TestCase):
         index_data = read_yaml(index_file)
         index_data['pca_path'] = 'data/test_scores.h5'
 
-        model_data = parse_model_results(joblib.load(model_fit))
+        model_data = parse_model_results(model_fit)
         lbl_dict = {}
         labels, _ = relabel_by_usage(model_data['labels'])
         for k,v in zip(model_data['keys'], labels):
@@ -138,7 +138,7 @@ class TestModelUtils(TestCase):
         index_data = read_yaml(index_file)
         index_data['pca_path'] = 'data/test_scores.h5'
 
-        model_data = parse_model_results(joblib.load(model_fit))
+        model_data = parse_model_results(model_fit)
         labels = model_data['labels']
 
         labels, _ = relabel_by_usage(labels)
@@ -163,7 +163,7 @@ class TestModelUtils(TestCase):
         index_data = read_yaml(index_file)
         index_data['pca_path'] = 'data/test_scores.h5'
 
-        model_data = parse_model_results(joblib.load(model_fit))
+        model_data = parse_model_results(model_fit)
         labels = model_data['labels']
 
         labels, _ = relabel_by_usage(labels)
@@ -336,7 +336,7 @@ class TestModelUtils(TestCase):
     def test_simulate_ar_trajectory(self):
         model_path = 'data/mock_model.p'
 
-        model_data = parse_model_results(joblib.load(model_path))
+        model_data = parse_model_results(model_path)
         ar_mats = np.array(model_data['model_parameters']['ar_mat'])
 
         sim_mats = simulate_ar_trajectory(ar_mats)
@@ -347,10 +347,10 @@ class TestModelUtils(TestCase):
         model_path_1 = 'data/mock_model.p'
         model_path_2 = 'data/test_model.p'
         cp_file = 'data/_pca/changepoints.h5'
-        model_data1 = parse_model_results(joblib.load(model_path_1))
+        model_data1 = parse_model_results(model_path_1)
         model_data1['changepoints'] = labels_to_changepoints(model_data1['labels'])
 
-        model_data2 = parse_model_results(joblib.load(model_path_2))
+        model_data2 = parse_model_results(model_path_2)
         model_data2['changepoints'] = labels_to_changepoints(model_data2['labels'])
 
         model_results = {
@@ -358,7 +358,7 @@ class TestModelUtils(TestCase):
                             'model2': model_data2
                          }
 
-        best_model, pca_cps = get_best_fit(cp_file, model_results)
+        best_model, _ = get_best_fit(cp_file, model_results)
         assert best_model['best model - duration'] == 'model1'
 
     def test_make_separate_crowd_movies(self):
@@ -372,7 +372,7 @@ class TestModelUtils(TestCase):
 
         _, sorted_index = parse_index(index_file)
 
-        model_data = parse_model_results(joblib.load(model_path))
+        model_data = parse_model_results(model_path)
 
         # Get list of syllable labels for all sessions
         labels = model_data['labels']

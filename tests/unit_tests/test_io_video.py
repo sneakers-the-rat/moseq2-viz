@@ -13,7 +13,7 @@ class TestIOVideo(TestCase):
     def test_write_crowd_movie_info_file(self):
 
         model_path = 'data/test_model.p'
-        model_fit = parse_model_results(joblib.load(model_path))
+        model_fit = parse_model_results(model_path)
         index_file = 'data/test_index.yaml'
         output_dir = 'data/'
 
@@ -35,7 +35,7 @@ class TestIOVideo(TestCase):
         config_data['crowd_syllables'] = range(max_syllable)
         config_data['progress_bar'] = False
 
-        model_fit = parse_model_results(joblib.load(model_path))
+        model_fit = parse_model_results(model_path)
         labels = model_fit['labels']
 
         if 'train_list' in model_fit:
@@ -46,7 +46,7 @@ class TestIOVideo(TestCase):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        index, sorted_index = parse_index(index_file)
+        _, sorted_index = parse_index(index_file)
 
         if config_data['sort']:
             labels, ordering = relabel_by_usage(labels, count=config_data['count'])

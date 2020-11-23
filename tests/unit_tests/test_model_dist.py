@@ -11,7 +11,7 @@ class TestModelDists(TestCase):
         test_index = 'data/test_index_crowd.yaml'
         test_model = 'data/test_model.p'
 
-        index, sorted_index = parse_index(test_index)
+        _, sorted_index = parse_index(test_index)
 
         sorted_index['pca_path'] = 'data/test_scores.h5'
 

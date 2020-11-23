@@ -12,7 +12,7 @@ class TestInfoUtils(TestCase):
     def test_entropy(self):
         model_fit = 'data/test_model.p'
 
-        model_data = parse_model_results(joblib.load(model_fit))
+        model_data = parse_model_results(model_fit)
         labels = model_data['labels']
         truncate_syllable = 40
         smoothing = 1.0
@@ -48,7 +48,7 @@ class TestInfoUtils(TestCase):
 
         model_fit = 'data/test_model.p'
 
-        model_data = parse_model_results(joblib.load(model_fit))
+        model_data = parse_model_results(model_fit)
         labels = model_data['labels']
         truncate_syllable = 40
         smoothing = 1.0

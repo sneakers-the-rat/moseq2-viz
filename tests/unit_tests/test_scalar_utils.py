@@ -20,7 +20,7 @@ class TestScalarUtils(TestCase):
         index_data = read_yaml(index_file)
         index_data['pca_path'] = 'data/test_scores.h5'
 
-        model_data = parse_model_results(joblib.load(model_fit))
+        model_data = parse_model_results(model_fit)
         lbl_dict = {}
         labels = model_data['labels']
         for k, v in zip(model_data['keys'], labels):
@@ -103,7 +103,7 @@ class TestScalarUtils(TestCase):
 
         index_data = read_yaml(index_file)
         index_data['pca_path'] = 'data/test_scores.h5'
-        for i, f in enumerate(index_data['files']):
+        for i in range(len(index_data['files'])):
             index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
 
         test_scalar_map = get_scalar_map(index_data)
@@ -113,7 +113,7 @@ class TestScalarUtils(TestCase):
                        'velocity_3d_px', 'velocity_theta', 'width_mm', 'width_px']
 
         for v in test_scalar_map.values():
-            assert list(v.keys()) == scalar_keys
+            assert list(v) == scalar_keys
         assert len(test_scalar_map.keys()) == 2
         assert isinstance(test_scalar_map, dict)
 
@@ -126,10 +126,10 @@ class TestScalarUtils(TestCase):
 
         index_data = read_yaml(index_file)
         index_data['pca_path'] = 'data/test_scores.h5'
-        for i, f in enumerate(index_data['files']):
+        for i in range(len(index_data['files'])):
             index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
 
-        model_data = parse_model_results(joblib.load(model_fit))
+        model_data = parse_model_results(model_fit)
         lbl_dict = {}
         labels = model_data['labels']
         for k, v in zip(model_data['keys'], labels):
@@ -182,7 +182,7 @@ class TestScalarUtils(TestCase):
         num_frames = 908
         index_data = read_yaml(index_file)
         index_data['pca_path'] = 'data/test_scores.h5'
-        for i, f in enumerate(index_data['files']):
+        for i in range(len(index_data['files'])):
             index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
 
         test_scalar_map = get_scalar_map(index_data)
@@ -196,8 +196,8 @@ class TestScalarUtils(TestCase):
 
         for v1, v2 in zip(mapped.values(), z_mapped.values()):
             assert v1.all() != v2.all()
-            assert np.asarray(v1).shape == (17, 908)
-            assert np.asarray(v2).shape == (17, 908)
+            assert np.asarray(v1).shape == (17, num_frames)
+            assert np.asarray(v2).shape == (17, num_frames)
 
     def test_scalars_to_dataframe(self):
         index_file = 'data/test_index.yaml'
@@ -213,7 +213,7 @@ class TestScalarUtils(TestCase):
 
         index_data = read_yaml(index_file)
         index_data['pca_path'] = 'data/test_scores.h5'
-        for i, f in enumerate(index_data['files']):
+        for i in range(len(index_data['files'])):
             index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
             index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
 

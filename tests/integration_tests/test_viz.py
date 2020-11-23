@@ -53,7 +53,7 @@ def get_fake_movie():
     fake_movie = np.tile(tmp_image, (20, 1, 1))
     return fake_movie
 
-def get_ebunch(max_syllable=40, group = ('Group1', 'default'), ret_trans=False):
+def get_ebunch(max_syllable=40, group=('Group1', 'default'), ret_trans=False):
     model_fit = 'data/test_model.p'
     index_file = 'data/test_index_crowd.yaml'
     config_file = 'data/config.yaml'
@@ -89,9 +89,10 @@ def get_ebunch(max_syllable=40, group = ('Group1', 'default'), ret_trans=False):
     usages = []
     for plt_group in group:
         use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
-        trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True,
-                                                max_syllable=max_syllable))
-        usages.append(get_syllable_statistics(use_labels)[0])
+        if use_labels:
+            trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True,
+                                                    max_syllable=max_syllable))
+            usages.append(get_syllable_statistics(use_labels)[0])
 
     ngraphs = len(trans_mats)
 

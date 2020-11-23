@@ -528,7 +528,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False):
                            sharey=True, figsize=figsize)
 
     if not isinstance(ax, np.ndarray):
-        ax = np.array([[ax]])
+        ax = np.array([ax])[:, None]
     for i, group in enumerate(tqdm(uniq_groups)):
         idx = np.array(groups) == group
         tmp_sessions = np.asarray(sessions)[idx]

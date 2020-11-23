@@ -116,7 +116,11 @@ class TestGUI(TestCase):
         group = ('Group1', 'default')
         output_file = gen_dir+'test_transitions'
 
-        plot_transition_graph_command(index_file, model_path, config_file, max_syllable, group, output_file)
+        config_data = read_yaml(config_file)
+        config_data['max_syllable'] = max_syllable
+        config_data['group'] = group
+
+        plot_transition_graph_command(index_file, model_path, config_data, output_file)
         assert (os.path.exists(output_file + '.png')), "Transition PNG graph was not saved"
         assert (os.path.exists(output_file + '.pdf')), "Transition PDF graph was not saved"
         shutil.rmtree(gen_dir)

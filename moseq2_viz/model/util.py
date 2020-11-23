@@ -14,18 +14,19 @@ import pandas as pd
 from numpy import linalg
 from copy import deepcopy
 from operator import itemgetter
+import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
+from typing import Iterator, Any, Dict
 from itertools import starmap, product
 from cytoolz.curried import get, get_in
+from os.path import join, basename, dirname
 from moseq2_viz.util import h5_to_dict, star
-from typing import Iterator, Any, Dict, Union
 from collections import defaultdict, OrderedDict
 from scipy.optimize import linear_sum_assignment
-from os.path import join, basename, dirname, exists
 from scipy.spatial.distance import jensenshannon, dice
 from moseq2_viz.model.trans_graph import get_transitions
 from moseq2_viz.util import load_changepoint_distribution
-from cytoolz import curry, valmap, compose, complement, itemmap, concat, keyfilter
+from cytoolz import curry, valmap, compose, complement, itemmap, keyfilter
 
 
 def _assert_models_have_same_kappa(model_paths):
@@ -36,6 +37,31 @@ def _assert_models_have_same_kappa(model_paths):
     if len(kappas) > 1:
         raise ValueError('You cannot merge models trained with different kappas')
 
+def compute_syllable_explained_variance(model, n_explained=99):
+    '''
+    Computes the maximum number of syllables to include that explain the given
+     percentage of explained variance.
+
+    Parameters
+    ----------
+    model (dict): ARHMM results dict
+    n_explained (int): Percentage of explained variance
+
+    Returns
+    -------
+    max_sylls (int): Number of syllables that explain the given percentage of the variance
+    '''
+
+    syllable_usages = list(get_syllable_usages(model['labels'], count='usage').values())
+    cumulative_explanation = 100 * np.cumsum(syllable_usages / sum(syllable_usages))
+
+    max_sylls = np.argwhere(cumulative_explanation >= n_explained)[0][0]
+    print(f'Number of syllables explaining {n_explained}% variance: {max_sylls}')
+
+    plt.plot(cumulative_explanation)
+    plt.axvline(max_sylls, color='k')
+
+    return max_sylls
 
 def merge_models(model_dir, ext='p',count='usage', force_merge=False,
                  cost_function='ar_norm'):

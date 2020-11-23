@@ -156,7 +156,11 @@ def make_crowd_movies_command(*args, **kwargs):
     objs = make_crowd_movies.params
     defaults = {tmp.name: tmp.default for tmp in objs if not tmp.required}
 
-    config_data = kwargs.pop('config_data', None) if len(args) < 4 else args.pop(-1)
+    if len(args) == 4:
+        *args, config_data = args
+    else:
+        config_data = kwargs.pop('config_data', None)
+
     if config_data is None:
         config_data = defaults
     elif isinstance(config_data, dict):
@@ -175,14 +179,15 @@ def plot_transition_graph_command(*args, **kwargs):
     # Get default CLI params
     params = {tmp.name: tmp.default for tmp in plot_transition_graph.params if not tmp.required}
 
-    config_data = kwargs.pop('config_data', None) if len(args) < 4 else args.pop(-1)
+    if len(args) == 4:
+        *args, config_data = args
+    else:
+        config_data = kwargs.pop('config_data', None)
+
     if config_data is not None:
         config_data = {**params, **config_data}
     else:
         config_data = params
-
-    # config_data['max_syllable'] = max_syllable
-    # config_data['group'] = group
 
     return plot_transition_graph_wrapper(*args, config_data=config_data, **kwargs)
 

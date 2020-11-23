@@ -638,7 +638,8 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     if usages is not None:
         usages = [normalize_usages(u) for u in usages]
     anchor = anchor if anchor < len(trans_mats) else 0
-    usages_anchor = usages[anchor]
+    if usages is not None:
+        usages_anchor = usages[anchor]
 
     # Create transition graph metadata from transition matrix
     ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(

@@ -713,7 +713,7 @@ def run_LDA(df, statistic='usage', max_syllable=40):
     # get corresponding group labels
     labels = group_mean_df.group.values
 
-    if set(labels) > 1:
+    if len(set(labels)) > 1:
         plot_LDA(features, labels)
     else:
         print('Cannot compute LDA with only 1 group')

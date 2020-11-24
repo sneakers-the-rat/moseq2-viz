@@ -383,6 +383,8 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
     if colors is None or len(colors) == 0:
         colors = sns.color_palette()
 
+    plt_kwargs['aspect'] = 0.6 * len(scalar_df[group_var].unique())
+
     # sort scalars into a neat summary using group_vars
     summary = scalar_df.groupby(sort_vars)[show_scalars].aggregate(['mean', 'std']).reset_index()
     summary = summary.melt(id_vars=group_var, value_vars=show_scalars)

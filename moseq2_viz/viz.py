@@ -155,7 +155,7 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
 
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
-                      crop_size=(80, 80), max_dur=1000, min_dur=0, offset=(50, 50), scale=1,
+                      crop_size=(80, 80), max_dur=60, min_dur=0, offset=(50, 50), scale=1,
                       center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
                       **kwargs):
     '''
@@ -203,16 +203,13 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
     if len(use_slices) > nexamples:
         use_slices = np.random.permutation(use_slices)[:nexamples]
-        # use_slices = [use_slices[i] for i in np.random.permutation(np.arange(len(use_slices)))[:nexamples]]
-
-    max_dur = max(i[1]-i[0] for i, _, _ in use_slices)
 
     if len(use_slices) == 0 or max_dur < 0:
         return None
 
     crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype='uint8')
 
-    for idx, uuid, fname in use_slices:
+    for idx, _, fname in use_slices:
         use_idx = (idx[0] - pad, idx[0] + max_dur + pad)
         idx_slice = slice(*use_idx)
 

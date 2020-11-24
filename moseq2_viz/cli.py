@@ -81,7 +81,7 @@ def copy_h5_metadata_to_yaml(input_dir):
 @click.option('--raw-size', type=(int, int), default=(512, 424), help="Size of original videos")
 @click.option('--scale', type=float, default=1, help="Scaling from pixel units to mm")
 @click.option('--cmap', type=str, default='jet', help="Name of valid Matplotlib colormap for false-coloring images")
-@click.option('--max-dur', default=300, help="Exclude syllables longer than this number of frames (None for no limit)")
+@click.option('--max-dur', default=60, help="Exclude syllables longer than this number of frames (None for no limit)")
 @click.option('--min-dur', default=0, help="Exclude syllables shorter than this number of frames")
 @click.option('--legacy-jitter-fix', default=False, type=bool, help="Set to true if you notice jitter in your crowd movies")
 @click.option('--frame-path', default='frames', type=str, help='Path to depth frames in h5 file')

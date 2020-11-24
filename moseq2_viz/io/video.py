@@ -178,7 +178,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
     make_matrix = partial(_matrix_writer_helper, matrix_fun=matrix_fun,
                           slice_fun=slice_fun, write_fun=write_fun, namer=namer)
 
-    with mp.Pool(config_data.get('processes', None)) as pool:
+    with mp.Pool(config_data.get('processes')) as pool:
         # Compute crowd matrices
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')

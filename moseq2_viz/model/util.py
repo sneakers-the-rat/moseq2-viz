@@ -467,7 +467,7 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
         .melt(id_vars=groupby)
         .set_index(groupby_with_syllable)
     )
-    usages.columns = ["usages"]
+    usages.columns = ["usage"]
     
     # get durationss
     trials = scalar_df['onset'].cumsum()

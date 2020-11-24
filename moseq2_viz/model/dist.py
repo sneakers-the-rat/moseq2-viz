@@ -59,7 +59,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
             'parallel': False
             },
         'pca[dtw]': {
-            'normalize': 'z-score',
+            'normalize': 'zscore',
             'max_dur': 30,
             'subsampling': 5,
             'max_samples': None,

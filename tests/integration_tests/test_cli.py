@@ -2,7 +2,7 @@ import os
 import shutil
 from unittest import TestCase
 from click.testing import CliRunner
-from moseq2_viz.cli import add_group, copy_h5_metadata_to_yaml, plot_scalar_summary, \
+from moseq2_viz.cli import add_group, copy_h5_metadata_to_yaml, plot_scalar_summary, plot_stats, get_best_fit_model, \
     plot_group_position_heatmaps, plot_verbose_position_heatmaps, plot_transition_graph, make_crowd_movies
 
 
@@ -39,11 +39,13 @@ class TestCLI(TestCase):
         output_file = 'data/gen_plots/model_vs_pc_changepoints'
 
         run_params = [input_dir, cp_file, output_file]
+        runner = CliRunner()
+
+        results = runner.invoke(get_best_fit_model, run_params)
 
         print(' '.join(run_params))
-
-        os.system(f'moseq2-viz get-best-model {" ".join(run_params)}')
-
+        print(results.output)
+        assert (results.exit_code == 0), "CLI Command did not complete successfully"
         assert os.path.exists(output_file+'.png')
         shutil.rmtree(os.path.dirname(output_file))
 
@@ -89,6 +91,7 @@ class TestCLI(TestCase):
 
         results = runner.invoke(plot_verbose_position_heatmaps, ['--output-file', gen_dir + 'heatmaps',
                                                       input_dir + 'test_index_crowd.yaml'])
+
         print(' '.join(['--output-file', gen_dir + 'heatmaps', input_dir + 'test_index_crowd.yaml']))
 
         assert (results.exit_code == 0), "CLI Command did not complete successfully"
@@ -133,9 +136,12 @@ class TestCLI(TestCase):
                           '--output-file', gen_dir + f'test_{stat}',
                           '--stat', stat]
 
-            print(f'moseq2-viz plot-stats {" ".join(use_params)}')
-            os.system(f'moseq2-viz plot-stats {" ".join(use_params)}')
+            runner = CliRunner()
 
+            print(' '.join(use_params))
+            results = runner.invoke(plot_stats, use_params)
+
+            assert (results.exit_code == 0), "CLI Command did not complete successfully"
             assert (os.path.exists(gen_dir + f'test_{stat}.png')), f"{stat} plot PNG not found"
             assert (os.path.exists(gen_dir + f'test_{stat}.pdf')), f"{stat} plot PDF not found"
             os.remove(gen_dir + f'test_{stat}.png')

@@ -158,7 +158,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
 
         matrix_fun = partial(make_crowd_matrix,
                              nexamples=config_data.get('max_examples', 20),
-                             max_dur=config_data.get('max_dur', 1000),
+                             max_dur=config_data.get('max_dur', 60),
                              min_dur=config_data.get('min_dur', 0),
                              min_height=config_data.get('min_height', 10),
                              crop_size=vid_parameters.get('crop_size', (80, 80)),

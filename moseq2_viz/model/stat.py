@@ -2,9 +2,11 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from scipy import stats
+from itertools import product
 import matplotlib.pyplot as plt
 from itertools import combinations
 from sklearn.svm import SVC, LinearSVC
+import sklearn.discriminant_analysis as da
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -619,3 +621,69 @@ def heldout_confusion_matrix(df, stat, max_syllable=40, C=1.0, penalty='l2'):
     fig, ax = plot_confusion_matrix(confusion_mat, labels)
 
     return confusion_mat
+
+def plot_LDA(features, labels, groups):
+    '''
+
+    Parameters
+    ----------
+    features
+    labels
+    groups
+
+    Returns
+    -------
+
+    '''
+
+    y = list(set(labels))
+
+    lda = da.LinearDiscriminantAnalysis(solver='eigen',
+                                        shrinkage='auto',
+                                        n_components=2,
+                                        store_covariance=True)
+
+    lda.fit(features, labels)
+    x = lda.transform(features)
+
+    plt.figure(figsize=(15, 15), facecolor='w')
+
+    symbols = "o*v^s"
+    colors = sns.color_palette(n_colors=int(((len(y) + 1) / (len(symbols) - 1))))
+    symbols, colors = zip(*list(product(symbols, colors)))
+
+    for i, group in enumerate(y):
+        group_inds = labels == group
+        plt.plot(x[group_inds, 0].mean(0), x[group_inds, 1].mean(0), symbols[i], color=colors[i], markersize=14)
+        mu = np.nanmean(x[group_inds], axis=0)
+        plt.text(mu[0], mu[1], group + " (%s)" % symbols[i],
+                 fontsize=20,
+                 color=colors[i],
+                 horizontalalignment='center',
+                 verticalalignment='center')
+
+    sns.despine()
+
+def run_LDA(df, max_syllable=40, stat='usage'):
+    '''
+
+    Parameters
+    ----------
+    df
+    max_syllable
+    stat
+
+    Returns
+    -------
+
+    '''
+
+    group_mean_df = get_session_mean_df(df, stat, max_syllable).reset_index()
+
+    # choose input features
+    features = group_mean_df[range(max_syllable)].values
+
+    # get corresponding group labels
+    labels = group_mean_df.group.values
+
+    plot_LDA(features, labels, group_mean_df.group.unique())

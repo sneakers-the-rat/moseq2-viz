@@ -461,7 +461,14 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
         usages = scalar_df.groupby(groupby)[syllable_key].value_counts(
             normalize=usage_normalization
         )
-    usages.name = "usage"
+    usages = (
+        usages.unstack()
+        .replace(np.nan, 0)
+        .reset_index()
+        .melt(id_vars=groupby)
+        .set_index(groupby_with_syllable)
+    )
+    usages.columns = ["usages"]
     
     # get durationss
     trials = scalar_df['onset'].cumsum()
@@ -474,7 +481,7 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
     features = scalar_df.groupby(groupby_with_syllable)[feature_cols].mean()
 
     # merge usage and duration
-    features = features.join(durations).join(usages)
+    features = usages.join(durations).join(features)
     features['syllable key'] = syllable_key
 
     return features.reset_index().rename(columns={syllable_key: 'syllable'})

@@ -562,7 +562,7 @@ def draw_graph(graph, width, pos, node_color,
 
     # Draw nodes and edges on matplotlib figure
     nx.draw(graph, pos=pos, with_labels=True, font_size=font_size, alpha=1,
-            width=width, edgecolors=node_edge_colors, ax=ax, cmap='turbo',
+            width=width, edgecolors=node_edge_colors, ax=ax, cmap='jet',
             node_size=node_size, node_color=node_color, arrows=arrows,
             edge_color=edge_colors, linewidths=1.5)
 

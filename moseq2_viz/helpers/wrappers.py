@@ -406,13 +406,6 @@ def make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data):
     model_fit = parse_model_results(model_path)
     _, sorted_index = init_wrapper_function(index_file, output_dir=output_dir)
 
-    # Get number of CPUs to optimize crowd movie creation and writing speed
-    if platform in ['linux', 'linux2']:
-        print('Setting CPU affinity to use all CPUs...')
-        cpu_count = psutil.cpu_count()
-        proc = psutil.Process()
-        proc.cpu_affinity(list(range(cpu_count)))
-
     # Get list of syllable labels for all sessions
     labels = model_fit['labels']
 

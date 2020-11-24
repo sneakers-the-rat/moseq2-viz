@@ -14,6 +14,7 @@ import ruamel.yaml as yaml
 import multiprocessing as mp
 from functools import partial
 import matplotlib.pyplot as plt
+from cytoolz import compose
 from moseq2_viz.viz import make_crowd_matrix
 from cytoolz.itertoolz import peek, pluck, first
 from cytoolz.dicttoolz import valfilter, merge_with
@@ -129,7 +130,6 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
     -------
     None
     '''
-
     progress_bar = config_data.get('progress_bar', False)
 
     # Filtering parameters
@@ -148,58 +148,54 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
     vid_parameters = check_video_parameters(sorted_index)
     if vid_parameters['resolution'] is not None:
         config_data['raw_size'] = vid_parameters['resolution']
+    # writing function
+    config_data['fps'] = vid_parameters['fps']
 
-    with mp.Pool() as pool:
-        # Get frame slices from all included sessions for each syllable label
-        slice_fun = partial(get_syllable_slices,
-                            labels=labels,
-                            label_uuids=label_uuids,
-                            index=sorted_index)
+    # Get frame slices from all included sessions for each syllable label
+    slice_fun = partial(get_syllable_slices,
+                        labels=labels,
+                        label_uuids=label_uuids,
+                        index=sorted_index)
 
-        matrix_fun = partial(make_crowd_matrix,
-                             nexamples=config_data.get('max_examples', 20),
-                             max_dur=config_data.get('max_dur', 60),
-                             min_dur=config_data.get('min_dur', 0),
-                             min_height=config_data.get('min_height', 10),
-                             crop_size=vid_parameters.get('crop_size', (80, 80)),
-                             raw_size=config_data.get('raw_size', (512, 424)),
-                             scale=config_data.get('scale', 1),
-                             pad=config_data.get('pad', 30),
-                             legacy_jitter_fix=config_data.get('legacy_jitter_fix', False),
-                             **clean_params)
+    matrix_fun = partial(make_crowd_matrix,
+                            nexamples=config_data.get('max_examples', 20),
+                            max_dur=config_data.get('max_dur', 60),
+                            min_dur=config_data.get('min_dur', 0),
+                            min_height=config_data.get('min_height', 10),
+                            crop_size=vid_parameters.get('crop_size', (80, 80)),
+                            raw_size=config_data.get('raw_size', (512, 424)),
+                            scale=config_data.get('scale', 1),
+                            pad=config_data.get('pad', 30),
+                            legacy_jitter_fix=config_data.get('legacy_jitter_fix', False),
+                            **clean_params)
 
+    write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],
+                        depth_max=config_data['max_height'], cmap=config_data['cmap'], progress_bar=progress_bar)
+
+    namer = partial(_fname_formatter, format=filename_format, output_dir=output_dir,
+                    ordering=ordering, count=config_data['count'])
+
+    make_matrix = partial(_matrix_writer_helper, matrix_fun=matrix_fun,
+                          slice_fun=slice_fun, write_fun=write_fun, namer=namer)
+
+    with mp.Pool(config_data.get('processes', None)) as pool:
         # Compute crowd matrices
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
-            slices = list(tqdm(pool.imap(slice_fun, config_data['crowd_syllables']),
-                               total=config_data.get('max_syllable', 40), desc='Getting Syllable Slices',
-                               disable=not progress_bar))
-            # creating crowd matrices
-            crowd_matrices = list(tqdm(pool.imap(matrix_fun, slices), total=len(config_data['crowd_syllables']),
-                                       desc='Getting Crowd Matrices', disable=not progress_bar))
+            return list(tqdm(filter(lambda x: x is not None,
+                                    pool.imap(make_matrix, config_data['crowd_syllables'])),
+                             desc='Writing crowd movies', total=len(config_data['crowd_syllables'])))
 
-        # writing function
-        config_data['fps'] = vid_parameters['fps']
-        write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],
-                            depth_max=config_data['max_height'], cmap=config_data['cmap'], progress_bar=progress_bar)
 
-        # get list of tuples (path_to_write, crowd_movie)
-        crowd_movies = [[join(output_dir, filename_format.format(i, config_data['count'], ordering[i])), crowd_matrix]
-                            for i, crowd_matrix in tqdm(enumerate(crowd_matrices), total=len(config_data['crowd_syllables']), 
-                                                        desc='Writing Movies', disable=not config_data['progress_bar']) 
-                            if crowd_matrix is not None]
+def _fname_formatter(syll, format, output_dir, ordering, count):
+    return join(output_dir, format.format(syll, count, ordering[syll]))
 
-        if len(config_data['crowd_syllables']) > 1:
-            crowd_movie_paths = [cm[0] for cm in crowd_movies]
-        else:
-            crowd_movies[0][0] = crowd_movies[0][0].replace('-0 ', f'-{config_data["crowd_syllables"][0]}')
-            crowd_movies[0][0] = crowd_movies[0][0].replace(f'-{ordering[0]}.', f'-{ordering[config_data["crowd_syllables"][0]]}.')
-            crowd_movie_paths = [cm[0] for cm in crowd_movies]
 
-        # write movie
-        pool.starmap(write_fun, crowd_movies)
-
-    return crowd_movie_paths
+def _matrix_writer_helper(syll, matrix_fun, slice_fun, write_fun, namer):
+    mtx = matrix_fun(slice_fun(syll))
+    if mtx is not None:
+        return write_fun(namer(syll), mtx)
+    return None
 
 def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
                          fps=30, pixel_format='rgb24',
@@ -236,10 +232,10 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
 
     Returns
     -------
-    (subProcess.Pipe object): if there are more slices/chunks to write to, otherwise None.
+    (subProcess.Pipe object): if there are more slices/chunks to write to, otherwise the path to the movie.
     '''
 
-    # Set frame padding
+    # pad frames so that dimensions are divisible by 2
     if not np.mod(frames.shape[1], 2) == 0:
         frames = np.pad(frames, ((0, 0), (0, 1), (0, 0)), 'constant', constant_values=0)
 
@@ -299,6 +295,6 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
 
     if close_pipe:
         pipe.stdin.close()
-        return None
+        return filename
     else:
         return pipe

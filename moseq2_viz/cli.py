@@ -67,7 +67,7 @@ def copy_h5_metadata_to_yaml(input_dir):
 @click.argument('model-path', type=click.Path(exists=True, resolve_path=True))
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
 @click.option('--max-examples', '-m', type=int, default=40, help="Number of examples to show")
-@click.option('--threads', '-t', type=int, default=-1, help="Number of threads to use for rendering crowd movies")
+@click.option('--processes', type=int, default=None, help="Number of processes to use for rendering crowd movies. Default None uses every process")
 @click.option('--separate-by', type=click.Choice(['default', 'groups', 'sessions', 'subjects']), default='default', help="Generate crowd movies from individual group sources.")
 @click.option('--specific-syllable', type=int, default=None, help="Index of max syllable to render")
 @click.option('--session-names', '-s', default=[], type=str, help="SessionNames to create crowd movies from", multiple=True)

@@ -351,11 +351,8 @@ def reformat_dtw_distances(full_mat, nsyllables, rescale=True):
             warnings.simplefilter('ignore', category=RuntimeWarning)
             rmat = np.nanmean(rmat, axis=2)
 
-        rmat = rmat.T
-        rmat = rmat.reshape(nsyllables, nsyllables, nsamples)
-
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', category=RuntimeWarning)
+            rmat = rmat.T
+            rmat = rmat.reshape(nsyllables, nsyllables, nsamples)
             rmat = np.nanmean(rmat, axis=2)
 
     diag_vals = rmat.diagonal()

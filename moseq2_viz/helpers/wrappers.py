@@ -239,6 +239,8 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     -------
     fig (pyplot figure): figure to show in Jupyter Notebook.
     '''
+    if ordering == 'diff' and any(x is None for x in (ctrl_group, exp_group)):
+        raise ValueError('ctrl_group and exp_group must be specified to order by group differences') 
 
     # Load index file and model data
     _, sorted_index = init_wrapper_function(index_file, output_file=output_file)
@@ -322,7 +324,7 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=True):
 
     return fig
 
-def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_file):
+def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_dat):
     '''
     Wrapper function to plot transition graphs.
 

@@ -443,6 +443,7 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
 
     if isinstance(groupby, str):
         groupby = [groupby]
+    groupby_with_syllable = groupby + [syllable_key]
 
     scalar_df = scalar_df.query('`labels (original)` >= 0')
 
@@ -450,25 +451,30 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
     feature_cols = feature_cols[feature_cols].index
 
     # get syllable usages
-    if count == 'usage':
-        usages = scalar_df.query('onset').groupby(groupby)[syllable_key].value_counts(normalize=usage_normalization)
+    if count == "usage":
+        usages = (
+            scalar_df.query("onset")
+            .groupby(groupby)[syllable_key]
+            .value_counts(normalize=usage_normalization)
+        )
     else:
-        usages = scalar_df.groupby(groupby)[syllable_key].value_counts(normalize=usage_normalization)
-    usages.name = 'usage'
+        usages = scalar_df.groupby(groupby)[syllable_key].value_counts(
+            normalize=usage_normalization
+        )
+    usages.name = "usage"
     
     # get durationss
     trials = scalar_df['onset'].cumsum()
     trials.name = 'trials'
-    durations = scalar_df.groupby(groupby + [syllable_key, trials])['onset'].count()
+    durations = scalar_df.groupby(groupby_with_syllable + [trials])['onset'].count()
     # average duration in seconds
-    durations = durations.groupby(groupby + [syllable_key]).mean() / fps
+    durations = durations.groupby(groupby_with_syllable).mean() / fps
     durations.name = 'duration'
 
-    features = scalar_df.groupby(groupby + [syllable_key])[feature_cols].mean()
+    features = scalar_df.groupby(groupby_with_syllable)[feature_cols].mean()
 
     # merge usage and duration
-    features = pd.merge(features, usages, on=groupby + [syllable_key], how='outer')
-    features = pd.merge(features, durations, on=groupby + [syllable_key], how='outer')
+    features = features.join(durations).join(usages)
     features['syllable key'] = syllable_key
 
     return features.reset_index().rename(columns={syllable_key: 'syllable'})

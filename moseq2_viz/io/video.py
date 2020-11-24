@@ -184,7 +184,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
                             depth_max=config_data['max_height'], cmap=config_data['cmap'], progress_bar=progress_bar)
 
         # get list of tuples (path_to_write, crowd_movie)
-        crowd_movies = [[join(output_dir, filename_format.format(i, config_data['count'], ordering[i])), crowd_matrix]
+        crowd_movies = [[join(output_dir, filename_format.format(i, config_data['count'], ordering[i])), np.asarray(crowd_matrix)[:config_data.get('max_movie_dur')]]
                             for i, crowd_matrix in tqdm(enumerate(crowd_matrices), total=len(config_data['crowd_syllables']), 
                                                         desc='Writing Movies', disable=not config_data['progress_bar']) 
                             if crowd_matrix is not None]

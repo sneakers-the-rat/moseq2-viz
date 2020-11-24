@@ -240,7 +240,7 @@ class TestModelTransGraph(TestCase):
         assert len(node_sizes) == 3
         assert len(node_edge_colors) == 3
         assert len(graphs) == 3
-        assert scalars == None
+        assert scalars is None
 
     def test_get_pos(self):
 
@@ -339,4 +339,4 @@ class TestModelTransGraph(TestCase):
 
         assert len(pos.keys()) == 12
         assert ax.shape == (2, 2)
-        assert fig != None
+        assert fig is not None

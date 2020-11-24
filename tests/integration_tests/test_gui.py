@@ -135,7 +135,7 @@ class TestGUI(TestCase):
         }
 
         best_model = get_best_fit_model(progress_paths, plot_all=True)
-        assert best_model != None
+        assert best_model is not None
         shutil.rmtree(progress_paths['plot_path'])
 
     def test_make_crowd_movies_command(self):

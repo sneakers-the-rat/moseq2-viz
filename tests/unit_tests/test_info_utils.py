@@ -21,7 +21,7 @@ class TestInfoUtils(TestCase):
         ents = []
         for v in labels:
             usages = get_syllable_statistics([v])[0]
-            assert usages != None
+            assert usages is not None
 
             syllables = np.array(list(usages.keys()))
             truncate_point = np.where(syllables == truncate_syllable)[0]

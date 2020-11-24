@@ -88,5 +88,5 @@ class TestIOVideo(TestCase):
                              pipe, close_pipe, progress_bar)
 
         assert os.path.exists(filename)
-        assert out == None
+        assert out == filename
         os.remove(filename)

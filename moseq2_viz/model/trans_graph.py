@@ -104,7 +104,7 @@ def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
     print('Creating plot...')
     plt, _, _ = graph_transition_matrix(trans_mats,
                                         **config_data,
-                                        usages=usages,
+                                        usages=usages.copy(),
                                         groups=group,
                                         headless=True)
 

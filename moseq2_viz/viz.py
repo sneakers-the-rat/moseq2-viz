@@ -617,7 +617,8 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
     ax.text(.5, 1.6, t, fontsize=12)
     ax.set_xlabel('Block duration (s)')
     ax.set_ylabel('P(duration)')
-    ax.legend()
+    # place legend below x-axis
+    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.11), fancybox=True, shadow=True)
     sns.despine()
 
     return fig, ax

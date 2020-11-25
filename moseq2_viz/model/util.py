@@ -156,7 +156,12 @@ def get_best_fit(cp_path, model_results):
     '''
 
     # Load PCA changepoints
-    pca_cps = load_changepoint_distribution(cp_path)
+    try:
+        pca_cps = load_changepoint_distribution(cp_path)
+    except OSError:
+        # file not found
+        print('WARNING: PCA changepoints path not found.')
+        pca_cps = np.zeros(100)
     
     def _compute_cp_dist(model):
         return np.abs(np.nanmedian(pca_cps) - np.nanmedian(model['changepoints']))

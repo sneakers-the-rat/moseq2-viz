@@ -621,6 +621,9 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     if headless:
         plt.switch_backend('agg')
 
+    if usages is not None:
+        usages = deepcopy(usages)
+
     # Set weights to transition probabilities
     if weights is None:
         weights = trans_mats

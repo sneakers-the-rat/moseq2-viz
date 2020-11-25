@@ -9,7 +9,7 @@ CLI functions, then call the corresponding wrapper function with the given input
 '''
 
 from ruamel import yaml
-from os.path import join
+from os.path import join, exists
 from functools import wraps, partial
 from moseq2_viz.util import read_yaml
 from moseq2_viz.cli import plot_transition_graph, make_crowd_movies
@@ -141,8 +141,10 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30,
 
     # Get paths to required parameters
     model_dir = progress_paths['model_session_path']
-    changepoint_path = join(progress_paths['pca_dirname'], progress_paths['changepoints_path'] + '.h5')
-
+    if not exists(progress_paths['changepoints_path']):
+        changepoint_path = join(progress_paths['pca_dirname'], progress_paths['changepoints_path'] + '.h5')
+    else:
+        changepoint_path = progress_paths['changepoints_path']
     # Get best fit model and plot requested curves
     best_fit_model, fig = get_best_fit_model_wrapper(model_dir, changepoint_path, output_file,
                                                      plot_all=plot_all, ext=ext, fps=fps)

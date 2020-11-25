@@ -493,7 +493,13 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
         usages = scalar_df.groupby(groupby)[syllable_key].value_counts(
             normalize=usage_normalization
         )
-    usages.name = "usage"
+    usages = (
+        usages.unstack(fill_value=0)
+        .reset_index()
+        .melt(id_vars=groupby)
+        .set_index(groupby_with_syllable)
+    )
+    usages.columns = ["usage"]
     
     # get durationss
     trials = scalar_df['onset'].cumsum()
@@ -506,7 +512,7 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
     features = scalar_df.groupby(groupby_with_syllable)[feature_cols].mean()
 
     # merge usage and duration
-    features = features.join(durations).join(usages)
+    features = usages.join(durations).join(features)
     features['syllable key'] = syllable_key
 
     return features.reset_index().rename(columns={syllable_key: 'syllable'})
@@ -1122,6 +1128,8 @@ def sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group, max_sy
     -------
     ordering (list): list of array indices for the new label mapping.
     '''
+    if max_sylls is not None:
+        complete_df = complete_df[complete_df.syllable < max_sylls]
 
     # Prepare DataFrame
     mutation_df = complete_df.groupby(['group', 'syllable']).mean()
@@ -1132,9 +1140,6 @@ def sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group, max_sy
 
     # compute mean difference at each syll usage and reorder based on difference
     ordering = (exp_df[stat] - control_df[stat]).sort_values(ascending=False).index
-
-    if max_sylls is not None:
-        ordering = ordering[:max_sylls]
 
     return list(ordering)
 
@@ -1154,14 +1159,13 @@ def sort_syllables_by_stat(complete_df, stat='usage', max_sylls=None):
     ordering (list): list of sorted syllables by stat.
     relabel_mapping (dict): a dict with key-value pairs {old_ordering: new_ordering}.
     '''
+    if max_sylls is not None:
+        complete_df = complete_df[complete_df.syllable < max_sylls]
 
     tmp = complete_df.groupby('syllable').mean().sort_values(by=stat, ascending=False).index
 
     # Get sorted ordering
     ordering = list(tmp)
-
-    if max_sylls is not None:
-        ordering = ordering[:max_sylls]
 
     # Get order mapping
     relabel_mapping = {o: i for i, o in enumerate(ordering)}

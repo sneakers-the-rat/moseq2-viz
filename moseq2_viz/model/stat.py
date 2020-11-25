@@ -487,7 +487,7 @@ def run_pairwise_stats(df, group1, group2, test_type="mw", **kwargs):
     """
     test_types = ["mw", "z_test", "t_test"]
     if test_type not in test_types:
-        raise ValueError(f"transition_type must one of {test_types}")
+        raise ValueError(f"`test_type` must one of {test_types}")
     if test_type == "mw":
         return mann_whitney(df, group1, group2, **kwargs)
     elif test_type == "z_test":

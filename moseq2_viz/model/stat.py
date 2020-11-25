@@ -317,13 +317,13 @@ def run_kruskal(
         ]
     )
 
-    df_k_real["emp_fdr"] = multipletests(
+    df_k_real["p_adj"] = multipletests(
         ((h_all > df_k_real.statistic.values).sum(0) + 1) / n_perm,
         alpha=thresh,
         method=mc_method,
     )[1]
 
-    df_k_real["is_sig"] = df_k_real["emp_fdr"] < thresh
+    df_k_real["is_sig"] = df_k_real["p_adj"] <= thresh
     print(
         f"Found {df_k_real['is_sig'].sum()} syllables that pass threshold {thresh} with {mc_method}"
     )

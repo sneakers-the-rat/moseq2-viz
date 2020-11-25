@@ -409,7 +409,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
 
 
 def plot_syll_stats_with_sem(scalar_df, stat='usage', ordering='stat', max_sylls=40, groups=None, ctrl_group=None,
-                             exp_group=None, colors=None, figsize=(10, 5)):
+                             exp_group=None, colors=None, join=False, figsize=(10, 5)):
     '''
     Plots a line and/or point-plot of a given pre-computed syllable statistic (usage, duration, or speed),
     with a SEM error bar with respect to the group.
@@ -439,7 +439,6 @@ def plot_syll_stats_with_sem(scalar_df, stat='usage', ordering='stat', max_sylls
     xlabel = f'Syllables sorted by {stat}'
     if ordering == 'diff':
         xlabel += ' difference'
-
     ordering, groups, colors, figsize = _validate_and_order_syll_stats_params(scalar_df,
                                                                               stat=stat,
                                                                               ordering=ordering,
@@ -455,7 +454,7 @@ def plot_syll_stats_with_sem(scalar_df, stat='usage', ordering='stat', max_sylls
     # plot each group's stat data separately, computes groupwise SEM, and orders data based on the stat/ordering parameters
     hue = 'group' if groups is not None else None
     ax = sns.pointplot(data=scalar_df, x='syllable', y=stat, hue=hue, order=ordering,
-                       join=False, dodge=True, ci=68, ax=ax, hue_order=groups,
+                       join=join, dodge=True, ci=68, ax=ax, hue_order=groups,
                        palette=colors)
 
     legend = ax.legend(frameon=False, bbox_to_anchor=(1, 1))
@@ -577,8 +576,11 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
         kappa = 'default'
         if '-' in best_model:
             kappa = best_model.split("-")[1].split(".")[0]
+        try:
+            _ = sns.kdeplot(model_cps, ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa}')
+        except RuntimeError:
+            sns.kdeplot(model_cps, ax=ax, bw_adjust=0.5, color='blue', label=f'Model Changepoints Kappa={kappa}')
 
-        _ = sns.kdeplot(model_cps, ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa}')
     else:
         palette = sns.color_palette('dark', n_colors=len(model_results))
         for i, (k, v) in enumerate(model_results.items()):
@@ -615,6 +617,7 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
     ax.text(.5, 1.6, t, fontsize=12)
     ax.set_xlabel('Block duration (s)')
     ax.set_ylabel('P(duration)')
+    ax.legend()
     sns.despine()
 
     return fig, ax

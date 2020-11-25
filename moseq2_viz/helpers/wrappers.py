@@ -324,7 +324,7 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=True):
 
     return fig
 
-def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_dat):
+def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_data):
     '''
     Wrapper function to plot transition graphs.
 

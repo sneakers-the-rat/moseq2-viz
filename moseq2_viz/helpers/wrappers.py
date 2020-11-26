@@ -452,7 +452,6 @@ def make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data):
         # be different
         _grp = model_fit['metadata']['groups']
         group_keys = groupby(lambda k: _grp[k], _grp)
-        # group_keys = groupby(lambda k: sorted_index['files'][k]['group'], label_uuids)
 
         # Write crowd movies for each group
         cm_paths = make_separate_crowd_movies(config_data, sorted_index, group_keys,

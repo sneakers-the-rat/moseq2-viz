@@ -3,7 +3,6 @@
 Helper functions for handling crowd movie file writing and video metadata maintenance.
 
 '''
-
 import cv2
 import warnings
 import subprocess
@@ -14,7 +13,6 @@ import ruamel.yaml as yaml
 import multiprocessing as mp
 from functools import partial
 import matplotlib.pyplot as plt
-from cytoolz import compose
 from moseq2_viz.viz import make_crowd_matrix
 from cytoolz.itertoolz import peek, pluck, first
 from cytoolz.dicttoolz import valfilter, merge_with

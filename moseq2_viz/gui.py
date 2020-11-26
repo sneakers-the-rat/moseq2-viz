@@ -7,8 +7,6 @@ Note: These functions perform jupyter notebook specific pre-processing, loads in
 CLI functions, then call the corresponding wrapper function with the given input parameters.
 
 '''
-
-from ruamel import yaml
 from os.path import join, exists
 from functools import wraps, partial
 from moseq2_viz.util import read_yaml

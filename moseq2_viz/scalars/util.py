@@ -14,11 +14,9 @@ from multiprocessing import Pool
 from collections import defaultdict
 from cytoolz import valmap, get, merge
 from os.path import join, exists, dirname
-from sklearn.neighbors import KernelDensity
-from moseq2_viz.model.util import (get_transitions, parse_model_results, relabel_by_usage,
-                                   prepare_model_dataframe)
-from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
-                             h5_filepath_from_sorted, get_timestamps_from_h5, parse_index)
+from moseq2_viz.model.util import get_transitions, prepare_model_dataframe
+from moseq2_viz.util import (h5_to_dict, strided_app, h5_filepath_from_sorted,
+                             get_timestamps_from_h5, parse_index)
 
 
 def _star_itemmap(func, d):

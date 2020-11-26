@@ -3,8 +3,6 @@
 Syllable transition graph creation and utility functions.
 
 '''
-
-import math
 import warnings
 import numpy as np
 import pandas as pd
@@ -13,7 +11,7 @@ from copy import deepcopy
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 from collections import OrderedDict
-from cytoolz import sliding_window, complement, valmap
+from cytoolz import sliding_window, complement
 
 def get_trans_graph_groups(model_fit):
     '''

@@ -5,14 +5,11 @@ Each wrapper function executes the functionality from end-to-end given it's depe
 (See CLI Click parameters)
 
 '''
-
 import os
 import shutil
-import psutil
 import matplotlib as mpl
 from glob import glob
 from ruamel import yaml
-from sys import platform
 from tqdm.auto import tqdm
 from cytoolz import keyfilter, groupby
 from os.path import exists, join, dirname, basename

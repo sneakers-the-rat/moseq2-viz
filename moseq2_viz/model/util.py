@@ -338,8 +338,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
 
     # grab the original indices from the pca file as well...
     if trim_nans:
-        with h5py.File(index['pca_path'], 'r') as f:
-            score_idx = h5_to_dict(f, 'scores_idx')
+        score_idx = h5_to_dict(index['pca_path'], 'scores_idx')
 
     syllable_slices = []
 

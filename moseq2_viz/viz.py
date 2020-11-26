@@ -12,10 +12,9 @@ import numpy as np
 import seaborn as sns
 import matplotlib as mpl
 from tqdm.auto import tqdm
+from os.path import dirname
 from scipy.stats import mode
 import matplotlib.pyplot as plt
-from os.path import dirname, exists
-from cytoolz import groupby, valmap
 from moseq2_viz.model.util import sort_syllables_by_stat, sort_syllables_by_stat_difference
 
 

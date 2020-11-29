@@ -114,18 +114,18 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
 
 copy_h5_metadata_to_yaml_command = _alias(copy_h5_metadata_to_yaml_wrapper)
 
-def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30, ext='p'):
+def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30, ext='p', objective='duration'):
     '''
     Given a directory containing multiple models, and the path to the pca scores they were trained on,
-     this function returns the path to the model that has the closest median syllable duration to that of
-     the PC Scores.
+    this function returns the path to the model that has the closest median syllable duration to that of
+    the PC Scores.
 
     Parameters
     ----------
     progress_paths (dict): Dict containing paths the to model directory and pca scores file
     output_file (str): Optional path to save the comparison plot
     plot_all (bool): Indicates whether to plot all the models' changepoint distributions with the PCs, highlighting
-     the best model curve.
+    the best model curve.
     fps (int): Frames per second.
 
     Returns
@@ -145,7 +145,7 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30,
         changepoint_path = progress_paths['changepoints_path']
     # Get best fit model and plot requested curves
     best_fit_model, fig = get_best_fit_model_wrapper(model_dir, changepoint_path, output_file,
-                                                     plot_all=plot_all, ext=ext, fps=fps)
+                                                     plot_all=plot_all, ext=ext, fps=fps, objective=objective)
     fig.show(warn=False)
 
     return best_fit_model

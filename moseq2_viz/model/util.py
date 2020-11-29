@@ -13,11 +13,10 @@ import numpy as np
 import pandas as pd
 from numpy import linalg
 from copy import deepcopy
-from operator import itemgetter
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from typing import Iterator, Any, Dict
-from itertools import starmap, product
+from itertools import product
 from cytoolz.curried import get, get_in
 from os.path import join, basename, dirname
 from moseq2_viz.util import h5_to_dict, star
@@ -37,15 +36,16 @@ def _assert_models_have_same_kappa(model_paths):
     if len(kappas) > 1:
         raise ValueError('You cannot merge models trained with different kappas')
 
+
 def compute_syllable_explained_variance(model, n_explained=99):
     '''
-    Computes the maximum number of syllables to include that explain the given
-     percentage of explained variance.
+    Computes the maximum number of syllables to include that explain `n_explained` percent
+    of all frames in the dataset.
 
     Parameters
     ----------
     model (dict): ARHMM results dict
-    n_explained (int): Percentage of explained variance
+    n_explained (int): explained variance percentage threshold
 
     Returns
     -------
@@ -62,6 +62,7 @@ def compute_syllable_explained_variance(model, n_explained=99):
     plt.axvline(max_sylls, color='k')
 
     return max_sylls
+
 
 def merge_models(model_dir, ext='p',count='usage', force_merge=False,
                  cost_function='ar_norm'):
@@ -122,8 +123,8 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
             uuids = set(unit_data['labels']) & set(template['labels'])
             l1 = template['labels']
             l2 = unit_data['labels']
-            max_s1 = np.max(np.concatenate(list(l1.values())))
-            max_s2 = np.max(np.concatenate(list(l2.values())))
+            max_s1 = np.max(np.concatenate(list(l1.values()))) + 1
+            max_s2 = np.max(np.concatenate(list(l2.values()))) + 1
             cost = np.zeros((max_s1, max_s2))
             for s1, s2 in product(range(max_s1), range(max_s2)):
                 mu_dice = np.mean([dice(l1[uuid] == s1, l2[uuid] == s2) for uuid in uuids])
@@ -148,7 +149,8 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
 
 def get_best_fit(cp_path, model_results):
     '''
-    Returns the model with the closest median syllable duration to the PCA changepoints.
+    Returns the model with the closest median syllable duration and
+    closest duration distribution to the PCA changepoints.
 
     Parameters
     ----------
@@ -157,9 +159,11 @@ def get_best_fit(cp_path, model_results):
 
     Returns
     -------
-    best_model (str): Computed best-fit model key.
-    pca_cps (1D array): 1-dimensional list of pc score block durations.
+    info (dict): information about the best-fit models.
+    pca_cps (1D array): pc score changepoint durations.
     '''
+    # sort model_results
+    model_results = dict(sorted(model_results.items(), key=get(0)))
 
     # Load PCA changepoints
     pca_cps = load_changepoint_distribution(cp_path)
@@ -168,20 +172,25 @@ def get_best_fit(cp_path, model_results):
         return np.abs(np.nanmedian(pca_cps) - np.nanmedian(model['changepoints']))
 
     def _compute_jsd_dist(model):
-        h1, _ = np.histogram(pca_cps, bins=np.linspace(0, 2, 50), density=True)
-        h2, _ = np.histogram(model['changepoints'], bins=np.linspace(0, 2, 50), density=True)
+        bins = np.linspace(0, 3, 90)
+        h1, _ = np.histogram(pca_cps, bins=bins, density=True)
+        h2, _ = np.histogram(model['changepoints'], bins=bins, density=True)
         return jensenshannon(h1, h2)
     
-    best_model, dist = min(valmap(_compute_cp_dist, model_results).items(), key=itemgetter(1))
-    best_jsd_model, jsd_dist = min(valmap(_compute_jsd_dist, model_results).items(), key=itemgetter(1))
+    dur_dists = valmap(_compute_cp_dist, model_results)
+    best_model, dist = min(dur_dists.items(), key=get(1))
+    jsd_dists = valmap(_compute_jsd_dist, model_results)
+    best_jsd_model, jsd_dist = min(jsd_dists.items(), key=get(1))
 
     info = {
         'best model - duration': best_model,
         'best model - duration kappa': model_results[best_model]['model_parameters']['kappa'],
         'min duration distance (seconds)': dist,
+        'duration distances': dur_dists,
         'best model - jsd': best_jsd_model,
         'best model - jsd kappa': model_results[best_jsd_model]['model_parameters']['kappa'],
-        'min jensen-shannon distance': jsd_dist
+        'min jensen-shannon distance': jsd_dist,
+        'jsd distances': jsd_dists
     }
     
     return info, pca_cps
@@ -194,7 +203,7 @@ def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
     Parameters
     ----------
     pca_scores (dict): dictionary of uuid to PC score key-value pairs
-    center (bool): decide whether to normalize data with an offset value.
+    center (bool): flag to subtract the mean of the data.
 
     Returns
     -------
@@ -221,7 +230,7 @@ def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
 
 def get_normalized_syllable_usages(model_data, max_syllable=100, count='usage'):
     '''
-    Computes syllable usages and normalizes.
+    Computes syllable usages and normalizes to sum to 1.
     Returns a 1D array of their corresponding usage values.
 
     Parameters
@@ -248,7 +257,7 @@ def normalize_usages(usage_dict):
 
 def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[slice]:
     '''
-    Return a generator containing slices of `syllable` indices for a mouse.
+    Return a list containing slices of `syllable` indices for a mouse.
 
     Parameters
     ----------
@@ -266,7 +275,7 @@ def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[sli
     starts = np.where(is_syllable == 1)[0]
     ends = np.where(is_syllable == -1)[0]
 
-    slices = starmap(slice, zip(starts, ends))
+    slices = list(map(slice, starts, ends))
 
     return slices
 
@@ -321,7 +330,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
     label_uuids (list): list of uuid keys corresponding to each session.
     index (dict): index file contents contained in a dict.
     trim_nans (bool): flag to use the pca scores file for removing time points that contain NaNs.
-    Only use if you have not already trimmed NaNs previously (i.e. in `scalars_to_dataframe`).
+    Only use if you have not already trimmed NaNs previously and need to.
 
     Returns
     -------
@@ -434,7 +443,7 @@ def syll_duration(labels: np.ndarray) -> np.ndarray:
 
 def syll_id(labels: np.ndarray) -> np.ndarray:
     '''
-    Returns the syllable label at each syllable transition.
+    Returns the syllable label at each onset of a syllable transition.
 
     Parameters
     ----------
@@ -519,7 +528,7 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
 
 def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'):
     '''
-    Compute the syllable statistics from a set of model labels
+    Compute the usage and duration statistics from a set of model labels
 
     Parameters
     ----------
@@ -537,11 +546,8 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
     usages = defaultdict(int)
     durations = defaultdict(list)
 
-    if count == 'usage':
-        use_usage = True
-    elif count == 'frames':
-        use_usage = False
-    else:
+    use_usage = count == 'usage'
+    if not use_usage and count != 'frames':
         print('Inputted count is incorrect or not supported. Use "usage" or "frames".')
         print('Calculating statistics by syllable usage')
         use_usage = True
@@ -659,10 +665,10 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
     ----------
     model_obj (str or results returned from joblib.load): path to the model fit or a loaded model fit
     restart_idx (int): Select which model restart to load. (Only change for models with multiple restarts used)
-    resample_idx (int): Legacy parameter used to select labels from a specific sampling iteration. Default is the last iteration (-1)
-    map_uuid_to_keys (bool): for labels, make a dictionary where each key, value pair
+    resample_idx (int): parameter used to select labels from a specific sampling iteration. Default is the last iteration (-1)
+    map_uuid_to_keys (bool): flag to create a label dictionary where each key->value pair
     contains the uuid and the labels for that session.
-    sort_labels_by_usage (bool): sort labels by their usages.
+    sort_labels_by_usage (bool): sort and re-assign labels by their usages.
     count (str): how to count syllable usage, either by number of emissions (usage),
     or number of frames (frames).
 
@@ -786,17 +792,17 @@ def prepare_model_dataframe(model_path, pca_path):
 def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
     '''
     Simulate auto-regressive trajectory matrices from
-    optionally randomly projected initalized points.
+    a set of initalized points.
 
     Parameters
     ----------
     ar_mat (3D np.ndarray): numpy array representing the autoregressive matrix of each model state.
-    init_points (2D np.ndarray): pre-initialzed array of the same shape as the ar-matrices.
-    sim_points (int): number of trajectories to simulate.
+    init_points (2D np.ndarray): pre-initialzed array (npcs x nlags) in shape
+    sim_points (int): number of time points to simulate.
 
     Returns
     -------
-    sim_mat[nlags:] simulated AR matrices excluding lagged values.
+    sim_mat[nlags:] simulated AR trajectories excluding lagged values.
     '''
 
     npcs = ar_mat.shape[0]
@@ -1016,15 +1022,15 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
 
     Parameters
     ----------
-    slices (np.ndarray): syllable slice or subarray to compute PCs for
+    slices (np.ndarray): syllable slices or subarrays
     pca_scores (np.ndarray): PC scores for respective session.
-    max_dur (int): maximum slice length.
-    min_dur (int): minimum slice length.
-    max_samples (int): maximum number of samples to slices to retrieve.
+    max_dur (int): maximum syllable length.
+    min_dur (int): minimum syllable length.
+    max_samples (int): maximum number of samples to retrieve.
     npcs (int): number of pcs to use.
-    subsampling (int): number of neighboring PCs to subsample from.
-    remove_offset (bool): indicate whether to remove lag values.
-    kwargs (dict): unused.
+    subsampling (int): number of syllable subsamples (defined through KMeans clustering).
+    remove_offset (bool): indicate whether to remove initial offset from each PC score.
+    kwargs (dict): used to capture certain arguments in other parts of the codebase.
 
     Returns
     -------
@@ -1074,7 +1080,6 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, label_dict
     config_data (dict): Loaded crowd movie writing configuration parameters.
     sorted_index (dict): Loaded index file and sorted files in list.
     group_keys (dict): Dict of group/session name keys paired with UUIDS to match with labels.
-    labels (2d list): list of syllable label lists for all sessions.
     label_dict (dict): dict of corresponding session UUIDs for all sessions included in labels.
     output_dir (str): Path to output directory to save crowd movies in.
     ordering (list): ordering for the new mapping of the relabeled syllable usages.

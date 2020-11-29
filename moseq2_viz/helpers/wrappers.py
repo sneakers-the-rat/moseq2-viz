@@ -43,7 +43,6 @@ def init_wrapper_function(index_file=None, output_dir=None, output_file=None):
     Parameters
     ----------
     index_file (str): path to index file to load.
-    model_fit (str): path to model to use.
     output_dir (str): path to directory to save plots in.
     output_file (str): path to saved figures.
 
@@ -51,7 +50,6 @@ def init_wrapper_function(index_file=None, output_dir=None, output_file=None):
     -------
     index (dict): loaded index file dictionary
     sorted_index (dict): OrderedDict object representing a sorted version of index
-    model_data (dict): loaded model dictionary containing modeling results
     '''
 
     _make_directories(output_dir, output_file)
@@ -159,12 +157,8 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
 
     print('Model closest to PC scores:', best_model_info[f'best model - {objective}'])
 
-    if plot_all:
-        # Graph all the model CP dists
-        fig, ax = plot_cp_comparison(model_results, pca_changepoints, plot_all=plot_all, best_model=best_model_info[f'best model - {objective}'])
-    else:
-        # Graph the best-fit model CP difference
-        fig, ax = plot_cp_comparison(model_results, pca_changepoints, best_model=best_model_info[f'best model - {objective}'])
+    # Graph model CP difference(s)
+    fig, ax = plot_cp_comparison(model_results, pca_changepoints, plot_all=plot_all, best_model=best_model_info[f'best model - {objective}'])
 
     # Save the figure
     if output_file is not None:
@@ -259,13 +253,14 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
 
 def plot_mean_group_position_pdf_wrapper(index_file, output_file, normalize=False):
     '''
-    Wrapper function that computes the PDF of the rodent's position throughout the respective sessions,
-    and averages these values with respect to their groups to graph a mean position heatmap for each group.
+    Computes the position PDF for each session, averages the PDFs within each group,
+    and plots the averaged PDFs.
 
     Parameters
     ----------
     index_file (str): path to index file.
     output_file (str): filename for the group heatmap graph.
+    normalize (bool): normalize the PDF so that min and max values range from 0-1.
 
     Returns
     -------
@@ -298,6 +293,7 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=True):
     ----------
     index_file (str): path to index file.
     output_file (str): filename for the verbose heatmap graph.
+    normalize (bool): normalize the PDF so that min and max values range from 0-1.
 
     Returns
     -------
@@ -329,9 +325,8 @@ def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_dat
     ----------
     index_file (str): path to index file
     model_fit (str): path to trained model.
-    config_data (dict): dictionary containing the user specified keys and values
     output_file (str): filename for syllable usage graph.
-    kwargs (dict): dict containing loaded model data and index dicts
+    config_data (dict): dictionary containing the user specified keys and values
 
     Returns
     -------

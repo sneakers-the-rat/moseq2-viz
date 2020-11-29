@@ -135,8 +135,8 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
     Parameters
     ----------
     fig (pyplot.Figure): open figure to save
-    output_file (str): path to save figure to
-    name (str): dynamic figure name; allows for overriding name with specific value/prefix
+    output_file (str): path to save figure to (without extension)
+    suffix (str): string to append to the end of output_file
     kwargs (dict): dictionary containing additional figure saving parameters. (check plot-stats in wrappers.py)
 
     Returns
@@ -166,7 +166,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
     nexamples (int): maximum number of mice to include in crowd_matrix video
     pad (int): number of frame padding in video
     raw_size (tuple): video dimensions.
-    frame_path (str): path to in-h5 frames variable
+    frame_path (str): variable to access frames in h5 file
     crop_size (tuple): mouse crop size
     max_dur (int or None): maximum syllable duration.
     min_dur (int): minimum syllable duration.
@@ -363,7 +363,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
 
     Parameters
     ----------
-    scalar_df (pandas DataFrame):
+    scalar_df (pandas DataFrame): dataframe containing scalar data.
     sort_vars (list): list of variables to sort the dataframe by.
     group_var (str): groups scalar plots into separate distributions.
     show_scalars (list): list of scalar variables to plot.
@@ -416,7 +416,7 @@ def plot_syll_stats_with_sem(scalar_df, stat='usage', ordering='stat', max_sylls
 
     Parameters
     ----------
-    complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
+    scalar_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
     stat (str): choice of statistic to plot: either usage, duration, or speed
     ordering (str, list, None): "stat" for sorting syllables by their average `stat`. "diff" for sorting syllables by
         the difference in `stat` between `exp_group` and `ctrl_group`. If a list, the user should supply
@@ -426,12 +426,13 @@ def plot_syll_stats_with_sem(scalar_df, stat='usage', ordering='stat', max_sylls
     ctrl_group (str): name of control group to base mutation sorting on.
     exp_group (str): name of experimental group to base mutation sorting on.
     colors (list): list of user-selected colors to represent the data
+    join (bool): flag to connect points of pointplot
     figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
 
     Returns
     -------
     fig (pyplot figure): plotted scalar scatter plot
-    ax (pyplot axis): plotted scalar axis
+    legend (pyplot legend): figure legend
     '''
 
     xlabel = f'Syllables sorted by {stat}'
@@ -470,6 +471,7 @@ def plot_mean_group_heatmap(pdfs, groups, normalize=False):
     ----------
     pdfs (list): list of 2d probability density functions (heatmaps) describing mouse position.
     groups (list): list of groups to compute means and plot
+    normalize (bool): flag to normalize the pdfs between 0-1
 
     Returns
     -------
@@ -512,6 +514,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False):
     sessions (list): list of sessions corresponding to the pdfs indices
     groups (list): list of groups corresponding to the pdfs indices
     subjectNames (list): list of subjectNames corresponding to the pdfs indices
+    normalize (bool): flag to normalize the pdfs between 0-1
 
     Returns
     -------
@@ -564,6 +567,7 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
     pc_cps (1D np.array): Computed PC changepoints
     plot_all (bool): Plot all model changepoints for all keys included in model_cps dict.
     best_model (str): key name to the model with the closest median syllable duration
+    bw_adjust (float): fraction to modify bandwith of kernel density estimate. (lower = higher definition)
 
     Returns
     -------
@@ -575,12 +579,13 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
     # Plot KDEs
     ax = sns.kdeplot(pc_cps, color='orange', label='PCA Changepoints', ax=ax, bw_adjust=bw_adjust)
 
-    if not plot_all and best_model is not None:
-        _mdl = model_results[best_model]
-        model_cps = _mdl['changepoints']
-        kappa = _mdl['model_parameters']['kappa']
+    _mdl = model_results[best_model]
+    model_cps = _mdl['changepoints']
+    kappa = _mdl['model_parameters']['kappa']
 
-        _ = sns.kdeplot(model_cps, ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa:1.02E}')
+    if not plot_all and best_model is not None:
+        ax = sns.kdeplot(model_cps, ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa:1.02E}',
+                         bw_adjust=bw_adjust)
     else:
         palette = sns.color_palette('dark', n_colors=len(model_results))
         for i, (k, v) in enumerate(model_results.items()):
@@ -590,13 +595,10 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
                 ls, alpha = '-', 1 # Solid line for best fit
 
             kappa = v['model_parameters']['kappa']
-            sns.kdeplot(v['changepoints'], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=bw_adjust,
+            ax = sns.kdeplot(v['changepoints'], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=bw_adjust,
                         color=palette[i], label=f'Model Changepoints Kappa={kappa:1.02E}')
     # Format plot
     ax.set_xlim(0, 2)
-
-    if isinstance(model_results, dict):
-        model_cps = model_results[best_model]['changepoints']
 
     # Plot best model description
     s = f'Best Model CP Stats: Mean, median, mode (s) = {np.nanmean(model_cps):.4f},' \

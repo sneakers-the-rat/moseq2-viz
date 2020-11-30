@@ -63,8 +63,8 @@ class TestGUI(TestCase):
     def test_plot_all_stats(self):
         for stat in ['usage', 'duration']:
             gen_dir = 'data/gen_plots/'
-            index_file = 'data/test_index_crowd.yaml'
-            model_path = 'data/mock_model.p'
+            index_file = 'data/test_index.yaml'
+            model_path = 'data/test_model.p'
             output_file = gen_dir + f'test_{stat}s'
 
             plot_stats_command(model_path, index_file, output_file)
@@ -86,7 +86,7 @@ class TestGUI(TestCase):
         shutil.rmtree(gen_dir)
 
     def test_plot_mean_group_position_heatmaps_command(self):
-        index_file = 'data/test_index_crowd.yaml'
+        index_file = 'data/test_index.yaml'
         gen_dir = 'data/gen_plots/'
         output_file = gen_dir + 'test_gHeatmaps'
 
@@ -129,18 +129,22 @@ class TestGUI(TestCase):
 
         progress_paths = {
             'plot_path': 'data/gen_plots/',
-            'model_session_path': 'data/',
+            'model_session_path': 'data/models/',
             'pca_dirname': 'data/_pca/',
             'changepoints_path': 'changepoints'
         }
 
+        os.makedirs(progress_paths['model_session_path'], exist_ok=True)
+        shutil.copy('data/mock_model.p', progress_paths['model_session_path'] + 'mock_model.p')
+
         best_model = get_best_fit_model(progress_paths, plot_all=True)
         assert best_model is not None
         shutil.rmtree(progress_paths['plot_path'])
+        shutil.rmtree(progress_paths['model_session_path'])
 
     def test_make_crowd_movies_command(self):
 
-        index_file = 'data/test_index_crowd.yaml'
+        index_file = 'data/test_index.yaml'
         model_path = 'data/test_model.p'
 
         output_dir = 'data/crowd_movies/'

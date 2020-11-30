@@ -142,7 +142,7 @@ def plot_verbose_position_heatmaps(index_file, output_file):
 @click.option('--width-per-group', type=float, default=8, help="Width (in inches) for figure canvas per group")
 def plot_transition_graph(index_file, model_fit, output_file, **config_data):
 
-    plot_transition_graph_wrapper(index_file, model_fit, config_data, output_file)
+    plot_transition_graph_wrapper(index_file, model_fit, output_file, config_data)
 
 @cli.command(name='plot-stats', help="Plots syllable usages with different sorting,coloring and grouping capabilities")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))

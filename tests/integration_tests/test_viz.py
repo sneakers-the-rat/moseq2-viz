@@ -55,11 +55,11 @@ def get_fake_movie():
 
 def get_ebunch(max_syllable=40, group=('Group1', 'default'), ret_trans=False):
     model_fit = 'data/test_model.p'
-    index_file = 'data/test_index_crowd.yaml'
+    index_file = 'data/test_index.yaml'
     config_file = 'data/config.yaml'
 
     index_data = read_yaml(index_file)
-    index_data['pca_path'] = 'data/test_scores.h5'
+    index_data['pca_path'] = 'data/_pca/pca_scores.h5'
 
     config_data = read_yaml(config_file)
 
@@ -196,8 +196,8 @@ class TestViz(TestCase):
         assert crowd_matrix.shape == (120, 424, 512), "Crowd movie resolution is incorrect"
 
         crowd_matrix = make_crowd_matrix(syllable_slices, max_dur=None, nexamples=1)
-        assert crowd_matrix.shape[0] == 61, "Crowd movie number of frames is incorrect"
-        assert crowd_matrix.shape == (61, 424, 512), "Crowd movie resolution is incorrect"
+        assert crowd_matrix.shape[0] == 62, "Crowd movie number of frames is incorrect"
+        assert crowd_matrix.shape == (62, 424, 512), "Crowd movie resolution is incorrect"
 
     def test_position_plot(self):
         index_file = 'data/test_index_crowd.yaml'
@@ -234,21 +234,17 @@ class TestViz(TestCase):
         os.remove(outfile)
 
     def test_plot_syll_stats_with_sem(self):
-        test_index = 'data/test_index_crowd.yaml'
-        test_model = 'data/mock_model.p'
+        test_index = 'data/test_index.yaml'
+        test_model = 'data/test_model.p'
 
         _, sorted_index = parse_index(test_index)
-        for i, k in enumerate(sorted_index['files']):
-            if i == 1:
-                sorted_index['files'][k]['group'] = 'Group2'
-
         scalar_df = scalars_to_dataframe(sorted_index, model_path=test_model)
 
         complete_df = compute_behavioral_statistics(scalar_df)
 
         # mutation order plot with correct parameters
         fig, _ = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='diff', max_sylls=None, groups=None,
-                                       ctrl_group='Group1', exp_group='Group2', colors=['red', 'orange'])
+                                       ctrl_group='default', exp_group='default', colors=['red', 'orange'])
 
         assert fig is not None
 

@@ -34,9 +34,12 @@ class TestCLI(TestCase):
 
     def test_get_best_model(self):
 
-        input_dir = 'data/'
+        input_dir = 'data/models/'
         cp_file = 'data/_pca/changepoints.h5'
         output_file = 'data/gen_plots/model_vs_pc_changepoints'
+
+        os.makedirs(input_dir, exist_ok=True)
+        shutil.copy('data/mock_model.p', input_dir+'mock_model.p')
 
         run_params = [input_dir, cp_file, output_file]
         runner = CliRunner()
@@ -48,7 +51,7 @@ class TestCLI(TestCase):
         assert (results.exit_code == 0), "CLI Command did not complete successfully"
         assert os.path.exists(output_file+'.png')
         shutil.rmtree(os.path.dirname(output_file))
-
+        shutil.rmtree(input_dir)
 
     def test_copy_h5_metadata_to_yaml(self):
         input_dir = 'data/'
@@ -120,6 +123,7 @@ class TestCLI(TestCase):
                         input_dir + 'test_model.p']
 
         results = runner.invoke(plot_transition_graph, trans_params)
+        print(' '.join([str(x) for x in trans_params]))
 
         assert (results.exit_code == 0), "CLI Command did not complete successfully"
         assert (os.path.exists(gen_dir + 'transitions.png')), "Transition graph PNG not found"
@@ -131,8 +135,8 @@ class TestCLI(TestCase):
         for stat in ['usage', 'duration']:
             gen_dir = 'data/gen_plots/'
 
-            use_params = ['data/test_index_crowd.yaml',
-                          'data/mock_model.p',
+            use_params = ['data/test_index.yaml',
+                          'data/test_model.p',
                           '--output-file', gen_dir + f'test_{stat}',
                           '--stat', stat]
 
@@ -156,8 +160,8 @@ class TestCLI(TestCase):
         max_syllable = 5
         runner = CliRunner()
 
-        crowd_params = [input_dir + 'test_index_crowd.yaml',
-                        input_dir + 'mock_model.p',
+        crowd_params = [input_dir + 'test_index.yaml',
+                        input_dir + 'test_model.p',
                         '-o', crowd_dir,
                         '--max-syllable', str(max_syllable),
                         '--count', 'usage',

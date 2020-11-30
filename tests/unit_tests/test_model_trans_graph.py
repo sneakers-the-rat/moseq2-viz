@@ -27,8 +27,8 @@ class TestModelTransGraph(TestCase):
 
         label_group, label_uuids = get_trans_graph_groups(model)
 
-        assert label_group == ['Group1', 'Group1']
-        assert label_uuids == ['5c72bf30-9596-4d4d-ae38-db9a7a28e912', 'abe92017-1d40-495e-95ef-e420b7f0f4b9']
+        assert label_group == ['default', 'default']
+        assert label_uuids == ['ae8a9d45-7ad9-4048-963f-ca4931125fcd', '66e77b85-f5fa-4e31-a61c-8952394ff441']
 
     def test_get_group_trans_mats(self):
 
@@ -42,7 +42,7 @@ class TestModelTransGraph(TestCase):
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
 
         assert len(trans_mats) == 1
-        assert trans_mats[0].shape == (21, 21)
+        assert trans_mats[0].shape == (20, 20)
         assert len(usages) == 1
         assert len(usages[0]) == 20
 
@@ -56,7 +56,7 @@ class TestModelTransGraph(TestCase):
         model = parse_model_results(test_model)
 
         label_group, _ = get_trans_graph_groups(model)
-        group = set(label_group)
+        group = list(set(label_group))
 
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
         fig, _, _ = graph_transition_matrix(trans_mats,
@@ -76,13 +76,13 @@ class TestModelTransGraph(TestCase):
 
         transitions, locs = get_transitions(model['labels'][0])
 
-        assert len(transitions) == 859
-        assert len(locs) == 859
+        assert len(transitions) == 1
+        assert len(locs) == 1
 
         transitions, locs = get_transitions(model['labels'][1])
 
-        assert len(transitions) == 859
-        assert len(locs) == 859
+        assert len(transitions) == 43
+        assert len(locs) == 43
 
         true_labels = [1, 2, 4, 1, 5]
         durs = [3, 4, 2, 6, 7]
@@ -145,7 +145,7 @@ class TestModelTransGraph(TestCase):
 
         graph = convert_ebunch_to_graph(ebunch)
 
-        assert graph.number_of_nodes() == 12
+        assert graph.number_of_nodes() == 0
 
     def test_convert_transition_matrix_to_ebunch(self):
 
@@ -161,8 +161,8 @@ class TestModelTransGraph(TestCase):
                                                               edge_threshold=edge_threshold,
                                                               max_syllable=max_syllable)
 
-        assert len(ebunch) == 13
-        assert len(orphans) == 387
+        assert len(ebunch) == 0
+        assert len(orphans) == 400
 
     def test_make_difference_graph(self):
 
@@ -200,7 +200,7 @@ class TestModelTransGraph(TestCase):
         assert len(new_usages) == 3
         assert len(new_group_names) == 3
         assert len(new_difference_graphs) == 1 # no previously generated graphs were passed
-        assert new_group_names[-1] == 'Group2 - Group1'
+        assert new_group_names[-1] == 'Group2 - default'
 
     def test_make_transition_graphs(self):
 
@@ -330,13 +330,11 @@ class TestModelTransGraph(TestCase):
 
         label_group, _ = get_trans_graph_groups(model)
         group = list(set(label_group))
-        group += ['Group2']
-        label_group[1] = 'Group2'
 
-        trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 20, normalize='bigram')
+        trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 50, normalize='rows')
 
         fig, ax, pos = graph_transition_matrix(trans_mats, usages=usages, groups=group)
 
-        assert len(pos.keys()) == 12
-        assert ax.shape == (2, 2)
+        assert len(pos.keys()) == 4
+        assert len(ax) == 1
         assert fig is not None

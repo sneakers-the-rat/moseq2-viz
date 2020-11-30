@@ -25,8 +25,8 @@ class TestIOVideo(TestCase):
 
     def test_write_crowd_movies(self):
 
-        index_file = 'data/test_index_crowd.yaml'
-        model_path = 'data/mock_model.p'
+        index_file = 'data/test_index.yaml'
+        model_path = 'data/test_model.p'
         config_file = 'data/config.yaml'
         output_dir = 'data/crowd_movies/'
         max_syllable = 5

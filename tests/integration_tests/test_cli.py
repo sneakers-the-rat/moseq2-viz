@@ -198,7 +198,7 @@ class TestCLI(TestCase):
 
         results = runner.invoke(make_crowd_movies, groupby_params)
 
-        outpath = os.path.join(crowd_dir, 'Group1/')
+        outpath = os.path.join(crowd_dir, 'default/')
 
         assert (results.exit_code == 0), "CLI Command did not complete successfully"
         assert os.path.exists(outpath), "Crowd movies directory was not found"

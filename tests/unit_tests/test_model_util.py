@@ -359,7 +359,7 @@ class TestModelUtils(TestCase):
         best_model, _ = get_best_fit(cp_file, model_results)
         assert best_model['best model - duration'] == 'model1'
 
-    def _test_make_separate_crowd_movies(self):
+    def test_make_separate_crowd_movies(self):
 
         index_file = 'data/test_index_crowd.yaml'
         model_path = 'data/mock_model.p'

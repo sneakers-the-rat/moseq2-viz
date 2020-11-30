@@ -67,7 +67,7 @@ def copy_h5_metadata_to_yaml(input_dir):
 @click.argument('model-path', type=click.Path(exists=True, resolve_path=True))
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
 @click.option('--max-examples', '-m', type=int, default=40, help="Number of examples to show")
-@click.option('--threads', '-t', type=int, default=-1, help="Number of threads to use for rendering crowd movies")
+@click.option('--processes', type=int, default=None, help="Number of processes to use for rendering crowd movies. Default None uses every process")
 @click.option('--separate-by', type=click.Choice(['default', 'groups', 'sessions', 'subjects']), default='default', help="Generate crowd movies from individual group sources.")
 @click.option('--specific-syllable', type=int, default=None, help="Index of max syllable to render")
 @click.option('--session-names', '-s', default=[], type=str, help="SessionNames to create crowd movies from", multiple=True)
@@ -81,7 +81,7 @@ def copy_h5_metadata_to_yaml(input_dir):
 @click.option('--raw-size', type=(int, int), default=(512, 424), help="Size of original videos")
 @click.option('--scale', type=float, default=1, help="Scaling from pixel units to mm")
 @click.option('--cmap', type=str, default='jet', help="Name of valid Matplotlib colormap for false-coloring images")
-@click.option('--max-dur', default=300, help="Exclude syllables longer than this number of frames (None for no limit)")
+@click.option('--max-dur', default=60, help="Exclude syllables longer than this number of frames (None for no limit)")
 @click.option('--min-dur', default=0, help="Exclude syllables shorter than this number of frames")
 @click.option('--legacy-jitter-fix', default=False, type=bool, help="Set to true if you notice jitter in your crowd movies")
 @click.option('--frame-path', default='frames', type=str, help='Path to depth frames in h5 file')
@@ -89,7 +89,7 @@ def copy_h5_metadata_to_yaml(input_dir):
 @click.option('--pad', default=30, help='Pad crowd movie videos with this many frames.')
 def make_crowd_movies(index_file, model_path, output_dir, **config_data):
 
-    make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir)
+    make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data)
 
     print(f'Crowd movies successfully generated in {output_dir}.')
 
@@ -151,12 +151,12 @@ def plot_transition_graph(index_file, model_fit, output_file, **config_data):
 @click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'syll_stat'), help="Filename to store plot")
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
 @click.option('--figsize', type=tuple, default=(10, 5), help="Size in inches (w x h) of the plotted figure.")
-@click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
+@click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to relabel syllables')
 @click.option('--max-syllable', type=int, default=40, help="Index of max syllable to render")
 @click.option('-g', '--group', type=str, default=None, help="Name of group(s) to show", multiple=True)
-@click.option('-o', '--ordering', type=str, default='stat', help="How to order the groups")
-@click.option('--ctrl-group', type=str, default=None, help="Name of control group. Only if ordering = 'm'")
-@click.option('--exp-group', type=str, default=None, help="Name of experimental group. Only if ordering = 'm'")
+@click.option('-o', '--ordering', type=str, default='stat', help="How to order syllables in plot")
+@click.option('--ctrl-group', type=str, default=None, help="Name of control group. Only if ordering = 'diff'")
+@click.option('--exp-group', type=str, default=None, help="Name of experimental group. Only if ordering = 'diff'")
 @click.option('-c', '--colors', type=str, default=None, help="Colors to plot groups with.", multiple=True)
 def plot_stats(index_file, model_fit, output_file, **cli_kwargs):
 

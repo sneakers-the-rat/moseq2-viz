@@ -10,12 +10,11 @@ import h5py
 import warnings
 import numpy as np
 import seaborn as sns
+import matplotlib as mpl
 from tqdm.auto import tqdm
+from os.path import dirname
 from scipy.stats import mode
-from matplotlib import gridspec
 import matplotlib.pyplot as plt
-from os.path import dirname, exists
-from cytoolz import groupby, valmap
 from moseq2_viz.model.util import sort_syllables_by_stat, sort_syllables_by_stat_difference
 
 
@@ -136,8 +135,8 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
     Parameters
     ----------
     fig (pyplot.Figure): open figure to save
-    output_file (str): path to save figure to
-    name (str): dynamic figure name; allows for overriding name with specific value/prefix
+    output_file (str): path to save figure to (without extension)
+    suffix (str): string to append to the end of output_file
     kwargs (dict): dictionary containing additional figure saving parameters. (check plot-stats in wrappers.py)
 
     Returns
@@ -155,7 +154,7 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
 
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
-                      crop_size=(80, 80), max_dur=1000, min_dur=0, offset=(50, 50), scale=1,
+                      crop_size=(80, 80), max_dur=60, min_dur=0, offset=(50, 50), scale=1,
                       center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
                       **kwargs):
     '''
@@ -167,7 +166,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
     nexamples (int): maximum number of mice to include in crowd_matrix video
     pad (int): number of frame padding in video
     raw_size (tuple): video dimensions.
-    frame_path (str): path to in-h5 frames variable
+    frame_path (str): variable to access frames in h5 file
     crop_size (tuple): mouse crop size
     max_dur (int or None): maximum syllable duration.
     min_dur (int): minimum syllable duration.
@@ -203,16 +202,13 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
     if len(use_slices) > nexamples:
         use_slices = np.random.permutation(use_slices)[:nexamples]
-        # use_slices = [use_slices[i] for i in np.random.permutation(np.arange(len(use_slices)))[:nexamples]]
-
-    max_dur = max(i[1]-i[0] for i, _, _ in use_slices)
 
     if len(use_slices) == 0 or max_dur < 0:
         return None
 
     crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype='uint8')
 
-    for idx, uuid, fname in use_slices:
+    for idx, _, fname in use_slices:
         use_idx = (idx[0] - pad, idx[0] + max_dur + pad)
         idx_slice = slice(*use_idx)
 
@@ -367,7 +363,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
 
     Parameters
     ----------
-    scalar_df (pandas DataFrame):
+    scalar_df (pandas DataFrame): dataframe containing scalar data.
     sort_vars (list): list of variables to sort the dataframe by.
     group_var (str): groups scalar plots into separate distributions.
     show_scalars (list): list of scalar variables to plot.
@@ -385,6 +381,8 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
 
     if colors is None or len(colors) == 0:
         colors = sns.color_palette()
+
+    plt_kwargs['aspect'] = 0.6 * len(scalar_df[group_var].unique())
 
     # sort scalars into a neat summary using group_vars
     summary = scalar_df.groupby(sort_vars)[show_scalars].aggregate(['mean', 'std']).reset_index()
@@ -418,7 +416,7 @@ def plot_syll_stats_with_sem(scalar_df, stat='usage', ordering='stat', max_sylls
 
     Parameters
     ----------
-    complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
+    scalar_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
     stat (str): choice of statistic to plot: either usage, duration, or speed
     ordering (str, list, None): "stat" for sorting syllables by their average `stat`. "diff" for sorting syllables by
         the difference in `stat` between `exp_group` and `ctrl_group`. If a list, the user should supply
@@ -428,12 +426,13 @@ def plot_syll_stats_with_sem(scalar_df, stat='usage', ordering='stat', max_sylls
     ctrl_group (str): name of control group to base mutation sorting on.
     exp_group (str): name of experimental group to base mutation sorting on.
     colors (list): list of user-selected colors to represent the data
+    join (bool): flag to connect points of pointplot
     figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
 
     Returns
     -------
     fig (pyplot figure): plotted scalar scatter plot
-    ax (pyplot axis): plotted scalar axis
+    legend (pyplot legend): figure legend
     '''
 
     xlabel = f'Syllables sorted by {stat}'
@@ -464,7 +463,7 @@ def plot_syll_stats_with_sem(scalar_df, stat='usage', ordering='stat', max_sylls
     return fig, legend
 
 
-def plot_mean_group_heatmap(pdfs, groups):
+def plot_mean_group_heatmap(pdfs, groups, normalize=False):
     '''
     Computes the overall group mean of the computed PDFs and plots them.
 
@@ -472,6 +471,7 @@ def plot_mean_group_heatmap(pdfs, groups):
     ----------
     pdfs (list): list of 2d probability density functions (heatmaps) describing mouse position.
     groups (list): list of groups to compute means and plot
+    normalize (bool): flag to normalize the pdfs between 0-1
 
     Returns
     -------
@@ -484,14 +484,18 @@ def plot_mean_group_heatmap(pdfs, groups):
 
     fig, ax = plt.subplots(nrows=len(uniq_groups), ncols=1, sharex=True, sharey=True,
                            figsize=(4, 5 * len(uniq_groups)))
-    ax = np.array(ax)
+    if not isinstance(ax, np.ndarray):
+        ax = np.array(ax)
     for a, group in zip(ax.flat, uniq_groups):
         idx = groups == group
+        avg_hist = pdfs[idx].mean(axis=0)
+        if normalize:
+            _min_val = (avg_hist[avg_hist > 0]).min()
+            avg_hist = (avg_hist + _min_val) / (avg_hist.max() + _min_val)
 
-        avg_hist = pdfs[idx].mean(0)/pdfs[idx].mean(0).max()
-
-        im = a.imshow(avg_hist)
-        fig.colorbar(im, ax=a, fraction=0.046, pad=0.04)
+        im = a.imshow(avg_hist, norm=mpl.colors.LogNorm())
+        # fraction to make the colorbar match image height
+        fig.colorbar(im, ax=a, fraction=0.046, pad=0.04, format='%.0e')
 
         a.set_xticks([])
         a.set_yticks([])
@@ -500,7 +504,7 @@ def plot_mean_group_heatmap(pdfs, groups):
     return fig
 
 
-def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
+def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False):
     '''
     Plots the PDF position heatmap for each session, titled with the group and subjectName.
 
@@ -510,6 +514,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
     sessions (list): list of sessions corresponding to the pdfs indices
     groups (list): list of groups corresponding to the pdfs indices
     subjectNames (list): list of subjectNames corresponding to the pdfs indices
+    normalize (bool): flag to normalize the pdfs between 0-1
 
     Returns
     -------
@@ -523,31 +528,35 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames):
     fig, ax = plt.subplots(nrows=np.max(count), ncols=len(uniq_groups), sharex=True,
                            sharey=True, figsize=figsize)
 
-    ax = np.reshape(np.array(ax), (np.max(count), len(uniq_groups)))
-    for i, group in tqdm(enumerate(uniq_groups), total=len(uniq_groups)):
+    if not isinstance(ax, np.ndarray):
+        ax = np.array([[ax]])
+    if ax.ndim < 2:
+        ax = ax[:, None]
+    for i, group in enumerate(tqdm(uniq_groups)):
         idx = np.array(groups) == group
         tmp_sessions = np.asarray(sessions)[idx]
         names = np.asarray(subjectNames)[idx]
-        norm = pdfs[idx].mean(0) / pdfs[idx].mean(0).max()
-        vmax = np.percentile(norm, 97.5)
-        for j, sess in enumerate(tmp_sessions):
+        for sess, name, a in zip(tmp_sessions, names, ax[:, i]):
             idx = np.array(sessions) == sess
-            plt.subplot(ax[j, i])
 
-            avg = pdfs[idx].mean(0) / pdfs[idx].mean(0).max()
+            avg_hist = pdfs[idx].mean(axis=0)
 
-            im = plt.imshow(avg, vmax=vmax)
-            plt.colorbar(im, fraction=0.046, pad=0.04)
+            if normalize:
+                _min_val = (avg_hist[avg_hist > 0]).min()
+                avg_hist = (avg_hist + _min_val) / (avg_hist.max() + _min_val)
 
-            plt.xticks([])
-            plt.yticks([])
+            im = a.imshow(avg_hist, norm=mpl.colors.LogNorm())
+            fig.colorbar(im, ax=a, fraction=0.046, pad=0.04, format='%.0e')
 
-            plt.title(f'{group}: {names[j]}', fontsize=10)
+            a.set_xticks([])
+            a.set_yticks([])
+
+            a.set_title(f'{group}: {name}', fontsize=10)
 
     return fig
 
 
-def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
+def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, bw_adjust=0.4):
     '''
     Plot the duration distributions for model labels and
     principal component changepoints.
@@ -558,6 +567,7 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
     pc_cps (1D np.array): Computed PC changepoints
     plot_all (bool): Plot all model changepoints for all keys included in model_cps dict.
     best_model (str): key name to the model with the closest median syllable duration
+    bw_adjust (float): fraction to modify bandwith of kernel density estimate. (lower = higher definition)
 
     Returns
     -------
@@ -567,20 +577,15 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
 
     fig, ax = plt.subplots(1, 1, figsize=(8, 5))
     # Plot KDEs
-    ax = sns.kdeplot(pc_cps, color='orange', label='PCA Changepoints', ax=ax)
+    ax = sns.kdeplot(pc_cps, color='orange', label='PCA Changepoints', ax=ax, bw_adjust=bw_adjust)
 
-    if not plot_all:
-        if best_model is not None:
-            model_cps = model_results[best_model]['changepoints']
+    _mdl = model_results[best_model]
+    model_cps = _mdl['changepoints']
+    kappa = _mdl['model_parameters']['kappa']
 
-        kappa = 'default'
-        if '-' in best_model:
-            kappa = best_model.split("-")[1].split(".")[0]
-        try:
-            _ = sns.kdeplot(model_cps, ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa}')
-        except RuntimeError:
-            sns.kdeplot(model_cps, ax=ax, bw_adjust=0.5, color='blue', label=f'Model Changepoints Kappa={kappa}')
-
+    if not plot_all and best_model is not None:
+        ax = sns.kdeplot(model_cps, ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa:1.02E}',
+                         bw_adjust=bw_adjust)
     else:
         palette = sns.color_palette('dark', n_colors=len(model_results))
         for i, (k, v) in enumerate(model_results.items()):
@@ -589,22 +594,11 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
             if k == best_model:
                 ls, alpha = '-', 1 # Solid line for best fit
 
-            kappa = 'default'
-            if '-' in k:
-                kappa = k.split("-")[1].split(".")[0]
-
-            try:
-                sns.kdeplot(v['changepoints'], ax=ax, linestyle=ls, alpha=alpha,
-                            color=palette[i], label=f'Model Changepoints Kappa={kappa}')
-            except RuntimeError:
-                # if seaborn cannot automatically estimate the bandwidth, it will be manually set.
-                sns.kdeplot(v['changepoints'], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=0.5,
-                            color=palette[i], label=f'Model Changepoints Kappa={kappa}')
+            kappa = v['model_parameters']['kappa']
+            ax = sns.kdeplot(v['changepoints'], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=bw_adjust,
+                        color=palette[i], label=f'Model Changepoints Kappa={kappa:1.02E}')
     # Format plot
     ax.set_xlim(0, 2)
-
-    if isinstance(model_results, dict):
-        model_cps = model_results[best_model]['changepoints']
 
     # Plot best model description
     s = f'Best Model CP Stats: Mean, median, mode (s) = {np.nanmean(model_cps):.4f},' \
@@ -613,12 +607,11 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None):
     t = f'PC CP Stats: Mean, median, mode (s) = {np.nanmean(pc_cps):.4f}, ' \
         f'{np.nanmedian(pc_cps):.4f}, {mode(pc_cps)[0][0]:.4f}'
 
-    ax.text(.5, 1.8, s, fontsize=12)
-    ax.text(.5, 1.6, t, fontsize=12)
+    ax.text(0.5, 1.8, s, fontsize=12)
+    ax.text(0.5, 1.6, t, fontsize=12)
     ax.set_xlabel('Block duration (s)')
-    ax.set_ylabel('P(duration)')
-    # place legend below x-axis
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.11), fancybox=True, shadow=True)
+    ax.set_ylabel('Probability density')
+    ax.legend(frameon=False, bbox_to_anchor=(1, 0), loc='lower left')
     sns.despine()
 
     return fig, ax

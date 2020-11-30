@@ -116,7 +116,11 @@ class TestGUI(TestCase):
         group = ('Group1', 'default')
         output_file = gen_dir+'test_transitions'
 
-        plot_transition_graph_command(index_file, model_path, config_file, max_syllable, group, output_file)
+        config_data = read_yaml(config_file)
+        config_data['max_syllable'] = max_syllable
+        config_data['group'] = group
+
+        plot_transition_graph_command(index_file, model_path, output_file, config_data)
         assert (os.path.exists(output_file + '.png')), "Transition PNG graph was not saved"
         assert (os.path.exists(output_file + '.pdf')), "Transition PDF graph was not saved"
         shutil.rmtree(gen_dir)
@@ -131,7 +135,7 @@ class TestGUI(TestCase):
         }
 
         best_model = get_best_fit_model(progress_paths, plot_all=True)
-        assert best_model != None
+        assert best_model is not None
         shutil.rmtree(progress_paths['plot_path'])
 
     def test_make_crowd_movies_command(self):

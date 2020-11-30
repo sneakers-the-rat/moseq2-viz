@@ -3,7 +3,6 @@
 Utility functions for estimating "behavioral distance" AKA model state similarity analysis.
 
 '''
-
 import warnings
 import numpy as np
 from copy import deepcopy
@@ -31,7 +30,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
     index (str): Path to index file
     model_file (str): Path to trained model
     whiten (str): Indicates whether to whiten all PCs at once or each one at a time. Options = ['all', 'each']
-    distances (list): List of distances to compute.
+    distances (list or str): type of distance(s) to compute.
         Available options = ['scalars', 'ar[init]', 'ar[dtw]', 'pca[dtw]', 'combined']
     max_syllable (int): Maximum number of syllables/AR matrices to include in analysis
     resample_idx (int): Indicates the parsing method according to the shape of the labels array.
@@ -72,6 +71,8 @@ def get_behavioral_distance(index, model_file, whiten='all',
             'include_scalars': ['velocity_3d_mm', 'angle', 'height_ave_mm', 'width_mm', 'length_mm']
             }
         }
+    if isinstance(distances, str):
+        distances = [distances]
 
     for k in defaults:
         dist_options[k] = {**defaults[k], **dist_options.get(k, dict())}
@@ -351,11 +352,8 @@ def reformat_dtw_distances(full_mat, nsyllables, rescale=True):
             warnings.simplefilter('ignore', category=RuntimeWarning)
             rmat = np.nanmean(rmat, axis=2)
 
-        rmat = rmat.T
-        rmat = rmat.reshape(nsyllables, nsyllables, nsamples)
-
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', category=RuntimeWarning)
+            rmat = rmat.T
+            rmat = rmat.reshape(nsyllables, nsyllables, nsamples)
             rmat = np.nanmean(rmat, axis=2)
 
     diag_vals = rmat.diagonal()

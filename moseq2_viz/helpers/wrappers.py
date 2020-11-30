@@ -5,17 +5,15 @@ Each wrapper function executes the functionality from end-to-end given it's depe
 (See CLI Click parameters)
 
 '''
-
 import os
 import shutil
-import psutil
+import matplotlib as mpl
 from glob import glob
-from sys import platform
-import ruamel.yaml as yaml
+from ruamel import yaml
 from tqdm.auto import tqdm
 from cytoolz import keyfilter, groupby
 from os.path import exists, join, dirname, basename
-from moseq2_viz.scalars.util import (scalars_to_dataframe, compute_all_pdf_data)
+from moseq2_viz.scalars.util import scalars_to_dataframe, compute_all_pdf_data
 from moseq2_viz.io.video import write_crowd_movies, write_crowd_movie_info_file
 from moseq2_viz.util import (parse_index, get_index_hits, get_metadata_path, clean_dict,
                              h5_to_dict, recursive_find_h5s)
@@ -45,7 +43,6 @@ def init_wrapper_function(index_file=None, output_dir=None, output_file=None):
     Parameters
     ----------
     index_file (str): path to index file to load.
-    model_fit (str): path to model to use.
     output_dir (str): path to directory to save plots in.
     output_file (str): path to saved figures.
 
@@ -53,7 +50,6 @@ def init_wrapper_function(index_file=None, output_dir=None, output_file=None):
     -------
     index (dict): loaded index file dictionary
     sorted_index (dict): OrderedDict object representing a sorted version of index
-    model_data (dict): loaded model dictionary containing modeling results
     '''
 
     _make_directories(output_dir, output_file)
@@ -122,7 +118,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     '''
     Given a directory containing multiple models trained on different kappa values,
     finds the model with the closest median syllable duration to the PC changepoints.
-     Function also graphs the distributions of the best fit model and PC changepoints
+    Function also graphs the distributions of the best fit model and PC changepoints
 
     Parameters
     ----------
@@ -161,42 +157,34 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
 
     print('Model closest to PC scores:', best_model_info[f'best model - {objective}'])
 
-    if plot_all:
-        # Graph all the model CP dists
-        fig, ax = plot_cp_comparison(model_results, pca_changepoints, plot_all=plot_all, best_model=best_model_info[f'best model - {objective}'])
-    else:
-        # Graph the best-fit model CP difference
-        fig, ax = plot_cp_comparison(model_results, pca_changepoints, best_model=best_model_info[f'best model - {objective}'])
+    # Graph model CP difference(s)
+    fig, ax = plot_cp_comparison(model_results, pca_changepoints, plot_all=plot_all, best_model=best_model_info[f'best model - {objective}'])
 
     # Save the figure
-    if output_file != None:
-        save_fig(fig, output_file)
+    if output_file is not None:
+        legends = [c for c in ax.get_children() if isinstance(c, mpl.legend.Legend)]
+        save_fig(fig, output_file, bbox_extra_artists=legends, bbox_inches='tight')
 
     return best_model_info, fig
+
 
 def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None,
                                 show_scalars=['velocity_2d_mm', 'velocity_3d_mm',
                                               'height_ave_mm', 'width_mm', 'length_mm']):
     '''
-    Wrapper function that plots scalar summary graphs.
-
-    Note: function is decorated with function performing initialization operations and saving
-    the results in the kwargs variable.
-
-    Decorator will retrieve the sorted_index dict.
+    Creates a scalar summary graph.
 
     Parameters
     ----------
     index_file (str): path to index file.
-    output_file (str): path to save graphs.
+    output_file (str): path to save graphs
     groupby (str): scalar_df column to group sessions by when graphing scalar and position summaries
-    colors (list): list of colors to serve as the sns palette in the scalar summary
+    colors (list): list of colors to serve as the palette in the scalar summary
     show_scalars (list): list of scalar variables to plot.
 
     Returns
     -------
     scalar_df (pandas DataFrame): df containing scalar data per session uuid.
-    (Only accessible through GUI API)
     '''
 
     # Get loaded index dict
@@ -213,14 +201,11 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
 
     return scalar_df
 
+
 def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage', sort=True, count='usage', group=None, max_syllable=40,
                                ordering=None, ctrl_group=None, exp_group=None, colors=None, figsize=(10, 5)):
     '''
-    Wrapper function to plot specified syllable statistic.
-
-    Note: function is decorated with function performing initialization operations and saving
-    the results in the kwargs variable.
-    Decorator will retrieve the sorted_index dict and parse the model results into a single dict.
+    Graph given syllable statistic from a trained AR-HMM model.
 
     Parameters
     ----------
@@ -229,22 +214,24 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     output_file (str): filename for syllable usage graph.
     stat (str): syllable statistic to plot. It can be any of the scalars (i.e., velocity_2d_mm) in addition
         to: 'usage' and 'duration'
-    sort (bool): sort syllables by usage.
-    count (str): method to compute usages 'usage' or 'frames'.
-    group (tuple, list, None): tuple or list of groups to separately model usages. (None to graph all groups)
+    sort (bool): sort syllables by `count`.
+    count (str): method to sort syllables: 'usage' or 'frames'.
+    group (tuple, list, None): tuple or list of groups to include in usage plot. (None to graph all groups)
     max_syllable (int): maximum number of syllables to plot.
-    ordering (list, range, str, None): order to list syllables. Default is None to graph syllables [0-max_syllable).
-        Setting ordering to "m" will graph mutated syllable usage difference between ctrl_group and exp_group.
-        None to graph default [0,max_syllable] in order. "usage" to plot descending order of usage values.
-    ctrl_group (str): Control group to graph when plotting mutation differences via setting ordering to 'm'.
-    exp_group (str): Experimental group to directly compare with control group.
+    ordering (list, range, str, None): order to list syllables. Default is None to graph syllables [0-max_syllable)
+        in numerical order. Setting ordering to "diff" will sort syllables based the difference in "stat"
+        between ctrl_group and exp_group. "stat" to order syllables by stat values.
+    ctrl_group (str): Control group to graph.
+    exp_group (str): Experimental group to compare with control group.
     colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
     figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
 
     Returns
     -------
-    plt (pyplot figure): graph to show in Jupyter Notebook.
+    fig (pyplot figure): figure to show in Jupyter Notebook.
     '''
+    if ordering == 'diff' and any(x is None for x in (ctrl_group, exp_group)):
+        raise ValueError('ctrl_group and exp_group must be specified to order by group differences') 
 
     # Load index file and model data
     _, sorted_index = init_wrapper_function(index_file, output_file=output_file)
@@ -253,31 +240,27 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
 
     syll_key = f'labels ({count} sort)'
     features = compute_behavioral_statistics(scalar_df, count=count, syllable_key=syll_key)
-    features = features.query('syllable <= @max_syllable').copy()
+    features = features.query('syllable < @max_syllable').copy()
 
     # Plot and save syllable stat plot
-    plt, lgd = plot_syll_stats_with_sem(features, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,
+    fig, lgd = plot_syll_stats_with_sem(features, ctrl_group=ctrl_group, exp_group=exp_group, colors=colors, groups=group,
                                         ordering=ordering, stat=stat, max_sylls=max_syllable, figsize=figsize)
 
     # Save
-    save_fig(plt, output_file, bbox_extra_artists=(lgd,), bbox_inches='tight')
+    save_fig(fig, output_file, bbox_extra_artists=(lgd,), bbox_inches='tight')
 
-    return plt
+    return fig
 
-def plot_mean_group_position_pdf_wrapper(index_file, output_file, normalize=True):
+def plot_mean_group_position_pdf_wrapper(index_file, output_file, normalize=False):
     '''
-    Wrapper function that computes the PDF of the rodent's position throughout the respective sessions,
-    and averages these values with respect to their groups to graph a mean position heatmap for each group.
-
-    Note: function is decorated with function performing initialization operations and saving
-    the results in the kwargs variable.
-
-    Decorator will retrieve the sorted_index dict.
+    Computes the position PDF for each session, averages the PDFs within each group,
+    and plots the averaged PDFs.
 
     Parameters
     ----------
     index_file (str): path to index file.
     output_file (str): filename for the group heatmap graph.
+    normalize (bool): normalize the PDF so that min and max values range from 0-1.
 
     Returns
     -------
@@ -306,15 +289,11 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=True):
     Wrapper function that computes the PDF for the mouse position for each session in the index file.
     Will plot each session's heatmap with a "SessionName: Group"-like title.
 
-    Note: function is decorated with function performing initialization operations and saving
-    the results in the kwargs variable.
-
-    Decorator will retrieve the sorted_index dict.
-
     Parameters
     ----------
     index_file (str): path to index file.
     output_file (str): filename for the verbose heatmap graph.
+    normalize (bool): normalize the PDF so that min and max values range from 0-1.
 
     Returns
     -------
@@ -338,22 +317,16 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=True):
 
     return fig
 
-def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_file):
+def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_data):
     '''
     Wrapper function to plot transition graphs.
-
-    Note: function is decorated with function performing initialization operations and saving
-    the results in the kwargs variable.
-
-    Decorator will retrieve the sorted_index dict and parse the model results into a single dict.
 
     Parameters
     ----------
     index_file (str): path to index file
     model_fit (str): path to trained model.
-    config_data (dict): dictionary containing the user specified keys and values
     output_file (str): filename for syllable usage graph.
-    kwargs (dict): dict containing loaded model data and index dicts
+    config_data (dict): dictionary containing the user specified keys and values
 
     Returns
     -------
@@ -377,7 +350,8 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
         labels = relabel_by_usage(labels, count=config_data['count'])[0]
 
     # Get modeled session uuids to compute group-mean transition graph for
-    group, label_group, _ = get_trans_graph_groups(model_data, sorted_index)
+    label_group, _ = get_trans_graph_groups(model_data)
+    group = list(set(label_group))
 
     print('Computing transition matrices...')
     try:
@@ -398,21 +372,24 @@ def plot_transition_graph_wrapper(index_file, model_fit, config_data, output_fil
 
     return plt
 
-def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
+def make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data):
     '''
-
     Wrapper function to create crowd movie videos and write them to individual
     files depicting respective syllable labels.
-    Note: function is decorated with function performing initialization operations and saving
-    the results in the kwargs variable.
-    Decorator will retrieve the sorted_index dict and parse the model results into a single dict.
 
     Parameters
     ----------
     index_file (str): path to index file
     model_path (str): path to trained model.
-    config_data (dict): dictionary containing the user specified keys and values
     output_dir (str): directory to store crowd movies in.
+    config_data (dict): dictionary conataining all the necessary parameters to generate the crowd movies.
+        E.g.: max_syllable: Maximum number of syllables to generate crowd movies for.
+              max_example: Maximum number of mouse examples to include in each crowd movie
+              specific_syllable: Set to a syllable number to only generate crowd movies of that syllable.
+                if value is None, command will generate crowd movies for all syllables with # <= max_syllable.
+              separate_by: ['default', 'groups', 'sessions', 'subjects']; If separate_by != 'default', the command
+                  will generate a separate crowd movie for each selected grouping per syllable.
+                  Resulting in (ngroups * max_syllable) movies.
 
     Returns
     -------
@@ -422,13 +399,6 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
     # Load index file and model data
     model_fit = parse_model_results(model_path)
     _, sorted_index = init_wrapper_function(index_file, output_dir=output_dir)
-
-    # Get number of CPUs to optimize crowd movie creation and writing speed
-    if platform in ['linux', 'linux2']:
-        print('Setting CPU affinity to use all CPUs...')
-        cpu_count = psutil.cpu_count()
-        proc = psutil.Process()
-        proc.cpu_affinity(list(range(cpu_count)))
 
     # Get list of syllable labels for all sessions
     labels = model_fit['labels']
@@ -470,8 +440,10 @@ def make_crowd_movies_wrapper(index_file, model_path, config_data, output_dir):
 
     # Optionally generate crowd movies from independent sources, i.e. groups, or individual sessions.
     if separate_by == 'groups':
-        # Get the groups to separate the arrays by
-        group_keys = groupby(lambda k: sorted_index['files'][k]['group'], label_uuids)
+        # Get the groups to separate the arrays by - use model-assigned groups because index file could
+        # be different
+        _grp = model_fit['metadata']['groups']
+        group_keys = groupby(lambda k: _grp[k], _grp)
 
         # Write crowd movies for each group
         cm_paths = make_separate_crowd_movies(config_data, sorted_index, group_keys,

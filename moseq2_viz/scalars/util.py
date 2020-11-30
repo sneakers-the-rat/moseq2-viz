@@ -14,11 +14,9 @@ from multiprocessing import Pool
 from collections import defaultdict
 from cytoolz import valmap, get, merge
 from os.path import join, exists, dirname
-from sklearn.neighbors import KernelDensity
-from moseq2_viz.model.util import (get_transitions, parse_model_results, relabel_by_usage,
-                                   prepare_model_dataframe)
-from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
-                             h5_filepath_from_sorted, get_timestamps_from_h5, parse_index)
+from moseq2_viz.model.util import get_transitions, prepare_model_dataframe
+from moseq2_viz.util import (h5_to_dict, strided_app, h5_filepath_from_sorted,
+                             get_timestamps_from_h5, parse_index)
 
 
 def _star_itemmap(func, d):
@@ -469,6 +467,10 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 
         # make sure we have labels for this UUID before merging
         if has_model and k in labels_df.index:
+            if _tmp_df['group'].unique() != labels_df.loc[k, 'group'].unique():
+                warnings.warn('Group labels from index.yaml and model results do not match! Setting group labels '
+                              'to ones used in the model.')
+                _tmp_df = _tmp_df.drop(columns=['group'])
             _tmp_df = pd.merge(_tmp_df, labels_df.loc[k], on='frame index', how='outer')
             _tmp_df = _tmp_df.sort_values(by='syllable index').reset_index(drop=True)
             # fill any NaNs for metadata columns
@@ -513,7 +515,7 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
         subjectNames.append(_df[key].iat[0])
 
         pos = _df[centroid_vars].dropna(how='any')
-        H, _, _ = np.histogram2d(pos.iloc[:, 0], pos.iloc[:, 1], bins=bins, density=normalize)
+        H, _, _ = np.histogram2d(pos.iloc[:, 1], pos.iloc[:, 0], bins=bins, density=normalize)
         pdfs.append(H)
 
     return np.array(pdfs), groups, sessions, subjectNames
@@ -586,9 +588,10 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
     Parameters
     ----------
     scalar_df (pd.DataFrame): DataFrame containing scalar data & labels for all sessions
+    syllable_key (str): dataframe column to access syllable labels
     centroid_keys (list): list of column names containing the centroid values used to compute mouse position.
     syllables (list): List of syllables to compute heatmaps for.
-    normalize (bool): If True, normalizes the histogram
+    normalize (bool): If True, normalizes the histogram to be a probability density
     bins (int): number of bins to cut the position data into
 
     Returns
@@ -600,66 +603,11 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
         raise ValueError('You need to supply a model path to `scalars_to_dataframe` in order to merge syllable labels into `scalar_df`')
 
     def _compute_histogram(df):
-        df = df[centroid_keys].dropna()
-        H, _, _ = np.histogram2d(df[centroid_keys[0]], df[centroid_keys[1]], bins=bins, density=normalize)
+        df = df[centroid_keys].dropna(how='any')
+        H, _, _ = np.histogram2d(df.iloc[:, 1], df.iloc[:, 0], bins=bins, density=normalize)
         return H
 
     filtered_df = scalar_df[scalar_df[syllable_key].isin(syllables)]
     hists = filtered_df.groupby(['group', 'uuid', 'SessionName', 'SubjectName', syllable_key]).apply(_compute_histogram)
 
     return hists
-
-    # with warnings.catch_warnings():
-    #     warnings.filterwarnings('ignore')
-
-    #     lbl_df = label_df.T
-    #     columns = lbl_df.columns
-    #     gk = ['group', 'uuid']
-
-    #     # Get centroid columns and groups to compute syllable position PDFs for.
-    #     centroid_coords = scalar_df[centroid_keys + gk]
-
-    #     all_sessions = []
-    #     # Iterate through all found sessions
-    #     for col in tqdm(columns, total=len(columns), desc=f'Computing Per Session Syll Positions'):
-    #         # Get mouse centroid positions in each session to compute position heat maps
-    #         sess_lbls = lbl_df[col].iloc[3:].reset_index().dropna(axis=0, how='all')
-    #         sess_positions = centroid_coords[centroid_coords['uuid'] == col[1]].iloc[3:].reset_index()
-
-    #         # Create session PDF dict
-    #         sess_dict = {
-    #             'uuid': [],
-    #             'syllable': [],
-    #             'pdf': []
-    #         }
-    #         # Compute session's syllable PDFs
-    #         for lbl in syllables:
-    #             indices = (sess_lbls[col] == lbl)
-
-    #             # Get syllable
-    #             syll_pos = np.nan_to_num(sess_positions[:len(indices)][indices][centroid_keys].to_numpy())
-    #             pdf = np.zeros((50, 50))
-    #             if len(syll_pos) > 0:
-    #                 try:
-    #                     pdf = make_a_heatmap(syll_pos)
-    #                 except ValueError:
-    #                     # On fail, pass zero array
-    #                     pass
-
-    #             sess_dict['uuid'].append(col[1])
-    #             sess_dict['syllable'].append(lbl)
-    #             sess_dict['pdf'].append(pdf)
-
-    #         all_sessions.append(sess_dict)
-
-    #     # Consolidate all PDF dicts into a singular DataFrame
-    #     all_positions_df = pd.DataFrame.from_dict(all_sessions[0])
-
-    #     for i in range(1, len(all_sessions)):
-    #         tmp_df = pd.DataFrame.from_dict(all_sessions[i])
-    #         all_positions_df = all_positions_df.append(tmp_df)
-
-    #     # Merge/update the mean syllable PDF DataFrame with the syllable results DataFrame
-    #     complete_df = pd.merge(complete_df, all_positions_df, on=['uuid', 'syllable'])
-
-    # return complete_df

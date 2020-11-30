@@ -7,7 +7,6 @@ General utility functions to facilitate loading and organizing data.
 import re
 import os
 import h5py
-import joblib
 import numpy as np
 from glob import glob
 from typing import Union
@@ -415,7 +414,7 @@ def assert_model_and_index_uuids_match(model, index):
     from moseq2_viz.model.util import parse_model_results
     if isinstance(model, str) and exists(model):
         # Load the model
-        model = parse_model_results(joblib.load(model))
+        model = parse_model_results(model)
     if isinstance(index, str) and exists(index):
         # Read index file
         index = get_sorted_index(index)

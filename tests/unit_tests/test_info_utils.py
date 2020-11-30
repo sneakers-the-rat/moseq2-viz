@@ -12,7 +12,7 @@ class TestInfoUtils(TestCase):
     def test_entropy(self):
         model_fit = 'data/test_model.p'
 
-        model_data = parse_model_results(joblib.load(model_fit))
+        model_data = parse_model_results(model_fit)
         labels = model_data['labels']
         truncate_syllable = 40
         smoothing = 1.0
@@ -21,7 +21,7 @@ class TestInfoUtils(TestCase):
         ents = []
         for v in labels:
             usages = get_syllable_statistics([v])[0]
-            assert usages != None
+            assert usages is not None
 
             syllables = np.array(list(usages.keys()))
             truncate_point = np.where(syllables == truncate_syllable)[0]
@@ -48,7 +48,7 @@ class TestInfoUtils(TestCase):
 
         model_fit = 'data/test_model.p'
 
-        model_data = parse_model_results(joblib.load(model_fit))
+        model_data = parse_model_results(model_fit)
         labels = model_data['labels']
         truncate_syllable = 40
         smoothing = 1.0

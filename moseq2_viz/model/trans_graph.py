@@ -3,18 +3,17 @@
 Syllable transition graph creation and utility functions.
 
 '''
-
-import math
 import warnings
 import numpy as np
+import pandas as pd
 import networkx as nx
 from copy import deepcopy
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
-from cytoolz import sliding_window
 from collections import OrderedDict
+from cytoolz import sliding_window, complement
 
-def get_trans_graph_groups(model_fit, sorted_index):
+def get_trans_graph_groups(model_fit):
     '''
     Wrapper helper function to get the groups and their respective session uuids
     to use in transition graph generation.
@@ -33,14 +32,9 @@ def get_trans_graph_groups(model_fit, sorted_index):
     '''
 
     model_uuids = model_fit.get('train_list', model_fit['keys'])
+    label_group = [model_fit['metadata']['groups'][k] for k in model_uuids]
 
-    # Loading modeled groups from index file by looking up their session's corresponding uuid
-    files = sorted_index['files']
-    label_group = [files[uuid].get('group', 'default') if uuid in files else '' for uuid in model_uuids]
-    # unique groups
-    group = list(set(label_group))
-
-    return group, label_group, model_uuids
+    return label_group, model_uuids
 
 def get_group_trans_mats(labels, label_group, group, max_sylls, normalize='bigram'):
     '''
@@ -75,7 +69,6 @@ def get_group_trans_mats(labels, label_group, group, max_sylls, normalize='bigra
 
         # Getting usage information for node scaling
         usages.append(get_syllable_statistics(use_labels, max_syllable=max_sylls)[0])
-
     return trans_mats, usages
 
 def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
@@ -133,6 +126,7 @@ def get_transitions(label_sequence):
 
     return transitions, locs
 
+
 def normalize_transition_matrix(init_matrix, normalize):
     '''
     Normalizes a transition matrix by given criteria.
@@ -163,7 +157,7 @@ def normalize_transition_matrix(init_matrix, normalize):
 
 
 def n_gram_transition_matrix(labels, n=2, max_label=99):
-    trans_mat = np.zeros((max_label + 1, ) * n, dtype='float')
+    trans_mat = np.zeros((max_label, ) * n, dtype='float')
     for loc in sliding_window(n, labels):
         if any(l >= max_label for l in loc):
             continue
@@ -172,7 +166,7 @@ def n_gram_transition_matrix(labels, n=2, max_label=99):
 
 
 # per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
-def get_transition_matrix(labels, max_syllable=99, normalize='bigram',
+def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
                           smoothing=0.0, combine=False, disable_output=False) -> list:
     '''
     Compute the transition matrix from a set of model labels.
@@ -193,6 +187,8 @@ def get_transition_matrix(labels, max_syllable=99, normalize='bigram',
             from syllable i (row) to syllable j (column) or a single transition matrix combined
             from all sessions in `labels`
     '''
+    if not isinstance(labels[0], (list, np.ndarray, pd.Series)):
+        labels = [labels]
 
     # Compute a singular transition matrix
     if combine:
@@ -241,84 +237,6 @@ def convert_ebunch_to_graph(ebunch):
 
     return g
 
-def get_stat_thresholded_ebunch(ebunch, stat, stat_threshold):
-    '''
-    Filters the given ebunch list based on the node statistic and thresholding value(s), removing any nodes that are
-     outside of the requested value or range.
-
-    Parameters
-    ----------
-    ebunch (list): List of tuples representing all node connections (within a single graph) and their edge weights.
-    stat (list): List of syllable statistics, e.g. syllable usages, or speeds.
-    stat_threshold (int or tuple): Thresholding values to filter ebunch with.
-
-    Returns
-    -------
-    ebunch (list): Thresholded list of node connections.
-    '''
-
-    if isinstance(stat_threshold, tuple):
-        # Add nodes if their usage value is within the usage threshold range.
-        ebunch = [e for e in ebunch if ((stat[e[0]] >= stat_threshold[0]) and (stat[e[0]] <= stat_threshold[1])) and
-                  ((stat[e[1]] >= stat_threshold[0]) and (stat[e[1]] <= stat_threshold[1]))]
-    else:
-        # Add nodes if their usage value is larger than the usage threshold value.
-        ebunch = [e for e in ebunch if stat[e[0]] > stat_threshold and stat[e[1]] > stat_threshold]
-
-    return ebunch
-
-def threshold_edges(ebunch, orphans, edge_threshold, weights, i, edge=None):
-    '''
-    Thresholds included nodes/edges given an edge_threshold value. If edge is given, then
-     threshold the edge transition probability directly, otherwise, compare the weights.
-
-    Parameters
-    ----------
-    ebunch (list): List of tuples representing all node connections (within a single graph) and their edge weights.
-    edge_threshold (float or tuple): threshold transition probability (optionally range) to consider an edge part of the graph.
-    weights (np.ndarray): syllable transition edge weights
-    i (int): edge index to threshold at.
-    orphans (list): list of included orphaned nodes.
-    edge (float): Current syllable pair edge weight.
-
-    Returns
-    -------
-    ebunch (list): Thresholded list of node pairs based on edge threshold value.
-    orphans (list): List of newly orphaned nodes as a result of the thresholding.
-    '''
-
-    if edge != None:
-        if isinstance(edge_threshold, tuple):
-            # Add node pair + weight if transition prob. is within edge threshold range
-            if np.abs(edge) >= edge_threshold[0] and np.abs(edge) <= edge_threshold[1]:
-                ebunch.append((i[0], i[1], weights[i[0], i[1]]))
-                # Add out-of-range/orphaned nodes
-                if np.abs(edge) < edge_threshold[0] and np.abs(edge) > edge_threshold[1]:
-                    orphans.append((i[0], i[1]))
-        else:
-            # Add node pair if transition probability is larger than edge threshold value
-            if np.abs(edge) > edge_threshold:
-                ebunch.append((i[0], i[1], weights[i[0], i[1]]))
-            # Add out-of-range/orphaned nodes
-            if np.abs(edge) <= edge_threshold:
-                orphans.append((i[0], i[1]))
-    else:
-        if isinstance(edge_threshold, tuple):
-            # Add node pair + weight if weight is within edge threshold range
-            if np.abs(weights[i[0], i[1]]) >= edge_threshold[0] and np.abs(weights[i[0], i[1]]) <= edge_threshold[1]:
-                ebunch.append((i[0], i[1], weights[i[0], i[1]]))
-                # Add out-of-range/orphaned nodes
-                if np.abs(weights[i[0], i[1]]) < edge_threshold[0] and np.abs(weights[i[0], i[1]]) > edge_threshold[1]:
-                    orphans.append((i[0], i[1]))
-        else:
-            # Add node pair if transition probability is larger than edge threshold value
-            if np.abs(weights[i[0], i[1]]) > edge_threshold:
-                ebunch.append((i[0], i[1], weights[i[0], i[1]]))
-            # Add out-of-range/orphaned nodes
-            if np.abs(weights[i[0], i[1]]) <= edge_threshold:
-                orphans.append((i[0], i[1]))
-
-    return ebunch, orphans
 
 def convert_transition_matrix_to_ebunch(weights, transition_matrix,
                                         usages=None, usage_threshold=-.1,
@@ -339,7 +257,7 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     speed_threshold (int): threshold value for syllable speeds to include
     usage_threshold (float or tuple): threshold syllable usage to include a syllable in list of orphans
     edge_threshold (float): threshold transition probability to consider an edge part of the graph.
-    indices (list): indices of syllables to list as orphans
+    indices (list): indices of syllable bigrams to plot
     keep_orphans (bool): indicate whether to graph orphan syllables
     max_syllable (bool): maximum numebr of syllables to include in graph
 
@@ -348,126 +266,52 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     ebunch (list): syllable transition data.
     orphans (list): syllables with no edges.
     '''
-
-    ebunch = []
-    orphans = []
-
-    if indices is None and not keep_orphans:
-        # Do not keep orphaned nodes to display
-        for i, v in np.ndenumerate(transition_matrix):
-            ebunch, _ = threshold_edges(ebunch, orphans, edge_threshold, weights, i, edge=v)
-    elif indices is None and keep_orphans:
-        # Keep orphaned nodes to display
-        for i, v in np.ndenumerate(transition_matrix):
-            ebunch, orphans = threshold_edges(ebunch, orphans, edge_threshold, weights, i, edge=v)
-
-    elif indices is not None and keep_orphans:
-        # Keep orphaned nodes to display
-        for i in indices:
-            ebunch, orphans = threshold_edges(ebunch, orphans, edge_threshold, weights, i)
-    else:
-        # Adding all node pairs in included indices
-        ebunch = [(i[0], i[1], weights[i[0], i[1]]) for i in indices]
-
-    if usages is not None:
-        ebunch = get_stat_thresholded_ebunch(ebunch, usages, usage_threshold)
-
-    if speeds is not None:
-        ebunch = get_stat_thresholded_ebunch(ebunch, speeds, speed_threshold)
-
+    # TODO: figure out if I ever need the transition_matrix variable
     # Cap the number of included syllable states
     if max_syllable is not None:
-        ebunch = [e for e in ebunch if e[0] <= max_syllable and e[1] <= max_syllable]
+        weights = weights[:max_syllable, :max_syllable]
+        transition_matrix = transition_matrix[:max_syllable, :max_syllable]
 
-    return ebunch, orphans
+    def _filter_ebunch(arg):
+        _, _, w = arg
+        w = abs(w)
+        if isinstance(edge_threshold, (list, tuple)):
+            return (w > edge_threshold[0]) and (w < edge_threshold[1])
+        return w > edge_threshold
 
-def get_usage_dict(usages):
-    '''
-    Convert usages numpy array to an OrderedDict
+    orphans = []
 
-    Parameters
-    ----------
-    usages (np.ndarray): list of syllable usages for each group
+    # u, v, w where w is the weights
+    ebunch = list(filter(_filter_ebunch, ((*inds, w) for inds, w in np.ndenumerate(weights))))
+    if keep_orphans:
+        orphans = list(filter(complement(_filter_ebunch), ((*inds, w) for inds, w in np.ndenumerate(weights))))
 
-    Returns
-    -------
-    usages (OrderedDict): OrderedDict corresponding to each syllable and its usage frame-count
-    '''
+    if indices is not None:
+        if keep_orphans:
+            orphans += list(filter(lambda e: e[:-1] not in indices, ebunch))
+        ebunch = list(filter(lambda e: e[:-1] in indices, ebunch))
 
-    if usages is not None and isinstance(usages[0], (list, np.ndarray)):
-        for i, u in enumerate(usages):
-            d = OrderedDict()
-            for j, v in enumerate(u):
-                d[j] = v
-            usages[i] = d
-
-    return usages
-
-def handle_graph_layout(trans_mats, usages, anchor):
-    '''
-    Computes node usage "anchors"/positions.
-
-    Parameters
-    ----------
-    trans_mats (np.ndarray): syllable transition matrix
-    usages (OrderedDict): OrderedDict of syllable usage counts
-    anchor (int): Center of the transition graph
-
-    Returns
-    -------
-    usages (OrderedDict): OrderedDict of syllable usage ratios
-    anchor (int): Center of the transition graph
-    usages_anchor (int): node placement reference value
-    ngraphs (int): number of total transition matrices
-    '''
-
-    ngraphs = len(trans_mats)
-
-    if anchor > ngraphs:
-        print('Setting anchor to 0')
-        anchor = 0
+    def _filter_by_stat(arg, stat, stat_threshold):
+        _in, _out, _ = arg
+        _in = stat[_in]
+        _out = stat[_out]
+        if isinstance(stat_threshold, (list, tuple)):
+            return ((_in > stat_threshold[0] and _in < stat_threshold[1])
+                    and (_out > stat_threshold[0] and _out < stat_threshold[1]))
+        return _in > stat_threshold and _out > stat_threshold
 
     if usages is not None:
-        for i in range(len(usages)):
-            usage_total = sum(usages[i].values())
-            for k, v in usages[i].items():
-                usages[i][k] = v / usage_total
-        usages_anchor = usages[anchor]
-    else:
-        usages_anchor = None
+        ebunch = list(filter(lambda e: _filter_by_stat(e, usages, usage_threshold), ebunch))
+    if speeds is not None:
+        ebunch = list(filter(lambda e: _filter_by_stat(e, speeds, speed_threshold), ebunch))
 
-    return usages, anchor, usages_anchor, ngraphs
+    return ebunch, [o[:-1] for o in orphans]
 
-def make_graph(tm, ebunch_anchor, edge_threshold, usages_anchor, speeds=None, speed_threshold=-50):
-    '''
-    Creates networkx graph DiGraph object given a transition matrix and
-    shared graphing metadata.
 
-    Parameters
-    ----------
-    tm (np.ndarray): syllable transition matrix
-    ebunch_anchor (list): list of edge transitions from the first transition matrix
-    edge_threshold (float): value to threshold transition edges
-    usages_anchor (int): node placement reference value
-
-    Returns
-    -------
-    graph (nx.DiGraph): generated networkx directed Graph with edge weights == syllable transition probabilities
-    '''
-
-    ebunch, orphans = convert_transition_matrix_to_ebunch(
-        tm, tm, edge_threshold=edge_threshold, usages=usages_anchor, speeds=speeds,
-        speed_threshold=speed_threshold, indices=ebunch_anchor, keep_orphans=True, max_syllable=tm.shape[0])
-
-    # get graph from ebunch
-    graph = convert_ebunch_to_graph(ebunch)
-
-    return graph
-
-def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor,
-                           widths, pos, ebunch_anchor, node_edge_colors, ax=None, node_sizes=[],
+def make_difference_graphs(trans_mats, usages, group, group_names, usage_kwargs,
+                           widths, pos, node_edge_colors, ax=None, node_sizes=[], indices=None,
                            difference_threshold=0.0005, difference_edge_width_scale=500, font_size=12,
-                           usage_scale=1e5, difference_graphs=[], scalars=None, arrows=False):
+                           usage_scale=1e5, difference_graphs=[], scalars=None, arrows=False, speed_kwargs={}):
     '''
     Helper function that computes transition graph differences.
 
@@ -477,7 +321,8 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
     usages (list): list of syllable usage probabilities.
     group (list): list groups to graph transition graphs for.
     group_names (list): list groups names to display with transition graphs.
-    usages_anchor (int): node placement reference value.
+    usage_kwargs (dict): kwargs for graph threshold settings using usage. Keys can be 'usages', and 'usage_threshold'
+    speed_kwargs (dict): kwargs for graph threshold settings using usage. Keys can be 'speeds', and 'speed_threshold'
     widths (list): list of edge widths for each created single-group graph.
     pos (nx.Layout): nx.Layout type object holding position coordinates for the nodes.
     ebunch_anchor (list): list of transition graph metadata for each node and connected edges
@@ -506,13 +351,17 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
             df = tm2 - tm
 
             if isinstance(scalars, dict):
-                for key in scalars.keys():
-                    if len(scalars[key]) > 0:
-                        scalar_df = [j2 - i1 for (j2, i1) in zip(scalars[key][i + 1], scalars[key][i])]
-                        scalars[key].append(get_usage_dict([scalar_df])[0])
+                for key, _scalar_list in scalars.items():
+                    if len(_scalar_list) > 0:
+                        df_scalar = {k: _scalar_list[j + i + 1][k] - _scalar_list[i][k] for k in range(len(df))}
+                        scalars[key].append(df_scalar)
 
             # make difference graph
-            graph = make_graph(df, ebunch_anchor, difference_threshold, usages_anchor)
+            ebunch, _ = convert_transition_matrix_to_ebunch(df, df, edge_threshold=difference_threshold, indices=indices,
+                                                            keep_orphans=False, max_syllable=tm.shape[0], **speed_kwargs, **usage_kwargs)
+            # get graph from ebunch
+            graph = convert_ebunch_to_graph(ebunch)
+
             difference_graphs.append(graph)
 
             # get edge widths
@@ -526,13 +375,12 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
             # Handle node size and coloring
             if usages is not None:
                 # get usage difference
-                df_usage = [usages[j + i + 1][k] - usages[i][k] for k in range(df.shape[0]-1)]
-
-                usages.append(get_usage_dict([df_usage])[0])
+                df_usage = {k: usages[j + i + 1][k] - usages[i][k] for k in range(len(df))}
+                usages.append(df_usage)
 
                 # get node sizes and colors based on usage differences
-                node_size = list(np.abs(df_usage) * usage_scale)[:len(graph.nodes)]
-                node_edge_color = ['r' if x > 0 else 'b' for x in df_usage][:len(graph.nodes)]
+                node_size = np.abs(list(df_usage.values()))[:len(graph.nodes)] * usage_scale
+                node_edge_color = ['r' if x > 0 else 'b' for x in df_usage.values()][:len(graph.nodes)]
 
                 node_sizes.append(node_size)
                 node_edge_colors.append(node_edge_color)
@@ -547,19 +395,20 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usages_anchor
             curr_name = f'{group[i + j + 1]} - {group[i]}'
             group_names.append(curr_name)
 
-            if np.array(ax).all() != None:
-                draw_graph(graph, curr_name, weight, pos, node_color='w', node_size=node_size,
+            if ax is not None:
+                draw_graph(graph, weight, pos, node_color='w', node_size=node_size,
                            node_edge_colors=node_edge_color, arrows=arrows, edge_colors=edge_colors,
-                           font_size=font_size, ax=ax, i=i, j=i+j+1)
+                           font_size=font_size, ax=ax[i][i + j + 1], title=curr_name)
 
     return usages, group_names, difference_graphs, widths, node_sizes, node_edge_colors, scalars
 
-def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor,
-                           pos, ebunch_anchor, orphans, edge_threshold=.0025,
+
+def make_transition_graphs(trans_mats, usages, group, group_names, usage_kwargs,
+                           pos, orphans, edge_threshold=.0025,
                            difference_threshold=.0005, orphan_weight=0,
                            ax=None, edge_width_scale=100, usage_scale=1e5,
-                           difference_edge_width_scale=500,
-                           font_size=12, scalars=None, arrows=False):
+                           difference_edge_width_scale=500, speed_kwargs={},
+                           indices=None, font_size=12, scalars=None, arrows=False):
     '''
 
     Helper function to create transition matrices for all included groups, as well as their
@@ -571,9 +420,9 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
     usages (list): list of syllable usage probabilities.
     group (list): list groups to graph transition graphs for.
     group_names (list): list groups names to display with transition graphs.
-    usages_anchor (int): node placement reference value.
+    usage_kwargs (dict): kwargs for graph threshold settings using usage. Keys can be 'usages', and 'usage_threshold'
+    speed_kwargs (dict): kwargs for graph threshold settings using usage. Keys can be 'speeds', and 'speeds_threshold'
     pos (nx.Layout): nx.Layout type object holding position coordinates for the nodes.
-    ebunch_anchor (list): list of transition graph metadata for each node and connected edges.
     edge_threshold (float): threshold to include edge in graph.
     difference_threshold (float): threshold to consider 2 graph elements different.
     orphans (list): list of nodes with no edges.
@@ -582,6 +431,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
     edge_width_scale (int): edge line width scaling factor.
     usage_scale (float): syllable usage scaling factor.
     scalars (dict): dict of syllable scalar data per transition graph
+    indices (list): list of in->out syllable indices to keep in graph
 
     Returns
     -------
@@ -599,15 +449,15 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
     node_edge_colors = []
 
     for i, tm in enumerate(trans_mats):
-        if isinstance(scalars, dict):
-            speeds = scalars['speeds_2d'][i]
-        else:
-            speeds = None
-
         # make graph from transition matrix
-        graph = make_graph(tm, ebunch_anchor, edge_threshold, usages_anchor, speeds)
+        ebunch, orphans = convert_transition_matrix_to_ebunch(tm, tm, edge_threshold=edge_threshold, indices=indices,
+                                                              keep_orphans=True, max_syllable=tm.shape[0], **usage_kwargs, **speed_kwargs)
+
+        # get graph from ebunch
+        graph = convert_ebunch_to_graph(ebunch)
 
         # get edge widths
+        assert all(edge not in orphans for edge in graph.edges()), 'graph contains orphans'
         width = [tm[u][v] * edge_width_scale if (u, v) not in orphans else orphan_weight
                  for u, v in graph.edges()]
         widths.append(width)
@@ -621,10 +471,10 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
             node_sizes.append(node_size)
 
         # Draw network to matplotlib figure
-        if np.array(ax).all() != None:
-            draw_graph(graph, group_names, width, pos, node_color='w',
+        if ax is not None:
+            draw_graph(graph, width, pos, node_color='w',
                        node_size=node_size, node_edge_colors='r', arrows=arrows,
-                       font_size=font_size, ax=ax, i=i, j=i)
+                       font_size=font_size, ax=ax[i][i], title=group_names[i])
 
         node_edge_colors.append('r')
         graphs.append(graph)
@@ -633,7 +483,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
     if len(group) > 1:
         usages, group_names, graphs, widths, node_sizes, node_edge_colors, scalars = \
             make_difference_graphs(trans_mats, usages, group, group_names,
-            usages_anchor, widths, pos, ebunch_anchor,
+            widths=widths, pos=pos,
             ax=ax,
             node_edge_colors=node_edge_colors,
             node_sizes=node_sizes,
@@ -642,9 +492,13 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usages_anchor
             difference_graphs=graphs,
             scalars=scalars,
             arrows=arrows,
-            font_size=font_size)
+            indices=indices, 
+            font_size=font_size,
+            usage_kwargs=usage_kwargs,
+            speed_kwargs=speed_kwargs)
 
     return usages, group_names, widths, node_sizes, node_edge_colors, graphs, scalars
+
 
 def get_pos(graph_anchor, layout, nnodes):
     '''
@@ -662,12 +516,12 @@ def get_pos(graph_anchor, layout, nnodes):
     pos (nx layout): computed node position layout
     '''
 
-    if type(layout) is str and layout.lower() == 'spring':
+    if isinstance(layout, str) and layout.lower() == 'spring':
         k = 1.5 / np.sqrt(nnodes)
-        pos = nx.spring_layout(graph_anchor, k=k)
-    elif type(layout) is str and layout.lower() == 'circular':
+        pos = nx.spring_layout(graph_anchor, k=k, seed=0)
+    elif isinstance(layout, str) and layout.lower() == 'circular':
         pos = nx.circular_layout(graph_anchor)
-    elif type(layout) is str and layout.lower() == 'spectral':
+    elif isinstance(layout, str) and layout.lower() == 'spectral':
         pos = nx.spectral_layout(graph_anchor)
     elif isinstance(layout, (dict, OrderedDict)):
         # user passed pos directly
@@ -677,9 +531,10 @@ def get_pos(graph_anchor, layout, nnodes):
 
     return pos
 
-def draw_graph(graph, groups, width, pos, node_color,
+
+def draw_graph(graph, width, pos, node_color,
                node_size, node_edge_colors, ax, arrows=False,
-               font_size=12, edge_colors='k', i=0, j=0):
+               font_size=12, edge_colors='k', title=None):
     '''
     Draws transition graph to existing matplotlib axes.
 
@@ -705,16 +560,13 @@ def draw_graph(graph, groups, width, pos, node_color,
 
     # Draw nodes and edges on matplotlib figure
     nx.draw(graph, pos=pos, with_labels=True, font_size=font_size, alpha=1,
-            width=width, edgecolors=node_edge_colors, ax=ax[i][j], cmap='jet',
+            width=width, edgecolors=node_edge_colors, ax=ax, cmap='jet',
             node_size=node_size, node_color=node_color, arrows=arrows,
             edge_color=edge_colors, linewidths=1.5)
 
     # Set titles
-    if groups is not None:
-        if isinstance(groups, str):
-            ax[i][j].set_title(f'{groups}')
-        elif len(groups) > 1:
-            ax[i][j].set_title(f'{groups[i]}')
+    ax.set_title(title)
+
 
 def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             edge_threshold=.0025, anchor=0, usage_threshold=0,
@@ -762,6 +614,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     ax (pyplot axis): figure axis object.
     pos (dict): dict figure information.
     '''
+    from moseq2_viz.model.util import normalize_usages
 
     if headless:
         plt.switch_backend('agg')
@@ -777,14 +630,17 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     assert isinstance(trans_mats, (np.ndarray, list)), "Transition matrix must be a numpy array or list of arrays"
 
     # Ensure transition matrices are 2D
-    if isinstance(trans_mats, np.ndarray) and trans_mats.ndim == 2:
+    if isinstance(trans_mats, np.ndarray):
+        assert trans_mats.ndim == 2, 'Transition matrix needs to be 2 dimensional'
         trans_mats = [trans_mats]
 
-    # Convert usages np.ndarray to OrderedDict
-    usages = get_usage_dict(usages)
-
     # Get shared node anchors based on usages
-    usages, anchor, usages_anchor, ngraphs = handle_graph_layout(trans_mats, usages, anchor)
+    ngraphs = len(trans_mats)
+    if usages is not None:
+        usages = [normalize_usages(u) for u in usages]
+    anchor = anchor if anchor < len(trans_mats) else 0
+    if usages is not None:
+        usages_anchor = usages[anchor]
 
     # Create transition graph metadata from transition matrix
     ebunch_anchor, orphans = convert_transition_matrix_to_ebunch(
@@ -810,21 +666,21 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
         ax = [[ax]]
 
     if isinstance(groups, str):
-        groups = list(groups)
+        groups = [groups]
 
     # Get group name list to append difference graph names
-    group_names = groups.copy()
+    group_names = deepcopy(groups)
 
     # Make graphs and difference graphs
     _ = make_transition_graphs(trans_mats, usages, groups, group_names,
-        usages_anchor, pos, ebunch_anchor, orphans,
-        difference_edge_width_scale=difference_edge_width_scale, edge_threshold=edge_threshold,
+        pos=pos, orphans=orphans, indices=[e[:-1] for e in ebunch_anchor],
+        usage_kwargs={'usages': usages_anchor}, edge_threshold=edge_threshold,
+        difference_edge_width_scale=difference_edge_width_scale,
         difference_threshold=difference_threshold, orphan_weight=orphan_weight,
         ax=ax, edge_width_scale=edge_width_scale, usage_scale=usage_scale,
         arrows=arrows, font_size=font_size)
 
-    for i in range(len(ax)):
-        for j in range(len(ax[i])):
-            ax[i][j].axis('off')
+    for a in np.array(ax).flat:
+        a.axis('off')
 
     return fig, ax, pos

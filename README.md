@@ -4,7 +4,7 @@
 
 [![codecov](https://codecov.io/gh/dattalab/moseq2-viz/branch/test-suite/graph/badge.svg?token=jUx63Whtx4)](https://codecov.io/gh/dattalab/moseq2-viz)
 
-Latest version number: `0.3.0`
+Latest version number: `0.5.0`
 
 ## Features 
 

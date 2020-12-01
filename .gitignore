@@ -77,6 +77,8 @@ target/
 # pyenv
 .python-version
 
+Pipfile.lock
+
 # celery beat schedule file
 celerybeat-schedule
 
@@ -112,3 +114,6 @@ venv.bak/
 .vscode
 data/
 .doctrees/
+
+#Pycharm
+.idea/moseq2-viz.iml

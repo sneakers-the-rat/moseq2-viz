@@ -3,16 +3,16 @@ import cv2
 import joblib
 import unittest
 import numpy as np
-import pandas as pd
 import networkx as nx
-import ruamel.yaml as yaml
 from unittest import TestCase
-from moseq2_viz.util import parse_index
+import matplotlib.pyplot as plt
+from moseq2_viz.util import parse_index, read_yaml
+from moseq2_viz.model.trans_graph import convert_ebunch_to_graph, convert_transition_matrix_to_ebunch,\
+                                         get_transition_matrix, graph_transition_matrix
 from moseq2_viz.scalars.util import scalars_to_dataframe
-from moseq2_viz.model.util import parse_model_results, get_transition_matrix, \
-    get_syllable_statistics, relabel_by_usage, get_syllable_slices, results_to_dataframe
-from moseq2_viz.viz import clean_frames, convert_ebunch_to_graph, floatRgb, convert_transition_matrix_to_ebunch, \
-    graph_transition_matrix, make_crowd_matrix, position_plot, scalar_plot, plot_syll_stats_with_sem
+from moseq2_viz.model.util import parse_model_results, get_syllable_statistics, \
+    relabel_by_usage, get_syllable_slices, compute_behavioral_statistics
+from moseq2_viz.viz import clean_frames, make_crowd_matrix, position_plot, scalar_plot, plot_syll_stats_with_sem, save_fig
 
 def get_fake_movie():
     edge_size = 40
@@ -53,23 +53,19 @@ def get_fake_movie():
     fake_movie = np.tile(tmp_image, (20, 1, 1))
     return fake_movie
 
-def get_ebunch(max_syllable=40, ret_trans=False):
+def get_ebunch(max_syllable=40, group=('Group1', 'default'), ret_trans=False):
     model_fit = 'data/test_model.p'
-    index_file = 'data/test_index_crowd.yaml'
+    index_file = 'data/test_index.yaml'
     config_file = 'data/config.yaml'
 
-    with open(index_file, 'r') as f:
-        index_data = yaml.safe_load(f)
-        index_data['pca_path'] = 'data/test_scores.h5'
+    index_data = read_yaml(index_file)
+    index_data['pca_path'] = 'data/_pca/pca_scores.h5'
 
-    with open(config_file, 'r') as f:
-        config_data = yaml.safe_load(f)
-    f.close()
+    config_data = read_yaml(config_file)
 
-    group = ('Group1', 'default')
     anchor = 0
 
-    model_data = parse_model_results(joblib.load(model_fit))
+    model_data = parse_model_results(model_fit)
     index, sorted_index = parse_index(index_file)
     labels = model_data['labels']
 
@@ -93,9 +89,10 @@ def get_ebunch(max_syllable=40, ret_trans=False):
     usages = []
     for plt_group in group:
         use_labels = [lbl for lbl, grp in zip(labels, label_group) if grp == plt_group]
-        trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True,
-                                                max_syllable=max_syllable))
-        usages.append(get_syllable_statistics(use_labels)[0])
+        if use_labels:
+            trans_mats.append(get_transition_matrix(use_labels, normalize=config_data['normalize'], combine=True,
+                                                    max_syllable=max_syllable))
+            usages.append(get_syllable_statistics(use_labels)[0])
 
     ngraphs = len(trans_mats)
 
@@ -111,6 +108,16 @@ def get_ebunch(max_syllable=40, ret_trans=False):
         return trans_mats, usages
 
 class TestViz(TestCase):
+
+    def test_save_fig(self):
+
+        fig = plt.figure(1, figsize=(1,1))
+
+        save_fig(fig, output_file='data/test_fig')
+        assert os.path.exists('data/test_fig.png')
+        assert os.path.exists('data/test_fig.pdf')
+        os.remove('data/test_fig.png')
+        os.remove('data/test_fig.pdf')
 
     def test_clean_frames(self):
         frames = get_fake_movie()
@@ -135,6 +142,7 @@ class TestViz(TestCase):
 
         medfilter_space = [2]
         gaussfilter_space = [2.5, 2]
+        tail_filter = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
 
         out = clean_frames(frames, medfilter_space, gaussfilter_space, tail_filter)
         np.all(np.not_equal(frames, out))
@@ -144,26 +152,19 @@ class TestViz(TestCase):
         ebunch_anchor, orphans = get_ebunch(max_syllable=max_syllable)
 
         assert all([isinstance(v, tuple) for v in ebunch_anchor]), "Ebunch return types != tuple"
-        assert len(ebunch_anchor) == (max_syllable + 1) * (max_syllable + 1), \
+        assert len(ebunch_anchor) == (max_syllable) * (max_syllable), \
             "Incorrect Number of transition matrix nodes"
         assert len(orphans) == 0, "Unwanted orphan nodes were generated"
 
     def test_convert_ebunch_to_graph(self):
-        ebunch_anchor, orphans = get_ebunch()
+        ebunch_anchor, _ = get_ebunch()
         g = convert_ebunch_to_graph(ebunch_anchor)
         assert isinstance(g, nx.DiGraph), "Return type is not a networkx Digraph"
 
-
-    def test_floatRgb(self):
-        for i in range(0, 10):
-            x = float(i)/10
-            r, g, b = floatRgb(x, x, x)
-            assert all((r,g,b)) >= 0 and all((r,g,b)) <= 1.0, "floatRgb value is invalid."
-
     def test_graph_transition_matrix(self):
-        trans_mats, usages = get_ebunch(ret_trans=True)
-        groups = ('Group1')
-        plt, _, _ = graph_transition_matrix(trans_mats, groups=groups)
+        group = ['Group1']
+        trans_mats, _ = get_ebunch(group=group, ret_trans=True)
+        plt, _, _ = graph_transition_matrix(trans_mats, groups=group)
 
         outfile = 'data/test_transition.png'
         plt.savefig(outfile)
@@ -171,17 +172,17 @@ class TestViz(TestCase):
         os.remove(outfile)
 
     def test_make_crowd_matrix(self):
+
         model_fit = 'data/mock_model.p'
         index_file = 'data/test_index_crowd.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
-            for i, _ in enumerate(index_data['files']):
-                index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
-                index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
+        for i, _ in enumerate(index_data['files']):
+            index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
+            index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
 
-        model_data = parse_model_results(joblib.load(model_fit))
+        model_data = parse_model_results(model_fit)
         labels = model_data['labels']
 
         labels, _ = relabel_by_usage(labels)
@@ -189,22 +190,26 @@ class TestViz(TestCase):
 
         syllable_slices = get_syllable_slices(2, labels, label_uuids, index_data)
 
-        crowd_matrix = make_crowd_matrix(syllable_slices)
+        crowd_matrix = make_crowd_matrix(syllable_slices, rotate=True, center=True)
+        print(crowd_matrix.shape)
+        assert crowd_matrix.shape[0] == 120, "Crowd movie number of frames is incorrect"
+        assert crowd_matrix.shape == (120, 424, 512), "Crowd movie resolution is incorrect"
+
+        crowd_matrix = make_crowd_matrix(syllable_slices, max_dur=None, nexamples=1)
         assert crowd_matrix.shape[0] == 62, "Crowd movie number of frames is incorrect"
         assert crowd_matrix.shape == (62, 424, 512), "Crowd movie resolution is incorrect"
 
     def test_position_plot(self):
         index_file = 'data/test_index_crowd.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
-            for i, f in enumerate(index_data['files']):
-                index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
-                index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
+        for i in range(len(index_data['files'])):
+            index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
+            index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
 
         scalar_df = scalars_to_dataframe(index_data)
-        plt, ax = position_plot(scalar_df)
+        plt, _, _ = position_plot(scalar_df)
         outfile = 'data/test_position.png'
         plt.savefig(outfile)
 
@@ -214,15 +219,14 @@ class TestViz(TestCase):
     def test_scalar_plot(self):
         index_file = 'data/test_index_crowd.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
-            for i, f in enumerate(index_data['files']):
-                index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
-                index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
+        for i in range(len(index_data['files'])):
+            index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
+            index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
 
         scalar_df = scalars_to_dataframe(index_data)
-        plt, ax = scalar_plot(scalar_df)
+        plt, _ = scalar_plot(scalar_df)
         outfile = 'data/test_scalars.png'
         plt.savefig(outfile)
 
@@ -234,36 +238,33 @@ class TestViz(TestCase):
         test_model = 'data/test_model.p'
 
         _, sorted_index = parse_index(test_index)
+        scalar_df = scalars_to_dataframe(sorted_index, model_path=test_model)
 
-        for i, (k, v) in enumerate(sorted_index['files'].items()):
-            if i == 1:
-                sorted_index['files'][k]['group'] = 'Group2'
-
-        complete_df, _ = results_to_dataframe(test_model, sorted_index, max_syllable=41)
+        complete_df = compute_behavioral_statistics(scalar_df)
 
         # mutation order plot with correct parameters
-        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='m', max_sylls=None, groups=None,
-                                       ctrl_group='Group1', exp_group='Group2', colors=['red', 'orange'], fmt='o-')
+        fig, _ = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='diff', max_sylls=None, groups=None,
+                                       ctrl_group='default', exp_group='default', colors=['red', 'orange'])
 
-        assert fig != None
+        assert fig is not None
 
         # different stat selected, len(colors) < len(groups)
-        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='dur', ordering='dur', max_sylls=40, groups=['Group1', 'Group2'],
-                                       ctrl_group=None, exp_group=None, colors=['red'], fmt='o-')
+        fig, _ = plot_syll_stats_with_sem(complete_df, stat='duration', ordering='stat', max_sylls=40,
+                                            groups=['Group1', 'Group2'], ctrl_group=None, exp_group=None, colors=['red'])
 
-        assert fig != None
+        assert fig is not None
 
         # incorrect groups, and empty colors, descending order sorting
-        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='dur', ordering='dur', max_sylls=None,
-                                       groups=['Group', 'Group2'], ctrl_group=None, exp_group=None, colors=[], fmt='o-')
+        fig, _ = plot_syll_stats_with_sem(complete_df, stat='duration', ordering='stat', max_sylls=None,
+                                       groups=['Group', 'Group2'], ctrl_group=None, exp_group=None, colors=[])
 
-        assert fig != None
+        assert fig is not None
 
         # currently raises error if user inputs incorrect ctrl_group/exp_group name
-        fig, lgd = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='m', max_sylls=None, groups=None,
-                                       ctrl_group='Grou1', exp_group='Group2', colors=['red', 'orange'], fmt='o-')
+        fig, _ = plot_syll_stats_with_sem(complete_df, stat='usage', ordering='stat', max_sylls=None, groups=None,
+                                       ctrl_group='Grou1', exp_group='Group2', colors=['red', 'orange'])
 
-        assert fig != None
+        assert fig is not None
 
 if __name__ == '__main__':
     unittest.main()

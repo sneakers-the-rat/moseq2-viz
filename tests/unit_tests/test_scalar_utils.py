@@ -2,16 +2,14 @@ import joblib
 import unittest
 import numpy as np
 import pandas as pd
-import ruamel.yaml as yaml
 from unittest import TestCase
 from cytoolz import merge_with
-from moseq2_viz.util import parse_index
-from moseq2_viz.model.util import parse_model_results, h5_to_dict, results_to_dataframe
-from moseq2_viz.scalars.util import star_valmap, remove_nans_from_labels, convert_pxs_to_mm, is_legacy, \
+from moseq2_viz.util import parse_index, read_yaml
+from moseq2_viz.model.util import parse_model_results, h5_to_dict
+from moseq2_viz.scalars.util import star_valmap, convert_pxs_to_mm, is_legacy, \
     generate_empty_feature_dict, convert_legacy_scalars, get_scalar_map, get_scalar_triggered_average, \
-    nanzscore, _pca_matches_labels, process_scalars, find_and_load_feedback, scalars_to_dataframe, \
-    make_a_heatmap, compute_all_pdf_data, compute_session_centroid_speeds, compute_mean_syll_speed
-
+    nanzscore, _pca_matches_labels, process_scalars, scalars_to_dataframe, \
+    compute_all_pdf_data, compute_mouse_dist_to_center, h5_filepath_from_sorted
 
 class TestScalarUtils(TestCase):
 
@@ -19,11 +17,10 @@ class TestScalarUtils(TestCase):
         model_fit = 'data/mock_model.p'
         index_file = 'data/test_index_crowd.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
 
-        model_data = parse_model_results(joblib.load(model_fit))
+        model_data = parse_model_results(model_fit)
         lbl_dict = {}
         labels = model_data['labels']
         for k, v in zip(model_data['keys'], labels):
@@ -34,7 +31,7 @@ class TestScalarUtils(TestCase):
         def merger(d):
             return merge_with(tuple, scores_idx, d)
 
-        out = star_valmap(remove_nans_from_labels, merger(lbl_dict))
+        out = star_valmap(np.isnan, merger(lbl_dict))
 
         assert isinstance(out, dict)
         for v in out.values():
@@ -104,11 +101,10 @@ class TestScalarUtils(TestCase):
     def test_get_scalar_map(self):
         index_file = 'data/test_index_crowd.yaml'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
-            for i, f in enumerate(index_data['files']):
-                index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
+        for i in range(len(index_data['files'])):
+            index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
 
         test_scalar_map = get_scalar_map(index_data)
         scalar_keys = ['angle', 'area_mm', 'area_px', 'centroid_x_mm', 'centroid_x_px',
@@ -117,7 +113,7 @@ class TestScalarUtils(TestCase):
                        'velocity_3d_px', 'velocity_theta', 'width_mm', 'width_px']
 
         for v in test_scalar_map.values():
-            assert list(v.keys()) == scalar_keys
+            assert list(v) == scalar_keys
         assert len(test_scalar_map.keys()) == 2
         assert isinstance(test_scalar_map, dict)
 
@@ -128,13 +124,12 @@ class TestScalarUtils(TestCase):
         index_file = 'data/test_index_crowd.yaml'
         model_fit = 'data/mock_model.p'
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
-            for i, f in enumerate(index_data['files']):
-                index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
+        for i in range(len(index_data['files'])):
+            index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
 
-        model_data = parse_model_results(joblib.load(model_fit))
+        model_data = parse_model_results(model_fit)
         lbl_dict = {}
         labels = model_data['labels']
         for k, v in zip(model_data['keys'], labels):
@@ -185,11 +180,10 @@ class TestScalarUtils(TestCase):
                        'velocity_3d_px', 'velocity_theta', 'width_mm', 'width_px']
 
         num_frames = 908
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
-            for i, f in enumerate(index_data['files']):
-                index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
+        for i in range(len(index_data['files'])):
+            index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
 
         test_scalar_map = get_scalar_map(index_data)
         mapped = process_scalars(test_scalar_map, scalar_keys)
@@ -202,44 +196,26 @@ class TestScalarUtils(TestCase):
 
         for v1, v2 in zip(mapped.values(), z_mapped.values()):
             assert v1.all() != v2.all()
-            assert np.asarray(v1).shape == (17, 908)
-            assert np.asarray(v2).shape == (17, 908)
-
-    def test_find_and_load_feedback(self):
-        extract_path = 'data/proc/'
-        input_path = 'data/'
-        feedback_ts, feedback_status = find_and_load_feedback(extract_path, input_path)
-        assert feedback_ts == None
-        assert feedback_status == None
-
-
-    def test_remove_nans_from_labels(self):
-        lbls = np.array([[np.nan, np.nan, np.nan, 1,2,3,4,5],
-                         [np.nan, np.nan, np.nan, 1,2,3,4,5]])
-
-
-
-        out = remove_nans_from_labels(lbls, lbls)
-        assert all(out == [1,2,3,4,5,1,2,3,4,5])
+            assert np.asarray(v1).shape == (17, num_frames)
+            assert np.asarray(v2).shape == (17, num_frames)
 
     def test_scalars_to_dataframe(self):
         index_file = 'data/test_index.yaml'
-        model_file = 'data/mock_model.p'
 
         df_cols = ['angle', 'area_mm', 'area_px', 'centroid_x_mm', 'centroid_x_px',
-       'centroid_y_mm', 'centroid_y_px', 'height_ave_mm', 'length_mm',
-       'length_px', 'velocity_2d_mm', 'velocity_2d_px', 'velocity_3d_mm',
-       'velocity_3d_px', 'velocity_theta', 'width_mm', 'width_px',
-       'SessionName', 'SubjectName', 'StartTime', 'group', 'uuid']
+                   'centroid_y_mm', 'centroid_y_px', 'height_ave_mm', 'length_mm',
+                   'length_px', 'velocity_2d_mm', 'velocity_2d_px', 'velocity_3d_mm',
+                   'velocity_3d_px', 'velocity_theta', 'width_mm', 'width_px',
+                   'dist_to_center_px', 'group', 'uuid', 'h5_path', 'timestamps',
+                   'frame index', 'SessionName', 'SubjectName', 'StartTime']
 
         total_frames = 1800
 
-        with open(index_file, 'r') as f:
-            index_data = yaml.safe_load(f)
-            index_data['pca_path'] = 'data/test_scores.h5'
-            for i, f in enumerate(index_data['files']):
-                index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
-                index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
+        index_data = read_yaml(index_file)
+        index_data['pca_path'] = 'data/test_scores.h5'
+        for i in range(len(index_data['files'])):
+            index_data['files'][i]['path'][0] = 'data/proc/results_00.h5'
+            index_data['files'][i]['path'][1] = 'data/proc/results_00.yaml'
 
         scalar_df = scalars_to_dataframe(index_data)
 
@@ -247,63 +223,39 @@ class TestScalarUtils(TestCase):
         assert all(scalar_df.columns == df_cols)
         assert scalar_df.shape == (total_frames, len(df_cols))
 
-        # feedback timestamps
-        self.assertRaises(ValueError, scalars_to_dataframe, index_data, include_model=model_file, include_feedback=True)
-
-    def test_make_a_heatmap(self):
-
-        index_file = 'data/test_index.yaml'
-
-        index, sorted_index = parse_index(index_file)
-        scalar_df = scalars_to_dataframe(sorted_index)
-
-        sess = list(set(scalar_df.uuid))[0]
-        centroid_vars = ['centroid_x_mm', 'centroid_y_mm']
-
-        position = scalar_df[scalar_df['uuid'] == sess][centroid_vars].dropna(how='all').to_numpy()
-
-        test_pdf = make_a_heatmap(position)
-        assert test_pdf.shape == (50, 50)
-        assert test_pdf.all() != 0
-
     def test_compute_all_pdf_data(self):
 
         index_file = 'data/test_index.yaml'
 
-        index, sorted_index = parse_index(index_file)
+        _, sorted_index = parse_index(index_file)
         scalar_df = scalars_to_dataframe(sorted_index)
 
         test_pdfs, groups, sessions, subjectNames = compute_all_pdf_data(scalar_df)
 
         assert len(test_pdfs) == len(groups) == len(sessions) == len(subjectNames)
         for i in range(len(test_pdfs)):
-            assert test_pdfs[i].shape == (50, 50)
+            assert test_pdfs[i].shape == (20, 20)
 
-    def test_compute_session_centroid_speeds(self):
-        index_file = 'data/test_index.yaml'
+    def test_compute_mouse_dist_to_center(self):
 
-        index, sorted_index = parse_index(index_file)
-        scalar_df = scalars_to_dataframe(sorted_index)
-
-        new_col = compute_session_centroid_speeds(scalar_df)
-
-        assert str(new_col.iloc[0]) == 'nan' # no speed recorded in first frame of recording
-        assert len(new_col) == len(scalar_df)
-
-    def test_compute_mean_syll_speed(self):
         test_index = 'data/test_index.yaml'
-        test_model = 'data/test_model.p'
 
         _, sorted_index = parse_index(test_index)
-        scalar_df = scalars_to_dataframe(sorted_index)
-        complete_df, label_df = results_to_dataframe(test_model, sorted_index, compute_labels=True)
 
-        scalar_df['centroid_speed_mm'] = compute_session_centroid_speeds(scalar_df)
+        files = sorted_index['files']
 
-        complete_df = compute_mean_syll_speed(complete_df, scalar_df, label_df, max_sylls=40)
+        uuids = list(files.keys())
+        dset = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='scalars')
 
-        assert 'speed' in complete_df.columns
-        assert not complete_df.speed.isnull().all()
+        # Get ROI shape to compute distance to center
+        roi = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='metadata/extraction/roi')['roi'].shape
+
+        centroid_x_px = dset['centroid_x_px']
+        centroid_y_px = dset['centroid_y_px']
+
+        dist_to_center = compute_mouse_dist_to_center(roi, centroid_x_px, centroid_y_px)
+
+        assert len(dist_to_center) == 900
 
 if __name__ == '__main__':
     unittest.main()

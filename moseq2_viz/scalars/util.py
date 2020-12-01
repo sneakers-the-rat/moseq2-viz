@@ -1,4 +1,9 @@
-import os
+'''
+
+Utility functions responsible for handling all scalar data-related operations.
+
+'''
+
 import h5py
 import warnings
 import numpy as np
@@ -7,11 +12,11 @@ from tqdm.auto import tqdm
 from itertools import starmap
 from multiprocessing import Pool
 from collections import defaultdict
-from sklearn.neighbors import KernelDensity
-from cytoolz import keyfilter, itemfilter, merge_with, curry, valmap, get
-from moseq2_viz.util import (h5_to_dict, strided_app, load_timestamps, read_yaml,
-                             h5_filepath_from_sorted, get_timestamps_from_h5)
-from moseq2_viz.model.util import parse_model_results, _get_transitions, relabel_by_usage
+from cytoolz import valmap, get, merge
+from os.path import join, exists, dirname
+from moseq2_viz.model.util import get_transitions, prepare_model_dataframe
+from moseq2_viz.util import (h5_to_dict, strided_app, h5_filepath_from_sorted,
+                             get_timestamps_from_h5, parse_index)
 
 
 def _star_itemmap(func, d):
@@ -21,7 +26,6 @@ def _star_itemmap(func, d):
 def star_valmap(func, d):
     keys = list(d.keys())
     return dict(zip(keys, starmap(func, d.values())))
-
 
 
 def convert_pxs_to_mm(coords, resolution=(512, 424), field_of_view=(70.6, 60), true_depth=673.1):
@@ -123,7 +127,7 @@ def convert_legacy_scalars(old_features, force: bool = False, true_depth: float 
         print('Loading scalars from h5 dataset')
         old_features = h5_to_dict(old_features, '/')
 
-    elif isinstance(old_features, (str, np.str_)) and os.path.exists(old_features):
+    elif isinstance(old_features, (str, np.str_)) and exists(old_features):
         print('Loading scalars from file')
         old_features = h5_to_dict(old_features, 'scalars')
 
@@ -232,8 +236,7 @@ def get_scalar_map(index, fill_nans=True, force_conversion=False):
 
         for k, v_scl in scalars.items():
             if fill_nans:
-                scalar_map[uuid][k] = np.zeros((len(idx), ), dtype='float32')
-                scalar_map[uuid][k][:] = np.nan
+                scalar_map[uuid][k] = np.full((len(idx), ), np.nan, dtype='float32')
                 scalar_map[uuid][k][~np.isnan(idx)] = v_scl
             else:
                 scalar_map[uuid][k] = v_scl
@@ -281,7 +284,7 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
     for k, v in scalar_map.items():
 
         labels = model_labels[k]
-        seq_array, locs = _get_transitions(labels)
+        seq_array, locs = get_transitions(labels)
 
         for i in range(max_syllable):
             hits = locs[np.where(seq_array == i)[0]]
@@ -373,41 +376,38 @@ def process_scalars(scalar_map: dict, include_keys: list, zscore: bool = False) 
     return valmap(np.array, out)
 
 
-def find_and_load_feedback(extract_path, input_path):
-    join = os.path.join
-    feedback_path = join(os.path.dirname(input_path), 'feedback_ts.txt')
-    if not os.path.exists(feedback_path):
-        feedback_path = join(os.path.dirname(extract_path), '..', 'feedback_ts.txt')
-
-    if os.path.exists(feedback_path):
-        feedback_ts = load_timestamps(feedback_path, 0)
-        feedback_status = load_timestamps(feedback_path, 1)
-        return feedback_ts, feedback_status
-    else:
-        warnings.warn(f'Could not find feedback file for {extract_path}')
-        return None, None
-
-
-def remove_nans_from_labels(idx, labels):
+def compute_mouse_dist_to_center(roi, centroid_x_px, centroid_y_px):
     '''
-    Removes the frames from `labels` where `idx` has NaNs in it.
+    Given the session's ROI shape and the frame-by-frame (x,y) pixel centroid location
+     to compute the mouse's relative distance to the center of the bucket.
 
     Parameters
     ----------
-    idx (list): indices to remove NaN values at.
-    labels (list): label list containing NaN values.
+    roi (tuple): Tuple of session's arena dimensions.
+    centroid_x_px (1D np.array): x-coordinate of the mouse centroid throughout the recording
+    centroid_y_px (1D np.array): y-coordinate of the mouse centroid throughout the recording
 
     Returns
     -------
-    (list): label list excluding NaN values at given indices
+    dist_to_center (1D np.array): array of distance to the arena center in pixels.
     '''
 
-    return labels[~np.isnan(idx)]
+    # Get (x,y) bucket center coordinate
+    ymin, xmin = 0, 0
+    ymax, xmax = roi
+    center_x = np.mean([xmin, xmax])
+    center_y = np.mean([ymin, ymax])
+
+    # Get (x,y) distances to bucket center throughout the session recording.
+    dx = centroid_x_px - center_x
+    dy = centroid_y_px - center_y
+
+    # Compute distance to center
+    return np.hypot(dx, dy)
 
 
 def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'SubjectName', 'StartTime'],
-                         include_model=None, disable_output=False, include_pcs=False, npcs=10,
-                         include_feedback=None, force_conversion=True, include_labels=False):
+                         disable_output=False, force_conversion=True, model_path=None):
     '''
     Generates a dataframe containing scalar values over the course of a recording session.
     If a model string is included, then return only animals that were included in the model
@@ -419,192 +419,80 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     include_keys (list): a list of other moseq related keys to include in the dataframe
     include_model (str): path to an existing moseq model
     disable_output (bool): indicate whether to show tqdm output.
-    include_pcs (bool): UNUSED
-    npcs (int): UNUSED
     include_feedback (bool): indicate whether to include timestamp data
     force_conversion (bool): force the conversion of centroid_[xy]_px into mm.
-    include_labels (bool): UNUSED
+    model_path (str): path to model object to pull labels from and include in the dataframe
 
     Returns
     -------
     scalar_df (pandas DataFrame): DataFrame of loaded scalar values with their selected metadata.
     '''
+    has_model = False
+    if model_path is not None and exists(model_path):
+        labels_df = prepare_model_dataframe(model_path, index['pca_path']).set_index('uuid')
+        has_model = True
 
-    scalar_dict = defaultdict(list)
-    skip = []
+    # check if files is dictionary from sorted_index or list from unsorted index, then sort
+    if isinstance(index['files'], list):
+        _, index = parse_index(index)
 
-    files = index['files']
-    try:
-        uuids = list(files.keys())
-        # use dset from first animal to generate a list of scalars
-        dset = h5_to_dict(h5_filepath_from_sorted(files[uuids[0]]), path='scalars')
-    except:
-        uuids = [f['uuid'] for f in index['files']]
-        # use dset from first animal to generate a list of scalars
-        dset = h5_to_dict(h5_filepath_from_sorted(files[0]), path='scalars')
-
-    # only convert if the dataset is legacy and conversion is forced
-    if is_legacy(dset) and force_conversion:
-        dset = convert_legacy_scalars(dset, force=force_conversion)
-
-    # generate a list of scalars
-    scalar_names = list(dset.keys())
-
-    # get model labels for UUIDs if a model was supplied
-    if include_model and os.path.exists(include_model):
-        mdl = parse_model_results(include_model, sort_labels_by_usage=False, map_uuid_to_keys=True)
-
-        labels = mdl['labels']
-
-        if isinstance(labels, dict):
-            keys = list(labels.keys())
-            labels = np.array(list(labels.values()))
-
-        # we need to call these functions here so we don't filter out data before relabelling
-        usage, _ = relabel_by_usage(labels, count='usage')
-        frames, _ = relabel_by_usage(labels, count='frames')
-
-        if isinstance(usage, list) or isinstance(usage, np.ndarray):
-            usage = {k:v for k,v in zip(keys, usage)}
-            frames = {k: v for k, v in zip(keys, frames)}
-            labels = {k: v for k, v in zip(keys, labels)}
-            files = {k: v for k, v in zip(keys, files)}
-
-        # get pca score indices
-        scores_idx = h5_to_dict(index['pca_path'], 'scores_idx')
-        # only include labels with the same number of frames as PCA
-        labels = itemfilter(lambda a: _pca_matches_labels(scores_idx[a[0]], a[1]), mdl['labels'])
-
-        labelfilter = curry(keyfilter)(lambda k: k in labels)
-
-        # filter the relabeled dictionaries too
-        usage = labelfilter(usage)
-        frames = labelfilter(frames)
-        # filter the pca scores to match labels
-        scores_idx = labelfilter(scores_idx)
-
-        # make function to merge syllables with the syll scores
-        def merger(d):
-            return merge_with(tuple, scores_idx, d)
-
-        # use the scores to remove the nans
-        usage = star_valmap(remove_nans_from_labels, merger(usage))
-        frames = star_valmap(remove_nans_from_labels, merger(frames))
-        labels = star_valmap(remove_nans_from_labels, merger(labels))
-
-        # only include extractions that were modeled and fit the above criteria
-        files = keyfilter(lambda x: x in labels, files)
-
-    try:
-        iter_items = files.items()
-    except:
-        iter_items = enumerate(files)
-
-    for k, v in tqdm(iter_items, disable=disable_output):
-
+    dfs = []
+    # Iterate through index file session info and paths
+    for k, v in tqdm(index['files'].items(), disable=disable_output):
+        # Get path to extraction h5 file
         pth = h5_filepath_from_sorted(v)
+        # Load scalars from h5
         dset = h5_to_dict(pth, 'scalars')
 
-        # get extraction parameters for this h5 file
-        dct = read_yaml(v['path'][1])
-        parameters = dct['parameters']
+        # Get ROI shape to compute distance to center
+        roi = h5_to_dict(pth, path='metadata/extraction/roi')['roi'].shape
+        dset['dist_to_center_px'] = compute_mouse_dist_to_center(roi, dset['centroid_x_px'], dset['centroid_y_px'])
 
-        if include_feedback:
-            if 'feedback_timestamps' in dct:
-                ts_data = np.array(dct['feedback_timestamps'])
-                feedback_ts, feedback_status = ts_data[:, 0], ts_data[:, 1]
-            else:
-                feedback_ts, feedback_status = find_and_load_feedback(pth, parameters['input_file'])
+        timestamps = get_timestamps_from_h5(pth)
 
         # convert scalar names into modern format if they are legacy
         if is_legacy(dset) and force_conversion:
             dset = convert_legacy_scalars(dset, force=force_conversion)
 
-        nframes = len(dset[scalar_names[0]])
-        if include_feedback:
-            try:
-                timestamps = get_timestamps_from_h5(pth)
-                scalar_dict['timestamp'] = timestamps.astype('int32')
-            except: #h5 file path exception, maybe Attribute or KeyError
-                warnings.warn(f'timestamps for {pth} were not found')
-                warnings.warn('This could be due to a missing/incorrectly named timestamp file in that session directory.')
-                warnings.warn('If the file does exist, ensure it has the correct name/location and re-extract the session.')
-                pass
-            if len(timestamps) != nframes:
-                warnings.warn(f'Timestamps not equal to number of frames for {pth}, skipping')
-                continue
+        dset = merge(dset, {
+            'group': v['group'],
+            'uuid': k ,
+            'h5_path': pth,
+            'timestamps': timestamps,
+            'frame index': np.arange(len(timestamps))}, {
+            key: v['metadata'][key] for key in include_keys
+        })
 
-        # add scalar data for this animal
-        for scalar in scalar_names:
-            scalar_dict[scalar] += dset[scalar].tolist()
+        _tmp_df = pd.DataFrame(dset)
 
-        # add metadata from `include_keys`
-        for key in include_keys:
-            # every frame should have the same amount of metadata
-            scalar_dict[key] += [v['metadata'][key]] * nframes
+        # make sure we have labels for this UUID before merging
+        if has_model and k in labels_df.index:
+            if _tmp_df['group'].unique() != labels_df.loc[k, 'group'].unique():
+                warnings.warn('Group labels from index.yaml and model results do not match! Setting group labels '
+                              'to ones used in the model.')
+                _tmp_df = _tmp_df.drop(columns=['group'])
 
-        scalar_dict['group'] += [v['group']] * nframes
-        scalar_dict['uuid'] += [k] * nframes
+            merge_on = ['frame index']
+            if 'group' in _tmp_df.columns:
+                merge_on += ['group']
 
-        if include_feedback and feedback_ts is not None:
-            for ts in timestamps:
-                hit = np.where(ts.astype('int32') == feedback_ts.astype('int32'))[0]
-                if len(hit) > 0:
-                    scalar_dict['feedback_status'] += [feedback_status[hit]]
-                else:
-                    scalar_dict['feedback_status'] += [-1]
-        elif include_feedback:
-            scalar_dict['feedback_status'] += [-1] * nframes
+            _tmp_df = pd.merge(_tmp_df, labels_df.loc[k], on=merge_on, how='outer')
+            _tmp_df = _tmp_df.sort_values(by='syllable index').reset_index(drop=True)
+            # fill any NaNs for metadata columns
+            _tmp_df[include_keys + ['uuid', 'h5_path', 'group']] = _tmp_df[include_keys + ['uuid', 'h5_path', 'group']].ffill().bfill()
+            # interpolate NaN timestamp values
+            _tmp_df['timestamps'] = _tmp_df['timestamps'].interpolate()
 
-        if include_model and os.path.exists(include_model):
-            scalar_dict['model_label'] += labels[k].tolist()
-            scalar_dict['model_label (sort=usage)'] += usage[k].tolist()
-            scalar_dict['model_label (sort=frames)'] += frames[k].tolist()
-
-    # turn each key in scalar_names into a numpy array
-    for scalar in scalar_names:
-        scalar_dict[scalar] = np.array(scalar_dict[scalar])
+        dfs.append(_tmp_df)
 
     # return scalar_dict
-    scalar_df = pd.DataFrame(scalar_dict)
+    scalar_df = pd.concat(dfs, ignore_index=True)
 
     return scalar_df
 
 
-def make_a_heatmap(position):
-    '''
-    Uses a kernel density function to create a heatmap representing the mouse position throughout a single session.
-
-    Parameters
-    ----------
-    position (2d numpy array): 2d array of mouse centroid coordinates (for a single session),
-     computed from compute_session_centroid_speeds.
-
-
-    Returns
-    -------
-    pdf (2d numpy array): shape (50, 50) representing the PDF for the mouse position over the whole session.
-
-    '''
-
-    n_grid = 50
-
-    # Set up the bounds over which to build the KDE
-    X, Y = np.meshgrid(* \
-                           [np.linspace(*np.percentile(d, [0.01, 99.99]), num=n_grid)
-                            for d in (position[:, 0], position[:, 1])
-                            ])
-    position_grid = np.hstack((X.ravel()[:, None], Y.ravel()[:, None]))
-    bandwidth = (X.max() - X.min()) / 25.0
-
-    # Set up the KDE
-    kde = KernelDensity(bandwidth=bandwidth)
-    kde.fit(position)
-    pdf = np.exp(kde.score_samples(position_grid)).reshape(n_grid, n_grid)
-    return pdf
-
-
-def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_mm', 'centroid_y_mm']):
+def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
+                         key='SubjectName', bins=20):
     '''
     Computes a position PDF for all sessions and returns the pdfs with corresponding lists of
      groups, session uuids, and subjectNames.
@@ -614,6 +502,7 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
     scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
     normalize (bool): Indicates whether normalize the pdfs.
     centroid_vars (list): list of strings for column values to use when computing mouse position.
+    key (str): metadata column to return info from.
 
     Returns
     -------
@@ -623,116 +512,110 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
     subjectNames (list): list of strings of subjectNames corresponding to pdfs index.
     '''
 
-    sessions = list(set(scalar_df.uuid))
-    groups, positions, subjectNames = [], [], []
+    sessions, groups, subjectNames, pdfs = [], [], [], []
 
-    for sess in tqdm(sessions):
-        groups.append(scalar_df[scalar_df['uuid'] == sess][['group']].iloc[0][0])
-        positions.append(scalar_df[scalar_df['uuid'] == sess][centroid_vars].dropna(how='all').to_numpy())
-        subjectNames.append(scalar_df[scalar_df['uuid'] == sess][['SubjectName']].iloc[0][0])
+    for uuid, _df in scalar_df.groupby('uuid', sort=False):
+        sessions.append(uuid)
+        groups.append(_df['group'].iat[0])
+        subjectNames.append(_df[key].iat[0])
 
-    pool_ = Pool()
-    pdfs = pool_.map(make_a_heatmap, np.array(positions))
-    pdfs = np.stack(pdfs).copy()
-    pool_.close()
+        pos = _df[centroid_vars].dropna(how='any')
+        H, _, _ = np.histogram2d(pos.iloc[:, 1], pos.iloc[:, 0], bins=bins, density=normalize)
+        pdfs.append(H)
 
-    clim_ = 0, pdfs[0].max()
+    return np.array(pdfs), groups, sessions, subjectNames
+
+
+def compute_mean_syll_scalar(scalar_df, scalar='velocity_3d_mm', max_sylls=40, syllable_key='labels (usage sort)'):
+    '''
+    Computes the mean syllable scalar-value based on the time-series scalar dataframe and the selected scalar.
+    Finds the frame indices with corresponding each of the label values (up to max syllables) and looks up the scalar
+    values in the dataframe.
+
+    Parameters
+    ----------
+    scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid and syllable columns for all stacked sessions
+    scalar (str or list): Selected scalar column(s) to compute mean value for syllables
+    max_sylls (int): maximum amount of syllables to include in output.
+    syllable_key (str): column in scalar_df that points to the syllable labels to use.
+
+
+    Returns
+    -------
+    mean_df (pd.DataFrame): updated input dataframe with a speed value for each syllable merge in as a new column.
+    '''
+    if syllable_key not in scalar_df:
+        raise ValueError('scalar_df must be loaded with labels. Supply a model path to scalars_to_dataframe.')
+
+    mask = (scalar_df[syllable_key] >= 0) & (scalar_df[syllable_key] <= max_sylls)
+    mean_df = scalar_df[mask].groupby(['group', 'uuid', syllable_key])[scalar].mean()
+    mean_df = mean_df.reset_index()
+
+    return mean_df
+
+
+def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='group',
+                      syllable_key='labels (usage sort)'):
+    '''
+
+    Computes the mean syllable position PDF/Heatmap for the given groupings.
+    Either mean of modeling groups: groupby='group', or a verbose list of all the session's syllable PDFs
+    groupby='SessionName'
+
+    Parameters
+    ----------
+    pdf_df (pd.DataFrame): model results dataframe including a position PDF column containing 2D numpy arrays.
+    normalize (bool): Indicates whether normalize the pdf scales.
+    syllables (list): list of syllables to get a grouping of.
+    groupby (str): column name to group the df keys by. (either group, or SessionName)
+
+    Returns
+    -------
+    group_syll_pdfs (list): 2D list of computed pdfs of shape ngroups x nsyllables
+    groups (list): list of corresponding names to each row in the group_syll_pdfs list
+    '''
+
+    # Get unique groups to iterate by
+    groups = pdf_df[groupby].unique()
+    mean_pdfs = pdf_df.groupby([groupby, syllable_key]).apply(np.mean)
 
     if normalize:
-        return np.stack([p / p.sum() for p in pdfs]), groups, sessions, subjectNames
+        mean_pdfs['pdf'] = mean_pdfs['pdf'].apply(lambda x: x / np.nanmax(x))
 
-    return pdfs, groups, sessions, subjectNames
+    if groupby in mean_pdfs.columns:
+        mean_pdfs = mean_pdfs.drop(groupby, axis=1)
+
+    return mean_pdfs, groups
 
 
-def compute_session_centroid_speeds(scalar_df, grouping_keys=['uuid', 'group'],
-                                    centroid_keys=['centroid_x_mm', 'centroid_y_mm']):
+def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage sort)', syllables=range(40),
+                                       centroid_keys=['centroid_x_mm', 'centroid_y_mm'], normalize=False, bins=20):
     '''
-    Computes the centroid speed float value of the mouse given the Series of  mm x and y coordinates
-     from the scalar_df DataFrame.
+    Computes position heatmaps for each syllable on a session-by-session basis
 
     Parameters
     ----------
-    scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
-    grouping_keys (list): list of column names to group the df keys by
-    centroid_keys (list): list of column names containing the centroid values.
+    scalar_df (pd.DataFrame): DataFrame containing scalar data & labels for all sessions
+    syllable_key (str): dataframe column to access syllable labels
+    centroid_keys (list): list of column names containing the centroid values used to compute mouse position.
+    syllables (list): List of syllables to compute heatmaps for.
+    normalize (bool): If True, normalizes the histogram to be a probability density
+    bins (int): number of bins to cut the position data into
 
     Returns
     -------
-    sc_speed (pd.DataFrame): single column of a DataFrame containing centroid value to be appended
-    as new column to scalar_df
-
+    complete_df (pd.DataFrame): Inputted model results dataframe with a
+     new PDF column corresponding to each session-syllable pair.
     '''
+    if syllable_key not in scalar_df:
+        raise ValueError('You need to supply a model path to `scalars_to_dataframe` in order to merge syllable labels into `scalar_df`')
 
-    use_df = scalar_df[centroid_keys + grouping_keys]
-    sc_speed = (use_df.centroid_x_mm * 2.0).diff() ** 2 + (use_df.centroid_y_mm * 2.0).diff() ** 2
+    def _compute_histogram(df):
+        df = df[centroid_keys].dropna(how='any')
+        H, _, _ = np.histogram2d(df.iloc[:, 1], df.iloc[:, 0], bins=bins, density=normalize)
+        return H
 
-    return sc_speed
+    filtered_df = scalar_df[scalar_df[syllable_key].isin(syllables)]
+    hists = filtered_df.groupby(['group', 'uuid', 'SessionName', 'SubjectName', syllable_key]).apply(_compute_histogram)
 
-def compute_mean_syll_speed(complete_df, scalar_df, label_df, groups=None, max_sylls=40):
-    '''
-    Computes the mean syllable speed based on the centroid speed of the mouse at the frame indices
-     with corresponding label values.
-
-    Parameters
-    ----------
-    complete_df (pd.DataFrame): DataFrame containing syllable statistic results for each uuid.
-    scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
-    label_df (pd.DataFrame): DataFrame containing syllable labels at each frame (nsessions rows x max(nframes) cols)
-    sessions (list): list of strings of session uuids corresponding to pdfs index.
-    groups (list): list of strings of groups corresponding to pdfs index.
-    max_sylls (int): maximum amount of syllables to include in output.
-
-    Returns
-    -------
-    complete_df (pd.DataFrame): updated input dataframe with a speed value for each syllable merge in as a new column.
-    '''
-
-    lbl_df = label_df.T
-    columns = lbl_df.columns
-    gk = ['group', 'uuid']
-
-    centroid_speeds = scalar_df[['centroid_speed_mm'] + gk]
-
-    if isinstance(groups, list):
-        if len(groups) == 0:
-            groups = None
-
-    all_sessions = []
-    for col in tqdm(columns, total=len(columns), desc='Computing Per Session Syll Speeds'):
-        if groups != None:
-            if col[0] not in groups:
-                continue
-
-        sess_lbls = lbl_df[col].iloc[3:].reset_index().dropna(axis=0, how='all')
-        sess_speeds = centroid_speeds[centroid_speeds['uuid'] == col[1]].iloc[3:].reset_index()
-
-        sess_dict = {
-            'uuid': [],
-            'syllable': [],
-            'speed': []
-        }
-        for lbl in range(max_sylls):
-            indices = (sess_lbls[col] == lbl)
-
-            mean_lbl_speed = np.nanmean(sess_speeds[indices].centroid_speed_mm)
-
-            sess_dict['uuid'].append(col[1])
-            sess_dict['syllable'].append(lbl)
-            sess_dict['speed'].append(mean_lbl_speed)
-
-        all_sessions.append(sess_dict)
-
-    all_speeds_df = pd.DataFrame.from_dict(all_sessions[0])
-    y = all_speeds_df['speed']
-    all_speeds_df['speed'] = np.where(y.between(0, 300), y, 0)
-
-    for i in range(1, len(all_sessions)):
-        tmp_df = pd.DataFrame.from_dict(all_sessions[i])
-        y = tmp_df['speed']
-        tmp_df['speed'] = np.where(y.between(0, 300), tmp_df['speed'], 0)
-
-        all_speeds_df = all_speeds_df.append(tmp_df)
-
-    complete_df = pd.merge(complete_df, all_speeds_df, on=['uuid', 'syllable'])
-
-    return complete_df
+    return hists

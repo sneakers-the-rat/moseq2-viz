@@ -471,7 +471,12 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
                 warnings.warn('Group labels from index.yaml and model results do not match! Setting group labels '
                               'to ones used in the model.')
                 _tmp_df = _tmp_df.drop(columns=['group'])
-            _tmp_df = pd.merge(_tmp_df, labels_df.loc[k], on='frame index', how='outer')
+
+            merge_on = ['frame index']
+            if 'group' in _tmp_df.columns:
+                merge_on += ['group']
+
+            _tmp_df = pd.merge(_tmp_df, labels_df.loc[k], on=merge_on, how='outer')
             _tmp_df = _tmp_df.sort_values(by='syllable index').reset_index(drop=True)
             # fill any NaNs for metadata columns
             _tmp_df[include_keys + ['uuid', 'h5_path', 'group']] = _tmp_df[include_keys + ['uuid', 'h5_path', 'group']].ffill().bfill()
@@ -576,6 +581,9 @@ def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='grou
 
     if normalize:
         mean_pdfs['pdf'] = mean_pdfs['pdf'].apply(lambda x: x / np.nanmax(x))
+
+    if groupby in mean_pdfs.columns:
+        mean_pdfs = mean_pdfs.drop(groupby, axis=1)
 
     return mean_pdfs, groups
 

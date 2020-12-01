@@ -455,6 +455,10 @@ def make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data):
         # group UUIDs by grouping
         group_keys = groupby(lambda k: sorted_index['files'][k]['metadata'][grouping], label_uuids)
 
+        # filter group keys if user selected specific sessions
+        if config_data.get('session_names') is not None:
+            group_keys = {k: v for k, v in group_keys.items() if k in config_data['session_names']}
+
         # Write crowd movies for each session
         cm_paths = make_separate_crowd_movies(config_data, sorted_index, group_keys,
                                               label_dict, output_dir, ordering)

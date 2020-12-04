@@ -27,8 +27,8 @@ def get_session_mean_df(df, statistic="usage", max_syllable=40):
 
     df_pivot = (
         df[df.syllable < max_syllable]
-        .pivot_table(index=["group", "uuid"], columns="syllable", values=statistic)
-        .replace(np.nan, 0)
+            .pivot_table(index=["group", "uuid"], columns="syllable", values=statistic)
+            .replace(np.nan, 0)
     )
 
     return df_pivot
@@ -125,13 +125,13 @@ def get_tie_correction(x, N_m):
 
 
 def run_manual_KW_test(
-    df_usage,
-    merged_usages_all,
-    num_groups,
-    n_per_group,
-    cum_group_idx,
-    n_perm=10000,
-    seed=0,
+        df_usage,
+        merged_usages_all,
+        num_groups,
+        n_per_group,
+        cum_group_idx,
+        n_perm=10000,
+        seed=0,
 ):
     """
 
@@ -175,8 +175,8 @@ def run_manual_KW_test(
     ssbn = np.zeros((n_perm, N_s))
     for i in range(num_groups):
         ssbn += (
-            perm_ranks[:, cum_group_idx[i] : cum_group_idx[i + 1]].sum(1) ** 2
-            / n_per_group[i]
+                perm_ranks[:, cum_group_idx[i]: cum_group_idx[i + 1]].sum(1) ** 2
+                / n_per_group[i]
         )
 
     # h-statistic
@@ -193,7 +193,7 @@ def run_manual_KW_test(
         )
     )
     assert (kr.statistic == h_all[p_i, s_i]) & (
-        kr.pvalue == p_vals[p_i, s_i]
+            kr.pvalue == p_vals[p_i, s_i]
     ), "manual KW is incorrect"
 
     return h_all, real_ranks, X_ties
@@ -242,13 +242,13 @@ def plot_H_stat_significance(df_k_real, h_all, N_s):
 
 
 def run_kruskal(
-    df,
-    statistic="usage",
-    max_syllable=40,
-    n_perm=10000,
-    seed=42,
-    thresh=0.05,
-    mc_method="fdr_bh",
+        df,
+        statistic="usage",
+        max_syllable=40,
+        n_perm=10000,
+        seed=42,
+        thresh=0.05,
+        mc_method="fdr_bh",
 ):
     """
     Runs Kruskal-Wallis Hypothesis test and Dunn's posthoc multiple comparisons test for a
@@ -368,13 +368,13 @@ def run_kruskal(
 
 
 def compute_pvalues_for_group_pairs(
-    real_zs_within_group,
-    null_zs,
-    df_k_real,
-    group_names,
-    n_perm=10000,
-    thresh=0.05,
-    mc_method="fdr_bh",
+        real_zs_within_group,
+        null_zs,
+        df_k_real,
+        group_names,
+        n_perm=10000,
+        thresh=0.05,
+        mc_method="fdr_bh",
 ):
     """
     Adjusts the p-values from Dunn's z-test statistics and computes the resulting significant syllables with the
@@ -404,8 +404,8 @@ def compute_pvalues_for_group_pairs(
     p_vals_allperm = {}
     for pair in combinations(group_names, 2):
         p_vals_allperm[pair] = (
-            (null_zs[pair] > real_zs_within_group[pair]).sum(0) + 1
-        ) / n_perm
+                                       (null_zs[pair] > real_zs_within_group[pair]).sum(0) + 1
+                               ) / n_perm
 
     # summarize into df
     df_pval = pd.DataFrame(p_vals_allperm)
@@ -417,7 +417,7 @@ def compute_pvalues_for_group_pairs(
 
 
 def dunns_z_test_permute_within_group_pairs(
-    df_usage, vc, real_ranks, X_ties, N_m, group_names, rnd, n_perm
+        df_usage, vc, real_ranks, X_ties, N_m, group_names, rnd, n_perm
 ):
     """
     Runs Dunn's z-test statistic on combinations of all group pairs, handling pre-computed tied ranks.
@@ -445,7 +445,6 @@ def dunns_z_test_permute_within_group_pairs(
     A = N_m * (N_m + 1.0) / 12.0
 
     for (i_n, j_n) in combinations(group_names, 2):
-
         is_i = df_usage.group == i_n
         is_j = df_usage.group == j_n
 
@@ -454,14 +453,14 @@ def dunns_z_test_permute_within_group_pairs(
         ranks_perm = real_ranks[(is_i | is_j)][rnd.rand(n_perm, n_mice).argsort(-1)]
         diff = np.abs(
             ranks_perm[:, : is_i.sum(), :].mean(1)
-            - ranks_perm[:, is_i.sum() :, :].mean(1)
+            - ranks_perm[:, is_i.sum():, :].mean(1)
         )
         B = 1.0 / vc.loc[i_n] + 1.0 / vc.loc[j_n]
 
         # also do for real data
         group_ranks = real_ranks[(is_i | is_j)]
         real_diff = np.abs(
-            group_ranks[: is_i.sum(), :].mean(0) - group_ranks[is_i.sum() :, :].mean(0)
+            group_ranks[: is_i.sum(), :].mean(0) - group_ranks[is_i.sum():, :].mean(0)
         )
 
         # add to dict
@@ -619,4 +618,9 @@ def get_sig_syllables(df_pvals, thresh=0.05, mc_method="fdr_bh"):
     df_pvals["is_sig"] = df_pvals["p_adj"] <= thresh
     n_sig = df_pvals["is_sig"].sum()
     print(f"Found {n_sig} syllables that pass threshold {thresh} with {mc_method}")
+
+    # print list of significant syllables
+    sig_sylls = list(df_pvals[df_pvals["is_sig"] == True].index)
+    print(sig_sylls)
+
     return df_pvals

@@ -58,6 +58,11 @@ def compute_syllable_explained_variance(model, n_explained=99):
     max_sylls = np.argwhere(cumulative_explanation >= n_explained)[0][0]
     print(f'Number of syllables explaining {n_explained}% variance: {max_sylls}')
 
+    fig, ax = plt.subplots(1)
+
+    ax.set_xlabel('Number of Syllables to Include')
+    ax.set_ylabel('Explained Variance Percentage')
+
     plt.plot(cumulative_explanation)
     plt.axvline(max_sylls, color='k')
 

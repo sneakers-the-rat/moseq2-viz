@@ -427,6 +427,8 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     -------
     scalar_df (pandas DataFrame): DataFrame of loaded scalar values with their selected metadata.
     '''
+    warnings.filterwarnings('ignore', '', FutureWarning)
+
     has_model = False
     model_uuids = None
     if model_path is not None and exists(model_path):
@@ -498,6 +500,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
             _tmp_df['timestamps'] = _tmp_df['timestamps'].interpolate()
 
         dfs.append(_tmp_df)
+        warnings.filterwarnings('ignore', '', UserWarning)
 
     # return scalar_dict
     scalar_df = pd.concat(dfs, ignore_index=True)

@@ -427,10 +427,15 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     -------
     scalar_df (pandas DataFrame): DataFrame of loaded scalar values with their selected metadata.
     '''
-    has_model = False
+    warnings.filterwarnings('ignore', '', FutureWarning)
+
+    has_model = False # indicator for whether users inputted a model_path to load syllable labels from
+    model_uuids = None
     if model_path is not None and exists(model_path):
         labels_df = prepare_model_dataframe(model_path, index['pca_path']).set_index('uuid')
         has_model = True
+        # loading the session uuids that the model was trained on
+        model_uuids = labels_df.reset_index().uuid.unique()
 
     # check if files is dictionary from sorted_index or list from unsorted index, then sort
     if isinstance(index['files'], list):
@@ -439,14 +444,22 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     dfs = []
     # Iterate through index file session info and paths
     for k, v in tqdm(index['files'].items(), disable=disable_output):
+        if has_model:
+            # skipping the session uuids (found in the index file) that are not included in the model uuids.
+            if k not in model_uuids:
+                continue
         # Get path to extraction h5 file
         pth = h5_filepath_from_sorted(v)
         # Load scalars from h5
         dset = h5_to_dict(pth, 'scalars')
 
         # Get ROI shape to compute distance to center
-        roi = h5_to_dict(pth, path='metadata/extraction/roi')['roi'].shape
-        dset['dist_to_center_px'] = compute_mouse_dist_to_center(roi, dset['centroid_x_px'], dset['centroid_y_px'])
+        try:
+            roi = h5_to_dict(pth, path='metadata/extraction/roi')['roi'].shape
+            dset['dist_to_center_px'] = compute_mouse_dist_to_center(roi, dset['centroid_x_px'], dset['centroid_y_px'])
+        except OSError:
+            print('ROI was not found in the given h5 file. Not including dist_to_center_px')
+            pass
 
         timestamps = get_timestamps_from_h5(pth)
 
@@ -456,12 +469,12 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 
         dset = merge(dset, {
             'group': v['group'],
-            'uuid': k ,
+            'uuid': k,
             'h5_path': pth,
             'timestamps': timestamps,
             'frame index': np.arange(len(timestamps))}, {
-            key: v['metadata'][key] for key in include_keys
-        })
+                         key: v['metadata'][key] for key in include_keys if key in v['metadata'].keys()
+                     })
 
         _tmp_df = pd.DataFrame(dset)
 
@@ -478,12 +491,18 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 
             _tmp_df = pd.merge(_tmp_df, labels_df.loc[k], on=merge_on, how='outer')
             _tmp_df = _tmp_df.sort_values(by='syllable index').reset_index(drop=True)
+
+            # filter included keys to only those that exist in the dataset dataframe
+            include_keys = [ik for ik in include_keys if ik in _tmp_df.columns]
+
             # fill any NaNs for metadata columns
-            _tmp_df[include_keys + ['uuid', 'h5_path', 'group']] = _tmp_df[include_keys + ['uuid', 'h5_path', 'group']].ffill().bfill()
+            _tmp_df[include_keys + ['uuid', 'h5_path', 'group']] = _tmp_df[
+                include_keys + ['uuid', 'h5_path', 'group']].ffill().bfill()
             # interpolate NaN timestamp values
             _tmp_df['timestamps'] = _tmp_df['timestamps'].interpolate()
 
         dfs.append(_tmp_df)
+        warnings.filterwarnings('ignore', '', UserWarning)
 
     # return scalar_dict
     scalar_df = pd.concat(dfs, ignore_index=True)

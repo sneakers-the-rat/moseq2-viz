@@ -483,6 +483,24 @@ def get_syllable_usages(data, max_syllable=100, count='usage'):
 
 def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='usage', fps=30,
                                   usage_normalization=True, syllable_key='labels (usage sort)'):
+    '''
+    Computes syllable statistics merged with the inputted scalar features.
+
+    Parameters
+    ----------
+    scalar_df (pd.DataFrame): Scalar measuresments for full dataset, including metadata for all the sessions.
+     Outputted via scalars_to_dataframe().
+    groupby (list of strings): list of columns to run the pandas groupby() on the scalar_df.
+    count (str): indicates how to determine mean usage calculation. either 'usage' (default), or 'frames'
+    fps (int): frames per second that the data was acquired in.
+    usage_normalization (bool): indicates whether to normalize syllable usages by the value counts.
+    syllable_key (str): column to rename to "syllable" for convenient referencing later on.
+
+    Returns
+    -------
+    features (pd.DataFrame): full feature Dataframe with scalars, metadata, and syllable statistics.
+    '''
+
     if count not in ('usage', 'frames'):
         raise ValueError('`count` must be either "usage" or "frames"')
 
@@ -492,6 +510,7 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
 
     scalar_df = scalar_df.query('`labels (original)` >= 0')
 
+    # get list of numerical scalar features to include in output df.
     feature_cols = (scalar_df.dtypes == 'float32') | (scalar_df.dtypes == 'float')
     feature_cols = feature_cols[feature_cols].index
 
@@ -499,8 +518,8 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
     if count == "usage":
         usages = (
             scalar_df.query("onset")
-            .groupby(groupby)[syllable_key]
-            .value_counts(normalize=usage_normalization)
+                .groupby(groupby)[syllable_key]
+                .value_counts(normalize=usage_normalization)
         )
     else:
         usages = scalar_df.groupby(groupby)[syllable_key].value_counts(

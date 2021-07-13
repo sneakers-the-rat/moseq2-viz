@@ -5,7 +5,7 @@ from unittest import TestCase
 from moseq2_viz.util import parse_index
 from moseq2_viz.scalars.util import scalars_to_dataframe
 from moseq2_viz.model.util import compute_behavioral_statistics
-from moseq2_viz.model.embed import get_Xy_values, run_2d_embedding
+from moseq2_viz.model.embed import get_Xy_values, run_2d_embedding, run_2d_scalar_embedding
 
 class TestModelEmbed(TestCase):
 
@@ -24,17 +24,6 @@ class TestModelEmbed(TestCase):
                                                      groupby=['group', 'uuid'],
                                                      usage_normalization=True)
 
-    def test_get_Xy_values(self):
-
-        X, y, mapping, rev_mapping = get_Xy_values(self.mean_df,
-                                                   self.mean_df.group.unique(),
-                                                   stat='usage')
-
-        assert list(mapping.keys()) == list(rev_mapping.values())
-        assert list(mapping.values()) == list(rev_mapping.keys())
-
-        assert len(X) == len(y)
-
     def test_run_2d_embedding(self):
 
         stat = 'usage'
@@ -42,6 +31,16 @@ class TestModelEmbed(TestCase):
         embedding = 'PCA'
 
         run_2d_embedding(self.mean_df, stat=stat, output_file=output_file, embedding=embedding)
+
+        assert exists(output_file)
+        os.remove(output_file)
+
+    def test_run_2d_scalar_embedding(self):
+        output_file = '2d_scalar_embedding.pdf'
+        embedding = 'PCA'
+        n_components = 2
+
+        run_2d_scalar_embedding(self.scalar_df, output_file=output_file, embedding=embedding, n_components=n_components)
 
         assert exists(output_file)
         os.remove(output_file)

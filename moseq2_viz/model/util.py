@@ -355,8 +355,8 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
         try:
             score_idx = h5_to_dict(index['pca_path'], 'scores_idx')
         except OSError:
-            print('pca_path in index file is incorrectly set. Ensure the pca_path is pointing to the pca_scores.h5 file.')
-            trim_nans = False
+            raise OSError('pca_path in index file is incorrectly set. '
+                          'Ensure the pca_path is pointing to the pca_scores.h5 file.')
 
     syllable_slices = []
 

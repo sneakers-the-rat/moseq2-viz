@@ -441,6 +441,9 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     dfs = []
     # Iterate through index file session info and paths
     for k, v in tqdm(index['files'].items(), disable=disable_output):
+        if has_model:
+            if k not in model_uuids:
+                continue
         # Get path to extraction h5 file
         pth = h5_filepath_from_sorted(v)
         # Load scalars from h5

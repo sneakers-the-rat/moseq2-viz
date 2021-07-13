@@ -460,7 +460,6 @@ def plot_syll_stats_with_sem(scalar_df, syll_info=None, sig_sylls=None, stat='us
                        join=join, dodge=True, ci=68, ax=ax, hue_order=groups,
                        palette=colors)
 
-    legend = ax.legend(frameon=False, bbox_to_anchor=(1, 1))
     # where some data has already been plotted to ax
     handles, labels = ax.get_legend_handles_labels()
 
@@ -472,6 +471,20 @@ def plot_syll_stats_with_sem(scalar_df, syll_info=None, sig_sylls=None, stat='us
 
         plt.xticks(range(max_sylls), mean_xlabels, rotation=90)
 
+    # if a list of significant syllables is given, mark the syllables above the x-axis
+    if sig_sylls is not None:
+        markings = []
+        for s in sig_sylls:
+            markings.append(ordering.index(s))
+        plt.scatter(markings, [-.005] * len(markings), color='r', marker='*')
+
+        # manually define a new patch
+        patch = mlines.Line2D([], [], color='red', marker='*', linestyle='None',
+                              markersize=9, label='Significant Syllable')
+        handles.append(patch)
+
+    # add legend and axis labels
+    legend = ax.legend(handles=handles, frameon=False, bbox_to_anchor=(1, 1))
     plt.xlabel(xlabel, fontsize=12)
     sns.despine()
 

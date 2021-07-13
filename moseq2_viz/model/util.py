@@ -549,7 +549,14 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
     features = usages.join(durations).join(features)
     features['syllable key'] = syllable_key
 
-    return features.reset_index().rename(columns={syllable_key: 'syllable'})
+    try:
+        features = features.reset_index()
+    except ValueError:
+        # syllable_key already exists
+        features = features.drop(columns=[syllable_key]).reset_index()
+
+    # rename inputted column name to "syllable" for simpler column referencing.
+    return features.rename(columns={syllable_key: 'syllable'})
 
 
 def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'):

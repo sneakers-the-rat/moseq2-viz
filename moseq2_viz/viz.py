@@ -463,7 +463,7 @@ def plot_syll_stats_with_sem(scalar_df, stat='usage', ordering='stat', max_sylls
     return fig, legend
 
 
-def plot_mean_group_heatmap(pdfs, groups, normalize=False):
+def plot_mean_group_heatmap(pdfs, groups, normalize=True, norm_color=mpl.colors.LogNorm()):
     '''
     Computes the overall group mean of the computed PDFs and plots them.
 
@@ -483,7 +483,7 @@ def plot_mean_group_heatmap(pdfs, groups, normalize=False):
     pdfs = np.array(pdfs)
 
     fig, ax = plt.subplots(nrows=len(uniq_groups), ncols=1, sharex=True, sharey=True,
-                           figsize=(4, 5 * len(uniq_groups)))
+                           figsize=(5, 6 * len(uniq_groups)))
     if not isinstance(ax, np.ndarray):
         ax = np.array(ax)
     for a, group in zip(ax.flat, uniq_groups):
@@ -493,7 +493,7 @@ def plot_mean_group_heatmap(pdfs, groups, normalize=False):
             _min_val = (avg_hist[avg_hist > 0]).min()
             avg_hist = (avg_hist + _min_val) / (avg_hist.max() + _min_val)
 
-        im = a.imshow(avg_hist, norm=mpl.colors.LogNorm())
+        im = a.imshow(avg_hist, norm=norm_color)
         # fraction to make the colorbar match image height
         fig.colorbar(im, ax=a, fraction=0.046, pad=0.04, format='%.0e')
 
@@ -504,7 +504,7 @@ def plot_mean_group_heatmap(pdfs, groups, normalize=False):
     return fig
 
 
-def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False):
+def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False, norm_color=mpl.colors.LogNorm()):
     '''
     Plots the PDF position heatmap for each session, titled with the group and subjectName.
 
@@ -523,7 +523,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False):
 
     uniq_groups = np.unique(groups)
     count = [len([grp1 for grp1 in groups if grp1 == grp]) for grp in uniq_groups]
-    figsize = (np.round(2.5 * len(uniq_groups)), np.round(2.6 * np.max(count)))
+    figsize = (np.round(2.8 * len(uniq_groups)), np.round(3.0 * np.max(count)))
 
     fig, ax = plt.subplots(nrows=np.max(count), ncols=len(uniq_groups), sharex=True,
                            sharey=True, figsize=figsize)
@@ -545,7 +545,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False):
                 _min_val = (avg_hist[avg_hist > 0]).min()
                 avg_hist = (avg_hist + _min_val) / (avg_hist.max() + _min_val)
 
-            im = a.imshow(avg_hist, norm=mpl.colors.LogNorm())
+            im = a.imshow(avg_hist, norm=norm_color)
             fig.colorbar(im, ax=a, fraction=0.046, pad=0.04, format='%.0e')
 
             a.set_xticks([])

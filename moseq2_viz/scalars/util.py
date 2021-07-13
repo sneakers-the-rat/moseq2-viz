@@ -450,8 +450,12 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         dset = h5_to_dict(pth, 'scalars')
 
         # Get ROI shape to compute distance to center
-        roi = h5_to_dict(pth, path='metadata/extraction/roi')['roi'].shape
-        dset['dist_to_center_px'] = compute_mouse_dist_to_center(roi, dset['centroid_x_px'], dset['centroid_y_px'])
+        try:
+            roi = h5_to_dict(pth, path='metadata/extraction/roi')['roi'].shape
+            dset['dist_to_center_px'] = compute_mouse_dist_to_center(roi, dset['centroid_x_px'], dset['centroid_y_px'])
+        except OSError:
+            print('ROI was not found in the given h5 file. Not including dist_to_center_px')
+            pass
 
         timestamps = get_timestamps_from_h5(pth)
 

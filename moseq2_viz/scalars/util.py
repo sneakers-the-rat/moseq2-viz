@@ -429,11 +429,12 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     '''
     warnings.filterwarnings('ignore', '', FutureWarning)
 
-    has_model = False
+    has_model = False # indicator for whether users inputted a model_path to load syllable labels from
     model_uuids = None
     if model_path is not None and exists(model_path):
         labels_df = prepare_model_dataframe(model_path, index['pca_path']).set_index('uuid')
         has_model = True
+        # loading the session uuids that the model was trained on
         model_uuids = labels_df.reset_index().uuid.unique()
 
     # check if files is dictionary from sorted_index or list from unsorted index, then sort
@@ -444,6 +445,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     # Iterate through index file session info and paths
     for k, v in tqdm(index['files'].items(), disable=disable_output):
         if has_model:
+            # skipping the session uuids (found in the index file) that are not included in the model uuids.
             if k not in model_uuids:
                 continue
         # Get path to extraction h5 file

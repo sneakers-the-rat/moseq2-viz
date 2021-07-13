@@ -428,9 +428,11 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
     scalar_df (pandas DataFrame): DataFrame of loaded scalar values with their selected metadata.
     '''
     has_model = False
+    model_uuids = None
     if model_path is not None and exists(model_path):
         labels_df = prepare_model_dataframe(model_path, index['pca_path']).set_index('uuid')
         has_model = True
+        model_uuids = labels_df.reset_index().uuid.unique()
 
     # check if files is dictionary from sorted_index or list from unsorted index, then sort
     if isinstance(index['files'], list):

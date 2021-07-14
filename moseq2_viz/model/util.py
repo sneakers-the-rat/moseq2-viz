@@ -54,6 +54,10 @@ def compute_syllable_explained_variance(model, n_explained=99):
 
     syllable_usages = list(get_syllable_usages(model['labels'], count='usage').values())
     cumulative_explanation = 100 * np.cumsum(syllable_usages / sum(syllable_usages))
+    # Syllables may not explain 100% of the variance
+    # Sufficient number of syllables may explain up to 99.99% of the variances
+    # We use 99.99% as an approximation for 100% explained variance percentage
+    cumulative_explanation += 0.0001
 
     max_sylls = np.argwhere(cumulative_explanation >= n_explained)[0][0]
     print(f'Number of syllables explaining {n_explained}% variance: {max_sylls}')

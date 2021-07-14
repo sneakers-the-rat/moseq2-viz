@@ -53,13 +53,15 @@ def compute_syllable_explained_variance(model, n_explained=99):
     '''
 
     syllable_usages = list(get_syllable_usages(model['labels'], count='usage').values())
-    cumulative_explanation = 100 * np.cumsum(syllable_usages / sum(syllable_usages))
+    cumulative_explanation = np.cumsum(syllable_usages / sum(syllable_usages))
 
+    # Syllables may not explain 100% of the variance due to rounding and precision
+    # Normalized cumulative explained variance by max cumulative explained variance
+    cumulative_explanation = 100 * cumulative_explanation/np.max(cumulative_explanation)
     max_sylls = np.argwhere(cumulative_explanation >= n_explained)[0][0]
     print(f'Number of syllables explaining {n_explained}% variance: {max_sylls}')
 
     fig, ax = plt.subplots(1)
-
     ax.set_xlabel('Number of Syllables to Include')
     ax.set_ylabel('Explained Variance Percentage')
 

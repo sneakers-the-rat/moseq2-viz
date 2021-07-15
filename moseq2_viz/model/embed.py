@@ -10,7 +10,7 @@ from sklearn.decomposition import PCA
 from moseq2_viz.model.util import get_Xy_values
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 
-def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embedding='PCA', n_components=2):
+def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embedding='PCA', n_components=2, plot_all_subjects=True):
     '''
     Computes a 2D embedding of the mean syllable statistic of choice. User selects an embedding type, a stat
      to compute the embedding on, and provides a dataframe with the mean syllable information.
@@ -22,6 +22,8 @@ def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embe
     output_file (str): path to saved outputted figure
     embedding (str): type of embedding to run. Either ['lda', 'pca']
     n_components (int): Number of components to compute.
+    plot_all_subjects (bool): indicates whether to plot individual subject embeddings along with their respective
+     group means.
 
     Returns
     -------
@@ -48,11 +50,12 @@ def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embe
         print("Not enough dimensions to plot, try a different embedding method.")
         return None, None
 
-    fig, ax = plot_embedding(L, y, mapping, rev_mapping, output_file=output_file, embedding=embedding)
+    fig, ax = plot_embedding(L, y, mapping, rev_mapping,
+                             output_file=output_file, embedding=embedding, plot_all_subjects=plot_all_subjects)
 
     return fig, ax
 
-def run_2d_scalar_embedding(scalar_df, output_file='2d_scalar_embedding.pdf', embedding='PCA', n_components=2):
+def run_2d_scalar_embedding(scalar_df, output_file='2d_scalar_embedding.pdf', embedding='PCA', n_components=2, plot_all_subjects=True):
     '''
     Computes a 2D embedding of the mean measured scalar values for all groups. User selects an embedding type,
      and provides a dataframe to compute the mean scalar information from.
@@ -64,6 +67,8 @@ def run_2d_scalar_embedding(scalar_df, output_file='2d_scalar_embedding.pdf', em
     output_file (str): path to saved outputted figure
     embedding (str): type of embedding to run. Either ['lda', 'pca']
     n_components (int): Number of components to compute.
+    plot_all_subjects (bool): indicates whether to plot individual subject embeddings along with their respective
+     group means.
 
     Returns
     -------
@@ -105,7 +110,8 @@ def run_2d_scalar_embedding(scalar_df, output_file='2d_scalar_embedding.pdf', em
         return None, None
 
     # Plot the 2D embedding
-    fig, ax = plot_embedding(L, y, mapping, reverse_mapping, output_file=output_file, embedding=embedding)
+    fig, ax = plot_embedding(L, y, mapping, reverse_mapping,
+                             output_file=output_file, embedding=embedding, plot_all_subjects=plot_all_subjects)
 
     return fig, ax
 
@@ -117,7 +123,8 @@ def plot_embedding(L,
                    embedding='PCA',
                    x_dim=0,
                    y_dim=1,
-                   symbols="o*v^s"):
+                   symbols="o*v^s",
+                   plot_all_subjects=True):
     '''
 
     Parameters
@@ -131,6 +138,8 @@ def plot_embedding(L,
     x_dim (int): component number to graph on x-axis
     y_dim (int): component number to graph on y-axis
     symbols (str): symbols to use to draw different groups.
+    plot_all_subjects (bool): indicates whether to plot individual subject embeddings along with their respective
+     group means.
 
     Returns
     -------
@@ -154,6 +163,10 @@ def plot_embedding(L,
     for i in range(len(mapping)):
         # get embedding indices
         idx = [y == i]
+
+        # plotting individual subject data points
+        if plot_all_subjects:
+            plt.plot(L[idx][:, x_dim], L[idx][:, y_dim], symbols[i], color=colors[i], alpha=0.3, markersize=10)
 
         # plot mean embedding with corresponding symbol and color
         mu = np.nanmean(L[idx], axis=0)

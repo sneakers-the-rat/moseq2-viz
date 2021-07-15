@@ -249,6 +249,7 @@ def run_kruskal(
         seed=42,
         thresh=0.05,
         mc_method="fdr_bh",
+        verbose=False,
 ):
     """
     Runs Kruskal-Wallis Hypothesis test and Dunn's posthoc multiple comparisons test for a
@@ -268,6 +269,7 @@ def run_kruskal(
     thresh (float): Alpha threshold to consider syllable significant.
     mc_method (str): Multiple Corrections method to use.
     Options can be found here: https://www.statsmodels.org/dev/generated/statsmodels.stats.multitest.multipletests.html
+    verbose (bool): indicates whether to print out the significant syllable results
 
     Returns
     -------
@@ -324,9 +326,9 @@ def run_kruskal(
     )[1]
 
     df_k_real["is_sig"] = df_k_real["p_adj"] <= thresh
-    print(
-        f"Found {df_k_real['is_sig'].sum()} syllables that pass threshold {thresh} with {mc_method}"
-    )
+
+    if verbose:
+        print(f"Found {df_k_real['is_sig'].sum()} syllables that pass threshold {thresh} with {mc_method}")
 
     # Run Dunn's z-test statistics
     (
@@ -352,9 +354,10 @@ def run_kruskal(
     df_z.index = df_z.index.set_names("syllable")
     dunn_results_df = df_z.reset_index().melt(id_vars="syllable")
 
-    # take the intersection of KW and Dunn's tests
-    print("permutation within group-pairs (2 groups)")
-    print("intersection of Kruskal-Wallis and Dunn's tests")
+    if verbose:
+        # take the intersection of KW and Dunn's tests
+        print("permutation within group-pairs (2 groups)")
+        print("intersection of Kruskal-Wallis and Dunn's tests")
 
     # Get intersecting significant syllables between
     intersect_sig_syllables = {}
@@ -362,7 +365,9 @@ def run_kruskal(
         intersect_sig_syllables[pair] = np.where(
             (df_pair_corrected_pvalues[pair] < thresh) & (df_k_real.is_sig)
         )[0]
-        print(pair, len(intersect_sig_syllables[pair]), intersect_sig_syllables[pair])
+
+        if verbose:
+            print(pair, len(intersect_sig_syllables[pair]), intersect_sig_syllables[pair])
 
     return df_k_real, dunn_results_df, intersect_sig_syllables
 
@@ -375,6 +380,7 @@ def compute_pvalues_for_group_pairs(
         n_perm=10000,
         thresh=0.05,
         mc_method="fdr_bh",
+        verbose=False
 ):
     """
     Adjusts the p-values from Dunn's z-test statistics and computes the resulting significant syllables with the
@@ -390,6 +396,7 @@ def compute_pvalues_for_group_pairs(
     n_perm (int): Number of permuted samples to generate.
     thresh (float): Alpha threshold to consider syllable significant.
     mc_method (str): Multiple Corrections method to use.
+    verbose (bool): indicates whether to print out the significant syllable results
 
     Returns
     -------
@@ -398,8 +405,9 @@ def compute_pvalues_for_group_pairs(
     """
 
     # do empirical p-val calculation for all group permutation
-    print(f"Permutation across all {len(group_names)} groups")
-    print(f"significant syllables for each pair with FDR < {thresh}")
+    if verbose:
+        print(f"Permutation across all {len(group_names)} groups")
+        print(f"significant syllables for each pair with FDR < {thresh}")
 
     p_vals_allperm = {}
     for pair in combinations(group_names, 2):
@@ -471,7 +479,7 @@ def dunns_z_test_permute_within_group_pairs(
     return null_zs_within_group, real_zs_within_group
 
 
-def run_pairwise_stats(df, group1, group2, test_type="mw", **kwargs):
+def run_pairwise_stats(df, group1, group2, test_type="mw", verbose=False, **kwargs):
     """Wrapper for staistical test
 
     Parameters
@@ -480,6 +488,7 @@ def run_pairwise_stats(df, group1, group2, test_type="mw", **kwargs):
     group1 (str): Name of first group
     group2 (str): Name of second group
     test_type (str): one of ["mw", "z_test", "t_test"], specifying which type of statistical test
+    verbose (bool): indicates whether to print out the significant syllable results
 
     Returns:
         df_pvals (pd.DataFrame): Dataframe listing the p-values and which syllables are significant
@@ -488,14 +497,14 @@ def run_pairwise_stats(df, group1, group2, test_type="mw", **kwargs):
     if test_type not in test_types:
         raise ValueError(f"`test_type` must one of {test_types}")
     if test_type == "mw":
-        return mann_whitney(df, group1, group2, **kwargs)
+        return mann_whitney(df, group1, group2, verbose=verbose, **kwargs)
     elif test_type == "z_test":
-        return ztest(df, group1, group2, **kwargs)
+        return ztest(df, group1, group2, verbose=verbose, **kwargs)
     elif test_type == "t_test":
-        return ttest(df, group1, group2, **kwargs)
+        return ttest(df, group1, group2, verbose=verbose, **kwargs)
 
 
-def mann_whitney(df, group1, group2, statistic="usage", max_syllable=40, **kwargs):
+def mann_whitney(df, group1, group2, statistic="usage", max_syllable=40, verbose=False, **kwargs):
     """
     Runs a Mann-Whitney hypothesis test on two given groups to find significant syllables.
     Also runs multiple corrections test to find syllables to exclude.
@@ -511,6 +520,7 @@ def mann_whitney(df, group1, group2, statistic="usage", max_syllable=40, **kwarg
     max_syllable (int): Maximum number of syllables to include
     thresh (float): Alpha threshold to consider syllable significant.
     mc_method (str): Multiple Corrections method to use.
+    verbose (bool): indicates whether to print out the significant syllable results
 
     Returns
     -------
@@ -535,10 +545,10 @@ def mann_whitney(df, group1, group2, statistic="usage", max_syllable=40, **kwarg
             for s_i in range(N_s)
         ]
     )
-    return get_sig_syllables(df_mw_real, **kwargs)
+    return get_sig_syllables(df_mw_real, verbose=verbose, **kwargs)
 
 
-def ztest(df, group1, group2, statistic="usage", max_syllable=40, **kwargs):
+def ztest(df, group1, group2, statistic="usage", max_syllable=40, verbose=False, **kwargs):
     """
     Computes a z hypothesis test on 2 (bootstrapped) selected groups.
     Also runs multiple corrections test to find syllables to exclude.
@@ -554,6 +564,7 @@ def ztest(df, group1, group2, statistic="usage", max_syllable=40, **kwargs):
     max_syllable (int): Maximum number of syllables to include
     thresh (float): Alpha threshold to consider syllable significant.
     mc_method (str): Multiple Corrections method to use.
+    verbose (bool): indicates whether to print out the significant syllable results
 
     Returns
     -------
@@ -564,10 +575,10 @@ def ztest(df, group1, group2, statistic="usage", max_syllable=40, **kwargs):
     # do a ztest on the bootstrap distributions of your 2 conditions
     pvals_ztest_boots = ztest_vect(boots[group1], boots[group2])
     df_z = pd.DataFrame(pvals_ztest_boots, columns=["pvalue"])
-    return get_sig_syllables(df_z, **kwargs)
+    return get_sig_syllables(df_z, verbose=verbose, **kwargs)
 
 
-def ttest(df, group1, group2, statistic="usage", max_syllable=40, **kwargs):
+def ttest(df, group1, group2, statistic="usage", max_syllable=40, verbose=False, **kwargs):
     """
     Computes a t-hypothesis test on 2 selected groups to find significant syllables.
     Also runs multiple corrections test to find syllables to exclude.
@@ -583,6 +594,7 @@ def ttest(df, group1, group2, statistic="usage", max_syllable=40, **kwargs):
     max_syllable (int): Maximum number of syllables to include
     thresh (float): Alpha threshold to consider syllable significant.
     mc_method (str): Multiple Corrections method to use.
+    verbose (bool): indicates whether to print out the significant syllable results.
 
     Returns
     -------
@@ -597,16 +609,19 @@ def ttest(df, group1, group2, statistic="usage", max_syllable=40, **kwargs):
     df_t = pd.DataFrame(
         stats.ttest_ind(usages[group1], usages[group2]), index=["t", "pvalue"]
     ).T
-    return get_sig_syllables(df_t, **kwargs)
+    return get_sig_syllables(df_t, verbose=verbose, **kwargs)
 
 
-def get_sig_syllables(df_pvals, thresh=0.05, mc_method="fdr_bh"):
+def get_sig_syllables(df_pvals, thresh=0.05, mc_method="fdr_bh", verbose=False):
     """
     Runs multiple p-value comparisons test given a set alpha Threshold, and multiple corrections method.
 
     Parameters
     ----------
     df_pvals (pd.DataFrame): dataframe listing raw p-values
+    thresh (float): Alpha threshold to consider syllable significant.
+    mc_method (str): Multiple Corrections method to use.
+    verbose (bool): indicates whether to print out the significant syllable results
 
     Returns
     -------
@@ -617,10 +632,12 @@ def get_sig_syllables(df_pvals, thresh=0.05, mc_method="fdr_bh"):
     ]
     df_pvals["is_sig"] = df_pvals["p_adj"] <= thresh
     n_sig = df_pvals["is_sig"].sum()
-    print(f"Found {n_sig} syllables that pass threshold {thresh} with {mc_method}")
 
     # print list of significant syllables
     sig_sylls = list(df_pvals[df_pvals["is_sig"] == True].index)
-    print(sig_sylls)
+
+    if verbose:
+        print(f"Found {n_sig} syllables that pass threshold {thresh} with {mc_method}")
+        print(sig_sylls)
 
     return df_pvals

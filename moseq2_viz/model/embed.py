@@ -10,7 +10,7 @@ from sklearn.decomposition import PCA
 from moseq2_viz.model.util import get_Xy_values
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 
-def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embedding='LDA', n_components=2):
+def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embedding='PCA', n_components=2):
     '''
     Computes a 2D embedding of the mean syllable statistic of choice. User selects an embedding type, a stat
      to compute the embedding on, and provides a dataframe with the mean syllable information.
@@ -52,7 +52,7 @@ def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embe
 
     return fig, ax
 
-def run_2d_scalar_embedding(scalar_df, output_file='2d_scalar_embedding.pdf', embedding='LDA', n_components=2):
+def run_2d_scalar_embedding(scalar_df, output_file='2d_scalar_embedding.pdf', embedding='PCA', n_components=2):
     '''
     Computes a 2D embedding of the mean measured scalar values for all groups. User selects an embedding type,
      and provides a dataframe to compute the mean scalar information from.
@@ -114,7 +114,7 @@ def plot_embedding(L,
                    mapping,
                    rev_mapping,
                    output_file='embedding.pdf',
-                   embedding='LDA',
+                   embedding='PCA',
                    x_dim=0,
                    y_dim=1,
                    symbols="o*v^s"):

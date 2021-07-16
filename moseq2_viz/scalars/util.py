@@ -539,7 +539,12 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
         subjectNames.append(_df[key].iat[0])
 
         pos = _df[centroid_vars].dropna(how='any')
-        H, _, _ = np.histogram2d(pos.iloc[:, 1], pos.iloc[:, 0], bins=bins, density=normalize)
+        try:
+            H, _, _ = np.histogram2d(pos.iloc[:, 1], pos.iloc[:, 0], bins=bins, density=normalize)
+        except KeyError:
+            print(f'Failed to generate position heatmap for session with uuid: {uuid}')
+            H = np.zeros((bins, bins))
+
         pdfs.append(H)
 
     return np.array(pdfs), groups, sessions, subjectNames
@@ -635,6 +640,7 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
             H, _, _ = np.histogram2d(df.iloc[:, 1], df.iloc[:, 0], bins=bins, density=normalize)
         except KeyError:
             # syllable not found in group
+            print(f'Unable to generate position heatmap for syllable {df.syllable}')
             H = np.zeros((bins, bins))
         return H
 

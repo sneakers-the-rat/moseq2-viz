@@ -459,7 +459,8 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
             roi = h5_to_dict(pth, path='metadata/extraction/roi')['roi'].shape
             dset['dist_to_center_px'] = compute_mouse_dist_to_center(roi, dset['centroid_x_px'], dset['centroid_y_px'])
         except OSError:
-            print('ROI was not found in the given h5 file. Not including dist_to_center_px')
+            print(f'ROI was not found in the given h5 file. \n'
+                  f'Not including the dist_to_center_px column in outputted scalar_df for session-uuid {k}')
             pass
 
         timestamps = get_timestamps_from_h5(pth)

@@ -216,7 +216,8 @@ def get_scalar_map(index, fill_nans=True, force_conversion=False):
 
     try:
         iter_items = index['files'].items()
-    except:
+    except AttributeError:
+        # index['files'] was not loaded as a dictionary
         iter_items = enumerate(index['files'])
 
     for i, v in iter_items:

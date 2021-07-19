@@ -216,7 +216,8 @@ def get_scalar_map(index, fill_nans=True, force_conversion=False):
 
     try:
         iter_items = index['files'].items()
-    except:
+    except AttributeError:
+        # index['files'] was not loaded as a dictionary
         iter_items = enumerate(index['files'])
 
     for i, v in iter_items:
@@ -458,7 +459,8 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
             roi = h5_to_dict(pth, path='metadata/extraction/roi')['roi'].shape
             dset['dist_to_center_px'] = compute_mouse_dist_to_center(roi, dset['centroid_x_px'], dset['centroid_y_px'])
         except OSError:
-            print('ROI was not found in the given h5 file. Not including dist_to_center_px')
+            print(f'ROI was not found in the given h5 file. \n'
+                  f'Not including the dist_to_center_px column in outputted scalar_df for session-uuid {k}')
             pass
 
         timestamps = get_timestamps_from_h5(pth)
@@ -539,7 +541,12 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
         subjectNames.append(_df[key].iat[0])
 
         pos = _df[centroid_vars].dropna(how='any')
-        H, _, _ = np.histogram2d(pos.iloc[:, 1], pos.iloc[:, 0], bins=bins, density=normalize)
+        try:
+            H, _, _ = np.histogram2d(pos.iloc[:, 1], pos.iloc[:, 0], bins=bins, density=normalize)
+        except KeyError:
+            print(f'Failed to generate position heatmap for session with uuid: {uuid}')
+            H = np.zeros((bins, bins))
+
         pdfs.append(H)
 
     return np.array(pdfs), groups, sessions, subjectNames
@@ -635,6 +642,7 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
             H, _, _ = np.histogram2d(df.iloc[:, 1], df.iloc[:, 0], bins=bins, density=normalize)
         except KeyError:
             # syllable not found in group
+            print(f'Unable to generate position heatmap for syllable {df.syllable}')
             H = np.zeros((bins, bins))
         return H
 

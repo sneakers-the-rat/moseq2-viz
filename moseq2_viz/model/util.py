@@ -734,6 +734,11 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
         else:
             raise RuntimeError('Could not parse model labels')
 
+    if isinstance(output_dict['metadata']['groups'], list):
+        # Models generated with moseq2-model < v0.5.0 would store groups as a list
+        # but since v0.5.0 groups is now a dict of {uuid: group}
+        output_dict['metadata']['groups'] = dict(zip(output_dict['metadata']['uuids'], output_dict['metadata']['groups']))
+
     if isinstance(output_dict['model_parameters'], list):
         output_dict['model_parameters'] = output_dict['model_parameters'][restart_idx]
 

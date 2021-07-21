@@ -194,7 +194,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
     if combine:
         init_matrix = []
 
-        for v in tqdm(labels, disable=disable_output):
+        for v in tqdm(labels, disable=disable_output, desc='Computing bigram transition probabilities'):
             # Get syllable transitions
             transitions = get_transitions(v)[0]
 
@@ -206,7 +206,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
     else:
         # Compute a transition matrix for each session label list
         all_mats = []
-        for v in tqdm(labels, disable=disable_output):
+        for v in tqdm(labels, disable=disable_output, desc='Computing bigram transition probabilities'):
             # Get syllable transitions
             transitions = get_transitions(v)[0]
 

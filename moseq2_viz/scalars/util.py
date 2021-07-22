@@ -603,7 +603,7 @@ def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='grou
 
     # Get unique groups to iterate by
     groups = pdf_df[groupby].unique()
-    mean_pdfs = pdf_df.groupby([groupby, syllable_key]).apply(np.mean)
+    mean_pdfs = pdf_df.groupby([groupby, syllable_key]).apply(np.nanmean)
 
     if normalize:
         mean_pdfs['pdf'] = mean_pdfs['pdf'].apply(lambda x: x / np.nanmax(x))

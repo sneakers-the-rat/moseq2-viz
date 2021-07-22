@@ -560,7 +560,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False, 
         ax = np.array([[ax]])
     if ax.ndim < 2:
         ax = ax[:, None]
-    for i, group in enumerate(tqdm(uniq_groups)):
+    for i, group in enumerate(tqdm(uniq_groups, desc='Plotting Session Heatmaps')):
         idx = np.array(groups) == group
         tmp_sessions = np.asarray(sessions)[idx]
         names = np.asarray(subjectNames)[idx]

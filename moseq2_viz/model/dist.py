@@ -159,7 +159,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
             parallel = use_options.pop('parallel')
 
             pc_slices = []
-            for syllable in tqdm(range(max_syllable)):
+            for syllable in tqdm(range(max_syllable), desc='Retrieving Syllable Aligned PC Slices'):
                 pc_slice = retrieve_pcs_from_slices(slice_fun(syllable),
                                                     pca_scores,
                                                     **use_options)
@@ -205,7 +205,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
                 trim_nans=False)
 
             pc_slices = []
-            for syllable in tqdm(range(max_syllable)):
+            for syllable in tqdm(range(max_syllable), desc='Retrieving Syllable Aligned PC Slices'):
                 pc_slice = retrieve_pcs_from_slices(slice_fun(syllable),
                                                     pca_scores,
                                                     **use_options)

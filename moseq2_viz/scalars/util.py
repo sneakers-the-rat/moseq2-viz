@@ -540,10 +540,10 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
         groups.append(_df['group'].iat[0])
         subjectNames.append(_df[key].iat[0])
 
-        pos = _df[centroid_vars].dropna(how='any')
-        try:
+        pos = _df[centroid_vars].dropna(how='all')
+        if len(pos) > 1:
             H, _, _ = np.histogram2d(pos.iloc[:, 1], pos.iloc[:, 0], bins=bins, density=normalize)
-        except KeyError:
+        else:
             print(f'Failed to generate position heatmap for session with uuid: {uuid}')
             H = np.zeros((bins, bins))
 
@@ -637,13 +637,15 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
         raise ValueError('You need to supply a model path to `scalars_to_dataframe` in order to merge syllable labels into `scalar_df`')
 
     def _compute_histogram(df):
-        df = df[centroid_keys].dropna(how='any')
-        try:
-            H, _, _ = np.histogram2d(df.iloc[:, 1], df.iloc[:, 0], bins=bins, density=normalize)
-        except KeyError:
+        centroid_df = df[centroid_keys].dropna(how='all')
+
+        if len(centroid_df) > 1:
+            H, _, _ = np.histogram2d(centroid_df.iloc[:, 1], centroid_df.iloc[:, 0], bins=bins, density=normalize)
+        else:
             # syllable not found in group
-            print(f'Unable to generate position heatmap for syllable {df.syllable}')
+            print(f'Unable to generate position heatmap for syllable {df[syllable_key].to_numpy()}')
             H = np.zeros((bins, bins))
+
         return H
 
     filtered_df = scalar_df[scalar_df[syllable_key].isin(syllables)]

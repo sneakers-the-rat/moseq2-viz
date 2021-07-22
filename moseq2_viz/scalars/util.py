@@ -540,7 +540,7 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
         groups.append(_df['group'].iat[0])
         subjectNames.append(_df[key].iat[0])
 
-        pos = _df[centroid_vars].dropna(how='all')
+        pos = _df[centroid_vars].dropna(how='any')
         if len(pos) > 1:
             H, _, _ = np.histogram2d(pos.iloc[:, 1], pos.iloc[:, 0], bins=bins, density=normalize)
         else:
@@ -637,7 +637,7 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
         raise ValueError('You need to supply a model path to `scalars_to_dataframe` in order to merge syllable labels into `scalar_df`')
 
     def _compute_histogram(df):
-        centroid_df = df[centroid_keys].dropna(how='all')
+        centroid_df = df[centroid_keys].dropna(how='any')
 
         if len(centroid_df) > 1:
             H, _, _ = np.histogram2d(centroid_df.iloc[:, 1], centroid_df.iloc[:, 0], bins=bins, density=normalize)

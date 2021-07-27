@@ -24,7 +24,7 @@ jobs:
       install:
         - pip install -e .
       before_script:
-        - make
+        - ./scripts/download_test_data.sh
       script:
         - pytest --cov-report xml --cov-report term
       after_success:
@@ -45,7 +45,7 @@ jobs:
       install:
         - pip install -e .
       before_script:
-        - make
+        - ./scripts/download_test_data.sh
       script:
         - pytest --cov-report xml --cov-report term
       after_success:

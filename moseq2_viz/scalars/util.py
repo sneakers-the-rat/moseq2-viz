@@ -541,8 +541,8 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
         subjectNames.append(_df[key].iat[0])
 
         pos = _df[centroid_vars].dropna(how='any')
-        if len(pos) > 1:
-            H, _, _ = np.histogram2d(pos.iloc[:, 1], pos.iloc[:, 0], bins=bins, density=normalize)
+        if len(pos) >= 1:
+            H, _, _ = np.histogram2d(np.array(pos.iloc[:, 1]), np.array(pos.iloc[:, 0]), bins=bins, density=normalize)
         else:
             print(f'Failed to generate position heatmap for session with uuid: {uuid}')
             H = np.zeros((bins, bins))
@@ -639,8 +639,8 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
     def _compute_histogram(df):
         centroid_df = df[centroid_keys].dropna(how='any')
 
-        if len(centroid_df) > 1:
-            H, _, _ = np.histogram2d(centroid_df.iloc[:, 1], centroid_df.iloc[:, 0], bins=bins, density=normalize)
+        if len(centroid_df) >= 1:
+            H, _, _ = np.histogram2d(np.array(centroid_df.iloc[:, 1]), np.array(centroid_df.iloc[:, 0]), bins=bins, density=normalize)
         else:
             # syllable not found in group
             print(f'Unable to generate position heatmap for syllable {df[syllable_key].to_numpy()}')

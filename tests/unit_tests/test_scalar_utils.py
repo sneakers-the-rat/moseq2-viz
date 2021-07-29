@@ -242,6 +242,7 @@ class TestScalarUtils(TestCase):
         model_path = 'data/test_model.p'
 
         _, sorted_index = parse_index(test_index)
+        # deleting file key to "bad extraction example"
         del sorted_index['files']['ae8a9d45-7ad9-4048-963f-ca4931125fcd']
 
         scalar_df = scalars_to_dataframe(sorted_index, model_path=model_path)

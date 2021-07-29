@@ -20,9 +20,9 @@ class TestModelDists(TestCase):
                                             resample_idx=-1,
                                             distances=['ar[init]', 'ar[dtw]', 'scalars'])
 
-        assert len(dist_dict.keys()) == 2
-        assert dist_dict['ar[init]'].shape == (10, 10)
-        assert dist_dict['ar[dtw]'].shape == (10, 10)
+        assert len(dist_dict.keys()) == 8
+        for key in dist_dict.keys():
+            assert dist_dict[key].shape == (10, 10)
 
     def test_get_behavioral_distance_ar(self):
         test_model = 'data/mock_model.p'

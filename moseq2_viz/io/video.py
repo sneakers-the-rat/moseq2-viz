@@ -293,7 +293,7 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
         pipe.stdin.write(disp_img.astype('uint8').tostring())
 
     if close_pipe:
-        pipe.stdin.close()
+        pipe.communicate()
         return filename
     else:
         return pipe

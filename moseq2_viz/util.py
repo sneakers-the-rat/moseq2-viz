@@ -343,7 +343,7 @@ def recursive_find_h5s(root_dir=None,
     yaml_exists = compose(exists, h5_to_yaml)
 
     # grab all files with ext = .h5
-    files = glob(f'{root_dir}/**/*{ext}', recursive=True)
+    files = glob(os.path.join(root_dir, '**', f'*{ext}'), recursive=True)
     # keep h5s that have a yaml file associated with them
     to_keep = filter(yaml_exists, files)
     # keep h5s that have a frames key

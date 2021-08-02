@@ -541,9 +541,9 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
         subjectNames.append(_df[key].iat[0])
 
         pos = _df[centroid_vars].dropna(how='any')
-        try:
-            H, _, _ = np.histogram2d(pos.iloc[:, 1], pos.iloc[:, 0], bins=bins, density=normalize)
-        except KeyError:
+        if len(pos) >= 1:
+            H, _, _ = np.histogram2d(np.array(pos.iloc[:, 1]), np.array(pos.iloc[:, 0]), bins=bins, density=normalize)
+        else:
             print(f'Failed to generate position heatmap for session with uuid: {uuid}')
             H = np.zeros((bins, bins))
 
@@ -603,7 +603,7 @@ def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='grou
 
     # Get unique groups to iterate by
     groups = pdf_df[groupby].unique()
-    mean_pdfs = pdf_df.groupby([groupby, syllable_key]).apply(np.mean)
+    mean_pdfs = pdf_df.groupby([groupby, syllable_key]).apply(np.nanmean)
 
     if normalize:
         mean_pdfs['pdf'] = mean_pdfs['pdf'].apply(lambda x: x / np.nanmax(x))
@@ -637,13 +637,15 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
         raise ValueError('You need to supply a model path to `scalars_to_dataframe` in order to merge syllable labels into `scalar_df`')
 
     def _compute_histogram(df):
-        df = df[centroid_keys].dropna(how='any')
-        try:
-            H, _, _ = np.histogram2d(df.iloc[:, 1], df.iloc[:, 0], bins=bins, density=normalize)
-        except KeyError:
+        centroid_df = df[centroid_keys].dropna(how='any')
+
+        if len(centroid_df) >= 1:
+            H, _, _ = np.histogram2d(np.array(centroid_df.iloc[:, 1]), np.array(centroid_df.iloc[:, 0]), bins=bins, density=normalize)
+        else:
             # syllable not found in group
-            print(f'Unable to generate position heatmap for syllable {df.syllable}')
+            print(f'Unable to generate position heatmap for syllable {df[syllable_key].to_numpy()}')
             H = np.zeros((bins, bins))
+
         return H
 
     filtered_df = scalar_df[scalar_df[syllable_key].isin(syllables)]

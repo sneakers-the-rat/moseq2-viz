@@ -478,7 +478,14 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
                          key: v['metadata'][key] for key in include_keys if key in v['metadata'].keys()
                      })
 
-        _tmp_df = pd.DataFrame(dset)
+        try:
+            _tmp_df = pd.DataFrame(dset)
+        except ValueError as e:
+            print(f'Error in session with uuid: {k}')
+            print('Length of timestamps do not equal number of frames. Skipping this session.')
+            print(e.with_traceback())
+            continue
+
 
         # make sure we have labels for this UUID before merging
         if has_model and k in labels_df.index:

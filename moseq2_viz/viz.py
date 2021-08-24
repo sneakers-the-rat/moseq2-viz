@@ -142,7 +142,6 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
 
     Returns
     -------
-    None
     '''
 
     os.makedirs(dirname(output_file), exist_ok=True)
@@ -500,6 +499,7 @@ def plot_mean_group_heatmap(pdfs, groups, normalize=True, norm_color=mpl.colors.
     pdfs (list): list of 2d probability density functions (heatmaps) describing mouse position.
     groups (list): list of groups to compute means and plot
     normalize (bool): flag to normalize the pdfs between 0-1
+    norm_color (mpl.colors Color Scheme or None): indicates a color scheme to use when plotting heatmaps.
 
     Returns
     -------
@@ -543,6 +543,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False, 
     groups (list): list of groups corresponding to the pdfs indices
     subjectNames (list): list of subjectNames corresponding to the pdfs indices
     normalize (bool): flag to normalize the pdfs between 0-1
+    norm_color (mpl.colors Color Scheme or None): indicates a color scheme to use when plotting heatmaps.
 
     Returns
     -------

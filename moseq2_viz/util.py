@@ -354,6 +354,18 @@ def recursive_find_h5s(root_dir=os.getcwd(),
 
 
 def read_yaml(yaml_path: str):
+    '''
+    Reads a given yaml file path into a dict object.
+
+    Parameters
+    ----------
+    yaml_path (str): path to yaml file to read.
+
+    Returns
+    -------
+    loaded (dict): loaded yaml file contents.
+
+    '''
     with open(yaml_path, 'r') as f:
         loaded = yaml.safe_load(f)
     return loaded

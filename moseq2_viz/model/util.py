@@ -29,6 +29,19 @@ from cytoolz import curry, valmap, compose, complement, itemmap, keyfilter
 
 
 def _assert_models_have_same_kappa(model_paths):
+    '''
+
+    Function that ensures that recursively found models to merge were trained using the same kappa hyperparameter value.
+    Raises a ValueError if the models are not the same.
+
+    Parameters
+    ----------
+    model_paths (list of str): list of strings pointing to model paths to check.
+
+    Returns
+    -------
+    '''
+
     get_kappa = get_in(['model_parameters', 'kappa'])
     def _load_kappa(pth):
         return get_kappa(parse_model_results(pth))
@@ -93,8 +106,7 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
 
     Returns
     -------
-    model_data (dict): a dictionary containing all the new
-    keys and state-matched labels.
+    model_data (dict): a dictionary containing all the new keys and state-matched labels.
     '''
 
     tmp = join(model_dir, '*.'+ext.strip('.'))
@@ -258,6 +270,17 @@ def get_normalized_syllable_usages(model_data, max_syllable=100, count='usage'):
 
 
 def normalize_usages(usage_dict):
+    '''
+    Normalizes syllable usages to frequency values from [0,1] instead of total counts.
+
+    Parameters
+    ----------
+    usage_dict (dict): dictionary containing syllable label keys pointing to total counts.
+
+    Returns
+    -------
+    usage_dict (dict): dictionary containing syllable label keys pointing to usage frequencies.
+    '''
     total = sum(usage_dict.values())
     return valmap(lambda v: v / total, usage_dict)
 
@@ -337,7 +360,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
     label_uuids (list): list of uuid keys corresponding to each session.
     index (dict): index file contents contained in a dict.
     trim_nans (bool): flag to use the pca scores file for removing time points that contain NaNs.
-    Only use if you have not already trimmed NaNs previously and need to.
+     Only use if you have not already trimmed NaNs previously and need to.
 
     Returns
     -------
@@ -405,6 +428,14 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
 def add_duration_column(scalar_df):
     '''
     Adds syllable duration column to scalar dataframe if it also contains syllable labels.
+
+    Parameters
+    ----------
+    scalar_df (pd.DataFrame): Merged Syllable Stat + Scalar DataFrame object.
+
+    Returns
+    -------
+    scalar_df (pd.DataFrame): Same DataFrame with a new column titled "duration".
     '''
     if 'labels (original)' not in scalar_df.columns and 'onset' not in scalar_df.columns:
         raise ValueError('scalar_df must contain model labels in order to add duration')
@@ -470,6 +501,19 @@ def syll_id(labels: np.ndarray) -> np.ndarray:
 
 
 def get_syllable_usages(data, max_syllable=100, count='usage'):
+    '''
+    Computes syllable usages for relabeled syllable labels.
+
+    Parameters
+    ----------
+    data (2d list): list of syllable frame-labels for each session.
+    max_syllable (int): maximum number of syllables to compute usages for.
+    count (str): method to relabel the syllable usages. Either by 'usage' or by 'frames'
+
+    Returns
+    -------
+    usages (dict): dict object that contains usage frequency information.
+    '''
 
     def _convert_to_usage(arr):
         if count == 'usage':
@@ -670,8 +714,8 @@ def parse_batch_modeling(filename):
     Returns
     -------
     results_dict (dict): dictionary containing each model's training results,
-    concatenated into a single list. Maintaining the original structure as though
-    it was a single model's results.
+     concatenated into a single list. Maintaining the original structure as though
+     it was a single model's results.
     '''
 
     with h5py.File(filename, 'r') as f:
@@ -706,10 +750,10 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
     restart_idx (int): Select which model restart to load. (Only change for models with multiple restarts used)
     resample_idx (int): parameter used to select labels from a specific sampling iteration. Default is the last iteration (-1)
     map_uuid_to_keys (bool): flag to create a label dictionary where each key->value pair
-    contains the uuid and the labels for that session.
+     contains the uuid and the labels for that session.
     sort_labels_by_usage (bool): sort and re-assign labels by their usages.
     count (str): how to count syllable usage, either by number of emissions (usage),
-    or number of frames (frames).
+     or number of frames (frames).
 
     Returns
     -------
@@ -777,7 +821,7 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
     -------
     labels (list or dict): label sequences sorted by usage
     sorting (list): the new label sorting. The index corresponds to the new label,
-    while the value corresponds to the old label.
+     while the value corresponds to the old label.
     '''
     assert count in ('usage', 'frames'), 'count must be "usage" or "frames"'
 
@@ -799,14 +843,37 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 
 
 def compute_syllable_onset(labels):
+    '''
+
+    Computes the onset index of the each syllable label in a Series.
+
+    Parameters
+    ----------
+    labels (list or dict): label sequences loaded from a model fit
+
+    Returns
+    -------
+    onsets (2D np.array): onset indices for each syllable for the given sessions.
+    '''
     onset = pd.Series(labels).diff().fillna(1) != 0
     return onset.to_numpy()
 
 
 def prepare_model_dataframe(model_path, pca_path):
     '''
+
     Creates a dataframe from syllable labels to be aligned with scalars.
+
+    Parameters
+    ----------
+    model_path (str): path to model to load label arrays from
+    pca_path (str): path to pca_scores.h5 file.
+
+    Returns
+    -------
+    _df (pd.DataFrame): DataFrame object of timestamp aligned syllable label information.
     '''
+
     mdl = parse_model_results(model_path, map_uuid_to_keys=True)
     labels = mdl['labels']
 
@@ -973,27 +1040,20 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
 
 
 def whiten_pcs(pca_scores, method='all', center=True):
-    """
-    Whiten PC scores using Cholesky whitening
+    '''
 
-    Args:
-        pca_scores (dict): dictionary where values are pca_scores (2d np arrays)
-        method (str): 'all' to whiten using the covariance estimated from all keys, or 'each' to whiten each separately
-        center (bool): whether or not to center the data
+    Whiten PC scores using Cholesky whitening.
 
-    Returns:
-        whitened_scores (dict): dictionary of whitened pc scores
+    Parameters
+    ----------
+    pca_scores (dict): dictionary where values are pca_scores (2d np arrays)
+    method (str): 'all' to whiten using the covariance estimated from all keys, or 'each' to whiten each separately
+    center (bool): whether or not to center the data
 
-    Examples:
-
-        Load in pca_scores and whiten
-
-        >> from moseq2_viz.util import h5_to_dict
-        >> from moseq2_viz.model.util import whiten_pcs
-        >> pca_scores = h5_to_dict('pca_scores.h5', '/scores')
-        >> whitened_scores = whiten_pcs(pca_scores, method='all')
-
-    """
+    Returns
+    -------
+    whitened_scores (dict): dictionary of whitened pc scores
+    '''
 
     if method[0].lower() == 'a':
         whitened_scores = _whiten_all(pca_scores, center=center)

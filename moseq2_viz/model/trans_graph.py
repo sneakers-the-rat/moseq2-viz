@@ -21,12 +21,9 @@ def get_trans_graph_groups(model_fit):
     Parameters
     ----------
     model_fit (dict): trained model ARHMM containing training data UUIDs.
-    index (dict): index file dict containing corresponding UUIDs.
-    sorted_index (dict): sorted version of the index dict.
 
     Returns
     -------
-    group (list): list of unique groups included
     label_group (list): list of groups for each included session
     model_uuids (list): list of corresponding UUIDs for each included session in the model
     '''
@@ -46,6 +43,7 @@ def get_group_trans_mats(labels, label_group, group, max_sylls, normalize='bigra
     label_group (list): list of groups for each included session
     group (list): list of unique groups included
     max_sylls (int): maximum number of syllables to include in transition matrix.
+    normalize (str): indicates how to normalize the computed transition matrices.
 
     Returns
     -------
@@ -81,7 +79,7 @@ def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
     config_data (dict): configuration dictionary containing graphing parameters
     labels (list): list of 1D numpy arrays containing syllable labels per frame for every included session
     label_group (list): list of corresponding group names to plot transition aggregated transition plots
-    group (list): unique list of groups to plot
+    group (list): unique list of groups to plot.
 
     Returns
     -------
@@ -157,6 +155,21 @@ def normalize_transition_matrix(init_matrix, normalize):
 
 
 def n_gram_transition_matrix(labels, n=2, max_label=99):
+    '''
+    Computes the transition count for a fixed syllable sequence length 'n'. For n=2, the outputted transition counts
+     will represent the number of bigram transition from syllable x->y.
+
+    Parameters
+    ----------
+    labels (list of np.array of ints): labels loaded from a model fit.
+    n (int): length of transition chain to compute transition probability for.
+    max_label (int): max number of syllables to scan for in transition matrix.
+
+    Returns
+    -------
+    trans_mat (np.ndarray): array of n-transition counts for given max_label.
+    '''
+
     trans_mat = np.zeros((max_label, ) * n, dtype='float')
     for loc in sliding_window(n, labels):
         if any(l >= max_label for l in loc):
@@ -178,8 +191,8 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
     normalize (str): how to normalize transition matrix, 'bigram' or 'rows' or 'columns'
     smoothing (float): constant to add to transition_matrix pre-normalization to smooth counts
     combine (bool): compute a separate transition matrix for each element (False)
-    or combine across all arrays in the list (True)
-    disable_output (bool): verbosity
+     or combine across all arrays in the list (True)
+    disable_output (bool): if True, displays a TQDM progress bar for transition matrix computation process.
 
     Returns
     -------
@@ -255,7 +268,6 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     usage_threshold (float): threshold syllable usage to include a syllable in list of orphans
     speeds (1D np.array): list of syllable speeds
     speed_threshold (int): threshold value for syllable speeds to include
-    usage_threshold (float or tuple): threshold syllable usage to include a syllable in list of orphans
     edge_threshold (float): threshold transition probability to consider an edge part of the graph.
     indices (list): indices of syllable bigrams to plot
     keep_orphans (bool): indicate whether to graph orphan syllables
@@ -322,16 +334,20 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usage_kwargs,
     group (list): list groups to graph transition graphs for.
     group_names (list): list groups names to display with transition graphs.
     usage_kwargs (dict): kwargs for graph threshold settings using usage. Keys can be 'usages', and 'usage_threshold'
-    speed_kwargs (dict): kwargs for graph threshold settings using usage. Keys can be 'speeds', and 'speed_threshold'
     widths (list): list of edge widths for each created single-group graph.
     pos (nx.Layout): nx.Layout type object holding position coordinates for the nodes.
-    ebunch_anchor (list): list of transition graph metadata for each node and connected edges
     node_edge_colors (list): node edge colors (of type str).
+    ax (np.ndarray matplotlib.pyplot Axis): Optional axes to plot graphs in
     node_sizes (list): node size scaling factor (of type int)
+    indices (list): list of in->out syllable indices to keep in graph
     difference_threshold (float): threshold to consider 2 graph elements different.
     difference_edge_width_scale (int): scaling factor for edge widths in difference transition graphs.
+    font_size (int): indicates the size of the numbers drawn on the transition graph nodes.
     usage_scale (float): syllable usage scaling factor.
     difference_graphs (list): list of created difference transition graphs.
+    scalars (dict): dict of syllable scalar data per transition graph
+    arrows (bool): indicates whether to display arrows between node transitions
+    speed_kwargs (dict): kwargs for graph threshold settings using usage. Keys can be 'speeds', and 'speed_threshold'
 
     Returns
     -------
@@ -421,17 +437,20 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usage_kwargs,
     group (list): list groups to graph transition graphs for.
     group_names (list): list groups names to display with transition graphs.
     usage_kwargs (dict): kwargs for graph threshold settings using usage. Keys can be 'usages', and 'usage_threshold'
-    speed_kwargs (dict): kwargs for graph threshold settings using usage. Keys can be 'speeds', and 'speeds_threshold'
     pos (nx.Layout): nx.Layout type object holding position coordinates for the nodes.
+    orphans (list): list of nodes with no edges.
     edge_threshold (float): threshold to include edge in graph.
     difference_threshold (float): threshold to consider 2 graph elements different.
-    orphans (list): list of nodes with no edges.
     orphan_weight (int): scaling factor to plot orphan node sizes.
     ax (np.ndarray matplotlib.pyplot Axis): Optional axes to plot graphs in
     edge_width_scale (int): edge line width scaling factor.
     usage_scale (float): syllable usage scaling factor.
-    scalars (dict): dict of syllable scalar data per transition graph
+    difference_edge_width_scale (int): scaling factor for edge widths in difference transition graphs.
+    speed_kwargs (dict): kwargs for graph threshold settings using usage. Keys can be 'speeds', and 'speeds_threshold'
     indices (list): list of in->out syllable indices to keep in graph
+    font_size (int): indicates the size of the numbers drawn on the transition graph nodes.
+    scalars (dict): dict of syllable scalar data per transition graph
+    arrows (bool): indicates whether to display arrows between node transitions
 
     Returns
     -------
@@ -541,7 +560,6 @@ def draw_graph(graph, width, pos, node_color,
     Parameters
     ----------
     graph (nx.DiGraph): list of created nx.DiGraphs converted from transition matrices
-    groups (list): list of unique groups included.
     width (2D list): list of edge widths corresponding to each graph's edges.
     pos (nx.Layout): nx.Layout type object holding position coordinates for the nodes.
     node_color (2D list): list of node colors for each graph.
@@ -550,9 +568,11 @@ def draw_graph(graph, width, pos, node_color,
         List item can also be a list corresponding to a color for each node.
     node_edge_colors (list): list of node edge colors for each graph.
         List item can also be a list corresponding to a color for each node.
+    ax (mpl.pyplot axis object): axis to draw graphs on.
     arrows (bool): whether to draw arrow edges
     font_size (int): Node label font size
-    ax (mpl.pyplot axis object): axis to draw graphs on.
+    edge_colors (str): color of the transition edges drawn in the graph.
+    title (str): title/group name of the transition graph.
 
     Returns
     -------
@@ -586,26 +606,20 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     edge_threshold (float): threshold to include edge in graph
     anchor (int): syllable index as the base syllable
     usage_threshold (int): threshold to include syllable usages
-    node_color (str): node colors
-    node_edge_color (str): node edge color.
     layout (str): layout format
     edge_width_scale (int): edge line width scaling factor
-    node_size (int): node size scaling factor
     fig (pyplot figure): figure to plot to
     ax (pyplot Axes): axes object
     width_per_group (int): graph width scaling factor per group
     headless (bool): exclude first node.
-    font_size (int): size of node label text.
-    plot_differences (bool): plot difference between group transition matrices
     difference_threshold (float): threshold to consider 2 graph elements different
-    difference_edge_width_scale (float): difference graph edge line width scaling factor
     weights (list): list of edge weights
     usage_scale (float): syllable usage scaling factor
-    arrows (bool): indicate whether to plot arrows as transitions.
     keep_orphans (bool): plot orphans.
     max_syllable (int): number of syllables (nodes) to plot
     orphan_weight (int): scaling factor to plot orphan node sizes
-    edge_color (str): edge color
+    arrows (bool): indicate whether to plot arrows as transitions.
+    difference_edge_width_scale (float): difference graph edge line width scaling factor
     kwargs (dict): extra keyword arguments
 
     Returns

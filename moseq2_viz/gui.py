@@ -26,6 +26,9 @@ def _alias(func, dec_func=None):
     func (function): if not used as a wrapper function, this is the function to alias. Else, it is the function to wrap.
     dec_func (function): if _alias is used as a wrapper function, this is the function to alias.
 
+    Returns
+    -------
+    inner (function): wrapped function.
     '''
     @wraps(func if dec_func is None else dec_func)
     def inner(*args, **kwargs):
@@ -85,7 +88,6 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
 
     Returns
     -------
-    None
     '''
 
     gui_data = {
@@ -125,8 +127,12 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30,
     progress_paths (dict): Dict containing paths the to model directory and pca scores file
     output_file (str): Optional path to save the comparison plot
     plot_all (bool): Indicates whether to plot all the models' changepoint distributions with the PCs, highlighting
-    the best model curve.
+     the best model curve.
     fps (int): Frames per second.
+    ext (str): File extension to search for models with
+    objective (str): can be either duration or jsd. The objective finds the best model
+        based on either median changepoint durations or the jensen-shannon divergence
+        beteween changepoint duration distributions
 
     Returns
     -------
@@ -152,6 +158,9 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30,
 
 @partial(_alias, dec_func=make_crowd_movies_wrapper)
 def make_crowd_movies_command(*args, **kwargs):
+    '''
+    See cli.make_crowd_movies()
+    '''
     # Get default CLI params
     objs = make_crowd_movies.params
     defaults = {tmp.name: tmp.default for tmp in objs if not tmp.required}
@@ -176,6 +185,10 @@ plot_scalar_summary_command = _alias(plot_scalar_summary_wrapper)
 
 @partial(_alias, dec_func=plot_transition_graph_wrapper)
 def plot_transition_graph_command(*args, **kwargs):
+    '''
+    See cli.plot_transition_graph()
+    '''
+
     # Get default CLI params
     params = {tmp.name: tmp.default for tmp in plot_transition_graph.params if not tmp.required}
 

@@ -26,6 +26,19 @@ from moseq2_viz.model.util import (relabel_by_usage, parse_model_results,
 
 
 def _make_directories(crowd_movie_path, plot_path):
+    '''
+
+    Given output paths to store different media types, this helper function will create the directories
+     if they didn't already exist.
+
+    Parameters
+    ----------
+    crowd_movie_path (str): path to crowd movie directory.
+    plot_path (str): path to figure plots directory.
+
+    Returns
+    -------
+    '''
 
     # Set up output directory to save crowd movies in
     if crowd_movie_path is not None:
@@ -75,7 +88,6 @@ def add_group_wrapper(index_file, config_data):
 
     Returns
     -------
-    None
     '''
     new_index_path = f'{index_file.replace(".yaml", "")}_update.yaml'
 
@@ -134,7 +146,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
 
     Returns
     -------
-    selected_model_path (str): Path to model with closest median duration to PC Changepoints
+    best_model_info (dict): Dict containing the best model info with respect to given objective.
     fig (pyplot figure): syllable usage ordered by frequency, 90% usage marked
     '''
 
@@ -180,7 +192,7 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     output_file (str): path to save graphs
     groupby (str): scalar_df column to group sessions by when graphing scalar and position summaries
     colors (list): list of colors to serve as the palette in the scalar summary
-    show_scalars (list): list of scalar variables to plot.
+    show_scalars (list): list of scalar variables to plot; variable names must equal columns in the scalar_df DataFrame.
 
     Returns
     -------
@@ -261,6 +273,7 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file, normalize=Fals
     index_file (str): path to index file.
     output_file (str): filename for the group heatmap graph.
     normalize (bool): normalize the PDF so that min and max values range from 0-1.
+    norm_color (mpl.colors Color Scheme or None): indicates a color scheme to use when plotting heatmaps.
 
     Returns
     -------
@@ -294,6 +307,7 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=False, norm_col
     index_file (str): path to index file.
     output_file (str): filename for the verbose heatmap graph.
     normalize (bool): normalize the PDF so that min and max values range from 0-1.
+    norm_color (mpl.colors Color Scheme or None): indicates a color scheme to use when plotting heatmaps.
 
     Returns
     -------
@@ -478,7 +492,6 @@ def copy_h5_metadata_to_yaml_wrapper(input_dir):
 
     Returns
     -------
-    None
     '''
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)

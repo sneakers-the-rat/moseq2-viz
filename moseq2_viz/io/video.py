@@ -89,7 +89,6 @@ def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
 
     Returns
     -------
-    None
     '''
 
     # Crowd movie info file contents; used to indicate the modeling state the crowd_movies were generated from
@@ -126,7 +125,6 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
 
     Returns
     -------
-    None
     '''
     progress_bar = config_data.get('progress_bar', False)
 
@@ -187,10 +185,42 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
 
 
 def _fname_formatter(syll, format, output_dir, ordering, count):
+    '''
+
+    Helper function to create filename strings for the syllable crowd movies to generate.
+
+    Parameters
+    ----------
+    syll (int): syllable number.
+    format (str): format string for outputted file. E.g. "syllable_sorted-id-{:02d}_({})_original-id-{:02d}.mp4"
+    output_dir (str): path to output directory containing the crowd movie.
+    ordering (dict): dict object that holds the original id of the syllable crowd movie (pre-reordering).
+    count (str): name of the reordering method. Default is 'usage'.
+
+    Returns
+    -------
+    (str): path to syllable crowd movie.
+    '''
     return join(output_dir, format.format(syll, count, ordering[syll]))
 
 
 def _matrix_writer_helper(syll, matrix_fun, slice_fun, write_fun, namer):
+    '''
+    Helper function to generate crowd movies using multiprocessing.
+
+    Parameters
+    ----------
+    syll (int): syllable number.
+    matrix_fun (function): helper function to create stacked video matrices given syllable slices.
+    slice_fun (function): helper function to generate syllable slices given syllable number.
+    write_fun (function): helper function to write the crowd movies to their respective files.
+    namer (function): helper function to create filename strings for the syllable crowd movies to generate.
+
+    Returns
+    -------
+    (function): helper function to write the crowd movies to their respective files, if the video matrices were created.
+    '''
+
     mtx = matrix_fun(slice_fun(syll))
     if mtx is not None:
         return write_fun(namer(syll), mtx)
@@ -208,7 +238,7 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
 
     Parameters
     ----------
-    filename (str):
+    filename (str): path to write output crowd movie file
     frames (3D numpy array): num_frames * r * c
     threads (int): number of threads to write file
     fps (int): frames per second
@@ -231,7 +261,7 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
 
     Returns
     -------
-    (subProcess.Pipe object): if there are more slices/chunks to write to, otherwise the path to the movie.
+    pipe (subProcess.Pipe object): if there are more slices/chunks to write to, otherwise the path to the movie.
     '''
 
     # pad frames so that dimensions are divisible by 2

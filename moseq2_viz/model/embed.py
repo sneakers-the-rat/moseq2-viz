@@ -19,6 +19,7 @@ def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embe
     Parameters
     ----------
     mean_df (pd DataFrame): Dataframe of the mean syllable statistics for all sessions
+    stat (str): name of statistic (column) in mean_df to embed.
     output_file (str): path to saved outputted figure
     embedding (str): type of embedding to run. Either ['lda', 'pca']
     n_components (int): Number of components to compute.

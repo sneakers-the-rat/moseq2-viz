@@ -130,6 +130,7 @@ class TestGUI(TestCase):
         progress_paths = {
             'plot_path': 'data/gen_plots/',
             'model_session_path': 'data/models/',
+            'model_master_path': 'data/models/',
             'pca_dirname': 'data/_pca/',
             'changepoints_path': 'changepoints'
         }

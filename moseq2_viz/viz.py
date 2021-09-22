@@ -636,8 +636,10 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
     t = f'PC CP Stats: Mean, median, mode (s) = {np.nanmean(pc_cps):.4f}, ' \
         f'{np.nanmedian(pc_cps):.4f}, {mode(pc_cps)[0][0]:.4f}'
 
-    ax.text(0.5, 1.8, s, fontsize=12)
-    ax.text(0.5, 1.6, t, fontsize=12)
+    _, ymax = ax.get_ylim()
+
+    ax.text(0.5, ymax, s, fontsize=12)
+    ax.text(0.5, ymax - (ymax/5), t, fontsize=12)
     ax.set_xlabel('Block duration (s)')
     ax.set_ylabel('Probability density')
     ax.legend(frameon=False, bbox_to_anchor=(1, 0), loc='lower left')

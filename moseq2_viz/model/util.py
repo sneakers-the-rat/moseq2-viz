@@ -880,6 +880,11 @@ def prepare_model_dataframe(model_path, pca_path):
     usage, _ = relabel_by_usage(labels, count='usage')
     frames, _ = relabel_by_usage(labels, count='frames')
 
+    if not os.path.isfile(pca_path):
+        raise AssertionError('The pca_path variable in the index file is not pointing to the correct file.\n'
+                             'Update the path in the index file to match the correct location of the '
+                             'pca_scores.h5 file that the model was trained with and run the command again.')
+
     scores_idx = h5_to_dict(pca_path, path='scores_idx')
 
     # make sure all pcs align with labels

@@ -144,7 +144,7 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30,
         output_file = join(progress_paths['plot_path'], 'model_vs_pc_changepoints')
 
     # Get paths to required parameters
-    model_dir = progress_paths['model_session_path']
+    model_dir = progress_paths['main_model_path']
     if not exists(progress_paths['changepoints_path']):
         changepoint_path = join(progress_paths['pca_dirname'], progress_paths['changepoints_path'] + '.h5')
     else:

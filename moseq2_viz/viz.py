@@ -637,11 +637,18 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
         f'{np.nanmedian(pc_cps):.4f}, {mode(pc_cps)[0][0]:.4f}'
 
     # get figure maximum y-value
+    _, xmax = ax.get_xlim()
     _, ymax = ax.get_ylim()
 
     # space out the 2 plotted text glyphs
-    ax.text(0.5, ymax, s, fontsize=12)
-    ax.text(0.5, ymax - (ymax/5), t, fontsize=12)
+    ax.text(xmax, ymax, s,
+            horizontalalignment='right',
+            verticalalignment='top',
+            fontsize=12)
+    ax.text(xmax, ymax, t,
+            horizontalalignment='right',
+            verticalalignment='bottom',
+            fontsize=12)
 
     ax.set_xlabel('Block duration (s)')
     ax.set_ylabel('Probability density')

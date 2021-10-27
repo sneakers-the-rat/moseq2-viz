@@ -164,6 +164,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
                             pad=config_data.get('pad', 30),
                             frame_path=config_data.get('frame_path', 'frames'),
                             legacy_jitter_fix=config_data.get('legacy_jitter_fix', False),
+                            seed=config_data.get('seed', 0),
                             **clean_params)
 
     write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],

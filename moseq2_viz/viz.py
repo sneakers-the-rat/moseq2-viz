@@ -156,7 +156,7 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
                       crop_size=(80, 80), max_dur=60, min_dur=0, offset=(50, 50), scale=1,
                       center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
-                      **kwargs):
+                      seed=0, **kwargs):
     '''
     Creates crowd movie video numpy array.
 
@@ -186,6 +186,8 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
     if rotate and not center:
         raise NotImplementedError('Rotating without centering not supported')
 
+    rng = np.random.default_rng(seed)
+
     xc0, yc0 = crop_size[1] // 2, crop_size[0] // 2
     xc = np.arange(-xc0, xc0 + 1, dtype='int16')
     yc = np.arange(-yc0, yc0 + 1, dtype='int16')
@@ -201,7 +203,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
         use_slices = [_slice for i, _slice in enumerate(slices) if i in idx]
 
     if len(use_slices) > nexamples:
-        use_slices = np.random.permutation(use_slices)[:nexamples]
+        use_slices = rng.permutation(use_slices)[:nexamples]
 
     if len(use_slices) == 0 or max_dur < 0:
         return None

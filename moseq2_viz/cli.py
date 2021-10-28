@@ -88,6 +88,7 @@ def copy_h5_metadata_to_yaml(input_dir):
 @click.option('--frame-path', default='frames', type=str, help='Path to depth frames in h5 file')
 @click.option('--progress-bar', '-p', is_flag=True, help='Show verbose progress bars.')
 @click.option('--pad', default=30, help='Pad crowd movie videos with this many frames.')
+@click.option('--seed', default=0, type=int, help='Defines random seed for selecting syllable instances to plot')
 def make_crowd_movies(index_file, model_path, output_dir, **config_data):
 
     make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data)

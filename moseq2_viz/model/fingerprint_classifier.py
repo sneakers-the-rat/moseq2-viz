@@ -1,8 +1,10 @@
 '''
 Functions for creating fingerprint plots and linear classifier
 '''
+from operator import pos
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+from collections import defaultdict
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
 
 from sklearn.model_selection import StratifiedKFold, LeaveOneOut, RepeatedStratifiedKFold
@@ -16,7 +18,20 @@ import pandas as pd
 import numpy as np
 
 
-def create_fingerprint_dataframe(scalar_df, mean_df, bin_num=None, groupby_list=['group', 'uuid']):
+def robust_min(v):
+    return v.quantile(0.01)
+
+
+def robust_max(v):
+    return v.quantile(0.99)
+
+
+def _apply_to_col(df, fn, **kwargs):
+    return df.apply(fn, axis=0, **kwargs)
+
+
+def create_fingerprint_dataframe(scalar_df, mean_df, n_bins=None, groupby_list=['group', 'uuid'], range_type='full',
+                                 scalars=['velocity_2d_mm', 'height_ave_mm', 'length_mm', 'dist_to_center_px']):
     '''
     create fingerprint dataframe from scalar_df and mean_df
 
@@ -30,56 +45,54 @@ def create_fingerprint_dataframe(scalar_df, mean_df, bin_num=None, groupby_list=
         summary ([pandas.DataFrame]): fingerprint dataframe
         range_dict ([dict]): dictionary that hold min max values of the features
     '''
-    # process mean_df
-    mean_df = mean_df[['group', 'uuid', 'syllable', 'usage']] # pandas version 1.0.5 doesn't support a list of index, therefore subset mean_df
-    mean_df.set_index(['group', 'uuid'], inplace = True)
-    syll_summary = mean_df.pivot(index= mean_df.index, columns='syllable')
-    max_syll_id = len(syll_summary.columns)-1
-    syll_summary = pd.DataFrame({'MoSeq': syll_summary.values.tolist()}, index = syll_summary.index)
+    # pivot mean_df to be groupby x syllable
+    syll_summary = mean_df.pivot_table(index=groupby_list, values='usage', columns='syllable')
+    syll_summary.columns = pd.MultiIndex.from_arrays([['MoSeq'] * syll_summary.shape[1], syll_summary.columns])
+    min_p = syll_summary.min().min()
+    max_p = syll_summary.max().max()
     
-    # process scalar_df
-    # Plotting position to center, velocity, height, length
-    upper_height = np.ceil(scalar_df['height_ave_mm'].max())
-    upper_length = np.ceil(scalar_df['length_mm'].max())
-    # to account for the super high speed mice we use 99 percentile
-    upper_velocity = np.ceil(np.percentile(np.abs(scalar_df['velocity_2d_mm'].dropna()), 99)*30) # to account for 30fps we multiply 30
-    upper_position = scalar_df['dist_to_center_px'].max()
-    
+    ranges = scalar_df.reset_index(drop=True)[scalars].agg(['min', 'max', robust_min, robust_max])
+    # add syllable ranges to this df
+    ranges['MoSeq'] = [min_p, max_p, min_p, max_p]
+    range_idx = ['min', 'max'] if range_type == 'full' else ['robust_min', 'robust_max']
+
+    def bin_scalars(data: pd.Series, n_bins=50, range_type='full'):
+        _range = ranges.loc[range_idx, data.name]
+        bins = np.linspace(_range.iloc[0], _range.iloc[1], n_bins)
+
+        binned_data = data.value_counts(normalize=True, sort=False, bins=bins)
+        binned_data = binned_data.sort_index().reset_index(drop=True)
+        binned_data.index.name = 'bin'
+        return binned_data
+
     # use total number of syllables 
-    if bin_num is None:
-        bin_num = max_syll_id+1 # num of bins (default to match the total number of syllables)
-    
-    # Functions to be applied on the groups
-    # If we want to give the users freedom to plot anything they want, then we need to preset all the apply fn.
-    heightfn = lambda df: np.histogram(df['height_ave_mm'], np.linspace(0, upper_height, bin_num))[0]
-    lengthfn = lambda df: np.histogram(df['length_mm'], np.linspace(20, upper_length, bin_num))[0] # set mouse mimimum length to 20 per Alex's drug paper
-    # Multiply the velocity by frame rate because it is only diff distance between frames
-    # what is a good cutoff speed for velocity, right now max is 24*30
-    velocityfn = lambda df: np.histogram(np.abs(30*df['velocity_2d_mm']), np.linspace(0, upper_velocity, bin_num))[0]
-    positionfn = lambda df: np.histogram(df['dist_to_center_px']/upper_position, np.linspace(0, 1, bin_num))[0]
-    
+    if n_bins is None:
+        n_bins = syll_summary.shape[1] + 1 # num of bins (default to match the total number of syllables)
 
-    scalar_df = scalar_df.groupby(groupby_list)
-    scalar_summary = pd.concat([scalar_df.apply(heightfn), scalar_df.apply(lengthfn), scalar_df.apply(velocityfn), scalar_df.apply(positionfn)], axis=1, join="inner")
-    scalar_summary.columns = ['Height', 'Length', 'Speed', 'Position']
-    
-    
-    # join the two data frames
-    summary = pd.concat([scalar_summary, syll_summary], axis=1, join='inner')
-    print('Grouping/level in the summary is', summary.index.names)
-    [1, 20, upper_height, upper_length, max_syll_id]
-    range_dict = {'Height': (0, upper_height), 'Length': (20, upper_length), 'Speed':(0, upper_velocity), 'Position': (0,1), 'MoSeq':(0, max_syll_id)}
-    return summary, range_dict
+    binned_scalars = scalar_df.groupby(groupby_list)[scalars].apply(_apply_to_col, fn=bin_scalars, range_type=range_type, n_bins=n_bins)
+
+    scalar_fingerprint = binned_scalars.pivot_table(index=groupby_list, columns='bin', values=binned_scalars.columns)
+
+    fingerprints = scalar_fingerprint.join(syll_summary, how='outer')
+
+    # rescale velocity - TODO: should velocity rescaling go somewhere else?
+    vel_cols = [c for c in scalars if 'velocity' in c]
+    if len(vel_cols) > 0:
+        ranges[vel_cols] *= 30
+
+    return fingerprints, ranges.loc[range_idx]
 
 
-def plotting_fingerprint(summary, range_dict, scalar=None, num_level = 1, level_names = ['Group'], vmin=0, vmax = 0.2):
+def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, level_names = ['Group'], vmin=0, vmax = 0.2,
+                         plot_columns=['dist_to_center_px', 'velocity_2d_mm', 'height_ave_mm', 'length_mm', 'MoSeq'],
+                         col_names=['Dist. from center (px)', 'Speed (mm/s)', 'Height (mm)', 'Length (mm)', 'Syllable ID']):
     '''
     plot the fingerprint heatmap
 
     Args:
-        summary ([pandas.DataFrame]): fingerprint dataframe
-        range_dict ([dict]): dictionary that hold min max values of the features
-        scalar ([sklearn.preprocessing scalar object], optional): Scalar for scaling the data by session. Defaults to None.
+        summary (pd.DataFrame): fingerprint dataframe
+        range_dict (dict): dictionary that hold min max values of the features
+        preprocessor (sklearn.preprocessing object, optional): Scalar for scaling the data by session. Defaults to None.
         num_level (int, optional): the number of groupby levels. Defaults to 1.
         level_names (list, optional): list of names of the levels. Defaults to ['Group'].
         vmin (int, optional): min value the figure color map covers. Defaults to 0.
@@ -91,6 +104,8 @@ def plotting_fingerprint(summary, range_dict, scalar=None, num_level = 1, level_
     # ensure number of groups is not over the number of available levels
     if num_level > len(summary.index.names):
         raise Exception('Too many levels to unpack. num_level should be less than', len(summary.index.names))
+
+    name_map = dict(zip(plot_columns, col_names))
     
     levels = []
     level_plot = []
@@ -105,7 +120,7 @@ def plotting_fingerprint(summary, range_dict, scalar=None, num_level = 1, level_
         level_ticks.append(np.r_[0,np.argwhere(np.diff(level_label)).ravel()] + find_mid)
     
     # col_num = number of grouping/level + column in summary
-    col_num = num_level + len(summary.columns)
+    col_num = num_level + len(plot_columns)
 
     # https://matplotlib.org/stable/tutorials/intermediate/gridspec.html
     fig = plt.figure(1, figsize=(20, 18), facecolor='white')
@@ -123,21 +138,24 @@ def plotting_fingerprint(summary, range_dict, scalar=None, num_level = 1, level_
         temp_ax.get_xaxis().set_ticks([])
     
     # plot the data
-    plot_col = ['Position', 'Speed', 'Height', 'Length', 'MoSeq']
-    xlabel = ['Normalized Distance to Center', 'Speed\n(mm/s)', 'Height\n(mm)', 'Length\n(mm)', 'Syllable ID']
-    for i in range(col_num-num_level):
-        name = plot_col[i]
-        temp_ax = fig.add_subplot(gs[0,i+num_level])
+    for i, col in enumerate(plot_columns):
+        name = name_map[col]
+        temp_ax = fig.add_subplot(gs[0, i + num_level])
         temp_ax.set_title(name, fontsize=20)
-        data = np.stack(summary[plot_col[i]])
-        data = data/data.sum(1, keepdims=True)
-        if scalar:
-            data = scalar.fit_transform(data.T).T
+        data = summary[col].to_numpy()
+        # data = data/data.sum(1, keepdims=True)
+        if preprocessor is not None:
+            data = preprocessor.fit_transform(data.T).T
         # top to bottom is 0-20 for y axis
-        pc = temp_ax.imshow(data, aspect = 'auto', interpolation = 'nearest', vmin = vmin, vmax = vmax, extent=[range_dict[name][0], range_dict[name][1], len(summary), 0])
-        temp_ax.set_xlabel(xlabel[i], fontsize=10)
+        if col == 'MoSeq':
+            extent = [summary[col].columns[0], summary[col].columns[-1], len(summary) - 1, 0]
+        else:
+            extent = [range_dict[col].iloc[0], range_dict[col].iloc[1], len(summary) - 1, 0]
+
+        pc = temp_ax.imshow(data, aspect='auto', interpolation='none', vmin=vmin, vmax=vmax, extent=extent)
+        temp_ax.set_xlabel(name, fontsize=10)
         # https://stackoverflow.com/questions/14908576/how-to-remove-frame-from-matplotlib-pyplot-figure-vs-matplotlib-figure-frame
-        temp_ax.get_yaxis().set_ticks([])
+        temp_ax.set_yticks([])
         temp_ax.axis = 'tight'
     
     # plot colorbar
@@ -145,26 +163,27 @@ def plotting_fingerprint(summary, range_dict, scalar=None, num_level = 1, level_
     plt.colorbar(pc, cax=cb, orientation='horizontal')
 
     # specify labels for feature scaling
-    if scalar:
+    if preprocessor:
         cb.set_xlabel('Min Max')
     else:
         cb.set_xlabel('Percentage Usage')
 
 
-def classifier_fingerprint(summary, features = 'MoSeq', scalar = None, scalar_list = ['Height', 'Length', 'Speed', 'Position'], target = ['group'], param_search = True, C_list= np.logspace(-6,3, 50), model_type = 'lr', cv='loov', n_splits = 5):
+def classifier_fingerprint(summary, features='MoSeq', preprocessor=None, classes=['group'], param_search=True, C_range=(1e-6, 1e3),
+                           grid_size=50, model_type='lr', cv='loo', n_splits=5):
     '''
     classifier using the fingerprint dataframe
 
     Args:
         summary ([pandas.DataFrame]): fingerprint dataframe
         features (str, optional): Features for the classifier. 'MoSeq' for MoSeq syllables or 'Scalar' for MoSeq scalar values. Defaults to 'MoSeq'.
-        scalar ([sklearn.preprocessing scalar object], optional): Scalar for scaling the data by feature. Defaults to None.
+        preprocessor (sklearn.preprocessing object, optional): Scalar for scaling the data by feature. Defaults to None.
         scalar_list (list, optional): list of MoSeq scalar values as classifier features. Defaults to ['Height', 'Length', 'Speed', 'Position'].
         target (list, optional): labels the classifier predicts. Defaults to ['group'].
         param_search (bool, optional): run GridSearchCV to find the regularization param for classifier. Defaults to True.
         C_list ([type], optional): list of C regularization paramters to search through. Defaults to np.logspace(-6,3, 50).
         model_type (str, optional): name of the linear classifier. 'lr' for logistic regression or 'svc' for linearSVC. Defaults to 'lr'.
-        cv (str, optional): cross validation type. 'loov' for LeaveOneOut 'skf' for StratifiedKFold. Defaults to 'loov'.
+        cv (str, optional): cross validation type. 'loo' for LeaveOneOut 'skf' for StratifiedKFold. Defaults to 'loo'.
         n_splits (int, optional): number of splits for StratifiedKFold. Defaults to 5.
 
     Returns:
@@ -178,79 +197,98 @@ def classifier_fingerprint(summary, features = 'MoSeq', scalar = None, scalar_li
         shuffle_coef ([np.array]): array for shuffled model weights
     '''
     # set up data for classifier
-    if features == 'MoSeq':
-        X = np.stack(summary['MoSeq'])
-    else:    
-        X = np.stack([np.hstack(row) for row in summary[scalar_list].values])
-        
+    X = summary[features].to_numpy()
     print(X.shape)
-    X = X/X.sum(1, keepdims=True) # normalize data
+
     summary = summary.reset_index()
-    y = summary[target].squeeze()
+    y = summary[classes].squeeze()
 
     # set up model type
-    if model_type == 'lr':
-        clf = LogisticRegression(multi_class='ovr')
-    else:
-        clf = LinearSVC(multi_class='ovr')
+    Model = LogisticRegression if model_type == 'lr' else LinearSVC
+    clf = Model(multi_class='ovr')
 
     if param_search:
-        parameters = {'C':C_list}
+        parameters = {'C': np.logspace(np.log10(C_range[0]), np.log10(C_range[1]), grid_size)}
         grid_search = GridSearchCV(clf, parameters, scoring='accuracy')
         grid_search.fit(X,y)
         # set the best parameter for the classifier
         clf = clf.set_params(**grid_search.best_params_)
         print('classifier', clf)
 
-    if cv == 'loov':
-        cv = LeaveOneOut()
-    else:
-        cv = StratifiedKFold(n_splits=n_splits)
+    if isinstance(cv, str):
+        if cv == 'loo':
+            cv = LeaveOneOut()
+        elif cv == 'skf':
+            cv = StratifiedKFold(n_splits=n_splits)
+    elif not hasattr(cv, 'split'):
+        # user has supplied their own cv object
+        raise ValueError('cv must either be a string containing "loo" or "skf" or a cross validation object')
     
-    y_true = []
-    y_pred = []
-    true_coef = []
-    real_f1 = []
-    y_shuffle_true = []
-    y_shuffle_pred = []
-    shuffle_coef = []
-    shuffle_f1 = []
+    out = defaultdict(list)
+
+    for split, (train_ix, test_ix) in enumerate(cv.split(X, y)):
+        # split data
+        X_train, X_test = X[train_ix], X[test_ix]
+        y_train, y_test = y[train_ix], y[test_ix]
+        # feature scalar
+        if preprocessor is not None:
+            preprocessor = clone(preprocessor)
+            X_train = preprocessor.fit_transform(X_train)
+            X_test = preprocessor.transform(X_test)
+
+        # fit model on real data
+        clf = clone(clf) # reset model to prevent data leakage
+        clf.fit(X_train, y_train)
+        # evaluate model
+        out['y_true'].append(y_test)
+
+        y_hat = clf.predict(X_test)
+        out['y_pred'].append(y_hat)
+
+        out['coefs'].append(clf.coef_[0])
 
     for i in range(100):
-        # shuffle y for shuffle analysis
         y_shuffle = np.random.permutation(y)
-        
-        for train_ix, test_ix in cv.split(X,y):
-            # split data
-            X_train, X_test = X[train_ix, :], X[test_ix, :]
-            y_train, y_test = y[train_ix], y[test_ix]
+        for split, (train_ix, test_ix) in enumerate(cv.split(X, y)):
+            X_train, X_test = X[train_ix], X[test_ix]
+            # shuffle y for shuffle analysis
             y_shuffle_train, y_shuffle_test = y_shuffle[train_ix], y_shuffle[test_ix]
-            # feature scalar
-            if scalar:
-                X_train = scalar.fit_transform(X_train)
-                X_test = scalar.transform(X_test)
 
-            # fit model on real data
-            clf = clone(clf) # reset model to prevent data leakage
-            clf.fit(X_train, y_train)
-            # evaluate model
-            y_true.append(y_test)
-            y_hat = clf.predict(X_test)
-            y_pred.append(y_hat)
-            real_f1.append(f1_score(y_test, y_hat, average='macro'))
-            true_coef.append(clf.coef_[0])
+            if preprocessor is not None:
+                preprocessor = clone(preprocessor)
+                X_train = preprocessor.fit_transform(X_train)
+                X_test = preprocessor.transform(X_test)
 
             # shuffle data
-            clf=clone(clf)
+            clf = clone(clf)
             clf.fit(X_train, y_shuffle_train)
             # evaluate 
-            y_shuffle_true.append(y_shuffle_test)
+            out['shuff_y_true'].append(y_shuffle_test)
             y_hat = clf.predict(X_test)
-            y_shuffle_pred.append(y_hat)
-            shuffle_f1.append(f1_score(y_shuffle_test, y_hat, average='macro'))
-            shuffle_coef.append(clf.coef_[0])
+            out['shuff_y_pred'].append(y_hat)
+            out['shuff_coefs'].append(clf.coef_[0])
+            out['shuff_split'].append(split)
 
-    return np.hstack(y_true), np.hstack(y_pred), np.array(real_f1), np.array(true_coef), np.hstack(y_shuffle_true), np.hstack(y_shuffle_pred), np.array(shuffle_f1), np.array(shuffle_coef)
+    out = {k: np.concatenate(v) if 'y' in k else np.array(v) for k, v in out.items()}
+    out['f1'] = f1_score(out['y_true'], out['y_pred'], pos_label='Amphetamine')
+    out['accuracy'] = accuracy_score(out['y_true'], out['y_pred'])
+    out['shuff_f1'] = f1_score(out['shuff_y_true'], out['shuff_y_pred'], pos_label='Amphetamine')
+    out['shuff_accuracy'] = accuracy_score(out['shuff_y_true'], out['shuff_y_pred'])
+
+    return out
+
+
+def _plot_cm(y_true, y_pred, ax, ax_labels, title):
+    cm = confusion_matrix(y_true, y_pred)
+    cm = cm / cm.sum(axis=1, keepdims=True)
+    im = ax.imshow(cm, cmap='binary_r', vmin=0, vmax=1)
+    plt.xticks(range(len(ax_labels)), ax_labels)
+    plt.yticks(range(len(ax_labels)), ax_labels)
+    ax.set_xlabel('Predicted')
+    ax.set_ylabel('Real')
+    ax.set_title(title)
+    return im
+
 
 def plot_cm(y_true, y_pred, y_shuffle_true, y_shuffle_pred):
     '''
@@ -266,25 +304,15 @@ def plot_cm(y_true, y_pred, y_shuffle_true, y_shuffle_pred):
     gs = GridSpec(ncols=3, nrows=1, wspace=0.1, figure = fig, width_ratios=[10,10,0.3])
     fig_ax = fig.add_subplot(gs[0,0])
     labels = np.unique(y_true)
-    cm = confusion_matrix(y_true, y_pred, labels=labels)
-    cm = cm/cm.sum(1, keepdims=True)
-    pc = fig_ax.imshow(cm, cmap="Blues", vmin = 0, vmax =1)
-    fig_ax.set_title(f'Real Accuracy {np.round(accuracy_score(y_true, y_pred),2)}')
-    plt.xticks([0, 1], labels)
-    plt.yticks([0, 1], labels)
-    fig_ax.set_xlabel('Predicted')
+    _plot_cm(y_true, y_pred, fig_ax, labels, f'Real Accuracy {accuracy_score(y_true, y_pred):0.2f}')
 
     fig_ax = fig.add_subplot(gs[0,1])
-    cm = confusion_matrix(y_shuffle_true, y_shuffle_pred, labels=labels)
-    cm = cm/cm.sum(1, keepdims=True)
-    fig_ax.imshow(cm, cmap="Blues", vmin = 0, vmax =1)
-    fig_ax.set_title(f'Shuffle Accuracy {np.round(accuracy_score(y_shuffle_true, y_shuffle_pred),2)}')
-    plt.xticks([0, 1], labels)
-    plt.yticks([0, 1], labels)
-    fig_ax.set_xlabel('Predicted')
+    im = _plot_cm(y_shuffle_true, y_shuffle_pred, fig_ax, labels, f'Shuffle Accuracy {accuracy_score(y_shuffle_true, y_shuffle_pred):0.2f}')
+    fig_ax.set_ylabel('')
+    fig_ax.set_yticklabels([])
 
     # plot colorbar
     cb = fig.add_subplot(gs[0,2])
-    plt.colorbar(pc, cax=cb, orientation='vertical')
-    cb.set_xlabel('')
+    fig.colorbar(mappable=im, cax=cb, label='Fraction of labels', )
+    fig.tight_layout()
     plt.show()

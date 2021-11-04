@@ -19,11 +19,17 @@ import numpy as np
 
 
 def robust_min(v):
-    return v.quantile(0.01)
+    value = v.quantile(0.01)
+    # round down to nearest 10
+    value = np.floor(value/10)*10
+    return value
 
 
 def robust_max(v):
-    return v.quantile(0.99)
+    value = v.quantile(0.99)
+    # round up to nearest 10
+    value = np.ceil(value/10)*10
+    return value
 
 
 def _apply_to_col(df, fn, **kwargs):
@@ -85,7 +91,7 @@ def create_fingerprint_dataframe(scalar_df, mean_df, n_bins=None, groupby_list=[
 
 def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, level_names = ['Group'], vmin=0, vmax = 0.2,
                          plot_columns=['dist_to_center_px', 'velocity_2d_mm', 'height_ave_mm', 'length_mm', 'MoSeq'],
-                         col_names=['Dist. from center (px)', 'Speed (mm/s)', 'Height (mm)', 'Length (mm)', 'Syllable ID']):
+                         col_names=[('Position','Dist. from center (px)'), ('Speed', 'Speed (mm/s)'), ('Height', 'Height (mm)'), ('Length', 'Length (mm)'), ('MoSeq','Syllable ID')]):
     '''
     plot the fingerprint heatmap
 
@@ -97,7 +103,9 @@ def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, 
         level_names (list, optional): list of names of the levels. Defaults to ['Group'].
         vmin (int, optional): min value the figure color map covers. Defaults to 0.
         vmax (float, optional): max value the figure color map covers. Defaults to 0.2.
-
+        plot_columns (list, optional): columns to plot
+        col_names = (list, optional): list of (column name, x label) pairs
+ 
     Raises:
         Exception: num_levels greater than the existing levels
     '''
@@ -141,7 +149,7 @@ def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, 
     for i, col in enumerate(plot_columns):
         name = name_map[col]
         temp_ax = fig.add_subplot(gs[0, i + num_level])
-        temp_ax.set_title(name, fontsize=20)
+        temp_ax.set_title(name[0], fontsize=20)
         data = summary[col].to_numpy()
         if preprocessor is not None:
             data = preprocessor.fit_transform(data.T).T
@@ -155,6 +163,7 @@ def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, 
 
         pc = temp_ax.imshow(data, aspect='auto', interpolation='none', vmin=vmin, vmax=vmax, extent=extent)
         temp_ax.set_xlabel(name, fontsize=10)
+        temp_ax.set_xlabel(name[1], fontsize=10)
         # https://stackoverflow.com/questions/14908576/how-to-remove-frame-from-matplotlib-pyplot-figure-vs-matplotlib-figure-frame
         temp_ax.set_yticks([])
         temp_ax.axis = 'tight'

@@ -145,6 +145,8 @@ def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, 
         data = summary[col].to_numpy()
         if preprocessor is not None:
             data = preprocessor.fit_transform(data.T).T
+            # reset vmin, vmax
+            vmin, vmax = 0, 1
         # top to bottom is 0-20 for y axis
         if col == 'MoSeq':
             extent = [summary[col].columns[0], summary[col].columns[-1], len(summary) - 1, 0]

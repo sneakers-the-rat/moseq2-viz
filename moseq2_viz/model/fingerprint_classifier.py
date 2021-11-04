@@ -162,7 +162,6 @@ def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, 
             extent = [range_dict[col].iloc[0], range_dict[col].iloc[1], len(summary) - 1, 0]
 
         pc = temp_ax.imshow(data, aspect='auto', interpolation='none', vmin=vmin, vmax=vmax, extent=extent)
-        temp_ax.set_xlabel(name, fontsize=10)
         temp_ax.set_xlabel(name[1], fontsize=10)
         # https://stackoverflow.com/questions/14908576/how-to-remove-frame-from-matplotlib-pyplot-figure-vs-matplotlib-figure-frame
         temp_ax.set_yticks([])

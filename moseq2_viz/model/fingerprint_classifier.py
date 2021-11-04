@@ -30,7 +30,7 @@ def _apply_to_col(df, fn, **kwargs):
     return df.apply(fn, axis=0, **kwargs)
 
 
-def create_fingerprint_dataframe(scalar_df, mean_df, n_bins=None, groupby_list=['group', 'uuid'], range_type='full',
+def create_fingerprint_dataframe(scalar_df, mean_df, n_bins=None, groupby_list=['group', 'uuid'], range_type='robust',
                                  scalars=['velocity_2d_mm', 'height_ave_mm', 'length_mm', 'dist_to_center_px']):
     '''
     create fingerprint dataframe from scalar_df and mean_df
@@ -91,7 +91,7 @@ def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, 
 
     Args:
         summary (pd.DataFrame): fingerprint dataframe
-        range_dict (dict): dictionary that hold min max values of the features
+        range_dict (pd.DataFrame): pd.DataFrame that hold min max values of the features
         preprocessor (sklearn.preprocessing object, optional): Scalar for scaling the data by session. Defaults to None.
         num_level (int, optional): the number of groupby levels. Defaults to 1.
         level_names (list, optional): list of names of the levels. Defaults to ['Group'].
@@ -143,7 +143,6 @@ def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, 
         temp_ax = fig.add_subplot(gs[0, i + num_level])
         temp_ax.set_title(name, fontsize=20)
         data = summary[col].to_numpy()
-        # data = data/data.sum(1, keepdims=True)
         if preprocessor is not None:
             data = preprocessor.fit_transform(data.T).T
         # top to bottom is 0-20 for y axis
@@ -169,19 +168,18 @@ def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, 
         cb.set_xlabel('Percentage Usage')
 
 
-def classifier_fingerprint(summary, features='MoSeq', preprocessor=None, classes=['group'], param_search=True, C_range=(1e-6, 1e3),
-                           grid_size=50, model_type='lr', cv='loo', n_splits=5):
+def classifier_fingerprint(summary, features=['MoSeq'], preprocessor=None, classes=['group'], param_search=True, C_list=None,
+                           model_type='lr', cv='loo', n_splits=5):
     '''
     classifier using the fingerprint dataframe
 
     Args:
         summary ([pandas.DataFrame]): fingerprint dataframe
-        features (str, optional): Features for the classifier. 'MoSeq' for MoSeq syllables or 'Scalar' for MoSeq scalar values. Defaults to 'MoSeq'.
+        features (list, optional): Features for the classifier. ['MoSeq'] for MoSeq syllables or a list of MoSeq scalar values. Defaults to ['MoSeq'].
         preprocessor (sklearn.preprocessing object, optional): Scalar for scaling the data by feature. Defaults to None.
-        scalar_list (list, optional): list of MoSeq scalar values as classifier features. Defaults to ['Height', 'Length', 'Speed', 'Position'].
         target (list, optional): labels the classifier predicts. Defaults to ['group'].
         param_search (bool, optional): run GridSearchCV to find the regularization param for classifier. Defaults to True.
-        C_list ([type], optional): list of C regularization paramters to search through. Defaults to np.logspace(-6,3, 50).
+        C_list ([type], optional): list of C regularization paramters to search through. Defaults to None. If None, C_list will search through np.logspace(-6,3, 50)
         model_type (str, optional): name of the linear classifier. 'lr' for logistic regression or 'svc' for linearSVC. Defaults to 'lr'.
         cv (str, optional): cross validation type. 'loo' for LeaveOneOut 'skf' for StratifiedKFold. Defaults to 'loo'.
         n_splits (int, optional): number of splits for StratifiedKFold. Defaults to 5.
@@ -208,8 +206,11 @@ def classifier_fingerprint(summary, features='MoSeq', preprocessor=None, classes
     clf = Model(multi_class='ovr')
 
     if param_search:
-        parameters = {'C': np.logspace(np.log10(C_range[0]), np.log10(C_range[1]), grid_size)}
-        grid_search = GridSearchCV(clf, parameters, scoring='accuracy')
+        if C_list is None:
+            C_list=np.logspace(-6,3, 50)
+
+        parameters = {'C': C_list}
+        grid_search = GridSearchCV(clf, parameters, cv=RepeatedStratifiedKFold(n_splits=n_splits, n_repeats=5), scoring='accuracy')
         grid_search.fit(X,y)
         # set the best parameter for the classifier
         clf = clf.set_params(**grid_search.best_params_)

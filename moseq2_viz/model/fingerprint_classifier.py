@@ -281,7 +281,6 @@ def classifier_fingerprint(summary, features=['MoSeq'], preprocessor=None, class
             out['shuff_split'].append(split)
 
     out = {k: np.concatenate(v) if 'y' in k else np.array(v) for k, v in out.items()}
-    out['f1'] = f1_score(out['y_true'], out['y_pred'], pos_label='Amphetamine')
     out['accuracy'] = accuracy_score(out['y_true'], out['y_pred'])
     out['shuff_f1'] = f1_score(out['shuff_y_true'], out['shuff_y_pred'], pos_label='Amphetamine')
     out['shuff_accuracy'] = accuracy_score(out['shuff_y_true'], out['shuff_y_pred'])

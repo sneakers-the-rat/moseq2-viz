@@ -19,17 +19,11 @@ import numpy as np
 
 
 def robust_min(v):
-    value = v.quantile(0.01)
-    # round down to nearest 10
-    value = np.floor(value/10)*10
-    return value
+    return v.quantile(0.01)
 
 
 def robust_max(v):
-    value = v.quantile(0.99)
-    # round up to nearest 10
-    value = np.ceil(value/10)*10
-    return value
+    return v.quantile(0.99)
 
 
 def _apply_to_col(df, fn, **kwargs):

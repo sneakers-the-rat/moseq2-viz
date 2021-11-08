@@ -83,7 +83,7 @@ def create_fingerprint_dataframe(scalar_df, mean_df, n_bins=None, groupby_list=[
     return fingerprints, ranges.loc[range_idx]
 
 
-def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, level_names = ['Group'], vmin=0, vmax = 0.2,
+def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, level_names = ['Group'], vmin = None, vmax = None,
                          plot_columns=['dist_to_center_px', 'velocity_2d_mm', 'height_ave_mm', 'length_mm', 'MoSeq'],
                          col_names=[('Position','Dist. from center (px)'), ('Speed', 'Speed (mm/s)'), ('Height', 'Height (mm)'), ('Length', 'Length (mm)'), ('MoSeq','Syllable ID')]):
     '''
@@ -139,16 +139,37 @@ def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, 
         
         temp_ax.get_xaxis().set_ticks([])
     
+    # compile data to plot while recording vmin and vmax in the data
+    plot_dict = {}
+    # initialize vmin and vmax
+    temp_vmin = np.Inf
+    temp_vmax = -np.Inf
+    
+    for col in plot_columns:
+        data = summary[col].to_numpy()
+        # process data with preprocessor
+        if preprocessor is not None:
+            data = preprocessor.fit_transform(data.T).T
+
+        if np.min(data) < temp_vmin:
+            temp_vmin = np.min(data)
+        if np.max(data) > temp_vmax:
+            temp_vmax = np.max(data)
+
+        plot_dict[col] = data
+    
+    if vmin is None:
+        vmin = temp_vmin
+    if vmax is None:
+        vmax = temp_vmax
+
     # plot the data
     for i, col in enumerate(plot_columns):
         name = name_map[col]
         temp_ax = fig.add_subplot(gs[0, i + num_level])
         temp_ax.set_title(name[0], fontsize=20)
-        data = summary[col].to_numpy()
-        if preprocessor is not None:
-            data = preprocessor.fit_transform(data.T).T
-            # reset vmin, vmax
-            vmin, vmax = 0, 1
+        data = plot_dict[col]
+        
         # top to bottom is 0-20 for y axis
         if col == 'MoSeq':
             extent = [summary[col].columns[0], summary[col].columns[-1], len(summary) - 1, 0]

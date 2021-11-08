@@ -49,9 +49,10 @@ def add_group(index_file, **config_data):
 @click.option('--plot-all', is_flag=True, help="Plot all included model results")
 @click.option('--ext', type=str, default='p', help="Model extensions found in input directory")
 @click.option('--fps', type=int, default=30, help="Frames per second")
-def get_best_fit_model(model_dir, cp_path, output_file, plot_all, ext, fps):
+@click.option('--objective', type=str, default='duration', help="can be either duration or jsd. The objective finds the best model based on durations or the jensen-shannon divergence")
+def get_best_fit_model(model_dir, cp_path, output_file, plot_all, ext, fps, objective):
 
-    get_best_fit_model_wrapper(model_dir, cp_path, output_file, plot_all, ext, fps)
+    get_best_fit_model_wrapper(model_dir, cp_path, output_file, plot_all, ext, fps, objective)
 
 
 # recurse through directories, find h5 files with completed extractions, make a manifest
@@ -87,6 +88,7 @@ def copy_h5_metadata_to_yaml(input_dir):
 @click.option('--frame-path', default='frames', type=str, help='Path to depth frames in h5 file')
 @click.option('--progress-bar', '-p', is_flag=True, help='Show verbose progress bars.')
 @click.option('--pad', default=30, help='Pad crowd movie videos with this many frames.')
+@click.option('--seed', default=0, type=int, help='Defines random seed for selecting syllable instances to plot')
 def make_crowd_movies(index_file, model_path, output_dir, **config_data):
 
     make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data)

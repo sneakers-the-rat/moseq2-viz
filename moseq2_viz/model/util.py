@@ -183,9 +183,14 @@ def get_best_fit(cp_path, model_results):
     '''
     # sort model_results
     model_results = dict(sorted(model_results.items(), key=get(0)))
+    # ensure changepoint exists
+    try:
+        # Load PCA changepoints
+        pca_cps = load_changepoint_distribution(cp_path)
+    except OSError:
+        raise Exception('Please ensure model free changepoint is computed and the resulting file name matches changepoints_path in progress_paths')
 
-    # Load PCA changepoints
-    pca_cps = load_changepoint_distribution(cp_path)
+    
     
     def _compute_cp_dist(model):
         return np.abs(np.nanmedian(pca_cps) - np.nanmedian(model['changepoints']))

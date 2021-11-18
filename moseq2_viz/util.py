@@ -268,6 +268,8 @@ def parse_index(index: Union[str, dict]) -> tuple:
     else:
         sorted_index = valmap(lambda d: assoc(d, 'path', tuple(d['path'])), sorted_index)
 
+    if index['pca_path'] is None:
+        raise Exception("Please add pac_score path to moseq2-index.yaml")
     uuid_sorted = {
         'files': sorted_index,
         'pca_path': join(index_dir, index['pca_path']) if not from_dict else index['pca_path']

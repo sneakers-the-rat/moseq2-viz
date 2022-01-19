@@ -153,7 +153,7 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
     fig.savefig(f'{output_file}.pdf', **kwargs)
 
 
-def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
+def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovie_size=(300, 300), frame_path='frames',
                       crop_size=(80, 80), max_dur=60, min_dur=0, scale=1,
                       center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
                       seed=0, **kwargs):
@@ -323,6 +323,11 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
     # crop out the blanks
     crowd_matrix = crowd_matrix[:, min_xy[0]:max_xy[0], min_xy[1]:max_xy[1]]
 
+    # pad crowd movies to outmovie_size if the dimension is smaller than outmoive_size
+    if np.all(outmovie_size > max_xy - min_xy):
+        x_pad, y_pad = (outmovie_size - (max_xy - min_xy))//2
+        crowd_matrix = np.pad(crowd_matrix, ((0,0), (x_pad, x_pad), (y_pad, y_pad)), 'constant', constant_values=0)
+    
     return crowd_matrix
 
 

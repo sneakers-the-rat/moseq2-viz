@@ -154,8 +154,8 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
 
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
-                      crop_size=(80, 80), max_dur=60, min_dur=0, offset=(50, 50), scale=1,
-                      center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
+                      crop_size=(80, 80), max_dur=60, min_dur=0, offset=(50,50), scale=1,
+                      center=True, rotate=False, min_height=10, legacy_jitter_fix=False,
                       seed=0, **kwargs):
     '''
     Creates crowd movie video numpy array.
@@ -188,10 +188,12 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
     rng = np.random.default_rng(seed)
 
+    # set up x, y value to crop out the mouse with respect to the mouse centriod
     xc0, yc0 = crop_size[1] // 2, crop_size[0] // 2
     xc = np.arange(-xc0, xc0 + 1, dtype='int16')
     yc = np.arange(-yc0, yc0 + 1, dtype='int16')
 
+    # compute syllable duration in the sample
     durs = np.array([i[1]-i[0] for i, _, _ in slices])
 
     if max_dur is not None:
@@ -211,6 +213,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
     crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype='uint8')
 
     for idx, _, fname in use_slices:
+        # pad frames before syllable onset, and add max_dur and padding after syllable onset
         use_idx = (idx[0] - pad, idx[0] + max_dur + pad)
         idx_slice = slice(*use_idx)
 
@@ -225,10 +228,12 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
             if use_idx[0] < 0 or use_idx[1] >= nframes - 1:
                 continue
-
+            
+            # offset the mice so they are not squeezed in the corner
             centroid_x = h5[use_names[0]][idx_slice] + offset[0]
             centroid_y = h5[use_names[1]][idx_slice] + offset[1]
 
+            # center the mice such that when it is syllable onset, the mice's centroids are in the center
             if center:
                 centroid_x -= centroid_x[pad]
                 centroid_x += raw_size[0] // 2
@@ -238,6 +243,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
             angles = h5['scalars/angle'][idx_slice]
             frames = clean_frames((h5[frame_path][idx_slice] / scale).astype('uint8'), **kwargs)
 
+            # flip the mouse in the correct orientation if necessary
             if 'flips' in h5['metadata/extraction']:
                 # h5 format as of v0.1.3
                 flips = h5['metadata/extraction/flips'][idx_slice]
@@ -255,7 +261,8 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
             if np.any(np.isnan([centroid_x[i], centroid_y[i]])):
                 continue
-
+            
+            # set up the rows and columnes to crop the video
             rr = (yc + centroid_y[i]).astype('int16')
             cc = (xc + centroid_x[i]).astype('int16')
 
@@ -269,6 +276,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
             rot_mat = cv2.getRotationMatrix2D((xc0, yc0), angles[i], 1)
 
+            # add the new instance to the exisiting crowd matrix
             old_frame = crowd_matrix[i]
             new_frame = np.zeros_like(old_frame)
             new_frame_clip = frames[i].copy()

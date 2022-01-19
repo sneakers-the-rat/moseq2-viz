@@ -154,7 +154,7 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
 
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
-                      crop_size=(80, 80), max_dur=60, min_dur=0, offset=(50,50), scale=1,
+                      crop_size=(80, 80), max_dur=60, min_dur=0, scale=1,
                       center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
                       seed=0, **kwargs):
     '''
@@ -170,7 +170,6 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
     crop_size (tuple): mouse crop size
     max_dur (int or None): maximum syllable duration.
     min_dur (int): minimum syllable duration.
-    offset (tuple): centroid offsets from cropped videos
     scale (int): mouse size scaling factor.
     center (bool): indicate whether mice are centered.
     rotate (bool): rotate mice to orient them.
@@ -229,9 +228,9 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
             if use_idx[0] < 0 or use_idx[1] >= nframes - 1:
                 continue
             
-            # offset the mice so they are not squeezed in the corner
-            centroid_x = h5[use_names[0]][idx_slice] + offset[0]
-            centroid_y = h5[use_names[1]][idx_slice] + offset[1]
+            # select centroids
+            centroid_x = h5[use_names[0]][idx_slice]
+            centroid_y = h5[use_names[1]][idx_slice]
 
             # center the mice such that when it is syllable onset, the mice's centroids are in the center
             if center:

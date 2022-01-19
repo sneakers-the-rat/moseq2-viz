@@ -315,6 +315,14 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
             old_frame[overwrite_coords] = new_frame[overwrite_coords]
 
             crowd_matrix[i] = old_frame
+    
+    # compute non-zero pixels across all frames
+    non_zero_coor = np.argwhere(np.any(crowd_matrix>0, 0))
+    # find min max coordinates to crop out the blanks
+    min_xy = np.min(non_zero_coor, 0)
+    max_xy = np.max(non_zero_coor, 0)    
+    # crop out the blanks
+    crowd_matrix = crowd_matrix[:, min_xy[0]:max_xy[0], min_xy[1]:max_xy[1]]
 
     return crowd_matrix
 

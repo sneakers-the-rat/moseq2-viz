@@ -155,7 +155,7 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
                       crop_size=(80, 80), max_dur=60, min_dur=0, offset=(50,50), scale=1,
-                      center=True, rotate=False, min_height=10, legacy_jitter_fix=False,
+                      center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
                       seed=0, **kwargs):
     '''
     Creates crowd movie video numpy array.

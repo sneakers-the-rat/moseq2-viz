@@ -317,17 +317,23 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
     
     # compute non-zero pixels across all frames
     non_zero_coor = np.argwhere(np.any(crowd_matrix>0, 0))
-    # find min max coordinates to crop out the blanks
-    min_xy = np.min(non_zero_coor, 0)
-    max_xy = np.max(non_zero_coor, 0)    
-    # crop out the blanks
-    crowd_matrix = crowd_matrix[:, min_xy[0]:max_xy[0], min_xy[1]:max_xy[1]]
-
-    # pad crowd movies to outmovie_size if the dimension is smaller than outmoive_size
-    if np.all(outmovie_size > max_xy - min_xy):
-        x_pad, y_pad = (outmovie_size - (max_xy - min_xy))//2
-        crowd_matrix = np.pad(crowd_matrix, ((0,0), (x_pad, x_pad), (y_pad, y_pad)), 'constant', constant_values=0)
     
+    try:
+        # find min max coordinates to crop out the blanks
+        min_xy = np.min(non_zero_coor, 0)
+        max_xy = np.max(non_zero_coor, 0)  
+        # crop out the blanks while making sure the slice is not zero
+        if np.all(max_xy - min_xy) > 0:
+            crowd_matrix = crowd_matrix[:, min_xy[0]:max_xy[0], min_xy[1]:max_xy[1]]
+            
+            # pad crowd movies to outmovie_size if the dimension is smaller than outmoive_size
+            if np.all(outmovie_size > max_xy - min_xy):
+                x_pad, y_pad = (outmovie_size - (max_xy - min_xy))//2
+                crowd_matrix = np.pad(crowd_matrix, ((0,0), (x_pad, x_pad), (y_pad, y_pad)), 'constant', constant_values=0)
+                
+    except ValueError:
+        print('No mouse in the crowd movie')
+
     return crowd_matrix
 
 

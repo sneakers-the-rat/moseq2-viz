@@ -155,7 +155,7 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovie_size=(300, 300), frame_path='frames',
                       crop_size=(80, 80), max_dur=60, min_dur=0, scale=1,
-                      center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
+                      center=False, rotate=False, duration_opt=False, min_height=10, legacy_jitter_fix=False,
                       seed=0, **kwargs):
     '''
     Creates crowd movie video numpy array.
@@ -173,6 +173,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
     scale (int): mouse size scaling factor.
     center (bool): indicate whether mice are centered.
     rotate (bool): rotate mice to orient them.
+    duration_opt (bool): if true, select examples with syallable duration closer to median.
     min_height (int): minimum max height from floor to use.
     legacy_jitter_fix (bool): whether to apply jitter fix for K1 camera.
     kwargs (dict): extra keyword arguments
@@ -194,17 +195,28 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
 
     # compute syllable duration in the sample
     durs = np.array([i[1]-i[0] for i, _, _ in slices])
-
+    
     if max_dur is not None:
         idx = np.where(np.logical_and(durs < max_dur, durs > min_dur))[0]
         use_slices = [_slice for i, _slice in enumerate(slices) if i in idx]
+        # return the sort order of durations of the remaining slices
+        dur_order = np.argsort(durs[idx])
     else:
         max_dur = durs.max()
         idx = np.where(durs > min_dur)[0]
         use_slices = [_slice for i, _slice in enumerate(slices) if i in idx]
+        # return the sort order of durations of the remaining slices
+        dur_order = np.argsort(durs[idx])
 
     if len(use_slices) > nexamples:
-        use_slices = rng.permutation(use_slices)[:nexamples]
+        if duration_opt:
+            # choose the nexamples near median duration
+            selction_begin = int(len(dur_order)//2 - nexamples//2)
+            # ensure nexamples are picked
+            selection_end = selction_begin + nexamples
+            use_slices = [_slice for i, _slice in enumerate(use_slices) if i in dur_order[selction_begin:selection_end]]
+        else:
+            use_slices = rng.permutation(use_slices)[:nexamples]
 
     if len(use_slices) == 0 or max_dur < 0:
         return None

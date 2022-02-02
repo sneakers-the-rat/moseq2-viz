@@ -645,15 +645,15 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
     '''
 
     fig, ax = plt.subplots(1, 1, figsize=(8, 5))
-    # Plot KDEs
-    ax = sns.kdeplot(pc_cps, color='orange', label='PCA Changepoints', ax=ax, bw_adjust=bw_adjust)
+    # Plot KDEs, clipping the changepoints at 10 seconds
+    ax = sns.kdeplot(pc_cps[pc_cps<10], color='orange', label='PCA Changepoints', ax=ax, bw_adjust=bw_adjust)
 
     _mdl = model_results[best_model]
     model_cps = _mdl['changepoints']
     kappa = _mdl['model_parameters']['kappa']
 
     if not plot_all and best_model is not None:
-        ax = sns.kdeplot(model_cps, ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa:1.02E}',
+        ax = sns.kdeplot(model_cps[model_cps<10], ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa:1.02E}',
                          bw_adjust=bw_adjust)
     else:
         palette = sns.color_palette('dark', n_colors=len(model_results))
@@ -664,7 +664,8 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
                 ls, alpha = '-', 1 # Solid line for best fit
 
             kappa = v['model_parameters']['kappa']
-            ax = sns.kdeplot(v['changepoints'], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=bw_adjust,
+            model_cps = v['changepoints']
+            ax = sns.kdeplot(model_cps[model_cps<10], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=bw_adjust,
                         color=palette[i], label=f'Model Changepoints Kappa={kappa:1.02E}')
     # Format plot
     ax.set_xlim(0, 2)

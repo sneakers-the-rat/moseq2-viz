@@ -152,7 +152,8 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
                         labels=labels,
                         label_uuids=label_uuids,
                         index=sorted_index)
-
+    
+    # create crowd movie matrix to put the examples in the same syllable into a movie
     matrix_fun = partial(make_crowd_matrix,
                             nexamples=config_data.get('max_examples', 20),
                             max_dur=config_data.get('max_dur', 60),
@@ -160,13 +161,15 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
                             min_height=config_data.get('min_height', 10),
                             crop_size=vid_parameters.get('crop_size', (80, 80)),
                             raw_size=config_data.get('raw_size', (512, 424)),
+                            duration_opt = config_data.get('duration_opt', False),
                             scale=config_data.get('scale', 1),
                             pad=config_data.get('pad', 30),
                             frame_path=config_data.get('frame_path', 'frames'),
                             legacy_jitter_fix=config_data.get('legacy_jitter_fix', False),
                             seed=config_data.get('seed', 0),
                             **clean_params)
-
+    
+    # write the crowd movies
     write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],
                         depth_max=config_data['max_height'], cmap=config_data['cmap'], progress_bar=progress_bar)
 
@@ -176,6 +179,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
     make_matrix = partial(_matrix_writer_helper, matrix_fun=matrix_fun,
                           slice_fun=slice_fun, write_fun=write_fun, namer=namer)
 
+    # parallel process the crowd movies for all syllables
     with mp.Pool(config_data.get('processes')) as pool:
         # Compute crowd matrices
         with warnings.catch_warnings():

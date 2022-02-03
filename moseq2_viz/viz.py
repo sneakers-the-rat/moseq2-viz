@@ -155,7 +155,7 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovie_size=(300, 300), frame_path='frames',
                       crop_size=(80, 80), max_dur=60, min_dur=0, scale=1,
-                      center=False, rotate=False, duration_opt=False, min_height=10, legacy_jitter_fix=False,
+                      center=False, rotate=False, select_median_duration_instances=False, min_height=10, legacy_jitter_fix=False,
                       seed=0, **kwargs):
     '''
     Creates crowd movie video numpy array.
@@ -173,7 +173,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
     scale (int): mouse size scaling factor.
     center (bool): indicate whether mice are centered.
     rotate (bool): rotate mice to orient them.
-    duration_opt (bool): if true, select examples with syallable duration closer to median.
+    select_median_duration_instances (bool): if true, select examples with syallable duration closer to median.
     min_height (int): minimum max height from floor to use.
     legacy_jitter_fix (bool): whether to apply jitter fix for K1 camera.
     kwargs (dict): extra keyword arguments
@@ -209,7 +209,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
         dur_order = np.argsort(durs[idx])
 
     if len(use_slices) > nexamples:
-        if duration_opt:
+        if select_median_duration_instances:
             # choose the nexamples near median duration
             selction_begin = int(len(dur_order)//2 - nexamples//2)
             # ensure nexamples are picked

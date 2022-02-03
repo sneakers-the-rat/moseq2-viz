@@ -155,7 +155,7 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
 
 def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovie_size=(300, 300), frame_path='frames',
                       crop_size=(80, 80), max_dur=60, min_dur=0, scale=1,
-                      center=False, rotate=False, duration_opt=False, min_height=10, legacy_jitter_fix=False,
+                      center=False, rotate=False, select_median_duration_instances=False, min_height=10, legacy_jitter_fix=False,
                       seed=0, **kwargs):
     '''
     Creates crowd movie video numpy array.
@@ -173,7 +173,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
     scale (int): mouse size scaling factor.
     center (bool): indicate whether mice are centered.
     rotate (bool): rotate mice to orient them.
-    duration_opt (bool): if true, select examples with syallable duration closer to median.
+    select_median_duration_instances (bool): if true, select examples with syallable duration closer to median.
     min_height (int): minimum max height from floor to use.
     legacy_jitter_fix (bool): whether to apply jitter fix for K1 camera.
     kwargs (dict): extra keyword arguments
@@ -209,7 +209,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
         dur_order = np.argsort(durs[idx])
 
     if len(use_slices) > nexamples:
-        if duration_opt:
+        if select_median_duration_instances:
             # choose the nexamples near median duration
             selction_begin = int(len(dur_order)//2 - nexamples//2)
             # ensure nexamples are picked
@@ -645,15 +645,16 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
     '''
 
     fig, ax = plt.subplots(1, 1, figsize=(8, 5))
-    # Plot KDEs
-    ax = sns.kdeplot(pc_cps, color='orange', label='PCA Changepoints', ax=ax, bw_adjust=bw_adjust)
+    # Plot KDEs, clipping the changepoints at 10 seconds
+    ax = sns.kdeplot(pc_cps[pc_cps<10], color='orange', label='PCA Changepoints', ax=ax, bw_adjust=bw_adjust)
 
     _mdl = model_results[best_model]
     model_cps = _mdl['changepoints']
     kappa = _mdl['model_parameters']['kappa']
 
     if not plot_all and best_model is not None:
-        ax = sns.kdeplot(model_cps, ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa:1.02E}',
+        # clipping the changepoints at 10 seconds
+        ax = sns.kdeplot(model_cps[model_cps<10], ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa:1.02E}',
                          bw_adjust=bw_adjust)
     else:
         palette = sns.color_palette('dark', n_colors=len(model_results))
@@ -664,7 +665,9 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
                 ls, alpha = '-', 1 # Solid line for best fit
 
             kappa = v['model_parameters']['kappa']
-            ax = sns.kdeplot(v['changepoints'], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=bw_adjust,
+            model_cps = v['changepoints']
+            # clipping the changepoints at 10 seconds
+            ax = sns.kdeplot(model_cps[model_cps<10], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=bw_adjust,
                         color=palette[i], label=f'Model Changepoints Kappa={kappa:1.02E}')
     # Format plot
     ax.set_xlim(0, 2)

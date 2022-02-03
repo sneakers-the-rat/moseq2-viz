@@ -80,7 +80,8 @@ def compute_syllable_explained_variance(model, save_dir=os.getcwd(), n_explained
 
     plt.plot(cumulative_explanation)
     plt.axvline(max_sylls, color='k')
-    plt.savefig(os.path.join(save_dir, 'syllable_needed_explained_variance.svg'))
+    plt.savefig(os.path.join(save_dir, 'syllable_needed_explained_variance.pdf'))
+    plt.savefig(os.path.join(save_dir, 'syllable_needed_explained_variance.png'))
 
     return max_sylls
 

@@ -195,7 +195,8 @@ def plotting_fingerprint(summary, save_dir, range_dict, preprocessor=None, num_l
         cb.set_xlabel('Percentage Usage')
 
     # saving the figure
-    fig.savefig(join(save_dir, 'moseq_fingerprint.svg'))
+    fig.savefig(join(save_dir, 'moseq_fingerprint.pdf'))
+    fig.savefig(join(save_dir, 'moseq_fingerprint.png'))
 
 def classifier_fingerprint(summary, features=['MoSeq'], preprocessor=None, classes=['group'], param_search=True, C_list=None,
                            model_type='lr', cv='loo', n_splits=5):

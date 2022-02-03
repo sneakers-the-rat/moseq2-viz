@@ -16,6 +16,7 @@ from sklearn.base import clone
 
 import pandas as pd
 import numpy as np
+from os.path import join
 
 
 def robust_min(v):
@@ -83,7 +84,7 @@ def create_fingerprint_dataframe(scalar_df, mean_df, n_bins=None, groupby_list=[
     return fingerprints, ranges.loc[range_idx]
 
 
-def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, level_names = ['Group'], vmin = None, vmax = None,
+def plotting_fingerprint(summary, save_dir, range_dict, preprocessor=None, num_level = 1, level_names = ['Group'], vmin = None, vmax = None,
                          plot_columns=['dist_to_center_px', 'velocity_2d_mm', 'height_ave_mm', 'length_mm', 'MoSeq'],
                          col_names=[('Position','Dist. from center (px)'), ('Speed', 'Speed (mm/s)'), ('Height', 'Height (mm)'), ('Length', 'Length (mm)'), ('MoSeq','Syllable ID')]):
     '''
@@ -193,6 +194,9 @@ def plotting_fingerprint(summary, range_dict, preprocessor=None, num_level = 1, 
     else:
         cb.set_xlabel('Percentage Usage')
 
+    # saving the figure
+    fig.savefig(join(save_dir, 'moseq_fingerprint.pdf'))
+    fig.savefig(join(save_dir, 'moseq_fingerprint.png'))
 
 def classifier_fingerprint(summary, features=['MoSeq'], preprocessor=None, classes=['group'], param_search=True, C_list=None,
                            model_type='lr', cv='loo', n_splits=5):

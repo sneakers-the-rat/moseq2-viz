@@ -652,6 +652,13 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
     model_cps = _mdl['changepoints']
     kappa = _mdl['model_parameters']['kappa']
 
+    # Plot best model description
+    s = f'Best Model CP Stats: Mean, median, mode (s) = {np.nanmean(model_cps):.4f},' \
+        f' {np.nanmedian(model_cps):.4f}, {mode(model_cps)[0][0]:.4f}'
+    # Plot PC CP description
+    t = f'PC CP Stats: Mean, median, mode (s) = {np.nanmean(pc_cps):.4f}, ' \
+        f'{np.nanmedian(pc_cps):.4f}, {mode(pc_cps)[0][0]:.4f}'
+
     if not plot_all and best_model is not None:
         # clipping the changepoints at 10 seconds
         ax = sns.kdeplot(model_cps[model_cps<10], ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa:1.02E}',
@@ -671,13 +678,6 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
                         color=palette[i], label=f'Model Changepoints Kappa={kappa:1.02E}')
     # Format plot
     ax.set_xlim(0, 2)
-
-    # Plot best model description
-    s = f'Best Model CP Stats: Mean, median, mode (s) = {np.nanmean(model_cps):.4f},' \
-        f' {np.nanmedian(model_cps):.4f}, {mode(model_cps)[0][0]:.4f}'
-    # Plot PC CP description
-    t = f'PC CP Stats: Mean, median, mode (s) = {np.nanmean(pc_cps):.4f}, ' \
-        f'{np.nanmedian(pc_cps):.4f}, {mode(pc_cps)[0][0]:.4f}'
 
     # get figure maximum y-value
     _, xmax = ax.get_xlim()

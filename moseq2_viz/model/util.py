@@ -81,7 +81,7 @@ def compute_syllable_explained_variance(model, save_dir=os.getcwd(), n_explained
     plt.plot(cumulative_explanation)
     plt.axvline(max_sylls, color='k')
     if not os.path.exists(save_dir):
-        os.makedirs(exist_ok=True)
+        os.makedirs(save_dir, exist_ok=True)
     plt.savefig(os.path.join(save_dir, 'syllable_needed_explained_variance.pdf'))
     plt.savefig(os.path.join(save_dir, 'syllable_needed_explained_variance.png'))
 

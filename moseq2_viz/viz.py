@@ -9,6 +9,7 @@ import cv2
 import h5py
 import warnings
 import numpy as np
+import pandas as pd
 import seaborn as sns
 import matplotlib as mpl
 from tqdm.auto import tqdm
@@ -658,24 +659,33 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
     # Plot PC CP description
     t = f'PC CP Stats: Mean, median, mode (s) = {np.nanmean(pc_cps):.4f}, ' \
         f'{np.nanmedian(pc_cps):.4f}, {mode(pc_cps)[0][0]:.4f}'
+    
+    # saving model kappa scan stats
+    model_stats = None
+    # record changepoint stats
+    changepoint_stats = [np.nanmean(pc_cps), np.nanmedian(pc_cps), mode(pc_cps)[0][0]]
 
     if not plot_all and best_model is not None:
         # clipping the changepoints at 10 seconds
         ax = sns.kdeplot(model_cps[model_cps<10], ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa:1.02E}',
                          bw_adjust=bw_adjust)
     else:
+        model_stats = []
         palette = sns.color_palette('dark', n_colors=len(model_results))
         for i, (k, v) in enumerate(model_results.items()):
             # Set default curve formatting
             ls, alpha = '--', 0.5
             if k == best_model:
                 ls, alpha = '-', 1 # Solid line for best fit
-
             kappa = v['model_parameters']['kappa']
             model_cps = v['changepoints']
+            # append model stats
+            model_stats.append([k, kappa, np.nanmean(model_cps), np.nanmedian(model_cps), mode(model_cps)[0][0]]+ changepoint_stats)
             # clipping the changepoints at 10 seconds
             ax = sns.kdeplot(model_cps[model_cps<10], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=bw_adjust,
                         color=palette[i], label=f'Model Changepoints Kappa={kappa:1.02E}')
+        model_stats = pd.DataFrame(model_stats, columns=['file_name', 'model_kappa', 'model_mean', 'model_median', 'model_mode', 'pc_mean', 'pc_median', 'pc_mode'])
+
     # Format plot
     ax.set_xlim(0, 2)
 
@@ -698,4 +708,4 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
     ax.legend(frameon=False, bbox_to_anchor=(1, 0), loc='lower left')
     sns.despine()
 
-    return fig, ax
+    return fig, ax, model_stats

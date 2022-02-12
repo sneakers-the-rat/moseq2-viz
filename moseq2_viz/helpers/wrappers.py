@@ -170,12 +170,16 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     print(f'Model closest to changepoints {objective} objective', best_model_info[f'best model - {objective}'])
 
     # Graph model CP difference(s)
-    fig, ax = plot_cp_comparison(model_results, pca_changepoints, plot_all=plot_all, best_model=best_model_info[f'best model - {objective}'])
+    fig, ax, model_stats = plot_cp_comparison(model_results, pca_changepoints, plot_all=plot_all, best_model=best_model_info[f'best model - {objective}'])
 
     # Save the figure
     if output_file is not None:
         legends = [c for c in ax.get_children() if isinstance(c, mpl.legend.Legend)]
         save_fig(fig, output_file, bbox_extra_artists=legends, bbox_inches='tight')
+    
+    # Save the model_stats to csv
+    if model_stats is not None:
+        model_stats.to_csv(os.path.join(model_dir, 'model_kappa_scan_stats.csv'))
 
     return best_model_info, fig
 

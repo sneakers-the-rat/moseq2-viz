@@ -50,7 +50,7 @@ def _assert_models_have_same_kappa(model_paths):
         raise ValueError('You cannot merge models trained with different kappas')
 
 
-def compute_syllable_explained_variance(model, n_explained=99):
+def compute_syllable_explained_variance(model, save_dir=os.getcwd(), n_explained=99):
     '''
     Computes the maximum number of syllables to include that explain `n_explained` percent
     of all frames in the dataset.
@@ -80,6 +80,10 @@ def compute_syllable_explained_variance(model, n_explained=99):
 
     plt.plot(cumulative_explanation)
     plt.axvline(max_sylls, color='k')
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir, exist_ok=True)
+    plt.savefig(os.path.join(save_dir, 'syllable_needed_explained_variance.pdf'))
+    plt.savefig(os.path.join(save_dir, 'syllable_needed_explained_variance.png'))
 
     return max_sylls
 

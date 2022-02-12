@@ -9,6 +9,7 @@ import cv2
 import h5py
 import warnings
 import numpy as np
+import pandas as pd
 import seaborn as sns
 import matplotlib as mpl
 from tqdm.auto import tqdm
@@ -153,9 +154,9 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
     fig.savefig(f'{output_file}.pdf', **kwargs)
 
 
-def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_path='frames',
-                      crop_size=(80, 80), max_dur=60, min_dur=0, offset=(50, 50), scale=1,
-                      center=False, rotate=False, min_height=10, legacy_jitter_fix=False,
+def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovie_size=(300, 300), frame_path='frames',
+                      crop_size=(80, 80), max_dur=60, min_dur=0, scale=1,
+                      center=False, rotate=False, select_median_duration_instances=False, min_height=10, legacy_jitter_fix=False,
                       seed=0, **kwargs):
     '''
     Creates crowd movie video numpy array.
@@ -170,10 +171,10 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
     crop_size (tuple): mouse crop size
     max_dur (int or None): maximum syllable duration.
     min_dur (int): minimum syllable duration.
-    offset (tuple): centroid offsets from cropped videos
     scale (int): mouse size scaling factor.
     center (bool): indicate whether mice are centered.
     rotate (bool): rotate mice to orient them.
+    select_median_duration_instances (bool): if true, select examples with syallable duration closer to median.
     min_height (int): minimum max height from floor to use.
     legacy_jitter_fix (bool): whether to apply jitter fix for K1 camera.
     kwargs (dict): extra keyword arguments
@@ -188,22 +189,35 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
     rng = np.random.default_rng(seed)
 
+    # set up x, y value to crop out the mouse with respect to the mouse centriod
     xc0, yc0 = crop_size[1] // 2, crop_size[0] // 2
     xc = np.arange(-xc0, xc0 + 1, dtype='int16')
     yc = np.arange(-yc0, yc0 + 1, dtype='int16')
 
+    # compute syllable duration in the sample
     durs = np.array([i[1]-i[0] for i, _, _ in slices])
-
+    
     if max_dur is not None:
         idx = np.where(np.logical_and(durs < max_dur, durs > min_dur))[0]
         use_slices = [_slice for i, _slice in enumerate(slices) if i in idx]
+        # return the sort order of durations of the remaining slices
+        dur_order = np.argsort(durs[idx])
     else:
         max_dur = durs.max()
         idx = np.where(durs > min_dur)[0]
         use_slices = [_slice for i, _slice in enumerate(slices) if i in idx]
+        # return the sort order of durations of the remaining slices
+        dur_order = np.argsort(durs[idx])
 
     if len(use_slices) > nexamples:
-        use_slices = rng.permutation(use_slices)[:nexamples]
+        if select_median_duration_instances:
+            # choose the nexamples near median duration
+            selction_begin = int(len(dur_order)//2 - nexamples//2)
+            # ensure nexamples are picked
+            selection_end = selction_begin + nexamples
+            use_slices = [_slice for i, _slice in enumerate(use_slices) if i in dur_order[selction_begin:selection_end]]
+        else:
+            use_slices = rng.permutation(use_slices)[:nexamples]
 
     if len(use_slices) == 0 or max_dur < 0:
         return None
@@ -211,6 +225,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
     crowd_matrix = np.zeros((max_dur + pad * 2, raw_size[1], raw_size[0]), dtype='uint8')
 
     for idx, _, fname in use_slices:
+        # pad frames before syllable onset, and add max_dur and padding after syllable onset
         use_idx = (idx[0] - pad, idx[0] + max_dur + pad)
         idx_slice = slice(*use_idx)
 
@@ -225,10 +240,12 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
             if use_idx[0] < 0 or use_idx[1] >= nframes - 1:
                 continue
+            
+            # select centroids
+            centroid_x = h5[use_names[0]][idx_slice]
+            centroid_y = h5[use_names[1]][idx_slice]
 
-            centroid_x = h5[use_names[0]][idx_slice] + offset[0]
-            centroid_y = h5[use_names[1]][idx_slice] + offset[1]
-
+            # center the mice such that when it is syllable onset, the mice's centroids are in the center
             if center:
                 centroid_x -= centroid_x[pad]
                 centroid_x += raw_size[0] // 2
@@ -238,6 +255,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
             angles = h5['scalars/angle'][idx_slice]
             frames = clean_frames((h5[frame_path][idx_slice] / scale).astype('uint8'), **kwargs)
 
+            # flip the mouse in the correct orientation if necessary
             if 'flips' in h5['metadata/extraction']:
                 # h5 format as of v0.1.3
                 flips = h5['metadata/extraction/flips'][idx_slice]
@@ -255,7 +273,8 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
             if np.any(np.isnan([centroid_x[i], centroid_y[i]])):
                 continue
-
+            
+            # set up the rows and columnes to crop the video
             rr = (yc + centroid_y[i]).astype('int16')
             cc = (xc + centroid_x[i]).astype('int16')
 
@@ -269,6 +288,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
 
             rot_mat = cv2.getRotationMatrix2D((xc0, yc0), angles[i], 1)
 
+            # add the new instance to the exisiting crowd matrix
             old_frame = crowd_matrix[i]
             new_frame = np.zeros_like(old_frame)
             new_frame_clip = frames[i].copy()
@@ -307,6 +327,25 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), frame_p
             old_frame[overwrite_coords] = new_frame[overwrite_coords]
 
             crowd_matrix[i] = old_frame
+    
+    # compute non-zero pixels across all frames
+    non_zero_coor = np.argwhere(np.any(crowd_matrix>0, 0))
+    
+    try:
+        # find min max coordinates to crop out the blanks
+        min_xy = np.min(non_zero_coor, 0)
+        max_xy = np.max(non_zero_coor, 0)  
+        # crop out the blanks while making sure the slice is not zero
+        if np.all(max_xy - min_xy) > 0:
+            crowd_matrix = crowd_matrix[:, min_xy[0]:max_xy[0], min_xy[1]:max_xy[1]]
+            
+            # pad crowd movies to outmovie_size if the dimension is smaller than outmoive_size
+            if np.all(outmovie_size > max_xy - min_xy):
+                x_pad, y_pad = (outmovie_size - (max_xy - min_xy))//2
+                crowd_matrix = np.pad(crowd_matrix, ((0,0), (x_pad, x_pad), (y_pad, y_pad)), 'constant', constant_values=0)
+                
+    except ValueError:
+        print('No mouse in the crowd movie')
 
     return crowd_matrix
 
@@ -607,29 +646,12 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
     '''
 
     fig, ax = plt.subplots(1, 1, figsize=(8, 5))
-    # Plot KDEs
-    ax = sns.kdeplot(pc_cps, color='orange', label='PCA Changepoints', ax=ax, bw_adjust=bw_adjust)
+    # Plot KDEs, clipping the changepoints at 10 seconds
+    ax = sns.kdeplot(pc_cps[pc_cps<10], color='orange', label='PCA Changepoints', ax=ax, bw_adjust=bw_adjust)
 
     _mdl = model_results[best_model]
     model_cps = _mdl['changepoints']
     kappa = _mdl['model_parameters']['kappa']
-
-    if not plot_all and best_model is not None:
-        ax = sns.kdeplot(model_cps, ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa:1.02E}',
-                         bw_adjust=bw_adjust)
-    else:
-        palette = sns.color_palette('dark', n_colors=len(model_results))
-        for i, (k, v) in enumerate(model_results.items()):
-            # Set default curve formatting
-            ls, alpha = '--', 0.5
-            if k == best_model:
-                ls, alpha = '-', 1 # Solid line for best fit
-
-            kappa = v['model_parameters']['kappa']
-            ax = sns.kdeplot(v['changepoints'], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=bw_adjust,
-                        color=palette[i], label=f'Model Changepoints Kappa={kappa:1.02E}')
-    # Format plot
-    ax.set_xlim(0, 2)
 
     # Plot best model description
     s = f'Best Model CP Stats: Mean, median, mode (s) = {np.nanmean(model_cps):.4f},' \
@@ -637,6 +659,35 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
     # Plot PC CP description
     t = f'PC CP Stats: Mean, median, mode (s) = {np.nanmean(pc_cps):.4f}, ' \
         f'{np.nanmedian(pc_cps):.4f}, {mode(pc_cps)[0][0]:.4f}'
+    
+    # saving model kappa scan stats
+    model_stats = None
+    # record changepoint stats
+    changepoint_stats = [np.nanmean(pc_cps), np.nanmedian(pc_cps), mode(pc_cps)[0][0]]
+
+    if not plot_all and best_model is not None:
+        # clipping the changepoints at 10 seconds
+        ax = sns.kdeplot(model_cps[model_cps<10], ax=ax, color='blue', label=f'Model Changepoints Kappa={kappa:1.02E}',
+                         bw_adjust=bw_adjust)
+    else:
+        model_stats = []
+        palette = sns.color_palette('dark', n_colors=len(model_results))
+        for i, (k, v) in enumerate(model_results.items()):
+            # Set default curve formatting
+            ls, alpha = '--', 0.5
+            if k == best_model:
+                ls, alpha = '-', 1 # Solid line for best fit
+            kappa = v['model_parameters']['kappa']
+            model_cps = v['changepoints']
+            # append model stats
+            model_stats.append([k, kappa, np.nanmean(model_cps), np.nanmedian(model_cps), mode(model_cps)[0][0]]+ changepoint_stats)
+            # clipping the changepoints at 10 seconds
+            ax = sns.kdeplot(model_cps[model_cps<10], ax=ax, linestyle=ls, alpha=alpha, bw_adjust=bw_adjust,
+                        color=palette[i], label=f'Model Changepoints Kappa={kappa:1.02E}')
+        model_stats = pd.DataFrame(model_stats, columns=['file_name', 'model_kappa', 'model_mean', 'model_median', 'model_mode', 'pc_mean', 'pc_median', 'pc_mode'])
+
+    # Format plot
+    ax.set_xlim(0, 2)
 
     # get figure maximum y-value
     _, xmax = ax.get_xlim()
@@ -657,4 +708,4 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
     ax.legend(frameon=False, bbox_to_anchor=(1, 0), loc='lower left')
     sns.despine()
 
-    return fig, ax
+    return fig, ax, model_stats

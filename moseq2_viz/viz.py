@@ -275,23 +275,35 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
                 continue
             
             # set up the rows and columnes to crop the video
-            rr = (yc + centroid_y[i]).astype('int16')
-            cc = (xc + centroid_x[i]).astype('int16')
+            rr = (yc + int(centroid_y[i])).astype('int16')
+            cc = (xc + int(centroid_x[i])).astype('int16')
+            if np.any(rr >= raw_size[1]) or np.any(cc >= raw_size[0]): continue
 
-            if (np.any(rr < 1)
-                or np.any(cc < 1)
-                or np.any(rr >= raw_size[1])
-                or np.any(cc >= raw_size[0])
-                or (rr[-1] - rr[0] != crop_size[0])
-                or (cc[-1] - cc[0] != crop_size[1])):
+            if ((rr[-1] - rr[0]) != crop_size[0])) or ((cc[-1] - cc[0]) != crop_size[1]):
                 continue
+
+            if np.any(rr < 0) or np.any(cc < 0):
+                top = 0
+                if np.any(rr < 0):
+                    top = rr.min()
+                    rr = rr - rr.min()
+                left = 0
+                if np.any(cc < 0):
+                    left = cc.min()
+                    cc = cc - cc.min()
+                new_frame_clip = cv2.copyMakeBorder(frames[i].copy(), abs(top), 0, abs(left), 0, cv2.BORDER_CONSTANT, value=0)
+                if left > 0:
+                    new_frame_clip = new_frame_clip[:, :crop_size[1]]
+                if top > 0:
+                    new_frame_clip = new_frame_clip[:crop_size[0]]
+            else:
+                new_frame_clip = frames[i].copy()
 
             rot_mat = cv2.getRotationMatrix2D((xc0, yc0), angles[i], 1)
 
             # add the new instance to the exisiting crowd matrix
             old_frame = crowd_matrix[i]
             new_frame = np.zeros_like(old_frame)
-            new_frame_clip = frames[i].copy()
 
             # change from fliplr, removes jitter since we now use rot90 in moseq2-extract
             if flips[i] and legacy_jitter_fix:

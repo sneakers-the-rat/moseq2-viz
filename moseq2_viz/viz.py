@@ -279,7 +279,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
             cc = (xc + int(centroid_x[i])).astype('int16')
             if np.any(rr >= raw_size[1]) or np.any(cc >= raw_size[0]): continue
 
-            if ((rr[-1] - rr[0]) != crop_size[0])) or ((cc[-1] - cc[0]) != crop_size[1]):
+            if ((rr[-1] - rr[0]) != crop_size[0]) or ((cc[-1] - cc[0]) != crop_size[1]):
                 continue
 
             if np.any(rr < 0) or np.any(cc < 0):

@@ -481,7 +481,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
         except ValueError as e:
             print(f'Error in session with uuid: {k}')
             print('Length of timestamps do not equal number of frames. Skipping this session.')
-            print(e.with_traceback())
+            print(e)
             continue
 
 

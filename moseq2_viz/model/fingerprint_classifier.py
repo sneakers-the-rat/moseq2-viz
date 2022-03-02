@@ -17,6 +17,7 @@ from sklearn.base import clone
 import pandas as pd
 import numpy as np
 from os.path import join
+from os import makedirs
 
 
 def robust_min(v):
@@ -195,6 +196,7 @@ def plotting_fingerprint(summary, save_dir, range_dict, preprocessor=None, num_l
         cb.set_xlabel('Percentage Usage')
 
     # saving the figure
+    makedirs(save_dir, exist_ok=True)
     fig.savefig(join(save_dir, 'moseq_fingerprint.pdf'))
     fig.savefig(join(save_dir, 'moseq_fingerprint.png'))
 

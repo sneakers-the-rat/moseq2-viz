@@ -166,8 +166,10 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
 
     # Find the best fit model by comparing their median durations with the PC scores changepoints
     best_model_info, pca_changepoints = get_best_fit(cp_file, model_results)
-
-    print(f'Model closest to changepoints {objective} objective', best_model_info[f'best model - {objective}'])
+    if objective == "median_loglikehood":
+        print('Model that has the median log likelihood is', best_model_info[f'best model - {objective}'])
+    else:
+        print(f'Model closest to changepoints {objective} objective', best_model_info[f'best model - {objective}'])
 
     # Graph model CP difference(s)
     fig, ax, model_stats = plot_cp_comparison(model_results, pca_changepoints, plot_all=plot_all, best_model=best_model_info[f'best model - {objective}'])

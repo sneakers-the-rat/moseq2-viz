@@ -5,6 +5,7 @@ Utility functions specifically responsible for handling model data during pre an
 '''
 
 import os
+from statistics import median
 import h5py
 import glob
 import joblib
@@ -210,6 +211,12 @@ def get_best_fit(cp_path, model_results):
     jsd_dists = valmap(_compute_jsd_dist, model_results)
     best_jsd_model, jsd_dist = min(jsd_dists.items(), key=get(1))
 
+    median_loglikes = sorted([v['loglikes'] for v in model_results.values()])[len(model_results)//2]
+    # find the model that has the median loglikes
+    for k, v in model_results.items():
+        if v['loglikes'] == median_loglikes:
+            model_median_loglikes = k
+
     info = {
         'best model - duration': best_model,
         'best model - duration kappa': model_results[best_model]['model_parameters']['kappa'],
@@ -218,7 +225,9 @@ def get_best_fit(cp_path, model_results):
         'best model - jsd': best_jsd_model,
         'best model - jsd kappa': model_results[best_jsd_model]['model_parameters']['kappa'],
         'min jensen-shannon distance': jsd_dist,
-        'jsd distances': jsd_dists
+        'jsd distances': jsd_dists,
+        'best model - median_loglikehood': model_median_loglikes,
+        'best model - loglikehood': median_loglikes
     }
     
     return info, pca_cps

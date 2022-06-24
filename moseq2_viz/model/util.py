@@ -226,8 +226,8 @@ def get_best_fit(cp_path, model_results):
         'best model - jsd kappa': model_results[best_jsd_model]['model_parameters']['kappa'],
         'min jensen-shannon distance': jsd_dist,
         'jsd distances': jsd_dists,
-        'best model - median_loglikehood': model_median_loglikes,
-        'best model - loglikehood': median_loglikes
+        'best model - median_loglikelihood': model_median_loglikes,
+        'best model - loglikelihood': median_loglikes
     }
     
     return info, pca_cps

@@ -602,7 +602,10 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
     durations = durations.groupby(groupby_with_syllable).mean() / fps
     durations.name = 'duration'
 
-    features = scalar_df.groupby(groupby_with_syllable)[feature_cols].mean()
+    features = scalar_df.groupby(groupby_with_syllable)[feature_cols].agg(['mean', 'std', 'min', 'max'])
+    # join the MultiIndex to one level
+    features.columns = ['_'.join(col).strip() for col in features.columns.values]
+    
 
     # merge usage and duration
     features = usages.join(durations).join(features)

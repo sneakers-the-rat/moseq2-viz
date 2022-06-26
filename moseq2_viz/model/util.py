@@ -211,7 +211,8 @@ def get_best_fit(cp_path, model_results):
     jsd_dists = valmap(_compute_jsd_dist, model_results)
     best_jsd_model, jsd_dist = min(jsd_dists.items(), key=get(1))
 
-    median_loglikes = sorted([v['loglikes'] for v in model_results.values()])[len(model_results)//2]
+    # v['loglikes'] is a float
+    median_loglikes = sorted([v['loglikes'] for v in model_results.values() if v.get('loglikes') is not None])[len(model_results)//2]
     # find the model that has the median loglikes
     for k, v in model_results.items():
         if v['loglikes'] == median_loglikes:

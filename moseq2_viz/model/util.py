@@ -924,8 +924,8 @@ def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
 
     Parameters
     ----------
-    ar_mat (3D np.ndarray): numpy array representing the autoregressive matrix of each model state.
-    init_points (2D np.ndarray): pre-initialzed array (npcs x nlags) in shape
+    ar_mat (2D np.ndarray): numpy array representing the autoregressive matrix of a model state with shape (npcs, npcs * nlags + 1)
+    init_points (2D np.ndarray): pre-initialzed array of shape (nlags, npcs)
     sim_points (int): number of time points to simulate.
 
     Returns

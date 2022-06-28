@@ -166,8 +166,10 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
 
     # Find the best fit model by comparing their median durations with the PC scores changepoints
     best_model_info, pca_changepoints = get_best_fit(cp_file, model_results)
-
-    print(f'Model closest to changepoints {objective} objective', best_model_info[f'best model - {objective}'])
+    
+    print(f'Model closest to {objective} objective', best_model_info[f'best model - {objective}'])
+    if objective != "median_loglikelihood":
+        print('Model kappa value is', best_model_info[f'best model - {objective} kappa'])
 
     # Graph model CP difference(s)
     fig, ax, model_stats = plot_cp_comparison(model_results, pca_changepoints, plot_all=plot_all, best_model=best_model_info[f'best model - {objective}'])
@@ -369,7 +371,11 @@ def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_dat
 
     # Get modeled session uuids to compute group-mean transition graph for
     label_group, _ = get_trans_graph_groups(model_data)
-    group = list(set(label_group))
+    
+    if config_data.get('group') is not None:
+        group = list(config_data.get('group'))
+    else:
+        group = list(set(label_group))
 
     print('Computing transition matrices...')
     try:

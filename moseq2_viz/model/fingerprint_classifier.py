@@ -32,7 +32,7 @@ def _apply_to_col(df, fn, **kwargs):
     return df.apply(fn, axis=0, **kwargs)
 
 
-def create_fingerprint_dataframe(scalar_df, mean_df, n_bins=None, groupby_list=['group', 'uuid'], range_type='robust',
+def create_fingerprint_dataframe(scalar_df, mean_df, stat_type='mean', n_bins=None, groupby_list=['group', 'uuid'], range_type='robust',
                                  scalars=['velocity_2d_mm', 'height_ave_mm', 'length_mm', 'dist_to_center_px']):
     '''
     create fingerprint dataframe from scalar_df and mean_df
@@ -47,6 +47,15 @@ def create_fingerprint_dataframe(scalar_df, mean_df, n_bins=None, groupby_list=[
         summary ([pandas.DataFrame]): fingerprint dataframe
         range_dict ([dict]): dictionary that hold min max values of the features
     '''
+
+    # rescale velocity to cm/s
+    vel_cols = [c for c in scalars if 'velocity' in c]
+    vel_cols_stats = [f'{c}_{stat_type}' for c in scalars if 'velocity' in c]
+    
+    if len(vel_cols) > 0:
+        scalar_df[vel_cols] *= 30
+        mean_df[vel_cols_stats] *=30
+    
     # pivot mean_df to be groupby x syllable
     syll_summary = mean_df.pivot_table(index=groupby_list, values='usage', columns='syllable')
     syll_summary.columns = pd.MultiIndex.from_arrays([['MoSeq'] * syll_summary.shape[1], syll_summary.columns])
@@ -76,11 +85,6 @@ def create_fingerprint_dataframe(scalar_df, mean_df, n_bins=None, groupby_list=[
     scalar_fingerprint = binned_scalars.pivot_table(index=groupby_list, columns='bin', values=binned_scalars.columns)
 
     fingerprints = scalar_fingerprint.join(syll_summary, how='outer')
-
-    # rescale velocity - TODO: should velocity rescaling go somewhere else?
-    vel_cols = [c for c in scalars if 'velocity' in c]
-    if len(vel_cols) > 0:
-        ranges[vel_cols] *= 30
 
     return fingerprints, ranges.loc[range_idx]
 

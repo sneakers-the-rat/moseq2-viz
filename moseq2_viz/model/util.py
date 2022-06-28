@@ -5,6 +5,7 @@ Utility functions specifically responsible for handling model data during pre an
 '''
 
 import os
+from statistics import median
 import h5py
 import glob
 import joblib
@@ -210,6 +211,13 @@ def get_best_fit(cp_path, model_results):
     jsd_dists = valmap(_compute_jsd_dist, model_results)
     best_jsd_model, jsd_dist = min(jsd_dists.items(), key=get(1))
 
+    # v['loglikes'] is a float
+    median_loglikes = sorted([v['loglikes'] for v in model_results.values() if v.get('loglikes') is not None])[len(model_results)//2]
+    # find the model that has the median loglikes
+    for k, v in model_results.items():
+        if v['loglikes'] == median_loglikes:
+            model_median_loglikes = k
+
     info = {
         'best model - duration': best_model,
         'best model - duration kappa': model_results[best_model]['model_parameters']['kappa'],
@@ -218,7 +226,9 @@ def get_best_fit(cp_path, model_results):
         'best model - jsd': best_jsd_model,
         'best model - jsd kappa': model_results[best_jsd_model]['model_parameters']['kappa'],
         'min jensen-shannon distance': jsd_dist,
-        'jsd distances': jsd_dists
+        'jsd distances': jsd_dists,
+        'best model - median_loglikelihood': model_median_loglikes,
+        'best model - loglikelihood': median_loglikes
     }
     
     return info, pca_cps
@@ -602,7 +612,10 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
     durations = durations.groupby(groupby_with_syllable).mean() / fps
     durations.name = 'duration'
 
-    features = scalar_df.groupby(groupby_with_syllable)[feature_cols].mean()
+    features = scalar_df.groupby(groupby_with_syllable)[feature_cols].agg(['mean', 'std', 'min', 'max'])
+    # join the MultiIndex to one level
+    features.columns = ['_'.join(col).strip() for col in features.columns.values]
+    
 
     # merge usage and duration
     features = usages.join(durations).join(features)
@@ -921,8 +934,8 @@ def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
 
     Parameters
     ----------
-    ar_mat (3D np.ndarray): numpy array representing the autoregressive matrix of each model state.
-    init_points (2D np.ndarray): pre-initialzed array (npcs x nlags) in shape
+    ar_mat (2D np.ndarray): numpy array representing the autoregressive matrix of a model state with shape (npcs, npcs * nlags + 1)
+    init_points (2D np.ndarray): pre-initialzed array of shape (nlags, npcs)
     sim_points (int): number of time points to simulate.
 
     Returns

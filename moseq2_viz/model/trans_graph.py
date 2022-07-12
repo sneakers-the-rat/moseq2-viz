@@ -537,11 +537,11 @@ def get_pos(graph_anchor, layout, nnodes):
 
     if isinstance(layout, str) and layout.lower() == 'spring':
         k = 1.5 / np.sqrt(nnodes)
-        pos = nx.spring_layout(graph_anchor, k=k, seed=0)
+        pos = nx.spring_layout(sorted(graph_anchor.nodes()), k=k, seed=0)
     elif isinstance(layout, str) and layout.lower() == 'circular':
-        pos = nx.circular_layout(graph_anchor)
+        pos = nx.circular_layout(sorted(graph_anchor.nodes()))
     elif isinstance(layout, str) and layout.lower() == 'spectral':
-        pos = nx.spectral_layout(graph_anchor)
+        pos = nx.spectral_layout(sorted(graph_anchor.nodes()))
     elif isinstance(layout, (dict, OrderedDict)):
         # user passed pos directly
         pos = layout

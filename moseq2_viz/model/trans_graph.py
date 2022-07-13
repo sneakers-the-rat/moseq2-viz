@@ -580,10 +580,11 @@ def draw_graph(graph, width, pos, node_color,
 
     # Draw nodes and edges on matplotlib figure
     # reconstruct node_size list to match the sorted node labels
-    node_size_dict = {}
-    for i,v in enumerate(node_size):
-        node_size_dict[i]=v
-    node_size = [node_size_dict.get(n) if node_size_dict.get(n) else 0 for n in graph.nodes]
+    if isinstance(node_size, list):
+        node_size_dict = {}
+        for i,v in enumerate(node_size):
+            node_size_dict[i]=v
+        node_size = [node_size_dict.get(n) if node_size_dict.get(n) else 0 for n in graph.nodes]
     
     nx.draw(graph, pos=pos, with_labels=True, font_size=font_size, alpha=1,
             width=width, edgecolors=node_edge_colors, ax=ax, cmap='jet',

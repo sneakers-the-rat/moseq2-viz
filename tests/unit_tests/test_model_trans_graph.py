@@ -334,6 +334,7 @@ class TestModelTransGraph(TestCase):
         trans_mats, usages = get_group_trans_mats(model['labels'], label_group, group, 50, normalize='rows')
 
         fig, ax, pos = graph_transition_matrix(trans_mats, usages=usages, groups=group)
+        print(usages)
 
         assert len(pos.keys()) == 4
         assert len(ax) == 1

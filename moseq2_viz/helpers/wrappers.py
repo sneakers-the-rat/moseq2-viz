@@ -372,9 +372,9 @@ def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_dat
     label_group, _ = get_trans_graph_groups(model_data)
     
     if (config_data.get('group') is not None) and len(config_data.get('group')) > 0:
-        group = list(config_data.get('group'))
+        group = sorted(list(config_data.get('group')))
     else:
-        group = list(set(label_group))
+        group = sorted(list(set(label_group)))
 
     print('Computing transition matrices...')
     try:
@@ -385,7 +385,7 @@ def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_dat
         print('Incorrectly inputted group, plotting all groups.')
 
         label_group = [f['group'] for f in sorted_index['files'].values()]
-        group = list(set(label_group))
+        group = sorted(list(set(label_group)))
 
         print('Recomputing transition matrices...')
         plt = compute_and_graph_grouped_TMs(config_data, model_data['labels'], label_group, group)

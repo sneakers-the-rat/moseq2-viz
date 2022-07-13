@@ -384,7 +384,7 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usage_kwargs,
             weight = [np.abs(graph[u][v]['weight']) * difference_edge_width_scale
                       for u, v in graph.edges()]
 
-            edge_colors = ['r' if (graph[u][v]['weight'] * difference_edge_width_scale > 0) else 'b'
+            edge_colors = ['b' if (graph[u][v]['weight'] * difference_edge_width_scale > 0) else 'r'
                            for u, v in graph.edges()]
             widths.append(weight)
 
@@ -396,7 +396,7 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usage_kwargs,
 
                 # get node sizes and colors based on usage differences
                 node_size = np.abs(list(df_usage.values()))[:len(graph.nodes)] * usage_scale
-                node_edge_color = ['r' if x > 0 else 'b' for x in df_usage.values()][:len(graph.nodes)]
+                node_edge_color = ['b' if x > 0 else 'r' for x in df_usage.values()][:len(graph.nodes)]
 
                 node_sizes.append(node_size)
                 node_edge_colors.append(node_edge_color)

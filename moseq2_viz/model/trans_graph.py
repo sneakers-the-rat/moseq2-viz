@@ -323,7 +323,7 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
 def make_difference_graphs(trans_mats, usages, group, group_names, usage_kwargs,
                            widths, pos, node_edge_colors, ax=None, node_sizes=[], indices=None,
                            difference_threshold=0.0005, difference_edge_width_scale=500, font_size=12,
-                           usage_scale=1e5, difference_graphs=[], scalars=None, arrows=False, speed_kwargs={}):
+                           usage_scale=5e4, difference_graphs=[], scalars=None, arrows=False, speed_kwargs={}):
     '''
     Helper function that computes transition graph differences.
 
@@ -692,7 +692,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
     # Get group name list to append difference graph names
     group_names = deepcopy(groups)
-
+    
     # Make graphs and difference graphs
     _ = make_transition_graphs(trans_mats, usages, groups, group_names,
         pos=pos, orphans=orphans, indices=[e[:-1] for e in ebunch_anchor],

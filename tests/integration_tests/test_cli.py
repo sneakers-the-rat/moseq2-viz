@@ -116,7 +116,7 @@ class TestCLI(TestCase):
                         '--sort', True,
                         '--count', 'usage',
                         '--edge-scaling', 250,
-                        '--node-scaling', 1e4,
+                        '--node-scaling', 1e5,
                         '--scale-node-by-usage', True,
                         '--width-per-group', 8,
                         input_dir + 'test_index.yaml',

@@ -382,7 +382,7 @@ class TestModelUtils(TestCase):
                          }
 
         best_model, _ = get_best_fit(cp_file, model_results)
-        assert best_model['best model - duration'] == 'model1'
+        assert best_model['best model - duration (median match)'] == 'model1'
 
     def test_make_separate_crowd_movies(self):
 

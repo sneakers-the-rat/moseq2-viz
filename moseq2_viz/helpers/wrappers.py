@@ -126,7 +126,7 @@ def add_group_wrapper(index_file, config_data):
 
 
 def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, ext='p', fps=30,
-                               objective='duration'):
+                               objective='duration (mean match)'):
     '''
     Given a directory containing multiple models trained on different kappa values,
     finds the model with the closest median syllable duration to the PC changepoints.
@@ -364,32 +364,31 @@ def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_dat
         except ImportError:
             raise ImportError('pygraphviz must be installed to use graphviz layout engines')
 
-    # Get labels and optionally relabel them by usage sorting
-    labels = model_data['labels']
+# Get labels and optionally relabel them by usage sorting
     if config_data['sort']:
-        labels = relabel_by_usage(labels, count=config_data['count'])[0]
+        model_data['labels'] = relabel_by_usage(model_data['labels'], count=config_data['count'])[0]
 
-    # Get modeled session uuids to compute group-mean transition graph for
+    # # Get modeled session uuids to compute group-mean transition graph for
     label_group, _ = get_trans_graph_groups(model_data)
     
-    if config_data.get('group') is not None:
-        group = list(config_data.get('group'))
+    if (config_data.get('group') is not None) and len(config_data.get('group')) > 0:
+        group = sorted(list(config_data.get('group')))
     else:
-        group = list(set(label_group))
+        group = sorted(list(set(label_group)))
 
     print('Computing transition matrices...')
     try:
         # Compute and plot Transition Matrices
-        plt = compute_and_graph_grouped_TMs(config_data, labels, label_group, group)
+        plt = compute_and_graph_grouped_TMs(config_data, model_data['labels'], label_group, group)
     except Exception as e:
         print('Error:', e)
         print('Incorrectly inputted group, plotting all groups.')
 
         label_group = [f['group'] for f in sorted_index['files'].values()]
-        group = list(set(label_group))
+        group = sorted(list(set(label_group)))
 
         print('Recomputing transition matrices...')
-        plt = compute_and_graph_grouped_TMs(config_data, labels, label_group, group)
+        plt = compute_and_graph_grouped_TMs(config_data, model_data['labels'], label_group, group)
 
     # Save figure
     save_fig(plt, output_file)

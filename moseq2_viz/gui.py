@@ -116,7 +116,7 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
 
 copy_h5_metadata_to_yaml_command = _alias(copy_h5_metadata_to_yaml_wrapper)
 
-def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30, ext='p', objective='duration'):
+def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30, ext='p', objective='duration (mean match)'):
     '''
     Given a directory containing multiple models, and the path to the pca scores they were trained on,
     this function returns the path to the model that has the closest median syllable duration to that of

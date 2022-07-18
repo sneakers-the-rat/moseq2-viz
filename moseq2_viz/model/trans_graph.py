@@ -323,7 +323,7 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
 def make_difference_graphs(trans_mats, usages, group, group_names, usage_kwargs,
                            widths, pos, node_edge_colors, ax=None, node_sizes=[], indices=None,
                            difference_threshold=0.0005, difference_edge_width_scale=500, font_size=12,
-                           usage_scale=1e5, difference_graphs=[], scalars=None, arrows=False, speed_kwargs={}):
+                           usage_scale=5e4, difference_graphs=[], scalars=None, arrows=False, speed_kwargs={}):
     '''
     Helper function that computes transition graph differences.
 
@@ -384,7 +384,7 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usage_kwargs,
             weight = [np.abs(graph[u][v]['weight']) * difference_edge_width_scale
                       for u, v in graph.edges()]
 
-            edge_colors = ['r' if (graph[u][v]['weight'] * difference_edge_width_scale > 0) else 'b'
+            edge_colors = ['b' if (graph[u][v]['weight'] * difference_edge_width_scale > 0) else 'r'
                            for u, v in graph.edges()]
             widths.append(weight)
 
@@ -396,7 +396,7 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usage_kwargs,
 
                 # get node sizes and colors based on usage differences
                 node_size = np.abs(list(df_usage.values()))[:len(graph.nodes)] * usage_scale
-                node_edge_color = ['r' if x > 0 else 'b' for x in df_usage.values()][:len(graph.nodes)]
+                node_edge_color = ['b' if x > 0 else 'r' for x in df_usage.values()][:len(graph.nodes)]
 
                 node_sizes.append(node_size)
                 node_edge_colors.append(node_edge_color)
@@ -537,11 +537,11 @@ def get_pos(graph_anchor, layout, nnodes):
 
     if isinstance(layout, str) and layout.lower() == 'spring':
         k = 1.5 / np.sqrt(nnodes)
-        pos = nx.spring_layout(graph_anchor, k=k, seed=0)
+        pos = nx.spring_layout(sorted(graph_anchor.nodes()), k=k, seed=0)
     elif isinstance(layout, str) and layout.lower() == 'circular':
-        pos = nx.circular_layout(graph_anchor)
+        pos = nx.circular_layout(sorted(graph_anchor.nodes()))
     elif isinstance(layout, str) and layout.lower() == 'spectral':
-        pos = nx.spectral_layout(graph_anchor)
+        pos = nx.spectral_layout(sorted(graph_anchor.nodes()))
     elif isinstance(layout, (dict, OrderedDict)):
         # user passed pos directly
         pos = layout
@@ -579,6 +579,13 @@ def draw_graph(graph, width, pos, node_color,
     '''
 
     # Draw nodes and edges on matplotlib figure
+    # reconstruct node_size list to match the sorted node labels
+    if isinstance(node_size, list):
+        node_size_dict = {}
+        for i,v in enumerate(node_size):
+            node_size_dict[i]=v
+        node_size = [node_size_dict.get(n) if node_size_dict.get(n) else 0 for n in graph.nodes]
+    
     nx.draw(graph, pos=pos, with_labels=True, font_size=font_size, alpha=1,
             width=width, edgecolors=node_edge_colors, ax=ax, cmap='jet',
             node_size=node_size, node_color=node_color, arrows=arrows,
@@ -686,7 +693,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
 
     # Get group name list to append difference graph names
     group_names = deepcopy(groups)
-
+    
     # Make graphs and difference graphs
     _ = make_transition_graphs(trans_mats, usages, groups, group_names,
         pos=pos, orphans=orphans, indices=[e[:-1] for e in ebunch_anchor],

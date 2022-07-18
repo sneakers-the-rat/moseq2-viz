@@ -49,7 +49,7 @@ def add_group(index_file, **config_data):
 @click.option('--plot-all', is_flag=True, help="Plot all included model results")
 @click.option('--ext', type=str, default='p', help="Model extensions found in input directory")
 @click.option('--fps', type=int, default=30, help="Frames per second")
-@click.option('--objective', type=str, default='duration', help="can be either duration or jsd. The objective finds the best model based on durations or the jensen-shannon divergence")
+@click.option('--objective', type=str, default='duration (mean match)', help="can be either duration or jsd. The objective finds the best model based on durations or the jensen-shannon divergence")
 def get_best_fit_model(model_dir, cp_path, output_file, plot_all, ext, fps, objective):
 
     get_best_fit_model_wrapper(model_dir, cp_path, output_file, plot_all, ext, fps, objective)

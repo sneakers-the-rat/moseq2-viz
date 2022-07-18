@@ -197,8 +197,11 @@ def get_best_fit(cp_path, model_results):
 
     
     
-    def _compute_cp_dist(model):
+    def _compute_cp_dist_median(model):
         return np.abs(np.nanmedian(pca_cps) - np.nanmedian(model['changepoints']))
+    
+    def _compute_cp_dist_mean(model):
+        return np.abs(np.nanmean(pca_cps) - np.nanmean(model['changepoints']))
 
     def _compute_jsd_dist(model):
         bins = np.linspace(0, 3, 90)
@@ -206,8 +209,10 @@ def get_best_fit(cp_path, model_results):
         h2, _ = np.histogram(model['changepoints'], bins=bins, density=True)
         return jensenshannon(h1, h2)
     
-    dur_dists = valmap(_compute_cp_dist, model_results)
-    best_model, dist = min(dur_dists.items(), key=get(1))
+    dur_dists_median = valmap(_compute_cp_dist_median, model_results)
+    best_model_median, dist_median = min(dur_dists_median.items(), key=get(1))
+    dur_dists_mean = valmap(_compute_cp_dist_mean, model_results)
+    best_model_mean, dist_mean = min(dur_dists_mean.items(), key=get(1))
     jsd_dists = valmap(_compute_jsd_dist, model_results)
     best_jsd_model, jsd_dist = min(jsd_dists.items(), key=get(1))
 
@@ -219,10 +224,14 @@ def get_best_fit(cp_path, model_results):
             model_median_loglikes = k
 
     info = {
-        'best model - duration': best_model,
-        'best model - duration kappa': model_results[best_model]['model_parameters']['kappa'],
-        'min duration distance (seconds)': dist,
-        'duration distances': dur_dists,
+        'best model - duration (median match)': best_model_median,
+        'best model - duration (median match) kappa': model_results[best_model_median]['model_parameters']['kappa'],
+        'best model - duration (mean match)': best_model_mean,
+        'best model - duration (mean match) kappa': model_results[best_model_mean]['model_parameters']['kappa'],
+        'min duration median match (seconds)': dist_median,
+        'duration distances median': dur_dists_median,
+        'min duration median match (seconds)': dist_mean,
+        'duration distances median': dur_dists_mean,
         'best model - jsd': best_jsd_model,
         'best model - jsd kappa': model_results[best_jsd_model]['model_parameters']['kappa'],
         'min jensen-shannon distance': jsd_dist,

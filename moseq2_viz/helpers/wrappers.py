@@ -126,7 +126,7 @@ def add_group_wrapper(index_file, config_data):
 
 
 def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, ext='p', fps=30,
-                               objective='duration'):
+                               objective='duration (mean match)'):
     '''
     Given a directory containing multiple models trained on different kappa values,
     finds the model with the closest median syllable duration to the PC changepoints.

@@ -141,7 +141,7 @@ def plot_verbose_position_heatmaps(index_file, output_file, normalize):
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
 @click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--edge-scaling', type=float, default=250, help="Scale factor from transition probabilities to edge width")
-@click.option('--node-scaling', type=float, default=1e4, help="Scale factor for nodes by usage")
+@click.option('--node-scaling', type=float, default=1e5, help="Scale factor for nodes by usage")
 @click.option('--scale-node-by-usage', type=bool, default=True, help="Scale node sizes by usages probabilities")
 @click.option('--width-per-group', type=float, default=8, help="Width (in inches) for figure canvas per group")
 def plot_transition_graph(index_file, model_fit, output_file, **config_data):

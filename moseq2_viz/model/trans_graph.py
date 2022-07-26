@@ -86,7 +86,6 @@ def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
     plt (pyplot.Figure): open transition graph figure to save
     '''
 
-    trans_mats, usages = get_group_trans_mats(labels, label_group, group, config_data['max_syllable'], config_data['normalize'])
 
     # Option to not scale node sizes proportional to the syllable usage.
     if not config_data['scale_node_by_usage']:
@@ -96,7 +95,7 @@ def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
     plt, _, _ = graph_transition_matrix(trans_mats,
                                         **config_data,
                                         usages=usages,
-                                        groups=group,
+                                        groups=sorted(group),
                                         headless=True)
 
     return plt

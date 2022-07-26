@@ -86,6 +86,7 @@ def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
     plt (pyplot.Figure): open transition graph figure to save
     '''
 
+    trans_mats, usages = get_group_trans_mats(labels, label_group, sorted(group), config_data['max_syllable'], config_data['normalize'])
 
     # Option to not scale node sizes proportional to the syllable usage.
     if not config_data['scale_node_by_usage']:
@@ -303,12 +304,14 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
         ebunch = list(filter(lambda e: e[:-1] in indices, ebunch))
 
     def _filter_by_stat(arg, stat, stat_threshold):
+        from math import ceil, floor
         _in, _out, _ = arg
         _in = stat[_in]
         _out = stat[_out]
         if isinstance(stat_threshold, (list, tuple)):
-            return ((_in > stat_threshold[0] and _in < stat_threshold[1])
-                    and (_out > stat_threshold[0] and _out < stat_threshold[1]))
+            # round down the lower bound and round up the upper bound to 1000th decimal
+            return ((_in > floor(stat_threshold[0]*1000)/1000. and _in <= ceil(stat_threshold[1]*1000)/1000.)
+                    and (_out >= floor(stat_threshold[0]*1000)/1000. and _out <= ceil(stat_threshold[1]*1000)/1000.))
         return _in > stat_threshold and _out > stat_threshold
 
     if usages is not None:

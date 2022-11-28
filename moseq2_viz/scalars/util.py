@@ -394,14 +394,15 @@ def compute_mouse_dist_to_center(roi, centroid_x_px, centroid_y_px):
     '''
 
     # Get (x,y) bucket center coordinate
-    ymin, xmin = 0, 0
-    ymax, xmax = roi
+    ymin, xmin = np.min(np.where(roi), axis = 1)
+    ymax, xmax = np.max(np.where(roi), axis = 1)
     center_x = np.mean([xmin, xmax])
     center_y = np.mean([ymin, ymax])
 
     # Get (x,y) distances to bucket center throughout the session recording.
-    dx = centroid_x_px - center_x
-    dy = centroid_y_px - center_y
+    # add back bounding box offset
+    dx = (centroid_x_px + xmin) - center_x
+    dy = (centroid_y_px + ymin) - center_y
 
     # Compute distance to center
     return np.hypot(dx, dy)
@@ -454,7 +455,7 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 
         # Get ROI shape to compute distance to center
         try:
-            roi = h5_to_dict(pth, path='metadata/extraction/roi')['roi'].shape
+            roi = h5_to_dict(pth, path='metadata/extraction/roi')['roi']
             dset['dist_to_center_px'] = compute_mouse_dist_to_center(roi, dset['centroid_x_px'], dset['centroid_y_px'])
         except OSError:
             print(f'ROI was not found in the given h5 file. \n'

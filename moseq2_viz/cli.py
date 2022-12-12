@@ -49,9 +49,10 @@ def add_group(index_file, **config_data):
 @click.option('--plot-all', is_flag=True, help="Plot all included model results")
 @click.option('--ext', type=str, default='p', help="Model extensions found in input directory")
 @click.option('--fps', type=int, default=30, help="Frames per second")
-def get_best_fit_model(model_dir, cp_path, output_file, plot_all, ext, fps):
+@click.option('--objective', type=str, default='duration (mean match)', help="can be either duration or jsd. The objective finds the best model based on durations or the jensen-shannon divergence")
+def get_best_fit_model(model_dir, cp_path, output_file, plot_all, ext, fps, objective):
 
-    get_best_fit_model_wrapper(model_dir, cp_path, output_file, plot_all, ext, fps)
+    get_best_fit_model_wrapper(model_dir, cp_path, output_file, plot_all, ext, fps, objective)
 
 
 # recurse through directories, find h5 files with completed extractions, make a manifest
@@ -87,6 +88,7 @@ def copy_h5_metadata_to_yaml(input_dir):
 @click.option('--frame-path', default='frames', type=str, help='Path to depth frames in h5 file')
 @click.option('--progress-bar', '-p', is_flag=True, help='Show verbose progress bars.')
 @click.option('--pad', default=30, help='Pad crowd movie videos with this many frames.')
+@click.option('--seed', default=0, type=int, help='Defines random seed for selecting syllable instances to plot')
 def make_crowd_movies(index_file, model_path, output_dir, **config_data):
 
     make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data)
@@ -106,18 +108,20 @@ def plot_scalar_summary(index_file, output_file, colors):
 
 @cli.command(name='plot-group-position-heatmaps', help="Plots position heatmaps for each group in the index file")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
-@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'scalars'))
-def plot_group_position_heatmaps(index_file, output_file):
+@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'group_heat_map'))
+@click.option('--normalize', type=bool, is_flag=True, help="normalize the PDF so that min and max values range from 0-1")
+def plot_group_position_heatmaps(index_file, output_file, normalize):
 
-    plot_mean_group_position_pdf_wrapper(index_file, output_file)
+    plot_mean_group_position_pdf_wrapper(index_file, output_file, normalize=normalize)
     print('Sucessfully plotted mean group heatmaps')
 
 @cli.command(name='plot-verbose-position-heatmaps', help="Plots a position heatmap for each session in the index file.")
 @click.argument('index-file', type=click.Path(exists=True, resolve_path=True))
-@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'scalars'))
-def plot_verbose_position_heatmaps(index_file, output_file):
+@click.option('--output-file', type=click.Path(), default=os.path.join(os.getcwd(), 'session_heat_map'))
+@click.option('--normalize', type=bool, is_flag=True, help="normalize the PDF so that min and max values range from 0-1")
+def plot_verbose_position_heatmaps(index_file, output_file, normalize):
 
-    plot_verbose_pdfs_wrapper(index_file, output_file)
+    plot_verbose_pdfs_wrapper(index_file, output_file, normalize=normalize)
     print('Sucessfully plotted mean group heatmaps')
 
 
@@ -137,7 +141,7 @@ def plot_verbose_position_heatmaps(index_file, output_file):
 @click.option('--sort', type=bool, default=True, help="Sort syllables by usage")
 @click.option('--count', type=click.Choice(['usage', 'frames']), default='usage', help='How to quantify syllable usage')
 @click.option('--edge-scaling', type=float, default=250, help="Scale factor from transition probabilities to edge width")
-@click.option('--node-scaling', type=float, default=1e4, help="Scale factor for nodes by usage")
+@click.option('--node-scaling', type=float, default=1e5, help="Scale factor for nodes by usage")
 @click.option('--scale-node-by-usage', type=bool, default=True, help="Scale node sizes by usages probabilities")
 @click.option('--width-per-group', type=float, default=8, help="Width (in inches) for figure canvas per group")
 def plot_transition_graph(index_file, model_fit, output_file, **config_data):

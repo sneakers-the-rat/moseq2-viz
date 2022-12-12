@@ -10,19 +10,44 @@ from copy import deepcopy
 from functools import reduce
 from unittest import TestCase
 from cytoolz import keyfilter, groupby
-from moseq2_viz.util import parse_index, get_index_hits, load_changepoint_distribution, load_timestamps, read_yaml
 from moseq2_viz.model.trans_graph import get_transitions
+from moseq2_viz.scalars.util import scalars_to_dataframe
+from moseq2_viz.util import parse_index, get_index_hits, load_changepoint_distribution, load_timestamps, read_yaml
 from moseq2_viz.model.util import (relabel_by_usage, h5_to_dict, retrieve_pcs_from_slices,
     get_best_fit, get_syllable_statistics, parse_model_results, merge_models, get_mouse_syllable_slices,
     syllable_slices_from_dict, get_syllable_slices, labels_to_changepoints,
     _gen_to_arr, normalize_pcs, _whiten_all, simulate_ar_trajectory, whiten_pcs,
-    make_separate_crowd_movies, get_normalized_syllable_usages)
+    make_separate_crowd_movies, get_normalized_syllable_usages, get_Xy_values, compute_behavioral_statistics)
 
 def make_sequence(lbls, durs):
     arr = [[x] * y for x, y in zip(lbls, durs)]
     return np.array(reduce(add, arr))
 
 class TestModelUtils(TestCase):
+
+    def test_get_Xy_values(self):
+
+        index_path = 'data/test_index.yaml'
+        model_path = 'data/test_model.p'
+
+        _, sorted_index = parse_index(index_path)
+
+        # compute session scalar data
+        scalar_df = scalars_to_dataframe(sorted_index, model_path=model_path)
+        mean_df = compute_behavioral_statistics(scalar_df, count='usage',
+                                                groupby=['group', 'uuid'],
+                                                usage_normalization=True)
+
+        X, y, mapping, rev_mapping = get_Xy_values(mean_df,
+                                                   mean_df.group.unique(),
+                                                   stat='usage')
+
+        assert list(mapping.keys()) == list(rev_mapping.values())
+        assert list(mapping.values()) == list(rev_mapping.keys())
+
+        assert len(X) == len(y)
+
+        assert X.ndim == 2
 
     def test_index_hits(self):
 
@@ -357,7 +382,7 @@ class TestModelUtils(TestCase):
                          }
 
         best_model, _ = get_best_fit(cp_file, model_results)
-        assert best_model['best model - duration'] == 'model1'
+        assert best_model['best model - duration (median match)'] == 'model1'
 
     def test_make_separate_crowd_movies(self):
 

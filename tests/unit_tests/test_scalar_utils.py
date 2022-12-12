@@ -9,7 +9,7 @@ from moseq2_viz.model.util import parse_model_results, h5_to_dict
 from moseq2_viz.scalars.util import star_valmap, convert_pxs_to_mm, is_legacy, \
     generate_empty_feature_dict, convert_legacy_scalars, get_scalar_map, get_scalar_triggered_average, \
     nanzscore, _pca_matches_labels, process_scalars, scalars_to_dataframe, \
-    compute_all_pdf_data, compute_mouse_dist_to_center, h5_filepath_from_sorted
+    compute_all_pdf_data, compute_mouse_dist_to_center, h5_filepath_from_sorted, compute_syllable_position_heatmaps
 
 class TestScalarUtils(TestCase):
 
@@ -235,6 +235,29 @@ class TestScalarUtils(TestCase):
         assert len(test_pdfs) == len(groups) == len(sessions) == len(subjectNames)
         for i in range(len(test_pdfs)):
             assert test_pdfs[i].shape == (20, 20)
+
+    def test_compute_syllable_position_heatmaps(self):
+
+        test_index = 'data/test_index.yaml'
+        model_path = 'data/test_model.p'
+
+        _, sorted_index = parse_index(test_index)
+        # deleting file key to "bad extraction example"
+        del sorted_index['files']['ae8a9d45-7ad9-4048-963f-ca4931125fcd']
+
+        scalar_df = scalars_to_dataframe(sorted_index, model_path=model_path)
+
+        default_test_hists = compute_syllable_position_heatmaps(scalar_df,
+                                                                syllable_key='labels (usage sort)',
+                                                                syllables=range(10),
+                                                                centroid_keys=['centroid_x_mm', 'centroid_y_mm'],
+                                                                normalize=True,
+                                                                bins=20)
+
+        assert isinstance(default_test_hists, pd.Series)
+
+        # 10 found syllable heatmaps per grouping
+        assert len(default_test_hists) == 10
 
     def test_compute_mouse_dist_to_center(self):
 

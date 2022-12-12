@@ -4,12 +4,10 @@
 
 [![codecov](https://codecov.io/gh/dattalab/moseq2-viz/branch/test-suite/graph/badge.svg?token=jUx63Whtx4)](https://codecov.io/gh/dattalab/moseq2-viz)
 
-Latest version number: `0.5.0`
+# [Documentation: MoSeq2 Wiki](https://github.com/dattalab/moseq2-app/wiki)
+You can find more information about MoSeq Pipeline, installation, step-by-step instructions, documentation for Command Line Interface(CLI), tutorials etc in [MoSeq2 Wiki](https://github.com/dattalab/moseq2-app/wiki).
 
-## Features 
-
-Below are the commands/functionality that moseq2-viz currently affords. 
-They are accessible via CLI or Jupyter Notebook in [moseq2-app](https://github.com/dattalab/moseq2-app/tree/release). 
+You can run `moseq2-viz --version` to check the current version and `moseq2-viz --help` to see all the commands.
 ```bash
 Usage: moseq2-viz [OPTIONS] COMMAND [ARGS]...
 
@@ -29,69 +27,10 @@ Commands:
   plot-verbose-position-heatmaps  Plots a position heatmap for each session...
 ```
 
-### Exclusive GUI Function
-```
-  get_groups_command(index_file)  Prints the given index file's current session metadata groupings.
-```
+# Community Support and Contributing
+- Please join [![MoSeq Slack Channel](https://img.shields.io/badge/slack-MoSeq-blue.svg?logo=slack)](https://moseqworkspace.slack.com) to post questions and interactive with MoSeq developers and users.
+- If you encounter bugs, errors or issues, please submit a Bug report [here](https://github.com/dattalab/moseq2-app/issues/new/choose). We encourage you to check out the [troubleshooting and tips section](https://github.com/dattalab/moseq2-app/wiki/Troubleshooting-and-Tips) and search your issues in [the existing issues](https://github.com/dattalab/moseq2-app/issues) first.   
+- If you want to see certain features in MoSeq or you have new ideas, please submit a Feature request [here](https://github.com/dattalab/moseq2-app/issues/new/choose).
+- If you want to contribute to our codebases, please check out our [Developer Guidelines](https://github.com/dattalab/moseq2-app/wiki/MoSeq-Developer-Guidelines).
+- Please tell us what you think by filling out [this user survey](https://forms.gle/FbtEN8E382y8jF3p6).
 
-Run any command with the `--help` flag to display all available options and their descriptions.
-
-## Documentation
-
-MoSeq2 uses `sphinx` to generate the documentation in HTML and PDF forms. To install `sphinx`, follow the commands below:
-```.bash
-pip install sphinx==3.0.3 sphinx_click==2.5.0
-pip install sphinx-rtd-theme
-pip install rst2pdf
-``` 
-
-All documentation regarding moseq2-extract can be found in the `Documentation.pdf` file in the root directory,
-an HTML ReadTheDocs page can be generated via running the `make html` in the `docs/` directory.
-
-To generate a PDF version of the documentation, simply run `make pdf` in the `docs/` directory.
-
-## Prerequisites
-
-To use this package, you must already have computed a `pca_scores.h5` files, a trained model: `model.p`, an index file
- `moseq2-index.yaml` listing all your analyzed sessions and paths to their extracted `.h5` files.  
-
- - The index file is generated when aggregating the results in [moseq2-extract](https://github.com/dattalab/moseq2-extract/tree/release) 
- - The pca_scores are generated via [moseq2-pca](https://github.com/dattalab/moseq2-pca/tree/release).
- - The model is generated via [moseq2-model](https://github.com/dattalab/moseq2-model/tree/release).
- 
- 
-## Example Outputs
-
-#### Crowd Movie Example:
-<img src="https://github.com/dattalab/moseq2-viz/blob/release/media/rear_up_wall.gif" width=350 height=350>
-
-#### Usage Plot Example:
-
-<img src="https://github.com/dattalab/moseq2-viz/blob/release/media/usages.png">
-
-#### Alternative Sorting Examples:
-
-##### Usages by Mutated Behaviors (most mutated to least)
-
-<img src="https://github.com/dattalab/moseq2-viz/blob/release/media/u_mute.png">
-
-##### Sorting Syllable Statistic in Descending Order (Speed shown)
-
-<img src="https://github.com/dattalab/moseq2-viz/blob/release/media/speeds.png">
-
-#### Scalar Summary Example:
-
-<img src="https://github.com/dattalab/moseq2-viz/blob/release/media/scalars.png">
-
-#### Position Heatmap Example:
-
-<img src="https://github.com/dattalab/moseq2-viz/blob/release/media/heatmaps.png">
-
-#### Transition Graph Example:
-
-<img src="https://github.com/dattalab/moseq2-viz/blob/release/media/transitions2.png" height=500 width=500>
-
-
-## Contributing
-
-If you would like to contribute, fork the repository and issue a pull request.  

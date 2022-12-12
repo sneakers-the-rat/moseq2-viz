@@ -14,10 +14,10 @@ def get_session_mean_df(df, statistic="usage", max_syllable=40):
     Parameters
     ----------
     df (pd.DataFrame): Output of moseq2_viz.model.compute_behavioral_statistics().
-    nrows -> correspond to max_syllable * n_uuids,
-    ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
+     nrows -> correspond to max_syllable * n_uuids,
+     ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
     statistic (str): statistic to compute mean for, (any of the columns in input df);
-    for example: 'usage', 'duration', 'velocity_2d_mm', etc.
+     for example: 'usage', 'duration', 'velocity_2d_mm', etc.
     max_syllable (int): Maximum number of syllables to include
 
     Returns
@@ -80,8 +80,8 @@ def bootstrap_group_means(df, group1, group2, statistic="usage", max_syllable=40
     Parameters
     ----------
     df (pd.DataFrame): Output of moseq2_viz.model.compute_behavioral_statistics().
-    nrows -> correspond to max_syllable * n_uuids,
-    ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
+     nrows -> correspond to max_syllable * n_uuids,
+     ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
     group1 (str): Name of group 1 to compare.
     group2 (str): Name of group 2 to compare.
     statistic (str): Syllable statistic to compute bootstrap means for.
@@ -260,25 +260,25 @@ def run_kruskal(
     ----------
     df (pd.DataFrame): Output of moseq2_viz.model.compute_behavioral_statistics().
      nrows -> correspond to max_syllable * n_uuids,
-    ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
-    stat (str): statistic to compute mean for, (any of the columns in input df);
-    for example: 'usage', 'duration', 'velocity_2d_mm', etc.
+     ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
+    statistic (str): statistic to compute mean for, (any of the columns in input df);
+     for example: 'usage', 'duration', 'velocity_2d_mm', etc.
     max_syllable (int): Maximum number of syllables to include.
     n_perm (int): Number of permuted samples to generate.
     seed (int): Random seed used to initialize the pseudo-random number generator.
     thresh (float): Alpha threshold to consider syllable significant.
     mc_method (str): Multiple Corrections method to use.
-    Options can be found here: https://www.statsmodels.org/dev/generated/statsmodels.stats.multitest.multipletests.html
+     Options can be found here: https://www.statsmodels.org/dev/generated/statsmodels.stats.multitest.multipletests.html
     verbose (bool): indicates whether to print out the significant syllable results
 
     Returns
     -------
     df_k_real (pd.DataFrame): DataFrame of KW test results.
-    n_rows=max_syllable, n_cols=['statistic', 'pvalue', 'emp_fdr', 'is_sig']
+     n_rows=max_syllable, n_cols=['statistic', 'pvalue', 'emp_fdr', 'is_sig']
     dunn_results_df (pd.DataFrame): DataFrame of Dunn's test results for permuted group pairs.
-    n_rows=(max_syllable*n_group_pairs), n_cols=['syllable', 'variable_0', 'variable_1', 'value']
+     n_rows=(max_syllable*n_group_pairs), n_cols=['syllable', 'variable_0', 'variable_1', 'value']
     intersect_sig_syllables (dict): dictionary containing intersecting significant syllables between
-    KW and Dunn's tests. Keys = ('group1', 'group2') -> Value: array of significant syllables.
+     KW and Dunn's tests. Keys = ('group1', 'group2') -> Value: array of significant syllables.
     """
 
     rnd = np.random.RandomState(seed=seed)
@@ -391,7 +391,7 @@ def compute_pvalues_for_group_pairs(
     real_zs_within_group (dict): dict of group pair keys paired with vector of Dunn's z-test statistics
     null_zs  (dict): dict of group pair keys paired with vector of Dunn's z-test statistics of the null hypothesis.
     df_k_real (pd.DataFrame): DataFrame of KW test results.
-    n_rows=max_syllable, n_cols=['statistic', 'pvalue', 'emp_fdr', 'is_sig']
+     n_rows=max_syllable, n_cols=['statistic', 'pvalue', 'emp_fdr', 'is_sig']
     group_names (pd.Index): Index list of unique group names.
     n_perm (int): Number of permuted samples to generate.
     thresh (float): Alpha threshold to consider syllable significant.
@@ -480,7 +480,8 @@ def dunns_z_test_permute_within_group_pairs(
 
 
 def run_pairwise_stats(df, group1, group2, test_type="mw", verbose=False, **kwargs):
-    """Wrapper for staistical test
+    """
+    Wrapper for hypothesis testing functions: MannWhitney, Z-Test and T-Test.
 
     Parameters
     ----------
@@ -512,15 +513,15 @@ def mann_whitney(df, group1, group2, statistic="usage", max_syllable=40, verbose
     Parameters
     ----------
     df (pd.DataFrame): Output of moseq2_viz.model.compute_behavioral_statistics().
-    nrows -> correspond to max_syllable * n_uuids,
-    ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
+     nrows -> correspond to max_syllable * n_uuids,
+     ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
     group1 (str): Name of first group
     group2 (str): Name of second group
     statistic (str): Name of statistic to compute z-test on.
     max_syllable (int): Maximum number of syllables to include
+    verbose (bool): indicates whether to print out the significant syllable results
     thresh (float): Alpha threshold to consider syllable significant.
     mc_method (str): Multiple Corrections method to use.
-    verbose (bool): indicates whether to print out the significant syllable results
 
     Returns
     -------
@@ -562,9 +563,9 @@ def ztest(df, group1, group2, statistic="usage", max_syllable=40, verbose=False,
     group2 (str): Name of second group
     statistic (str): Name of statistic to compute z-test on.
     max_syllable (int): Maximum number of syllables to include
+    verbose (bool): indicates whether to print out the significant syllable results
     thresh (float): Alpha threshold to consider syllable significant.
     mc_method (str): Multiple Corrections method to use.
-    verbose (bool): indicates whether to print out the significant syllable results
 
     Returns
     -------
@@ -586,15 +587,15 @@ def ttest(df, group1, group2, statistic="usage", max_syllable=40, verbose=False,
     Parameters
     ----------
     df (pd.DataFrame): Output of moseq2_viz.model.compute_behavioral_statistics().
-    nrows -> correspond to max_syllable * n_uuids,
-    ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
+     nrows -> correspond to max_syllable * n_uuids,
+     ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
     group1 (str): Name of first group
     group2 (str): Name of second group
     statistic (str): Name of statistic to compute t-test on.
     max_syllable (int): Maximum number of syllables to include
+    verbose (bool): indicates whether to print out the significant syllable results.
     thresh (float): Alpha threshold to consider syllable significant.
     mc_method (str): Multiple Corrections method to use.
-    verbose (bool): indicates whether to print out the significant syllable results.
 
     Returns
     -------

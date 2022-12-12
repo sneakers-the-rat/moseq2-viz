@@ -268,6 +268,8 @@ def parse_index(index: Union[str, dict]) -> tuple:
     else:
         sorted_index = valmap(lambda d: assoc(d, 'path', tuple(d['path'])), sorted_index)
 
+    if index['pca_path'] is None:
+        raise Exception("Please add pac_score path to moseq2-index.yaml")
     uuid_sorted = {
         'files': sorted_index,
         'pca_path': join(index_dir, index['pca_path']) if not from_dict else index['pca_path']
@@ -354,6 +356,18 @@ def recursive_find_h5s(root_dir=os.getcwd(),
 
 
 def read_yaml(yaml_path: str):
+    '''
+    Reads a given yaml file path into a dict object.
+
+    Parameters
+    ----------
+    yaml_path (str): path to yaml file to read.
+
+    Returns
+    -------
+    loaded (dict): loaded yaml file contents.
+
+    '''
     with open(yaml_path, 'r') as f:
         loaded = yaml.safe_load(f)
     return loaded

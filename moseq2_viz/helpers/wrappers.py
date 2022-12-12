@@ -26,6 +26,19 @@ from moseq2_viz.model.util import (relabel_by_usage, parse_model_results,
 
 
 def _make_directories(crowd_movie_path, plot_path):
+    '''
+
+    Given output paths to store different media types, this helper function will create the directories
+     if they didn't already exist.
+
+    Parameters
+    ----------
+    crowd_movie_path (str): path to crowd movie directory.
+    plot_path (str): path to figure plots directory.
+
+    Returns
+    -------
+    '''
 
     # Set up output directory to save crowd movies in
     if crowd_movie_path is not None:
@@ -75,7 +88,6 @@ def add_group_wrapper(index_file, config_data):
 
     Returns
     -------
-    None
     '''
     new_index_path = f'{index_file.replace(".yaml", "")}_update.yaml'
 
@@ -114,7 +126,7 @@ def add_group_wrapper(index_file, config_data):
 
 
 def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, ext='p', fps=30,
-                               objective='duration'):
+                               objective='duration (mean match)'):
     '''
     Given a directory containing multiple models trained on different kappa values,
     finds the model with the closest median syllable duration to the PC changepoints.
@@ -134,7 +146,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
 
     Returns
     -------
-    selected_model_path (str): Path to model with closest median duration to PC Changepoints
+    best_model_info (dict): Dict containing the best model info with respect to given objective.
     fig (pyplot figure): syllable usage ordered by frequency, 90% usage marked
     '''
 
@@ -154,16 +166,22 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
 
     # Find the best fit model by comparing their median durations with the PC scores changepoints
     best_model_info, pca_changepoints = get_best_fit(cp_file, model_results)
-
-    print('Model closest to PC scores:', best_model_info[f'best model - {objective}'])
+    
+    print(f'Model closest to {objective} objective', best_model_info[f'best model - {objective}'])
+    if objective != "median_loglikelihood":
+        print('Model kappa value is', best_model_info[f'best model - {objective} kappa'])
 
     # Graph model CP difference(s)
-    fig, ax = plot_cp_comparison(model_results, pca_changepoints, plot_all=plot_all, best_model=best_model_info[f'best model - {objective}'])
+    fig, ax, model_stats = plot_cp_comparison(model_results, pca_changepoints, plot_all=plot_all, best_model=best_model_info[f'best model - {objective}'])
 
     # Save the figure
     if output_file is not None:
         legends = [c for c in ax.get_children() if isinstance(c, mpl.legend.Legend)]
         save_fig(fig, output_file, bbox_extra_artists=legends, bbox_inches='tight')
+    
+    # Save the model_stats to csv
+    if model_stats is not None:
+        model_stats.to_csv(os.path.join(model_dir, 'model_kappa_scan_stats.csv'))
 
     return best_model_info, fig
 
@@ -180,7 +198,7 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     output_file (str): path to save graphs
     groupby (str): scalar_df column to group sessions by when graphing scalar and position summaries
     colors (list): list of colors to serve as the palette in the scalar summary
-    show_scalars (list): list of scalar variables to plot.
+    show_scalars (list): list of scalar variables to plot; variable names must equal columns in the scalar_df DataFrame.
 
     Returns
     -------
@@ -261,6 +279,7 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file, normalize=Fals
     index_file (str): path to index file.
     output_file (str): filename for the group heatmap graph.
     normalize (bool): normalize the PDF so that min and max values range from 0-1.
+    norm_color (mpl.colors Color Scheme or None): indicates a color scheme to use when plotting heatmaps.
 
     Returns
     -------
@@ -294,6 +313,7 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=False, norm_col
     index_file (str): path to index file.
     output_file (str): filename for the verbose heatmap graph.
     normalize (bool): normalize the PDF so that min and max values range from 0-1.
+    norm_color (mpl.colors Color Scheme or None): indicates a color scheme to use when plotting heatmaps.
 
     Returns
     -------
@@ -344,28 +364,31 @@ def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_dat
         except ImportError:
             raise ImportError('pygraphviz must be installed to use graphviz layout engines')
 
-    # Get labels and optionally relabel them by usage sorting
-    labels = model_data['labels']
+# Get labels and optionally relabel them by usage sorting
     if config_data['sort']:
-        labels = relabel_by_usage(labels, count=config_data['count'])[0]
+        model_data['labels'] = relabel_by_usage(model_data['labels'], count=config_data['count'])[0]
 
-    # Get modeled session uuids to compute group-mean transition graph for
+    # # Get modeled session uuids to compute group-mean transition graph for
     label_group, _ = get_trans_graph_groups(model_data)
-    group = list(set(label_group))
+    
+    if (config_data.get('group') is not None) and len(config_data.get('group')) > 0:
+        group = sorted(list(config_data.get('group')))
+    else:
+        group = sorted(list(set(label_group)))
 
     print('Computing transition matrices...')
     try:
         # Compute and plot Transition Matrices
-        plt = compute_and_graph_grouped_TMs(config_data, labels, label_group, group)
+        plt = compute_and_graph_grouped_TMs(config_data, model_data['labels'], label_group, group)
     except Exception as e:
         print('Error:', e)
         print('Incorrectly inputted group, plotting all groups.')
 
         label_group = [f['group'] for f in sorted_index['files'].values()]
-        group = list(set(label_group))
+        group = sorted(list(set(label_group)))
 
         print('Recomputing transition matrices...')
-        plt = compute_and_graph_grouped_TMs(config_data, labels, label_group, group)
+        plt = compute_and_graph_grouped_TMs(config_data, model_data['labels'], label_group, group)
 
     # Save figure
     save_fig(plt, output_file)
@@ -478,7 +501,6 @@ def copy_h5_metadata_to_yaml_wrapper(input_dir):
 
     Returns
     -------
-    None
     '''
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)

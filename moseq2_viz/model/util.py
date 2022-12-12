@@ -5,6 +5,7 @@ Utility functions specifically responsible for handling model data during pre an
 '''
 
 import os
+from statistics import median
 import h5py
 import glob
 import joblib
@@ -29,6 +30,19 @@ from cytoolz import curry, valmap, compose, complement, itemmap, keyfilter
 
 
 def _assert_models_have_same_kappa(model_paths):
+    '''
+
+    Function that ensures that recursively found models to merge were trained using the same kappa hyperparameter value.
+    Raises a ValueError if the models are not the same.
+
+    Parameters
+    ----------
+    model_paths (list of str): list of strings pointing to model paths to check.
+
+    Returns
+    -------
+    '''
+
     get_kappa = get_in(['model_parameters', 'kappa'])
     def _load_kappa(pth):
         return get_kappa(parse_model_results(pth))
@@ -37,7 +51,7 @@ def _assert_models_have_same_kappa(model_paths):
         raise ValueError('You cannot merge models trained with different kappas')
 
 
-def compute_syllable_explained_variance(model, n_explained=99):
+def compute_syllable_explained_variance(model, save_dir=os.getcwd(), n_explained=99):
     '''
     Computes the maximum number of syllables to include that explain `n_explained` percent
     of all frames in the dataset.
@@ -67,6 +81,10 @@ def compute_syllable_explained_variance(model, n_explained=99):
 
     plt.plot(cumulative_explanation)
     plt.axvline(max_sylls, color='k')
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir, exist_ok=True)
+    plt.savefig(os.path.join(save_dir, 'syllable_needed_explained_variance.pdf'))
+    plt.savefig(os.path.join(save_dir, 'syllable_needed_explained_variance.png'))
 
     return max_sylls
 
@@ -93,8 +111,7 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
 
     Returns
     -------
-    model_data (dict): a dictionary containing all the new
-    keys and state-matched labels.
+    model_data (dict): a dictionary containing all the new keys and state-matched labels.
     '''
 
     tmp = join(model_dir, '*.'+ext.strip('.'))
@@ -171,12 +188,20 @@ def get_best_fit(cp_path, model_results):
     '''
     # sort model_results
     model_results = dict(sorted(model_results.items(), key=get(0)))
+    # ensure changepoint exists
+    try:
+        # Load PCA changepoints
+        pca_cps = load_changepoint_distribution(cp_path)
+    except OSError:
+        raise Exception('Please ensure model free changepoint is computed and the resulting file name matches changepoints_path in progress_paths')
 
-    # Load PCA changepoints
-    pca_cps = load_changepoint_distribution(cp_path)
     
-    def _compute_cp_dist(model):
+    
+    def _compute_cp_dist_median(model):
         return np.abs(np.nanmedian(pca_cps) - np.nanmedian(model['changepoints']))
+    
+    def _compute_cp_dist_mean(model):
+        return np.abs(np.nanmean(pca_cps) - np.nanmean(model['changepoints']))
 
     def _compute_jsd_dist(model):
         bins = np.linspace(0, 3, 90)
@@ -184,20 +209,35 @@ def get_best_fit(cp_path, model_results):
         h2, _ = np.histogram(model['changepoints'], bins=bins, density=True)
         return jensenshannon(h1, h2)
     
-    dur_dists = valmap(_compute_cp_dist, model_results)
-    best_model, dist = min(dur_dists.items(), key=get(1))
+    dur_dists_median = valmap(_compute_cp_dist_median, model_results)
+    best_model_median, dist_median = min(dur_dists_median.items(), key=get(1))
+    dur_dists_mean = valmap(_compute_cp_dist_mean, model_results)
+    best_model_mean, dist_mean = min(dur_dists_mean.items(), key=get(1))
     jsd_dists = valmap(_compute_jsd_dist, model_results)
     best_jsd_model, jsd_dist = min(jsd_dists.items(), key=get(1))
 
+    # v['loglikes'] is a float
+    median_loglikes = sorted([v['loglikes'] for v in model_results.values() if v.get('loglikes') is not None])[len(model_results)//2]
+    # find the model that has the median loglikes
+    for k, v in model_results.items():
+        if v['loglikes'] == median_loglikes:
+            model_median_loglikes = k
+
     info = {
-        'best model - duration': best_model,
-        'best model - duration kappa': model_results[best_model]['model_parameters']['kappa'],
-        'min duration distance (seconds)': dist,
-        'duration distances': dur_dists,
+        'best model - duration (median match)': best_model_median,
+        'best model - duration (median match) kappa': model_results[best_model_median]['model_parameters']['kappa'],
+        'best model - duration (mean match)': best_model_mean,
+        'best model - duration (mean match) kappa': model_results[best_model_mean]['model_parameters']['kappa'],
+        'min duration median match (seconds)': dist_median,
+        'duration distances median': dur_dists_median,
+        'min duration median match (seconds)': dist_mean,
+        'duration distances median': dur_dists_mean,
         'best model - jsd': best_jsd_model,
         'best model - jsd kappa': model_results[best_jsd_model]['model_parameters']['kappa'],
         'min jensen-shannon distance': jsd_dist,
-        'jsd distances': jsd_dists
+        'jsd distances': jsd_dists,
+        'best model - median_loglikelihood': model_median_loglikes,
+        'best model - loglikelihood': median_loglikes
     }
     
     return info, pca_cps
@@ -258,6 +298,17 @@ def get_normalized_syllable_usages(model_data, max_syllable=100, count='usage'):
 
 
 def normalize_usages(usage_dict):
+    '''
+    Normalizes syllable usages to frequency values from [0,1] instead of total counts.
+
+    Parameters
+    ----------
+    usage_dict (dict): dictionary containing syllable label keys pointing to total counts.
+
+    Returns
+    -------
+    usage_dict (dict): dictionary containing syllable label keys pointing to usage frequencies.
+    '''
     total = sum(usage_dict.values())
     return valmap(lambda v: v / total, usage_dict)
 
@@ -337,7 +388,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
     label_uuids (list): list of uuid keys corresponding to each session.
     index (dict): index file contents contained in a dict.
     trim_nans (bool): flag to use the pca scores file for removing time points that contain NaNs.
-    Only use if you have not already trimmed NaNs previously and need to.
+     Only use if you have not already trimmed NaNs previously and need to.
 
     Returns
     -------
@@ -405,6 +456,14 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
 def add_duration_column(scalar_df):
     '''
     Adds syllable duration column to scalar dataframe if it also contains syllable labels.
+
+    Parameters
+    ----------
+    scalar_df (pd.DataFrame): Merged Syllable Stat + Scalar DataFrame object.
+
+    Returns
+    -------
+    scalar_df (pd.DataFrame): Same DataFrame with a new column titled "duration".
     '''
     if 'labels (original)' not in scalar_df.columns and 'onset' not in scalar_df.columns:
         raise ValueError('scalar_df must contain model labels in order to add duration')
@@ -470,6 +529,19 @@ def syll_id(labels: np.ndarray) -> np.ndarray:
 
 
 def get_syllable_usages(data, max_syllable=100, count='usage'):
+    '''
+    Computes syllable usages for relabeled syllable labels.
+
+    Parameters
+    ----------
+    data (2d list): list of syllable frame-labels for each session.
+    max_syllable (int): maximum number of syllables to compute usages for.
+    count (str): method to relabel the syllable usages. Either by 'usage' or by 'frames'
+
+    Returns
+    -------
+    usages (dict): dict object that contains usage frequency information.
+    '''
 
     def _convert_to_usage(arr):
         if count == 'usage':
@@ -549,7 +621,10 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
     durations = durations.groupby(groupby_with_syllable).mean() / fps
     durations.name = 'duration'
 
-    features = scalar_df.groupby(groupby_with_syllable)[feature_cols].mean()
+    features = scalar_df.groupby(groupby_with_syllable)[feature_cols].agg(['mean', 'std', 'min', 'max'])
+    # join the MultiIndex to one level
+    features.columns = ['_'.join(col).strip() for col in features.columns.values]
+    
 
     # merge usage and duration
     features = usages.join(durations).join(features)
@@ -670,8 +745,8 @@ def parse_batch_modeling(filename):
     Returns
     -------
     results_dict (dict): dictionary containing each model's training results,
-    concatenated into a single list. Maintaining the original structure as though
-    it was a single model's results.
+     concatenated into a single list. Maintaining the original structure as though
+     it was a single model's results.
     '''
 
     with h5py.File(filename, 'r') as f:
@@ -706,10 +781,10 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
     restart_idx (int): Select which model restart to load. (Only change for models with multiple restarts used)
     resample_idx (int): parameter used to select labels from a specific sampling iteration. Default is the last iteration (-1)
     map_uuid_to_keys (bool): flag to create a label dictionary where each key->value pair
-    contains the uuid and the labels for that session.
+     contains the uuid and the labels for that session.
     sort_labels_by_usage (bool): sort and re-assign labels by their usages.
     count (str): how to count syllable usage, either by number of emissions (usage),
-    or number of frames (frames).
+     or number of frames (frames).
 
     Returns
     -------
@@ -777,7 +852,7 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
     -------
     labels (list or dict): label sequences sorted by usage
     sorting (list): the new label sorting. The index corresponds to the new label,
-    while the value corresponds to the old label.
+     while the value corresponds to the old label.
     '''
     assert count in ('usage', 'frames'), 'count must be "usage" or "frames"'
 
@@ -799,19 +874,47 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 
 
 def compute_syllable_onset(labels):
+    '''
+
+    Computes the onset index of the each syllable label in a Series.
+
+    Parameters
+    ----------
+    labels (list or dict): label sequences loaded from a model fit
+
+    Returns
+    -------
+    onsets (2D np.array): onset indices for each syllable for the given sessions.
+    '''
     onset = pd.Series(labels).diff().fillna(1) != 0
     return onset.to_numpy()
 
 
 def prepare_model_dataframe(model_path, pca_path):
     '''
+
     Creates a dataframe from syllable labels to be aligned with scalars.
+
+    Parameters
+    ----------
+    model_path (str): path to model to load label arrays from
+    pca_path (str): path to pca_scores.h5 file.
+
+    Returns
+    -------
+    _df (pd.DataFrame): DataFrame object of timestamp aligned syllable label information.
     '''
+
     mdl = parse_model_results(model_path, map_uuid_to_keys=True)
     labels = mdl['labels']
 
     usage, _ = relabel_by_usage(labels, count='usage')
     frames, _ = relabel_by_usage(labels, count='frames')
+
+    if not os.path.isfile(pca_path):
+        raise AssertionError('The pca_path variable in the index file is not pointing to the correct file.\n'
+                             'Update the path in the index file to match the correct location of the '
+                             'pca_scores.h5 file that the model was trained with and run the command again.')
 
     scores_idx = h5_to_dict(pca_path, path='scores_idx')
 
@@ -840,8 +943,8 @@ def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
 
     Parameters
     ----------
-    ar_mat (3D np.ndarray): numpy array representing the autoregressive matrix of each model state.
-    init_points (2D np.ndarray): pre-initialzed array (npcs x nlags) in shape
+    ar_mat (2D np.ndarray): numpy array representing the autoregressive matrix of a model state with shape (npcs, npcs * nlags + 1)
+    init_points (2D np.ndarray): pre-initialzed array of shape (nlags, npcs)
     sim_points (int): number of time points to simulate.
 
     Returns
@@ -973,27 +1076,20 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
 
 
 def whiten_pcs(pca_scores, method='all', center=True):
-    """
-    Whiten PC scores using Cholesky whitening
+    '''
 
-    Args:
-        pca_scores (dict): dictionary where values are pca_scores (2d np arrays)
-        method (str): 'all' to whiten using the covariance estimated from all keys, or 'each' to whiten each separately
-        center (bool): whether or not to center the data
+    Whiten PC scores using Cholesky whitening.
 
-    Returns:
-        whitened_scores (dict): dictionary of whitened pc scores
+    Parameters
+    ----------
+    pca_scores (dict): dictionary where values are pca_scores (2d np arrays)
+    method (str): 'all' to whiten using the covariance estimated from all keys, or 'each' to whiten each separately
+    center (bool): whether or not to center the data
 
-    Examples:
-
-        Load in pca_scores and whiten
-
-        >> from moseq2_viz.util import h5_to_dict
-        >> from moseq2_viz.model.util import whiten_pcs
-        >> pca_scores = h5_to_dict('pca_scores.h5', '/scores')
-        >> whitened_scores = whiten_pcs(pca_scores, method='all')
-
-    """
+    Returns
+    -------
+    whitened_scores (dict): dictionary of whitened pc scores
+    '''
 
     if method[0].lower() == 'a':
         whitened_scores = _whiten_all(pca_scores, center=center)

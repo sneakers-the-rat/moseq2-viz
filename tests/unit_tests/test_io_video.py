@@ -3,11 +3,14 @@ import shutil
 import joblib
 import numpy as np
 from glob import glob
+import multiprocessing as mp
 from unittest import TestCase
 from moseq2_viz.util import parse_index, read_yaml
 from moseq2_viz.model.util import parse_model_results, relabel_by_usage
 from moseq2_viz.io.video import write_crowd_movies, write_frames_preview, write_crowd_movie_info_file
 
+# Source: https://bugs.python.org/issue33725#msg329923
+mp.set_start_method('forkserver')
 
 class TestIOVideo(TestCase):
 

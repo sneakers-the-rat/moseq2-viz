@@ -827,10 +827,13 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
 
     if sort_labels_by_usage:
         output_dict['labels'], sorting = relabel_by_usage(output_dict['labels'], count=count)
+        # reorder the ar matrix and sigma
         old_ar_mat = deepcopy(output_dict['model_parameters']['ar_mat'])
+        old_sig = deepcopy(output_dict['model_parameters']['sig'])
         old_nu = deepcopy(output_dict['model_parameters']['nu'])
         for i, sort_idx in enumerate(sorting):
             output_dict['model_parameters']['ar_mat'][i] = old_ar_mat[sort_idx]
+            output_dict['model_parameters']['sig'][i] = old_sig[sort_idx]
             if isinstance(output_dict['model_parameters']['nu'], list):
                 output_dict['model_parameters']['nu'][i] = old_nu[sort_idx]
 

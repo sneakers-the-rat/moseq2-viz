@@ -1,8 +1,8 @@
-'''
+"""
 
 Utility functions specifically responsible for handling model data during pre and post processing.
 
-'''
+"""
 
 import os
 from statistics import median
@@ -30,7 +30,7 @@ from cytoolz import curry, valmap, compose, complement, itemmap, keyfilter
 
 
 def _assert_models_have_same_kappa(model_paths):
-    '''
+    """
 
     Function that ensures that recursively found models to merge were trained using the same kappa hyperparameter value.
     Raises a ValueError if the models are not the same.
@@ -41,7 +41,7 @@ def _assert_models_have_same_kappa(model_paths):
 
     Returns
     -------
-    '''
+    """
 
     get_kappa = get_in(['model_parameters', 'kappa'])
     def _load_kappa(pth):
@@ -52,7 +52,7 @@ def _assert_models_have_same_kappa(model_paths):
 
 
 def compute_syllable_explained_variance(model, save_dir=os.getcwd(), n_explained=99):
-    '''
+    """
     Computes the maximum number of syllables to include that explain `n_explained` percent
     of all frames in the dataset.
 
@@ -64,7 +64,7 @@ def compute_syllable_explained_variance(model, save_dir=os.getcwd(), n_explained
     Returns
     -------
     max_sylls (int): Number of syllables that explain the given percentage of the variance
-    '''
+    """
 
     syllable_usages = list(get_syllable_usages(model['labels'], count='usage').values())
     cumulative_explanation = np.cumsum(syllable_usages / sum(syllable_usages))
@@ -91,7 +91,7 @@ def compute_syllable_explained_variance(model, save_dir=os.getcwd(), n_explained
 
 def merge_models(model_dir, ext='p',count='usage', force_merge=False,
                  cost_function='ar_norm'):
-    '''
+    """
     WARNING: THIS IS EXPERIMENTAL. USE AT YOUR OWN RISK.
     Merges model states by using the Hungarian Algorithm:
     a minimum distance state matching algorithm. User inputs a
@@ -112,7 +112,7 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
     Returns
     -------
     model_data (dict): a dictionary containing all the new keys and state-matched labels.
-    '''
+    """
 
     tmp = join(model_dir, '*.'+ext.strip('.'))
     model_paths = [m for m in glob.glob(tmp)]
@@ -172,7 +172,7 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
 
 
 def get_best_fit(cp_path, model_results):
-    '''
+    """
     Returns the model with the closest median syllable duration and
     closest duration distribution to the PCA changepoints.
 
@@ -185,7 +185,7 @@ def get_best_fit(cp_path, model_results):
     -------
     info (dict): information about the best-fit models.
     pca_cps (1D array): pc score changepoint durations.
-    '''
+    """
     # sort model_results
     model_results = dict(sorted(model_results.items(), key=get(0)))
     # ensure changepoint exists
@@ -244,7 +244,7 @@ def get_best_fit(cp_path, model_results):
 
 
 def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
-    '''
+    """
     Whitens all PC scores at once.
 
     Parameters
@@ -255,7 +255,7 @@ def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
     Returns
     -------
     whitened_scores (dict): whitened pca_scores dict
-    '''
+    """
 
     valid_scores = np.concatenate([x[~np.isnan(x).any(axis=1), :] for x in pca_scores.values()])
     mu, cov = valid_scores.mean(axis=0), np.cov(valid_scores, rowvar=False, bias=1)
@@ -276,7 +276,7 @@ def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
 
 
 def get_normalized_syllable_usages(model_data, max_syllable=100, count='usage'):
-    '''
+    """
     Computes syllable usages and normalizes to sum to 1.
     Returns a 1D array of their corresponding usage values.
 
@@ -289,7 +289,7 @@ def get_normalized_syllable_usages(model_data, max_syllable=100, count='usage'):
     Returns
     -------
     syllable_usages (1D np array): array of sorted syllable usages for all syllables in model
-    '''
+    """
 
     # process the syllable usages over all frames/emissions in the entire cohort
     syllable_usages, _ = get_syllable_statistics(model_data['labels'], count=count, max_syllable=max_syllable)
@@ -298,7 +298,7 @@ def get_normalized_syllable_usages(model_data, max_syllable=100, count='usage'):
 
 
 def normalize_usages(usage_dict):
-    '''
+    """
     Normalizes syllable usages to frequency values from [0,1] instead of total counts.
 
     Parameters
@@ -308,13 +308,13 @@ def normalize_usages(usage_dict):
     Returns
     -------
     usage_dict (dict): dictionary containing syllable label keys pointing to usage frequencies.
-    '''
+    """
     total = sum(usage_dict.values())
     return valmap(lambda v: v / total, usage_dict)
 
 
 def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[slice]:
-    '''
+    """
     Return a list containing slices of `syllable` indices for a mouse.
 
     Parameters
@@ -325,7 +325,7 @@ def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[sli
     Returns
     -------
     slices (list): list of syllable label slices; e.g. [slice(3, 6, None), slice(9, 12, None)]
-    '''
+    """
 
     labels = np.concatenate(([-1], labels, [-1]))
     is_syllable = np.diff(np.int16(labels == syllable))
@@ -341,7 +341,7 @@ def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[sli
 @curry
 def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], index: Dict,
                               filter_nans: bool = True) -> Dict[str, list]:
-    '''
+    """
     Reads dictionary of syllable labels, and returning a dict of syllable slices.
 
     Parameters
@@ -354,7 +354,7 @@ def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], inde
     Returns
     -------
     vals (dict): key-value pairs of syllable slices per session uuid.
-    '''
+    """
     any_nan = compose(np.any, np.isnan)
     non_nan = complement(any_nan)
 
@@ -378,7 +378,7 @@ def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], inde
 
 @curry
 def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = True) -> list:
-    '''
+    """
     Get the indices that correspond to a specific syllable for each animal in a modeling run.
 
     Parameters
@@ -394,7 +394,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
     -------
     syllable_slices (list): a list of indices for `syllable` in the `labels` array. Each item in the list
     is a tuple of (slice, uuid, h5_file).
-    '''
+    """
 
     if isinstance(index['files'], (dict, OrderedDict)):
         h5s = {k: v['path'][0] for k, v in index['files'].items()}
@@ -462,7 +462,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
 
 
 def add_duration_column(scalar_df):
-    '''
+    """
     Adds syllable duration column to scalar dataframe if it also contains syllable labels.
 
     Parameters
@@ -472,7 +472,7 @@ def add_duration_column(scalar_df):
     Returns
     -------
     scalar_df (pd.DataFrame): Same DataFrame with a new column titled "duration".
-    '''
+    """
     if 'labels (original)' not in scalar_df.columns and 'onset' not in scalar_df.columns:
         raise ValueError('scalar_df must contain model labels in order to add duration')
     durs = syll_duration(scalar_df['labels (original)'].to_numpy())
@@ -482,7 +482,7 @@ def add_duration_column(scalar_df):
 
 
 def syll_onset(labels: np.ndarray) -> np.ndarray:
-    '''
+    """
     Finds indices of syllable onsets.
 
     Parameters
@@ -492,7 +492,7 @@ def syll_onset(labels: np.ndarray) -> np.ndarray:
     Returns
     -------
     indices (np.ndarray): an array of indices denoting the beginning of each syllables.
-    '''
+    """
 
     change = np.diff(labels) != 0
     indices = np.where(change)[0]
@@ -502,7 +502,7 @@ def syll_onset(labels: np.ndarray) -> np.ndarray:
 
 
 def syll_duration(labels: np.ndarray) -> np.ndarray:
-    '''
+    """
     Computes the duration of each syllable.
 
     Parameters
@@ -512,7 +512,7 @@ def syll_duration(labels: np.ndarray) -> np.ndarray:
     Returns
     -------
     durations (np.ndarray): array of syllable durations.
-    '''
+    """
 
     onsets = np.concatenate((syll_onset(labels), [labels.size]))
     durations = np.diff(onsets)
@@ -520,7 +520,7 @@ def syll_duration(labels: np.ndarray) -> np.ndarray:
 
 
 def syll_id(labels: np.ndarray) -> np.ndarray:
-    '''
+    """
     Returns the syllable label at each onset of a syllable transition.
 
     Parameters
@@ -530,14 +530,14 @@ def syll_id(labels: np.ndarray) -> np.ndarray:
     Returns
     -------
     labels[onsets] (np.ndarray): an array of compressed labels.
-    '''
+    """
 
     onsets = syll_onset(labels)
     return labels[onsets]
 
 
 def get_syllable_usages(data, max_syllable=100, count='usage'):
-    '''
+    """
     Computes syllable usages for relabeled syllable labels.
 
     Parameters
@@ -549,7 +549,7 @@ def get_syllable_usages(data, max_syllable=100, count='usage'):
     Returns
     -------
     usages (dict): dict object that contains usage frequency information.
-    '''
+    """
 
     def _convert_to_usage(arr):
         if count == 'usage':
@@ -569,7 +569,7 @@ def get_syllable_usages(data, max_syllable=100, count='usage'):
 
 def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='usage', fps=30,
                                   usage_normalization=True, syllable_key='labels (usage sort)'):
-    '''
+    """
     Computes syllable statistics merged with the inputted scalar features.
 
     Parameters
@@ -585,7 +585,7 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
     Returns
     -------
     features (pd.DataFrame): full feature Dataframe with scalars, metadata, and syllable statistics.
-    '''
+    """
 
     if count not in ('usage', 'frames'):
         raise ValueError('`count` must be either "usage" or "frames"')
@@ -649,7 +649,7 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
 
 
 def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'):
-    '''
+    """
     Compute the usage and duration statistics from a set of model labels
 
     Parameters
@@ -663,7 +663,7 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
     -------
     usages (OrderedDict): default dictionary of usages
     durations (OrderedDict): default dictionary of durations
-    '''
+    """
 
     usages = defaultdict(int)
     durations = defaultdict(list)
@@ -721,7 +721,7 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
 
 
 def labels_to_changepoints(labels, fs=30):
-    '''
+    """
     Compute syllable durations and combine into a "changepoint" distribution.
 
     Parameters
@@ -732,7 +732,7 @@ def labels_to_changepoints(labels, fs=30):
     Returns
     -------
     cp_dist (np.ndarray of floats): list of block durations per element in labels list.
-    '''
+    """
 
     cp_dist = []
 
@@ -743,7 +743,7 @@ def labels_to_changepoints(labels, fs=30):
 
 
 def parse_batch_modeling(filename):
-    '''
+    """
     Reads model parameter scan training results into a single dictionary.
 
     Parameters
@@ -755,7 +755,7 @@ def parse_batch_modeling(filename):
     results_dict (dict): dictionary containing each model's training results,
      concatenated into a single list. Maintaining the original structure as though
      it was a single model's results.
-    '''
+    """
 
     with h5py.File(filename, 'r') as f:
         scans = h5_to_dict(f, 'scans')
@@ -780,7 +780,7 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
                         sort_labels_by_usage: bool = False,
                         count: str = 'usage') -> dict:
 
-    '''
+    """
     Reads model file and returns dictionary containing modeled results and some metadata.
 
     Parameters
@@ -797,7 +797,7 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
     Returns
     -------
     output_dict (dict): dictionary with labels and model parameters
-    '''
+    """
 
     # reformat labels into something useful
 
@@ -850,7 +850,7 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
 
 
 def relabel_by_usage(labels, fill_value=-5, count='usage'):
-    '''
+    """
     Resort model labels by their usages.
 
     Parameters
@@ -864,7 +864,7 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
     labels (list or dict): label sequences sorted by usage
     sorting (list): the new label sorting. The index corresponds to the new label,
      while the value corresponds to the old label.
-    '''
+    """
     assert count in ('usage', 'frames'), 'count must be "usage" or "frames"'
 
     sorted_labels = deepcopy(labels)
@@ -885,7 +885,7 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 
 
 def compute_syllable_onset(labels):
-    '''
+    """
 
     Computes the onset index of the each syllable label in a Series.
 
@@ -896,13 +896,13 @@ def compute_syllable_onset(labels):
     Returns
     -------
     onsets (2D np.array): onset indices for each syllable for the given sessions.
-    '''
+    """
     onset = pd.Series(labels).diff().fillna(1) != 0
     return onset.to_numpy()
 
 
 def prepare_model_dataframe(model_path, pca_path):
-    '''
+    """
 
     Creates a dataframe from syllable labels to be aligned with scalars.
 
@@ -914,7 +914,7 @@ def prepare_model_dataframe(model_path, pca_path):
     Returns
     -------
     _df (pd.DataFrame): DataFrame object of timestamp aligned syllable label information.
-    '''
+    """
 
     mdl = parse_model_results(model_path, map_uuid_to_keys=True)
     labels = mdl['labels']
@@ -948,7 +948,7 @@ def prepare_model_dataframe(model_path, pca_path):
 
 
 def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
-    '''
+    """
     Simulate auto-regressive trajectory matrices from
     a set of initalized points.
 
@@ -961,7 +961,7 @@ def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
     Returns
     -------
     sim_mat[nlags:] simulated AR trajectories excluding lagged values.
-    '''
+    """
 
     npcs = ar_mat.shape[0]
 
@@ -997,7 +997,7 @@ def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
 
 
 def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
-    '''
+    """
     Sort modeling results from batch/parameter scan.
 
     Parameters
@@ -1012,7 +1012,7 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
     new_matrix (np.ndarray): either average of all AR-matrices, or top sorted matrix
     param_dict (dict): model parameter dict
     filename_index (list): list of filenames associated with each model.
-    '''
+    """
 
     parameters = np.hstack(list(kwargs.values()))
     param_sets = np.unique(parameters, axis=0)
@@ -1087,7 +1087,7 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
 
 
 def whiten_pcs(pca_scores, method='all', center=True):
-    '''
+    """
 
     Whiten PC scores using Cholesky whitening.
 
@@ -1100,7 +1100,7 @@ def whiten_pcs(pca_scores, method='all', center=True):
     Returns
     -------
     whitened_scores (dict): dictionary of whitened pc scores
-    '''
+    """
 
     if method[0].lower() == 'a':
         whitened_scores = _whiten_all(pca_scores, center=center)
@@ -1113,7 +1113,7 @@ def whiten_pcs(pca_scores, method='all', center=True):
 
 
 def normalize_pcs(pca_scores: dict, method: str = 'zscore') -> dict:
-    '''
+    """
     Normalize PC scores. Options are: demean, zscore, ind-zscore.
     zscore: standardize pc scores using all data
     demean: subtract the mean from each score.
@@ -1127,7 +1127,7 @@ def normalize_pcs(pca_scores: dict, method: str = 'zscore') -> dict:
     Returns
     -------
     norm_scores (dict): a dictionary of normalized PC scores.
-    '''
+    """
     if method not in ('zscore', 'demean', 'ind-zscore'):
         raise ValueError(f'normalization {method} not supported. Please use: "zscore", "demean", or "ind-zscore"')
 
@@ -1150,7 +1150,7 @@ def normalize_pcs(pca_scores: dict, method: str = 'zscore') -> dict:
 
 
 def _gen_to_arr(generator: Iterator[Any]) -> np.ndarray:
-    '''
+    """
     Cast a generator object into a numpy array.
 
     Parameters
@@ -1160,7 +1160,7 @@ def _gen_to_arr(generator: Iterator[Any]) -> np.ndarray:
     Returns
     -------
     arr (np.ndarray): numpy array of generated list.
-    '''
+    """
 
     return np.array(list(generator))
 
@@ -1168,7 +1168,7 @@ def _gen_to_arr(generator: Iterator[Any]) -> np.ndarray:
 def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
                              max_samples=100, npcs=10, subsampling=None,
                              remove_offset=False, **kwargs):
-    '''
+    """
     Subsample Principal components from syllable slices
 
     Parameters
@@ -1186,7 +1186,7 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
     Returns
     -------
     syllable_matrix (np.ndarray): 3D matrix of subsampled PC projected syllable slices.
-    '''
+    """
 
     # pad using zeros, get dtw distances...
 
@@ -1222,7 +1222,7 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
 
 
 def make_separate_crowd_movies(config_data, sorted_index, group_keys, label_dict, output_dir, ordering, sessions=False):
-    '''
+    """
     Helper function that writes syllable crowd movies for each given grouping found in group_keys, and returns
      a dictionary with session/group name keys paired with paths to their respective generated crowd movies.
 
@@ -1239,7 +1239,7 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, label_dict
     Returns
     -------
     cm_paths (dict): group/session name keys paired with paths to their respectively generated syllable crowd movies.
-    '''
+    """
 
     from moseq2_viz.io.video import write_crowd_movies
 
@@ -1266,7 +1266,7 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, label_dict
 
 
 def sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group, max_sylls=None, stat='usage'):
-    '''
+    """
     Computes the syllable ordering for the difference of the inputted groups (exp - ctrl).
     The sorted result will yield an array will indices depicting the largest positive (upregulated)
     difference between exp and ctrl groups on the left, and vice versa on the right.
@@ -1282,7 +1282,7 @@ def sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group, max_sy
     Returns
     -------
     ordering (list): list of array indices for the new label mapping.
-    '''
+    """
     if max_sylls is not None:
         complete_df = complete_df[complete_df.syllable < max_sylls]
 
@@ -1300,7 +1300,7 @@ def sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group, max_sy
 
 
 def sort_syllables_by_stat(complete_df, stat='usage', max_sylls=None):
-    '''
+    """
     Computes the sorted ordering of the given DataFrame with respect to the chosen stat.
 
     Parameters
@@ -1313,7 +1313,7 @@ def sort_syllables_by_stat(complete_df, stat='usage', max_sylls=None):
     -------
     ordering (list): list of sorted syllables by stat.
     relabel_mapping (dict): a dict with key-value pairs {old_ordering: new_ordering}.
-    '''
+    """
     if max_sylls is not None:
         complete_df = complete_df[complete_df.syllable < max_sylls]
 
@@ -1328,7 +1328,7 @@ def sort_syllables_by_stat(complete_df, stat='usage', max_sylls=None):
     return ordering, relabel_mapping
 
 def get_Xy_values(stat_means, unique_groups, stat='usage'):
-    '''
+    """
     Computes the syllable or scalar mean statistics for each session, stored in X. Computes and corresponding
      mapped group name value for each of the sessions to be tracked when plotting the values in the embedding steps.
 
@@ -1344,7 +1344,7 @@ def get_Xy_values(stat_means, unique_groups, stat='usage'):
     y (1D list): list of group names corresponding to each row in X.
     mapping (dict): dictionary conataining mappings from group string to integer for later embedding.
     rev_mapping (dict): inverse mapping dict to retrieve the group names given their mapped integer value.
-    '''
+    """
 
     X, y = [], []
 

@@ -1,14 +1,14 @@
-'''
+"""
 Utility functions for computing syllable usage entropy, and syllable transition entropy rate.
 These can be used for measuring modeling model performance and group separability.
-'''
+"""
 import numpy as np
 from moseq2_viz.model.trans_graph import get_transition_matrix
 from moseq2_viz.model.util import get_syllable_statistics, relabel_by_usage
 
 
 def entropy(labels, truncate_syllable=40, smoothing=1.0, relabel_by='usage'):
-    '''
+    """
     Computes syllable usage entropy, base 2.
 
     Parameters
@@ -21,7 +21,7 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0, relabel_by='usage'):
     Returns
     -------
     ent (list): list of entropies for each session.
-    '''
+    """
 
     if relabel_by is not None:
         labels, _ = relabel_by_usage(labels, count=relabel_by)
@@ -50,7 +50,7 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0, relabel_by='usage'):
 
 def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
                  smoothing=1.0, tm_smoothing=1.0, relabel_by='usage'):
-    '''
+    """
     Computes entropy rate, base 2 using provided syllable labels. If
     syllable labels have not been re-labeled by usage, this function will do so.
 
@@ -68,7 +68,7 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
     Returns
     -------
     ent (list): list of entropy rates per syllable label
-    '''
+    """
 
     if relabel_by is not None:
         labels, _ = relabel_by_usage(labels, count=relabel_by)
@@ -114,7 +114,7 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
 
 
 def transition_entropy(labels, tm_smoothing=0, truncate_syllable=40, transition_type='incoming', relabel_by='usage'):
-    '''
+    """
     Computes directional syllable transition entropy. Based on whether the given transition_type is 'incoming' or
      or 'outgoing', the function will compute the respective transition entropy.
 
@@ -132,7 +132,7 @@ def transition_entropy(labels, tm_smoothing=0, truncate_syllable=40, transition_
     -------
     entropies (list of np.ndarra): a list of transition entropies (either incoming or outgoing) for
         each mouse and syllable.
-    '''
+    """
 
 
     if transition_type not in ('incoming', 'outgoing'):

@@ -1,8 +1,8 @@
-'''
+"""
 
 Utility functions for estimating "behavioral distance" AKA model state similarity analysis.
 
-'''
+"""
 import warnings
 import numpy as np
 from copy import deepcopy
@@ -22,7 +22,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
                             max_syllable=None, resample_idx=-1,
                             dist_options={},
                             sort_labels_by_usage=True, count='usage'):
-    '''
+    """
     Computes the behavioral distance (square) matrices with respect to a predefined set of variables.
     
     Parameters
@@ -41,7 +41,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
     Returns
     -------
     dist_dict (dict): Dictionary containing all computed behavioral square distance matrices
-    '''
+    """
 
     dist_dict = {}
 
@@ -222,7 +222,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
 
 def get_behavioral_distance_ar(ar_mat, init_point=None, sim_points=10, max_syllable=40,
                                dist='correlation', parallel=False):
-    '''
+    """
    Computes behavioral distance with respect to the model's AutoRegressive matrices.
    Affords either AR trajectory correlation distance, or computing dynamically time-warped trajectory distances.
    
@@ -239,7 +239,7 @@ def get_behavioral_distance_ar(ar_mat, init_point=None, sim_points=10, max_sylla
    -------
    ar_dist (2D numpy array): Computed AR trajectory distances for each AR matrix/model state.
    shape=(max_syllable, max_syllable)
-   '''
+   """
 
     npcs = ar_mat[0].shape[0]
 
@@ -264,7 +264,7 @@ def get_behavioral_distance_ar(ar_mat, init_point=None, sim_points=10, max_sylla
 
 
 def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10):
-    '''
+    """
     Compute initial AR trajectories based on a cumulative average of lagged-PC Scores over nlags.
     
     Parameters
@@ -279,7 +279,7 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
     -------
     syll_average (list): List containing 2D np arrays of average syllable trajectories over a nlag-strided
      PC scores array. Shape = (max_syllables, nlags*2 +1, npcs)
-    '''
+    """
     # cumulative average of PCs for nlags
 
     win = int(nlags * 2 + 1)
@@ -324,7 +324,7 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
 
 
 def reformat_dtw_distances(full_mat, nsyllables, rescale=True):
-    '''
+    """
     Reduce full (max states) dynamically time-warped PC Score distance matrices to only include
     dimensions for a total of nsyllables.
     Formatting the 3D matrix (full_mat) to 2D to show the correlation distances from each state pair.
@@ -338,7 +338,7 @@ def reformat_dtw_distances(full_mat, nsyllables, rescale=True):
     Returns
     -------
     rmat (2D np array): Reformatted-Truncated DTW Distance Matrix; shape = (nsyllables, nsyllables)
-    '''
+    """
 
     rmat = deepcopy(full_mat)
     rmat[rmat == np.inf] = np.nan

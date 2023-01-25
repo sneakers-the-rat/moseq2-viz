@@ -1,6 +1,6 @@
-'''
+"""
 Functions for creating fingerprint plots and linear classifier
-'''
+"""
 from operator import pos
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
@@ -34,7 +34,7 @@ def _apply_to_col(df, fn, **kwargs):
 
 def create_fingerprint_dataframe(scalar_df, mean_df, stat_type='mean', n_bins=None, groupby_list=['group', 'uuid'], range_type='robust',
                                  scalars=['velocity_2d_mm', 'height_ave_mm', 'length_mm', 'dist_to_center_px']):
-    '''
+    """
     create fingerprint dataframe from scalar_df and mean_df
 
     Args:
@@ -46,7 +46,7 @@ def create_fingerprint_dataframe(scalar_df, mean_df, stat_type='mean', n_bins=No
     Returns:
         summary ([pandas.DataFrame]): fingerprint dataframe
         range_dict ([dict]): dictionary that hold min max values of the features
-    '''
+    """
 
     # deep copy the dfs
     scalar_df = scalar_df.copy()
@@ -95,7 +95,7 @@ def create_fingerprint_dataframe(scalar_df, mean_df, stat_type='mean', n_bins=No
 def plotting_fingerprint(summary, save_dir, range_dict, preprocessor=None, num_level = 1, level_names = ['Group'], vmin = None, vmax = None,
                          plot_columns=['dist_to_center_px', 'velocity_2d_mm', 'height_ave_mm', 'length_mm', 'MoSeq'],
                          col_names=[('Position','Dist. from center (px)'), ('Speed', 'Speed (mm/s)'), ('Height', 'Height (mm)'), ('Length', 'Length (mm)'), ('MoSeq','Syllable ID')]):
-    '''
+    """
     plot the fingerprint heatmap
 
     Args:
@@ -111,7 +111,7 @@ def plotting_fingerprint(summary, save_dir, range_dict, preprocessor=None, num_l
  
     Raises:
         Exception: num_levels greater than the existing levels
-    '''
+    """
     # ensure number of groups is not over the number of available levels
     if num_level > len(summary.index.names):
         raise Exception('Too many levels to unpack. num_level should be less than', len(summary.index.names))
@@ -209,7 +209,7 @@ def plotting_fingerprint(summary, save_dir, range_dict, preprocessor=None, num_l
 
 def classifier_fingerprint(summary, features=['MoSeq'], preprocessor=None, classes=['group'], param_search=True, C_list=None,
                            model_type='lr', cv='loo', n_splits=5):
-    '''
+    """
     classifier using the fingerprint dataframe
 
     Args:
@@ -232,7 +232,7 @@ def classifier_fingerprint(summary, features=['MoSeq'], preprocessor=None, class
         y_shuffle_pred ([np.array]): array for shuffled predicted label
         shuffle_f1 ([np.array]): array for shuffled f1 score
         shuffle_coef ([np.array]): array for shuffled model weights
-    '''
+    """
     # set up data for classifier
     X = summary[features].to_numpy()
     print(X.shape)
@@ -329,7 +329,7 @@ def _plot_cm(y_true, y_pred, ax, ax_labels, title):
 
 
 def plot_cm(y_true, y_pred, y_shuffle_true, y_shuffle_pred):
-    '''
+    """
     plot confusion matrix
 
     Args:
@@ -337,7 +337,7 @@ def plot_cm(y_true, y_pred, y_shuffle_true, y_shuffle_pred):
         y_pred ([np.array]): array for predicted label
         y_shuffle_true ([np.array]): array for shffuled label
         y_shuffle_pred ([np.array]): array for shuffled predicted label
-    '''
+    """
     fig = plt.figure(figsize=(23, 10), facecolor='white')
     gs = GridSpec(ncols=3, nrows=1, wspace=0.1, figure = fig, width_ratios=[10,10,0.3])
     fig_ax = fig.add_subplot(gs[0,0])

@@ -1,4 +1,4 @@
-'''
+"""
 
 GUI front-end operations. This module contains all the functionality and configurable parameters
 users can alter to most accurately process their data.
@@ -6,7 +6,7 @@ users can alter to most accurately process their data.
 Note: These functions perform jupyter notebook specific pre-processing, loads in corresponding parameters from the
 CLI functions, then call the corresponding wrapper function with the given input parameters.
 
-'''
+"""
 from os.path import join, exists
 from functools import wraps, partial
 from moseq2_viz.util import read_yaml
@@ -18,7 +18,7 @@ from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_stat_wr
 
 
 def _alias(func, dec_func=None):
-    '''
+    """
     Copies documentation and function signatures across re-used functions (but with different names).
 
     Parameters
@@ -29,7 +29,7 @@ def _alias(func, dec_func=None):
     Returns
     -------
     inner (function): wrapped function.
-    '''
+    """
     @wraps(func if dec_func is None else dec_func)
     def inner(*args, **kwargs):
         return func(*args, **kwargs)
@@ -40,7 +40,7 @@ def _alias(func, dec_func=None):
     return inner
 
 def get_groups_command(index_file):
-    '''
+    """
     Jupyter Notebook to print index file current metadata groupings.
 
     Parameters
@@ -50,7 +50,7 @@ def get_groups_command(index_file):
     Returns
     -------
     (int): number of unique groups
-    '''
+    """
 
 
     index_data = read_yaml(index_file)
@@ -74,7 +74,7 @@ def get_groups_command(index_file):
     return len(set(groups))
 
 def add_group(index_file, by='SessionName', value='default', group='default', exact=False, lowercase=False, negative=False):
-    '''
+    """
     Updates index file SubjectName group names with user defined group names.
 
     Parameters
@@ -88,7 +88,7 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
 
     Returns
     -------
-    '''
+    """
 
     gui_data = {
         'key': by,
@@ -117,7 +117,7 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
 copy_h5_metadata_to_yaml_command = _alias(copy_h5_metadata_to_yaml_wrapper)
 
 def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30, ext='p', objective='duration (mean match)'):
-    '''
+    """
     Given a directory containing multiple models, and the path to the pca scores they were trained on,
     this function returns the path to the model that has the closest median syllable duration to that of
     the PC Scores.
@@ -137,7 +137,7 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30,
     Returns
     -------
     best_fit_model (str): Path tp best fit model
-    '''
+    """
 
     # Check output file path
     if output_file is None:
@@ -158,9 +158,9 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30,
 
 @partial(_alias, dec_func=make_crowd_movies_wrapper)
 def make_crowd_movies_command(*args, **kwargs):
-    '''
+    """
     See cli.make_crowd_movies()
-    '''
+    """
     # Get default CLI params
     objs = make_crowd_movies.params
     defaults = {tmp.name: tmp.default for tmp in objs if not tmp.required}
@@ -185,9 +185,9 @@ plot_scalar_summary_command = _alias(plot_scalar_summary_wrapper)
 
 @partial(_alias, dec_func=plot_transition_graph_wrapper)
 def plot_transition_graph_command(*args, **kwargs):
-    '''
+    """
     See cli.plot_transition_graph()
-    '''
+    """
 
     # Get default CLI params
     params = {tmp.name: tmp.default for tmp in plot_transition_graph.params if not tmp.required}

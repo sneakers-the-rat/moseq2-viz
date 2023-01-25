@@ -1,8 +1,8 @@
-'''
+"""
 
 General utility functions to facilitate loading and organizing data.
 
-'''
+"""
 
 import re
 import os
@@ -19,7 +19,7 @@ from os.path import join, exists, dirname, splitext
 
 
 def camel_to_snake(s):
-    '''
+    """
     Converts CamelCase to snake_case
 
     Parameters
@@ -29,7 +29,7 @@ def camel_to_snake(s):
     Returns
     -------
     (str): snake_case string
-    '''
+    """
     # https://gist.github.com/jaytaylor/3660565
     _underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
     _underscorer2 = re.compile(r'([a-z0-9])([A-Z])')
@@ -39,7 +39,7 @@ def camel_to_snake(s):
 
 
 def get_index_hits(config_data, metadata, key, v):
-    '''
+    """
     Searches for matching keys in given index file metadata dict.
     Returns list of booleans indicating that a session was found.
 
@@ -53,7 +53,7 @@ def get_index_hits(config_data, metadata, key, v):
     Returns
     -------
     hits (list): list of booleans indicating the found sessions to be updated in add_group_wrapper()
-    '''
+    """
 
     if config_data['lowercase'] and config_data['negative']:
         # Convert keys to lowercase and return inverse selection
@@ -72,7 +72,7 @@ def get_index_hits(config_data, metadata, key, v):
 
 
 def clean_dict(dct):
-    '''
+    """
     Casts numpy array values into lists and `np.generic` data into scalar values.
 
     Parameters
@@ -82,7 +82,7 @@ def clean_dict(dct):
     Returns
     -------
     (dict): dictionary with standardized value types. 
-    '''
+    """
 
     def clean_entry(e):
         if isinstance(e, dict):
@@ -99,7 +99,7 @@ def clean_dict(dct):
 
 
 def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
-    '''
+    """
     Load h5 contents to dictionary.
 
     Parameters
@@ -110,7 +110,7 @@ def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
     Returns
     -------
     ans (dict): loaded dictionary from h5 dataset or group
-    '''
+    """
 
     ans = {}
     if isinstance(file[path], h5py.Dataset):
@@ -126,7 +126,7 @@ def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
 
 
 def h5_to_dict(h5file, path: str = '/') -> dict:
-    '''
+    """
     Load h5 dict contents to a dict variable.
 
     Parameters
@@ -137,7 +137,7 @@ def h5_to_dict(h5file, path: str = '/') -> dict:
     Returns
     -------
     out (dict): dictionary of all h5 contents
-    '''
+    """
 
     if isinstance(h5file, str):
         with h5py.File(h5file, 'r') as f:
@@ -150,7 +150,7 @@ def h5_to_dict(h5file, path: str = '/') -> dict:
 
 
 def get_timestamps_from_h5(h5file: str) -> np.ndarray:
-    '''
+    """
     Returns dict of timestamps from h5file.
 
     Parameters
@@ -160,7 +160,7 @@ def get_timestamps_from_h5(h5file: str) -> np.ndarray:
     Returns
     -------
     (np.ndarray): timestamps from extraction within the h5file.
-    '''
+    """
 
     with h5py.File(h5file, 'r') as f:
         # v0.1.3 or greater data format
@@ -172,7 +172,7 @@ def get_timestamps_from_h5(h5file: str) -> np.ndarray:
 
 
 def get_metadata_path(h5file):
-    '''
+    """
     Return path within h5 file that contains the kinect extraction metadata.
 
     Parameters
@@ -182,7 +182,7 @@ def get_metadata_path(h5file):
     Returns
     -------
     (str): path to acquistion metadata within h5 file.
-    '''
+    """
 
     with h5py.File(h5file, 'r') as f:
         if '/metadata/acquisition' in f:
@@ -194,7 +194,7 @@ def get_metadata_path(h5file):
 
 
 def load_changepoint_distribution(cpfile):
-    '''
+    """
     Loads changepoint durations from given changepoints file `cpfile`.
 
     Parameters
@@ -204,7 +204,7 @@ def load_changepoint_distribution(cpfile):
     Returns
     -------
     (1d numpy array): Array of changepoint durations.
-    '''
+    """
 
     cps = h5_to_dict(cpfile, 'cps')
     cp_dist = map(compose(np.diff, np.squeeze), cps.values())
@@ -212,7 +212,7 @@ def load_changepoint_distribution(cpfile):
 
 
 def load_timestamps(timestamp_file, col=0):
-    '''
+    """
     Read timestamps from space delimited text file.
 
     Parameters
@@ -223,7 +223,7 @@ def load_timestamps(timestamp_file, col=0):
     Returns
     -------
     ts (np.ndarray): loaded array of timestamps
-    '''
+    """
 
     ts = np.loadtxt(timestamp_file, delimiter=' ')
     if ts.ndim > 1:
@@ -234,7 +234,7 @@ def load_timestamps(timestamp_file, col=0):
 
 
 def parse_index(index: Union[str, dict]) -> tuple:
-    '''
+    """
     Load an index file, and use extraction UUIDs as entries in a sorted index.
 
     Parameters
@@ -246,7 +246,7 @@ def parse_index(index: Union[str, dict]) -> tuple:
     -------
     index (dict): loaded index file contents in a dictionary
     sorted_index (dict): index where the files have been sorted by UUID and pca_score path.
-    '''
+    """
 
     from_dict = True
     if isinstance(index, str):
@@ -279,7 +279,7 @@ def parse_index(index: Union[str, dict]) -> tuple:
 
 
 def get_sorted_index(index_file: str) -> dict:
-    '''
+    """
     Just return the sorted index from an index_file path.
 
     Parameters
@@ -289,14 +289,14 @@ def get_sorted_index(index_file: str) -> dict:
     Returns
     -------
     sorted_ind (dict): dictionary of loaded sorted index file contents
-    '''
+    """
 
     _, sorted_ind = parse_index(index_file)
     return sorted_ind
 
 
 def h5_filepath_from_sorted(sorted_index_entry: dict) -> str:
-    '''
+    """
     Gets the h5 extraction file path from a sorted index entry
 
     Parameters
@@ -306,7 +306,7 @@ def h5_filepath_from_sorted(sorted_index_entry: dict) -> str:
     Returns
     -------
     (str): a str containing the extraction filepath
-    '''
+    """
 
     return first(sorted_index_entry['path'])
 
@@ -314,7 +314,7 @@ def h5_filepath_from_sorted(sorted_index_entry: dict) -> str:
 def recursive_find_h5s(root_dir=None,
                        ext='.h5',
                        yaml_string='{}.yaml'):
-    '''
+    """
     Recursively find h5 files, along with yaml files with the same basename.
 
     Parameters
@@ -328,13 +328,13 @@ def recursive_find_h5s(root_dir=None,
     h5s (list): list of paths to h5 files
     dicts (list): list of paths to metadata files
     yamls (list): list of paths to yaml files
-    '''
+    """
 
     if root_dir is None:
         root_dir = os.getcwd()
 
     def has_frames(h5f):
-        '''Checks if the supplied h5 file has a frames key'''
+        """Checks if the supplied h5 file has a frames key"""
         with h5py.File(h5f, 'r') as f:
             return 'frames' in f
 
@@ -359,7 +359,7 @@ def recursive_find_h5s(root_dir=None,
 
 
 def read_yaml(yaml_path: str):
-    '''
+    """
     Reads a given yaml file path into a dict object.
 
     Parameters
@@ -370,7 +370,7 @@ def read_yaml(yaml_path: str):
     -------
     loaded (dict): loaded yaml file contents.
 
-    '''
+    """
     with open(yaml_path, 'r') as f:
         loaded = yaml.safe_load(f)
     return loaded
@@ -378,7 +378,7 @@ def read_yaml(yaml_path: str):
 
 # from https://stackoverflow.com/questions/40084931/taking-subarrays-from-numpy-array-with-given-stride-stepsize/40085052#40085052
 def strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
-    '''
+    """
     Taking subarrays from numpy array given stride
 
     Parameters
@@ -390,7 +390,7 @@ def strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
     Returns
     -------
     (np.ndarray): sliced subarrays
-    '''
+    """
 
     nrows = ((a.size - L) // S) + 1
     n = a.strides[0]
@@ -399,7 +399,7 @@ def strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
 
 @curry
 def star(f, args):
-    '''
+    """
     Apply a function to a tuple of args, by expanding the tuple into
     each of the function's parameters. It is curried, which allows one to
     specify one argument at a time.
@@ -412,13 +412,13 @@ def star(f, args):
     Returns
     -------
     the output of ``f``
-    '''
+    """
 
     return f(*args)
 
 
 def assert_model_and_index_uuids_match(model, index):
-    '''
+    """
     Asserts that both the model and index file contain the same set of UUIDs.
 
     Parameters
@@ -427,7 +427,7 @@ def assert_model_and_index_uuids_match(model, index):
         model data after parsing the model results
     index (str or dict): if str, must be a path to the index file. If dict, it contains
         the parsed and sorted index.
-    '''
+    """
     from moseq2_viz.model.util import parse_model_results
     if isinstance(model, str) and exists(model):
         # Load the model

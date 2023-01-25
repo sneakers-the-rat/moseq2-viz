@@ -1,8 +1,8 @@
-'''
+"""
 
 Visualization model containing all plotting functions and some dependent data pre-processing helper functions.
 
-'''
+"""
 
 import os
 import cv2
@@ -22,7 +22,7 @@ from moseq2_viz.model.util import sort_syllables_by_stat, sort_syllables_by_stat
 
 def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='stat', max_sylls=40, groups=None, ctrl_group=None, exp_group=None,
             colors=None, figsize=(10, 5)):
-    '''
+    """
     Validates input parameters and adjust parameters according to any user errors to run the
     plotting function with some respective defaulting parameters. Also orders syllable labels
     based on the average `stat` values per syllable.
@@ -47,7 +47,7 @@ def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='s
     groups (1D list): list of unique groups to plot
     colors (1D list): list of unique colors for each plotted group
     figsize (tuple): plotted figure size (height, width)
-    '''
+    """
 
     if not isinstance(figsize, (tuple, list)):
         print('Invalid figsize. Input a integer-tuple or list of len(figsize) = 2. Setting figsize to (10, 5)')
@@ -90,7 +90,7 @@ def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='s
 
 def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
                  tail_filter=None, tail_threshold=5):
-    '''
+    """
     Filters frames using spatial filters such as Median or Gaussian filters.
 
     Parameters
@@ -104,7 +104,7 @@ def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
     Returns
     -------
     out (3D numpy array): filtered numpy array.
-    '''
+    """
 
     out = np.copy(frames)
 
@@ -131,7 +131,7 @@ def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
 
 
 def save_fig(fig, output_file, suffix=None, **kwargs):
-    '''
+    """
     Convenience function for saving created/open matplotlib figures to PNG and PDF formats.
 
     Parameters
@@ -143,7 +143,7 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
 
     Returns
     -------
-    '''
+    """
 
     os.makedirs(dirname(output_file), exist_ok=True)
 
@@ -158,7 +158,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
                       crop_size=(80, 80), max_dur=60, min_dur=0, scale=1,
                       center=False, rotate=False, select_median_duration_instances=False, min_height=10, legacy_jitter_fix=False,
                       seed=0, **kwargs):
-    '''
+    """
     Creates crowd movie video numpy array.
 
     Parameters
@@ -182,7 +182,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
     Returns
     -------
     crowd_matrix (np.ndarray): crowd movie for a specific syllable.
-    '''
+    """
 
     if rotate and not center:
         raise NotImplementedError('Rotating without centering not supported')
@@ -364,7 +364,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
 
 def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
                   sort_vars=['SubjectName', 'uuid'], group_var='group', plt_kwargs=dict(linewidth=1)):
-    '''
+    """
     Creates a position summary graph that shows all the
     mice's centroid path throughout the respective sessions.
 
@@ -381,7 +381,7 @@ def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
     fig (pyplot figure): matplotlib figure object
     ax (pyplot axis): matplotlib axis object
     g (sns.FacetGrid): FacetGrid object the data was plotted with
-    '''
+    """
 
     assert len(centroid_vars) == 2, 'must supply 2 centroid vars (x, y) to plot position'
 
@@ -411,7 +411,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
                 show_scalars=['velocity_2d_mm', 'velocity_3d_mm',
                               'height_ave_mm', 'width_mm', 'length_mm'],
                 headless=False, colors=None, plt_kwargs=dict(height=2, aspect=0.8)):
-    '''
+    """
     Creates scatter plot of given scalar variables representing extraction results.
 
     Parameters
@@ -428,7 +428,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
     -------
     fig (pyplot figure): plotted scalar scatter plot
     ax (pyplot axis): plotted scalar axis
-    '''
+    """
     if headless:
         plt.switch_backend('agg')
 
@@ -461,7 +461,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
 
 def plot_syll_stats_with_sem(scalar_df, syll_info=None, sig_sylls=None, stat='usage', ordering='stat', max_sylls=40,
                              groups=None, ctrl_group=None, exp_group=None, colors=None, join=False, figsize=(10, 5)):
-    '''
+    """
     Plots a line and/or point-plot of a given pre-computed syllable statistic (usage, duration, or speed),
     with a SEM error bar with respect to the group.
     This function is decorated with the check types function that will ensure that the inputted data configurations
@@ -489,7 +489,7 @@ def plot_syll_stats_with_sem(scalar_df, syll_info=None, sig_sylls=None, stat='us
     -------
     fig (pyplot figure): plotted scalar scatter plot
     legend (pyplot legend): figure legend
-    '''
+    """
 
     xlabel = f'Syllables sorted by {stat}'
     if ordering == 'diff':
@@ -544,7 +544,7 @@ def plot_syll_stats_with_sem(scalar_df, syll_info=None, sig_sylls=None, stat='us
 
 
 def plot_mean_group_heatmap(pdfs, groups, normalize=True, norm_color=mpl.colors.LogNorm()):
-    '''
+    """
     Computes the overall group mean of the computed PDFs and plots them.
 
     Parameters
@@ -557,7 +557,7 @@ def plot_mean_group_heatmap(pdfs, groups, normalize=True, norm_color=mpl.colors.
     Returns
     -------
     fig (pyplot figure): plotted scalar scatter plot
-    '''
+    """
 
     uniq_groups = np.unique(groups)
     groups = np.array(groups)
@@ -586,7 +586,7 @@ def plot_mean_group_heatmap(pdfs, groups, normalize=True, norm_color=mpl.colors.
 
 
 def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False, norm_color=mpl.colors.LogNorm()):
-    '''
+    """
     Plots the PDF position heatmap for each session, titled with the group and subjectName.
 
     Parameters
@@ -601,7 +601,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False, 
     Returns
     -------
     fig (pyplot figure): plotted scalar scatter plot
-    '''
+    """
 
     uniq_groups = np.unique(groups)
     count = [len([grp1 for grp1 in groups if grp1 == grp]) for grp in uniq_groups]
@@ -639,7 +639,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False, 
 
 
 def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, bw_adjust=0.4):
-    '''
+    """
     Plot the duration distributions for model labels and
     principal component changepoints.
 
@@ -655,7 +655,7 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
     -------
     fig (pyplot figure): syllable usage ordered by frequency, 90% usage marked
     ax (pyplot axis): plotted scalar axis
-    '''
+    """
 
     fig, ax = plt.subplots(1, 1, figsize=(8, 5))
     # Plot KDEs, clipping the changepoints at 10 seconds

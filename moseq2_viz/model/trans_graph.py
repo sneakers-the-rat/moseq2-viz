@@ -1,8 +1,8 @@
-'''
+"""
 
 Syllable transition graph creation and utility functions.
 
-'''
+"""
 import warnings
 import numpy as np
 import pandas as pd
@@ -15,7 +15,7 @@ from cytoolz import sliding_window, complement
 from matplotlib.lines import Line2D
 
 def get_trans_graph_groups(model_fit):
-    '''
+    """
     Wrapper helper function to get the groups and their respective session uuids
     to use in transition graph generation.
 
@@ -27,7 +27,7 @@ def get_trans_graph_groups(model_fit):
     -------
     label_group (list): list of groups for each included session
     model_uuids (list): list of corresponding UUIDs for each included session in the model
-    '''
+    """
 
     model_uuids = model_fit.get('train_list', model_fit['keys'])
     label_group = [model_fit['metadata']['groups'][k] for k in model_uuids]
@@ -35,7 +35,7 @@ def get_trans_graph_groups(model_fit):
     return label_group, model_uuids
 
 def get_group_trans_mats(labels, label_group, group, max_sylls, normalize='bigram'):
-    '''
+    """
     Computes individual transition matrices for each given group.
 
     Parameters
@@ -50,7 +50,7 @@ def get_group_trans_mats(labels, label_group, group, max_sylls, normalize='bigra
     -------
     trans_mats (list of 2D np.ndarrays): list of transition matrices for each given group.
     usages (list of lists): list of corresponding usage statistics for each group.
-    '''
+    """
     # Importing within function to avoid import loops
     from moseq2_viz.model.util import get_syllable_statistics
 
@@ -71,7 +71,7 @@ def get_group_trans_mats(labels, label_group, group, max_sylls, normalize='bigra
     return trans_mats, usages
 
 def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
-    '''
+    """
     Convenience function to compute a transition matrix for each given group.
     Function will also graph the computed transition matrices, then return the open figure object to be saved.
 
@@ -85,7 +85,7 @@ def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
     Returns
     -------
     plt (pyplot.Figure): open transition graph figure to save
-    '''
+    """
 
     trans_mats, usages = get_group_trans_mats(labels, label_group, sorted(group), config_data['max_syllable'], config_data['normalize'])
 
@@ -110,7 +110,7 @@ def compute_and_graph_grouped_TMs(config_data, labels, label_group, group):
     return plt
 
 def get_transitions(label_sequence):
-    '''
+    """
     Computes labels switch to another label. Throws out the first state (usually
     labeled as -5).
 
@@ -122,7 +122,7 @@ def get_transitions(label_sequence):
     -------
     transitions (np.array): filtered label sequence containing only the syllable changes
     locs (np.array): list of all the indices where the syllable label changes
-    '''
+    """
 
     arr = deepcopy(label_sequence)
 
@@ -134,7 +134,7 @@ def get_transitions(label_sequence):
 
 
 def normalize_transition_matrix(init_matrix, normalize):
-    '''
+    """
     Normalizes a transition matrix by given criteria.
 
     Parameters
@@ -145,7 +145,7 @@ def normalize_transition_matrix(init_matrix, normalize):
     Returns
     -------
     init_matrix (2D np.array): normalized transition matrix
-    '''
+    """
     if normalize is None or normalize not in ('bigram', 'rows', 'columns'):
         return init_matrix
 
@@ -163,7 +163,7 @@ def normalize_transition_matrix(init_matrix, normalize):
 
 
 def n_gram_transition_matrix(labels, n=2, max_label=99):
-    '''
+    """
     Computes the transition count for a fixed syllable sequence length 'n'. For n=2, the outputted transition counts
      will represent the number of bigram transition from syllable x->y.
 
@@ -176,7 +176,7 @@ def n_gram_transition_matrix(labels, n=2, max_label=99):
     Returns
     -------
     trans_mat (np.ndarray): array of n-transition counts for given max_label.
-    '''
+    """
 
     trans_mat = np.zeros((max_label, ) * n, dtype='float')
     for loc in sliding_window(n, labels):
@@ -189,7 +189,7 @@ def n_gram_transition_matrix(labels, n=2, max_label=99):
 # per https://gist.github.com/tg12/d7efa579ceee4afbeaec97eb442a6b72
 def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
                           smoothing=0.0, combine=False, disable_output=False) -> list:
-    '''
+    """
     Compute the transition matrix from a set of model labels.
 
     Parameters
@@ -207,7 +207,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
     transition_matrix (list or np.ndarray): list of 2d np.arrays that represent the transitions
             from syllable i (row) to syllable j (column) or a single transition matrix combined
             from all sessions in `labels`
-    '''
+    """
     if not isinstance(labels[0], (list, np.ndarray, pd.Series)):
         labels = [labels]
 
@@ -241,7 +241,7 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
 
 
 def convert_ebunch_to_graph(ebunch):
-    '''
+    """
     Convert transition matrices to transition DAGs.
 
     Parameters
@@ -251,7 +251,7 @@ def convert_ebunch_to_graph(ebunch):
     Returns
     -------
     g (networkx.DiGraph): DAG object to graph
-    '''
+    """
 
     g = nx.DiGraph()
     g.add_weighted_edges_from(ebunch)
@@ -264,7 +264,7 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
                                         speeds=None, speed_threshold=0,
                                         edge_threshold=-.1, indices=None,
                                         keep_orphans=False, max_syllable=None):
-    '''
+    """
     Computes thresholded syllable transition data. Function thresholds computed transition
     matrix's usages (included nodes) and edges (syllable transitions).
 
@@ -285,7 +285,7 @@ def convert_transition_matrix_to_ebunch(weights, transition_matrix,
     -------
     ebunch (list): syllable transition data.
     orphans (list): syllables with no edges.
-    '''
+    """
     # TODO: figure out if I ever need the transition_matrix variable
     # Cap the number of included syllable states
     if max_syllable is not None:
@@ -334,7 +334,7 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usage_kwargs,
                            widths, pos, node_edge_colors, ax=None, node_sizes=[], indices=None,
                            difference_threshold=0.0005, difference_edge_width_scale=500, font_size=12,
                            usage_scale=5e4, difference_graphs=[], scalars=None, arrows=False, speed_kwargs={}):
-    '''
+    """
     Helper function that computes transition graph differences.
 
     Parameters
@@ -367,7 +367,7 @@ def make_difference_graphs(trans_mats, usages, group, group_names, usage_kwargs,
     widths (list): list of edge widths for each created graph appended with difference weights
     node_sizes (2D list): lists of node sizes corresponding to each graph including difference graph node sizes
     node_edge_colors (2D list): lists of node colors corresponding to each graph including difference graph node sizes
-    '''
+    """
 
     for i, tm in enumerate(trans_mats):
         for j, tm2 in enumerate(trans_mats[i + 1:]):
@@ -435,7 +435,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usage_kwargs,
                            ax=None, edge_width_scale=100, usage_scale=1e5,
                            difference_edge_width_scale=500, speed_kwargs={},
                            indices=None, font_size=12, scalars=None, arrows=False):
-    '''
+    """
 
     Helper function to create transition matrices for all included groups, as well as their
     difference graphs.
@@ -470,7 +470,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usage_kwargs,
     node_sizes (2D list): lists of node sizes corresponding to each graph.
     node_edge_colors (2D list): lists of node colors corresponding to each graph including difference graph node sizes.
     graphs (list of nx.DiGraph): list of all group and difference transition graphs.
-    '''
+    """
 
     graphs = []
     widths = []
@@ -530,7 +530,7 @@ def make_transition_graphs(trans_mats, usages, group, group_names, usage_kwargs,
 
 
 def get_pos(graph_anchor, layout, nnodes):
-    '''
+    """
     Get node positions in the graph based on the graph anchor
     and a user selected layout.
 
@@ -543,7 +543,7 @@ def get_pos(graph_anchor, layout, nnodes):
     Returns
     -------
     pos (nx layout): computed node position layout
-    '''
+    """
 
     if isinstance(layout, str) and layout.lower() == 'spring':
         k = 1.5 / np.sqrt(nnodes)
@@ -564,7 +564,7 @@ def get_pos(graph_anchor, layout, nnodes):
 def draw_graph(graph, width, pos, node_color,
                node_size, node_edge_colors, ax, arrows=False,
                font_size=12, edge_colors='k', title=None):
-    '''
+    """
     Draws transition graph to existing matplotlib axes.
 
     Parameters
@@ -586,7 +586,7 @@ def draw_graph(graph, width, pos, node_color,
 
     Returns
     -------
-    '''
+    """
 
     # Draw nodes and edges on matplotlib figure
     # reconstruct node_size list to match the sorted node labels
@@ -612,7 +612,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
                             weights=None, usage_scale=1e4, keep_orphans=False,
                             max_syllable=None, orphan_weight=0, arrows=False, font_size=12,
                             difference_edge_width_scale=500, **kwargs):
-    '''
+    """
     Creates transition graph plot given a transition matrix and some metadata.
 
     Parameters
@@ -644,7 +644,7 @@ def graph_transition_matrix(trans_mats, usages=None, groups=None,
     fig (pyplot figure): figure containing transition graphs.
     ax (pyplot axis): figure axis object.
     pos (dict): dict figure information.
-    '''
+    """
     from moseq2_viz.model.util import normalize_usages
 
     if headless:

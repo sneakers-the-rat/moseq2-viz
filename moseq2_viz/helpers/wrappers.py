@@ -1,10 +1,10 @@
-'''
+"""
 
 Wrapper functions for all functionality included in MoSeq2-Viz that is accessible via CLI or GUI.
 Each wrapper function executes the functionality from end-to-end given it's dependency parameters are inputted.
 (See CLI Click parameters)
 
-'''
+"""
 import os
 import shutil
 import matplotlib as mpl
@@ -26,7 +26,7 @@ from moseq2_viz.model.util import (relabel_by_usage, parse_model_results,
 
 
 def _make_directories(crowd_movie_path, plot_path):
-    '''
+    """
 
     Given output paths to store different media types, this helper function will create the directories
      if they didn't already exist.
@@ -38,7 +38,7 @@ def _make_directories(crowd_movie_path, plot_path):
 
     Returns
     -------
-    '''
+    """
 
     # Set up output directory to save crowd movies in
     if crowd_movie_path is not None:
@@ -49,7 +49,7 @@ def _make_directories(crowd_movie_path, plot_path):
 
 
 def init_wrapper_function(index_file=None, output_dir=None, output_file=None):
-    '''
+    """
     Helper function that will optionally load the index file and a trained model given their respective paths.
     The function will also create any output directories given path to the output file or directory.
 
@@ -63,7 +63,7 @@ def init_wrapper_function(index_file=None, output_dir=None, output_file=None):
     -------
     index (dict): loaded index file dictionary
     sorted_index (dict): OrderedDict object representing a sorted version of index
-    '''
+    """
 
     _make_directories(output_dir, output_file)
 
@@ -77,7 +77,7 @@ def init_wrapper_function(index_file=None, output_dir=None, output_file=None):
 
 
 def add_group_wrapper(index_file, config_data):
-    '''
+    """
     Given a pre-specified key and value, the index file will be updated
     with the respective found keys and values.
 
@@ -88,7 +88,7 @@ def add_group_wrapper(index_file, config_data):
 
     Returns
     -------
-    '''
+    """
     new_index_path = f'{index_file.replace(".yaml", "")}_update.yaml'
 
     # Read index file contents
@@ -127,7 +127,7 @@ def add_group_wrapper(index_file, config_data):
 
 def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, ext='p', fps=30,
                                objective='duration (mean match)'):
-    '''
+    """
     Given a directory containing multiple models trained on different kappa values,
     finds the model with the closest median syllable duration to the PC changepoints.
     Function also graphs the distributions of the best fit model and PC changepoints
@@ -148,7 +148,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     -------
     best_model_info (dict): Dict containing the best model info with respect to given objective.
     fig (pyplot figure): syllable usage ordered by frequency, 90% usage marked
-    '''
+    """
 
     # Get models
     if not ext.startswith('.'): ext = '.' + ext
@@ -189,7 +189,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
 def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors=None,
                                 show_scalars=['velocity_2d_mm', 'velocity_3d_mm',
                                               'height_ave_mm', 'width_mm', 'length_mm']):
-    '''
+    """
     Creates a scalar summary graph.
 
     Parameters
@@ -203,7 +203,7 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     Returns
     -------
     scalar_df (pandas DataFrame): df containing scalar data per session uuid.
-    '''
+    """
 
     # Get loaded index dict
     _, sorted_index = init_wrapper_function(index_file, output_file=output_file)
@@ -222,7 +222,7 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
 
 def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage', sort=True, count='usage', group=None, max_syllable=40,
                                ordering=None, ctrl_group=None, exp_group=None, colors=None, figsize=(10, 5)):
-    '''
+    """
     Graph given syllable statistic from a trained AR-HMM model.
 
     Parameters
@@ -247,7 +247,7 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     Returns
     -------
     fig (pyplot figure): figure to show in Jupyter Notebook.
-    '''
+    """
     if ordering == 'diff' and any(x is None for x in (ctrl_group, exp_group)):
         raise ValueError('ctrl_group and exp_group must be specified to order by group differences') 
 
@@ -270,7 +270,7 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     return fig
 
 def plot_mean_group_position_pdf_wrapper(index_file, output_file, normalize=False, norm_color=mpl.colors.LogNorm()):
-    '''
+    """
     Computes the position PDF for each session, averages the PDFs within each group,
     and plots the averaged PDFs.
 
@@ -284,7 +284,7 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file, normalize=Fals
     Returns
     -------
     fig (pyplot figure): figure to graph in Jupyter Notebook.
-    '''
+    """
 
     # Get loaded index dicts via decorator
     _, sorted_index = init_wrapper_function(index_file, output_file=output_file)
@@ -304,7 +304,7 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file, normalize=Fals
     return fig
 
 def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=False, norm_color=mpl.colors.LogNorm()):
-    '''
+    """
     Wrapper function that computes the PDF for the mouse position for each session in the index file.
     Will plot each session's heatmap with a "SessionName: Group"-like title.
 
@@ -318,7 +318,7 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=False, norm_col
     Returns
     -------
     fig (pyplot figure): figure to graph in Jupyter Notebook.
-    '''
+    """
 
     # Get loaded index dicts via decorator
     _, sorted_index = init_wrapper_function(index_file, output_file=output_file)
@@ -338,7 +338,7 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=False, norm_col
     return fig
 
 def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_data):
-    '''
+    """
     Wrapper function to plot transition graphs.
 
     Parameters
@@ -351,7 +351,7 @@ def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_dat
     Returns
     -------
     plt (pyplot figure): graph to show in Jupyter Notebook.
-    '''
+    """
 
     # Load index file and model data
     model_data = parse_model_results(model_fit)
@@ -396,7 +396,7 @@ def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_dat
     return plt
 
 def make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data):
-    '''
+    """
     Wrapper function to create crowd movie videos and write them to individual
     files depicting respective syllable labels.
 
@@ -417,7 +417,7 @@ def make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data):
     Returns
     -------
     cm_paths (dict): Dictionary of syllables and their generated crowd movie paths
-    '''
+    """
 
     # Load index file and model data
     model_fit = parse_model_results(model_path)
@@ -492,7 +492,7 @@ def make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data):
     return cm_paths
 
 def copy_h5_metadata_to_yaml_wrapper(input_dir):
-    '''
+    """
     Copy h5 metadata dictionary contents into the respective file's yaml file.
 
     Parameters
@@ -501,7 +501,7 @@ def copy_h5_metadata_to_yaml_wrapper(input_dir):
 
     Returns
     -------
-    '''
+    """
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)
     to_load = [(tmp, yml, file) for tmp, yml, file in zip(

@@ -1,8 +1,8 @@
-'''
+"""
 
 Helper functions for handling crowd movie file writing and video metadata maintenance.
 
-'''
+"""
 import cv2
 import warnings
 import subprocess
@@ -20,7 +20,7 @@ from moseq2_viz.model.util import get_syllable_slices
 from cytoolz.curried import get_in, keyfilter, valmap
 
 def check_video_parameters(index: dict) -> dict:
-    '''
+    """
     Iterates through each extraction parameter file to verify extraction parameters
     were the same. If they weren't this function raises a RuntimeError.
 
@@ -31,7 +31,7 @@ def check_video_parameters(index: dict) -> dict:
     Returns
     -------
     vid_parameters (dict): a dictionary with a subset of the used extraction parameters.
-    '''
+    """
     from moseq2_viz.util import read_yaml
 
     # define constants
@@ -76,7 +76,7 @@ def check_video_parameters(index: dict) -> dict:
     return vid_parameters
 
 def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
-    '''
+    """
     Creates an info.yaml file in the crowd movie directory that holds model training parameters.
     This file helps identify the conditions from which the crowd movies were generated.
 
@@ -89,7 +89,7 @@ def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
 
     Returns
     -------
-    '''
+    """
 
     # Crowd movie info file contents; used to indicate the modeling state the crowd_movies were generated from
     info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
@@ -110,7 +110,7 @@ def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
         yaml.safe_dump(info_dict, f)
 
 def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir):
-    '''
+    """
     Creates syllable slices for crowd movies and writes them to files.
 
     Parameters
@@ -125,7 +125,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
 
     Returns
     -------
-    '''
+    """
     progress_bar = config_data.get('progress_bar', False)
 
     # Filtering parameters
@@ -190,7 +190,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
 
 
 def _fname_formatter(syll, format, output_dir, ordering, count):
-    '''
+    """
 
     Helper function to create filename strings for the syllable crowd movies to generate.
 
@@ -205,12 +205,12 @@ def _fname_formatter(syll, format, output_dir, ordering, count):
     Returns
     -------
     (str): path to syllable crowd movie.
-    '''
+    """
     return join(output_dir, format.format(syll, count, ordering[syll]))
 
 
 def _matrix_writer_helper(syll, matrix_fun, slice_fun, write_fun, namer):
-    '''
+    """
     Helper function to generate crowd movies using multiprocessing.
 
     Parameters
@@ -224,7 +224,7 @@ def _matrix_writer_helper(syll, matrix_fun, slice_fun, write_fun, namer):
     Returns
     -------
     (function): helper function to write the crowd movies to their respective files, if the video matrices were created.
-    '''
+    """
 
     mtx = matrix_fun(slice_fun(syll))
     if mtx is not None:
@@ -237,7 +237,7 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
                          frame_size=None, depth_min=0, depth_max=80,
                          get_cmd=False, cmap='jet', text=None, text_scale=1,
                          text_thickness=2, pipe=None, close_pipe=True, progress_bar=True, **kwargs):
-    '''
+    """
     Writes out a false-colored mp4 video.
     [Duplicate from moseq2-extract]
 
@@ -267,7 +267,7 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
     Returns
     -------
     pipe (subProcess.Pipe object): if there are more slices/chunks to write to, otherwise the path to the movie.
-    '''
+    """
 
     # pad frames so that dimensions are divisible by 2
     if not np.mod(frames.shape[1], 2) == 0:

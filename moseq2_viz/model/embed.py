@@ -1,6 +1,6 @@
-'''
+"""
 Utility file for computing and visualizing syllable label scalar and stat embeddings.
-'''
+"""
 
 import numpy as np
 import seaborn as sns
@@ -11,7 +11,7 @@ from moseq2_viz.model.util import get_Xy_values
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 
 def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embedding='PCA', n_components=2, plot_all_subjects=True):
-    '''
+    """
     Computes a 2D embedding of the mean syllable statistic of choice. User selects an embedding type, a stat
      to compute the embedding on, and provides a dataframe with the mean syllable information.
      The function will output a figure of the 2D representation of the embedding.
@@ -30,7 +30,7 @@ def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embe
     -------
     fig (matplotlib figure): figure containing plotted 2d embedding.
     ax (matplonlib axes): axes instance for plotted figure.
-    '''
+    """
 
     if embedding.lower() == 'lda':
         embedder = LDA(solver='eigen', shrinkage='auto', n_components=n_components, store_covariance=True)
@@ -57,7 +57,7 @@ def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embe
     return fig, ax
 
 def run_2d_scalar_embedding(scalar_df, output_file='2d_scalar_embedding.pdf', embedding='PCA', n_components=2, plot_all_subjects=True):
-    '''
+    """
     Computes a 2D embedding of the mean measured scalar values for all groups. User selects an embedding type,
      and provides a dataframe to compute the mean scalar information from.
      The function will output a figure of the 2D representation of the embedding.
@@ -75,7 +75,7 @@ def run_2d_scalar_embedding(scalar_df, output_file='2d_scalar_embedding.pdf', em
     -------
     fig (matplotlib figure): figure containing plotted 2d embedding.
     ax (matplonlib axes): axes instance for plotted figure.
-    '''
+    """
 
     # Initialize embedding method
     if embedding.lower() == 'lda':
@@ -126,7 +126,7 @@ def plot_embedding(L,
                    y_dim=1,
                    symbols="o*v^s",
                    plot_all_subjects=True):
-    '''
+    """
 
     Parameters
     ----------
@@ -146,7 +146,7 @@ def plot_embedding(L,
     -------
     fig (matplotlib figure): figure containing plotted 2d embedding.
     ax (matplonlib axes): axes instance for plotted figure.
-    '''
+    """
 
     fig, ax = plt.subplots(1, 1, figsize=(10, 10), facecolor='w')
 

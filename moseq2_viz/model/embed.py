@@ -16,8 +16,7 @@ def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embe
      to compute the embedding on, and provides a dataframe with the mean syllable information.
      The function will output a figure of the 2D representation of the embedding.
 
-    Parameters
-    ----------
+    Args:
     mean_df (pd DataFrame): Dataframe of the mean syllable statistics for all sessions
     stat (str): name of statistic (column) in mean_df to embed.
     output_file (str): path to saved outputted figure
@@ -26,8 +25,7 @@ def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embe
     plot_all_subjects (bool): indicates whether to plot individual subject embeddings along with their respective
      group means.
 
-    Returns
-    -------
+    Returns:
     fig (matplotlib figure): figure containing plotted 2d embedding.
     ax (matplonlib axes): axes instance for plotted figure.
     """
@@ -62,8 +60,7 @@ def run_2d_scalar_embedding(scalar_df, output_file='2d_scalar_embedding.pdf', em
      and provides a dataframe to compute the mean scalar information from.
      The function will output a figure of the 2D representation of the embedding.
 
-    Parameters
-    ----------
+    Args:
     scalar_df (pd DataFrame): Dataframe of the frame-by-frame scalar measurements for all sessions
     output_file (str): path to saved outputted figure
     embedding (str): type of embedding to run. Either ['lda', 'pca']
@@ -71,8 +68,7 @@ def run_2d_scalar_embedding(scalar_df, output_file='2d_scalar_embedding.pdf', em
     plot_all_subjects (bool): indicates whether to plot individual subject embeddings along with their respective
      group means.
 
-    Returns
-    -------
+    Returns:
     fig (matplotlib figure): figure containing plotted 2d embedding.
     ax (matplonlib axes): axes instance for plotted figure.
     """
@@ -128,8 +124,7 @@ def plot_embedding(L,
                    plot_all_subjects=True):
     """
 
-    Parameters
-    ----------
+    Args:
     L (2D np.array): the embedding representations of the mean syllable statistic to plot.
     y (1D list): list of group names corresponding to each row in L.
     mapping (dict): dictionary conataining mappings from group string to integer for later embedding.
@@ -142,8 +137,7 @@ def plot_embedding(L,
     plot_all_subjects (bool): indicates whether to plot individual subject embeddings along with their respective
      group means.
 
-    Returns
-    -------
+    Returns:
     fig (matplotlib figure): figure containing plotted 2d embedding.
     ax (matplonlib axes): axes instance for plotted figure.
     """

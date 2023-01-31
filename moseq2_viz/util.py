@@ -20,12 +20,10 @@ def camel_to_snake(s):
     """
     Converts CamelCase to snake_case
 
-    Parameters
-    ----------
+    Args:
     s (str): string to convert to snake case
 
-    Returns
-    -------
+    Returns:
     (str): snake_case string
     """
     # https://gist.github.com/jaytaylor/3660565
@@ -41,15 +39,13 @@ def get_index_hits(config_data, metadata, key, v):
     Searches for matching keys in given index file metadata dict.
     Returns list of booleans indicating that a session was found.
 
-    Parameters
-    ----------
+    Args:
     config_data (dict): dictionary containing boolean search filters [lowercase, negative]
     metadata (list): list of session metadata dict objects
     key (str): metadata key being searched for
     v (str): value of the corresponding key to be found
 
-    Returns
-    -------
+    Returns:
     hits (list): list of booleans indicating the found sessions to be updated in add_group_wrapper()
     """
 
@@ -73,12 +69,10 @@ def clean_dict(dct):
     """
     Casts numpy array values into lists and `np.generic` data into scalar values.
 
-    Parameters
-    ----------
+    Args:
     dct (dict): dictionary with values to clean.
 
-    Returns
-    -------
+    Returns:
     (dict): dictionary with standardized value types. 
     """
 
@@ -100,13 +94,11 @@ def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
     """
     Load h5 contents to dictionary.
 
-    Parameters
-    ----------
+    Args:
     file (h5py.File): open h5py File object.
     path (str): path within h5 to dict to load.
 
-    Returns
-    -------
+    Returns:
     ans (dict): loaded dictionary from h5 dataset or group
     """
 
@@ -127,13 +119,11 @@ def h5_to_dict(h5file, path: str = '/') -> dict:
     """
     Load h5 dict contents to a dict variable.
 
-    Parameters
-    ----------
+    Args:
     h5file (str or h5py.File): file path to the given h5 file or the h5 file handle
     path (str): path to the base dataset within the h5 file. Default: /
 
-    Returns
-    -------
+    Returns:
     out (dict): dictionary of all h5 contents
     """
 
@@ -151,12 +141,10 @@ def get_timestamps_from_h5(h5file: str) -> np.ndarray:
     """
     Returns dict of timestamps from h5file.
 
-    Parameters
-    ----------
+    Args:
     h5file (str): path to h5 file.
 
-    Returns
-    -------
+    Returns:
     (np.ndarray): timestamps from extraction within the h5file.
     """
 
@@ -173,12 +161,10 @@ def get_metadata_path(h5file):
     """
     Return path within h5 file that contains the kinect extraction metadata.
 
-    Parameters
-    ----------
+    Args:
     h5file (str): path to h5 file.
 
-    Returns
-    -------
+    Returns:
     (str): path to acquistion metadata within h5 file.
     """
 
@@ -195,12 +181,10 @@ def load_changepoint_distribution(cpfile):
     """
     Loads changepoint durations from given changepoints file `cpfile`.
 
-    Parameters
-    ----------
+    Args:
     cpfile (str): Path to changepoints h5 file.
 
-    Returns
-    -------
+    Returns:
     (1d numpy array): Array of changepoint durations.
     """
 
@@ -213,13 +197,11 @@ def load_timestamps(timestamp_file, col=0):
     """
     Read timestamps from space delimited text file.
 
-    Parameters
-    ----------
+    Args:
     timestamp_file (str): path to timestamp file
     col (int): column to load.
 
-    Returns
-    -------
+    Returns:
     ts (np.ndarray): loaded array of timestamps
     """
 
@@ -235,13 +217,11 @@ def parse_index(index: Union[str, dict]) -> tuple:
     """
     Load an index file, and use extraction UUIDs as entries in a sorted index.
 
-    Parameters
-    ----------
+    Args:
     index (str or dict): if str, must be a path to the index file. If dict,
         must be the unsorted index.
 
-    Returns
-    -------
+    Returns:
     index (dict): loaded index file contents in a dictionary
     sorted_index (dict): index where the files have been sorted by UUID and pca_score path.
     """
@@ -280,12 +260,10 @@ def get_sorted_index(index_file: str) -> dict:
     """
     Just return the sorted index from an index_file path.
 
-    Parameters
-    ----------
+    Args:
     index_file (str): path to index file.
 
-    Returns
-    -------
+    Returns:
     sorted_ind (dict): dictionary of loaded sorted index file contents
     """
 
@@ -297,12 +275,10 @@ def h5_filepath_from_sorted(sorted_index_entry: dict) -> str:
     """
     Gets the h5 extraction file path from a sorted index entry
 
-    Parameters
-    ----------
+    Args:
     sorted_index_entry (dict): get filepath from sorted index.
 
-    Returns
-    -------
+    Returns:
     (str): a str containing the extraction filepath
     """
 
@@ -315,14 +291,12 @@ def recursive_find_h5s(root_dir=None,
     """
     Recursively find h5 files, along with yaml files with the same basename.
 
-    Parameters
-    ----------
+    Args:
     root_dir (str): path to directory containing h5, if None, searches the current working directory
     ext (str): extension to search for.
     yaml_string (str): yaml file format name.
 
-    Returns
-    -------
+    Returns:
     h5s (list): list of paths to h5 files
     dicts (list): list of paths to metadata files
     yamls (list): list of paths to yaml files
@@ -360,12 +334,10 @@ def read_yaml(yaml_path: str):
     """
     Reads a given yaml file path into a dict object.
 
-    Parameters
-    ----------
+    Args:
     yaml_path (str): path to yaml file to read.
 
-    Returns
-    -------
+    Returns:
     loaded (dict): loaded yaml file contents.
 
     """
@@ -379,14 +351,12 @@ def strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
     """
     Taking subarrays from numpy array given stride
 
-    Parameters
-    ----------
+    Args:
     a (np.array): array to get subarrays from.
     L (int): window length.
     S (int): stride size.
 
-    Returns
-    -------
+    Returns:
     (np.ndarray): sliced subarrays
     """
 
@@ -402,13 +372,11 @@ def star(f, args):
     each of the function's parameters. It is curried, which allows one to
     specify one argument at a time.
 
-    Parameters
-    ----------
+    Args:
     f (function): a function that takes multiple arguments
     args (tuple): : a tuple to expand into ``f``
 
-    Returns
-    -------
+    Returns:
     the output of ``f``
     """
 
@@ -419,8 +387,7 @@ def assert_model_and_index_uuids_match(model, index):
     """
     Asserts that both the model and index file contain the same set of UUIDs.
 
-    Parameters
-    ----------
+    Args:
     model (str or dict): if str, must be a path to the model. If dict, it contains the
         model data after parsing the model results
     index (str or dict): if str, must be a path to the index file. If dict, it contains

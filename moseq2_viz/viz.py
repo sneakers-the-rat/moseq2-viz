@@ -25,8 +25,7 @@ def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='s
     plotting function with some respective defaulting parameters. Also orders syllable labels
     based on the average `stat` values per syllable.
 
-    Parameters
-    ----------
+    Args:
     complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
     stat (str): choice of statistic to plot: either usage, duration, or speed
     ordering (str, list, None): "stat" for sorting syllables by their average `stat`. "diff" for sorting syllables by
@@ -39,8 +38,7 @@ def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='s
     colors (list): list of user-selected colors to represent the data
     figsize (tuple): tuple value of length = 2, representing (height x width) of the plotted figure dimensions
 
-    Returns
-    -------
+    Returns:
     ordering (1D list): list of syllable indices to display on x-axis
     groups (1D list): list of unique groups to plot
     colors (1D list): list of unique colors for each plotted group
@@ -91,16 +89,14 @@ def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
     """
     Filters frames using spatial filters such as Median or Gaussian filters.
 
-    Parameters
-    ----------
+    Args:
     frames (3D numpy array): frames to filter.
     medfilter_space (list): list of len()==1, must be odd. Median space filter kernel size.
     gaussfilter_space (list): list of len()==2. Gaussian space filter kernel size.
     tail_filter (cv2.getStructuringElement): structuringElement to filter out mouse tails.
     tail_threshold (int): filtering threshold value
 
-    Returns
-    -------
+    Returns:
     out (3D numpy array): filtered numpy array.
     """
 
@@ -132,15 +128,13 @@ def save_fig(fig, output_file, suffix=None, **kwargs):
     """
     Convenience function for saving created/open matplotlib figures to PNG and PDF formats.
 
-    Parameters
-    ----------
+    Args:
     fig (pyplot.Figure): open figure to save
     output_file (str): path to save figure to (without extension)
     suffix (str): string to append to the end of output_file
     kwargs (dict): dictionary containing additional figure saving parameters. (check plot-stats in wrappers.py)
 
-    Returns
-    -------
+    Returns:
     """
 
     os.makedirs(dirname(output_file), exist_ok=True)
@@ -159,8 +153,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
     """
     Creates crowd movie video numpy array.
 
-    Parameters
-    ----------
+    Args:
     slices (np.ndarray): video slices of specific syllable label
     nexamples (int): maximum number of mice to include in crowd_matrix video
     pad (int): number of frame padding in video
@@ -177,8 +170,7 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
     legacy_jitter_fix (bool): whether to apply jitter fix for K1 camera.
     kwargs (dict): extra keyword arguments
 
-    Returns
-    -------
+    Returns:
     crowd_matrix (np.ndarray): crowd movie for a specific syllable.
     """
 
@@ -366,16 +358,14 @@ def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
     Creates a position summary graph that shows all the
     mice's centroid path throughout the respective sessions.
 
-    Parameters
-    ----------
+    Args:
     scalar_df (pandas DataFrame): dataframe containing all scalar data
     centroid_vars (list): list of scalar variables to track mouse position
     sort_vars (list): list of variables to sort the dataframe by.
     group_var (str): groups df column to graph position plots for.
     plt_kwargs (dict): extra keyword arguments for plt.plot
 
-    Returns
-    -------
+    Returns:
     fig (pyplot figure): matplotlib figure object
     ax (pyplot axis): matplotlib axis object
     g (sns.FacetGrid): FacetGrid object the data was plotted with
@@ -412,8 +402,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
     """
     Creates scatter plot of given scalar variables representing extraction results.
 
-    Parameters
-    ----------
+    Args:
     scalar_df (pandas DataFrame): dataframe containing scalar data.
     sort_vars (list): list of variables to sort the dataframe by.
     group_var (str): groups scalar plots into separate distributions.
@@ -422,8 +411,7 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
     colors (list): list of color strings to indicate groups
     plt_kwargs (dict): extra arguments for the swarmplot
 
-    Returns
-    -------
+    Returns:
     fig (pyplot figure): plotted scalar scatter plot
     ax (pyplot axis): plotted scalar axis
     """
@@ -465,8 +453,7 @@ def plot_syll_stats_with_sem(scalar_df, syll_info=None, sig_sylls=None, stat='us
     This function is decorated with the check types function that will ensure that the inputted data configurations
     are safe to plot in matplotlib.
 
-    Parameters
-    ----------
+    Args:
     scalar_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
     syll_info (dict): dictionary of syllable numbers mapped to dict containing the label, description and crowd movie path.
      If provided, will add x-tick markers with the labels for each syllable.
@@ -483,8 +470,7 @@ def plot_syll_stats_with_sem(scalar_df, syll_info=None, sig_sylls=None, stat='us
     join (bool): flag to connect points of pointplot
     figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
 
-    Returns
-    -------
+    Returns:
     fig (pyplot figure): plotted scalar scatter plot
     legend (pyplot legend): figure legend
     """
@@ -545,15 +531,13 @@ def plot_mean_group_heatmap(pdfs, groups, normalize=True, norm_color=mpl.colors.
     """
     Computes the overall group mean of the computed PDFs and plots them.
 
-    Parameters
-    ----------
+    Args:
     pdfs (list): list of 2d probability density functions (heatmaps) describing mouse position.
     groups (list): list of groups to compute means and plot
     normalize (bool): flag to normalize the pdfs between 0-1
     norm_color (mpl.colors Color Scheme or None): indicates a color scheme to use when plotting heatmaps.
 
-    Returns
-    -------
+    Returns:
     fig (pyplot figure): plotted scalar scatter plot
     """
 
@@ -587,8 +571,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False, 
     """
     Plots the PDF position heatmap for each session, titled with the group and subjectName.
 
-    Parameters
-    ----------
+    Args:
     pdfs (list): list of 2d probability density functions (heatmaps) describing mouse position.
     sessions (list): list of sessions corresponding to the pdfs indices
     groups (list): list of groups corresponding to the pdfs indices
@@ -596,8 +579,7 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False, 
     normalize (bool): flag to normalize the pdfs between 0-1
     norm_color (mpl.colors Color Scheme or None): indicates a color scheme to use when plotting heatmaps.
 
-    Returns
-    -------
+    Returns:
     fig (pyplot figure): plotted scalar scatter plot
     """
 
@@ -641,16 +623,14 @@ def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, b
     Plot the duration distributions for model labels and
     principal component changepoints.
 
-    Parameters
-    ----------
+    Args:
     model_cps (dict): Multiple parsed model results aggregated into a single dict.
     pc_cps (1D np.array): Computed PC changepoints
     plot_all (bool): Plot all model changepoints for all keys included in model_cps dict.
     best_model (str): key name to the model with the closest median syllable duration
     bw_adjust (float): fraction to modify bandwith of kernel density estimate. (lower = higher definition)
 
-    Returns
-    -------
+    Returns:
     fig (pyplot figure): syllable usage ordered by frequency, 90% usage marked
     ax (pyplot axis): plotted scalar axis
     """

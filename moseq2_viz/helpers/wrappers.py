@@ -23,17 +23,12 @@ from moseq2_viz.model.util import (relabel_by_usage, parse_model_results,
 
 def _make_directories(crowd_movie_path, plot_path):
     """
-
     Given output paths to store different media types, this helper function will create the directories
      if they didn't already exist.
 
-    Parameters
-    ----------
+    Args:
     crowd_movie_path (str): path to crowd movie directory.
     plot_path (str): path to figure plots directory.
-
-    Returns
-    -------
     """
 
     # Set up output directory to save crowd movies in
@@ -49,14 +44,12 @@ def init_wrapper_function(index_file=None, output_dir=None, output_file=None):
     Helper function that will optionally load the index file and a trained model given their respective paths.
     The function will also create any output directories given path to the output file or directory.
 
-    Parameters
-    ----------
+    Args:
     index_file (str): path to index file to load.
     output_dir (str): path to directory to save plots in.
     output_file (str): path to saved figures.
 
-    Returns
-    -------
+    Returns:
     index (dict): loaded index file dictionary
     sorted_index (dict): OrderedDict object representing a sorted version of index
     """
@@ -77,13 +70,9 @@ def add_group_wrapper(index_file, config_data):
     Given a pre-specified key and value, the index file will be updated
     with the respective found keys and values.
 
-    Parameters
-    ----------
+    Args:
     index_file (str): path to index file
     config_data (dict): dictionary containing the user specified keys and values
-
-    Returns
-    -------
     """
     new_index_path = f'{index_file.replace(".yaml", "")}_update.yaml'
 
@@ -128,8 +117,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
     finds the model with the closest median syllable duration to the PC changepoints.
     Function also graphs the distributions of the best fit model and PC changepoints
 
-    Parameters
-    ----------
+    Args:
     model_dir (str): Path to directory containing multiple models.
     cp_file (str): Path to PCA changepoints
     output_file (str): Path to file to save figure to.
@@ -140,8 +128,7 @@ def get_best_fit_model_wrapper(model_dir, cp_file, output_file, plot_all=False, 
         based on either median changepoint durations or the jensen-shannon divergence
         beteween changepoint duration distributions
 
-    Returns
-    -------
+    Returns:
     best_model_info (dict): Dict containing the best model info with respect to given objective.
     fig (pyplot figure): syllable usage ordered by frequency, 90% usage marked
     """
@@ -188,16 +175,14 @@ def plot_scalar_summary_wrapper(index_file, output_file, groupby='group', colors
     """
     Creates a scalar summary graph.
 
-    Parameters
-    ----------
+    Args:
     index_file (str): path to index file.
     output_file (str): path to save graphs
     groupby (str): scalar_df column to group sessions by when graphing scalar and position summaries
     colors (list): list of colors to serve as the palette in the scalar summary
     show_scalars (list): list of scalar variables to plot; variable names must equal columns in the scalar_df DataFrame.
 
-    Returns
-    -------
+    Returns:
     scalar_df (pandas DataFrame): df containing scalar data per session uuid.
     """
 
@@ -221,8 +206,7 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     """
     Graph given syllable statistic from a trained AR-HMM model.
 
-    Parameters
-    ----------
+    Args:
     model_fit (str): path to trained model file.
     index_file (str): path to index file.
     output_file (str): filename for syllable usage graph.
@@ -240,8 +224,7 @@ def plot_syllable_stat_wrapper(model_fit, index_file, output_file, stat='usage',
     colors (list): list of colors to serve as the sns palette in the scalar summary. If None, default colors are used.
     figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
 
-    Returns
-    -------
+    Returns:
     fig (pyplot figure): figure to show in Jupyter Notebook.
     """
     if ordering == 'diff' and any(x is None for x in (ctrl_group, exp_group)):
@@ -270,15 +253,13 @@ def plot_mean_group_position_pdf_wrapper(index_file, output_file, normalize=Fals
     Computes the position PDF for each session, averages the PDFs within each group,
     and plots the averaged PDFs.
 
-    Parameters
-    ----------
+    Args:
     index_file (str): path to index file.
     output_file (str): filename for the group heatmap graph.
     normalize (bool): normalize the PDF so that min and max values range from 0-1.
     norm_color (mpl.colors Color Scheme or None): indicates a color scheme to use when plotting heatmaps.
 
-    Returns
-    -------
+    Returns:
     fig (pyplot figure): figure to graph in Jupyter Notebook.
     """
 
@@ -304,15 +285,13 @@ def plot_verbose_pdfs_wrapper(index_file, output_file, normalize=False, norm_col
     Wrapper function that computes the PDF for the mouse position for each session in the index file.
     Will plot each session's heatmap with a "SessionName: Group"-like title.
 
-    Parameters
-    ----------
+    Args:
     index_file (str): path to index file.
     output_file (str): filename for the verbose heatmap graph.
     normalize (bool): normalize the PDF so that min and max values range from 0-1.
     norm_color (mpl.colors Color Scheme or None): indicates a color scheme to use when plotting heatmaps.
 
-    Returns
-    -------
+    Returns:
     fig (pyplot figure): figure to graph in Jupyter Notebook.
     """
 
@@ -337,15 +316,13 @@ def plot_transition_graph_wrapper(index_file, model_fit, output_file, config_dat
     """
     Wrapper function to plot transition graphs.
 
-    Parameters
-    ----------
+    Args:
     index_file (str): path to index file
     model_fit (str): path to trained model.
     output_file (str): filename for syllable usage graph.
     config_data (dict): dictionary containing the user specified keys and values
 
-    Returns
-    -------
+    Returns:
     plt (pyplot figure): graph to show in Jupyter Notebook.
     """
 
@@ -396,8 +373,7 @@ def make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data):
     Wrapper function to create crowd movie videos and write them to individual
     files depicting respective syllable labels.
 
-    Parameters
-    ----------
+    Args:
     index_file (str): path to index file
     model_path (str): path to trained model.
     output_dir (str): directory to store crowd movies in.
@@ -410,8 +386,7 @@ def make_crowd_movies_wrapper(index_file, model_path, output_dir, config_data):
                   will generate a separate crowd movie for each selected grouping per syllable.
                   Resulting in (ngroups * max_syllable) movies.
 
-    Returns
-    -------
+    Returns:
     cm_paths (dict): Dictionary of syllables and their generated crowd movie paths
     """
 
@@ -491,12 +466,10 @@ def copy_h5_metadata_to_yaml_wrapper(input_dir):
     """
     Copy h5 metadata dictionary contents into the respective file's yaml file.
 
-    Parameters
-    ----------
+    Args:
     input_dir (str): path to directory that contains h5 files.
 
-    Returns
-    -------
+    Returns:
     """
 
     h5s, dicts, yamls = recursive_find_h5s(input_dir)

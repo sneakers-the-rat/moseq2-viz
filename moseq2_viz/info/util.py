@@ -10,15 +10,13 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0, relabel_by='usage'):
     """
     Computes syllable usage entropy, base 2.
 
-    Parameters
-    ----------
+    Args:
     labels (list of np.ndarray): list of predicted syllable label arrays from a group of sessions
     truncate_syllable (int): truncate list of relabeled syllables
     smoothing (float): a constant added to label usages before normalization
     relabel_by (str): mode to relabel predicted labels. Either 'usage', 'frames', or None.
 
-    Returns
-    -------
+    Returns:
     ent (list): list of entropies for each session.
     """
 
@@ -53,8 +51,7 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
     Computes entropy rate, base 2 using provided syllable labels. If
     syllable labels have not been re-labeled by usage, this function will do so.
 
-    Parameters
-    ----------
+    Args:
     labels (list or np.ndarray): a list of label arrays, where each entry in the list
             is an array of labels for one subject.
     truncate_syllable (int): maximum number of labels to keep for this calculation.
@@ -64,8 +61,7 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
     tm_smoothing (float): a constant added to label transtition counts before normalization.
     relabel_by (str): how to re-order labels. Options are: 'usage', 'frames', or None.
 
-    Returns
-    -------
+    Returns:
     ent (list): list of entropy rates per syllable label
     """
 
@@ -117,8 +113,7 @@ def transition_entropy(labels, tm_smoothing=0, truncate_syllable=40, transition_
     Computes directional syllable transition entropy. Based on whether the given transition_type is 'incoming' or
      or 'outgoing', the function will compute the respective transition entropy.
 
-    Parameters
-    ----------
+    Args:
     labels (list or np.ndarray): a list of label arrays, where each entry in the list
             is an array of labels for one subject.
     tm_smoothing (float): a constant added to label transtition counts before normalization.
@@ -127,8 +122,7 @@ def transition_entropy(labels, tm_smoothing=0, truncate_syllable=40, transition_
         incoming or outgoing syllable transition.
     relabel_by (str): how to re-order labels. Options are: 'usage', 'frames', or None.
 
-    Returns
-    -------
+    Returns:
     entropies (list of np.ndarra): a list of transition entropies (either incoming or outgoing) for
         each mouse and syllable.
     """

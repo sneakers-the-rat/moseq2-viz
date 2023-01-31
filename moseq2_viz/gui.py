@@ -16,13 +16,11 @@ def _alias(func, dec_func=None):
     """
     Copies documentation and function signatures across re-used functions (but with different names).
 
-    Parameters
-    ----------
+    Args:
     func (function): if not used as a wrapper function, this is the function to alias. Else, it is the function to wrap.
     dec_func (function): if _alias is used as a wrapper function, this is the function to alias.
 
-    Returns
-    -------
+    Returns:
     inner (function): wrapped function.
     """
     @wraps(func if dec_func is None else dec_func)
@@ -38,12 +36,10 @@ def get_groups_command(index_file):
     """
     Jupyter Notebook to print index file current metadata groupings.
 
-    Parameters
-    ----------
+    Args:
     index_file (str): path to index file
 
-    Returns
-    -------
+    Returns:
     (int): number of unique groups
     """
 
@@ -72,8 +68,7 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
     """
     Updates index file SubjectName group names with user defined group names.
 
-    Parameters
-    ----------
+    Args:
     index_file (str): path to index file
     value (str or list): SessionName value(s) to search for and update with the corresponding group(s)
     group (str or list): Respective group name(s) to set corresponding sessions as.
@@ -81,8 +76,7 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
     lowercase (bool): indicate whether to convert all searched for names to lowercase.
     negative (bool): whether to update the inverse of the found selection.
 
-    Returns
-    -------
+    Returns:
     """
 
     gui_data = {
@@ -117,8 +111,7 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30,
     this function returns the path to the model that has the closest median syllable duration to that of
     the PC Scores.
 
-    Parameters
-    ----------
+    Args:
     progress_paths (dict): Dict containing paths the to model directory and pca scores file
     output_file (str): Optional path to save the comparison plot
     plot_all (bool): Indicates whether to plot all the models' changepoint distributions with the PCs, highlighting
@@ -129,8 +122,7 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30,
         based on either median changepoint durations or the jensen-shannon divergence
         beteween changepoint duration distributions
 
-    Returns
-    -------
+    Returns:
     best_fit_model (str): Path tp best fit model
     """
 

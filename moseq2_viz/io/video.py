@@ -22,12 +22,10 @@ def check_video_parameters(index: dict) -> dict:
     Iterates through each extraction parameter file to verify extraction parameters
     were the same. If they weren't this function raises a RuntimeError.
 
-    Parameters
-    ----------
+    Args:
     index (dict): a `sorted_index` dictionary of extraction parameters.
 
-    Returns
-    -------
+    Returns:
     vid_parameters (dict): a dictionary with a subset of the used extraction parameters.
     """
     from moseq2_viz.util import read_yaml
@@ -78,15 +76,13 @@ def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
     Creates an info.yaml file in the crowd movie directory that holds model training parameters.
     This file helps identify the conditions from which the crowd movies were generated.
 
-    Parameters
-    ----------
+    Args:
     model_path (str): path to model used to generate movies
     model_fit (dict): loaded ARHMM dict
     index_file (str): path to index file used with model
     output_dir (str): path to crowd movies directory to store file in.
 
-    Returns
-    -------
+    Returns:
     """
 
     # Crowd movie info file contents; used to indicate the modeling state the crowd_movies were generated from
@@ -111,8 +107,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
     """
     Creates syllable slices for crowd movies and writes them to files.
 
-    Parameters
-    ----------
+    Args:
     sorted_index (dict): dictionary of sorted index data.
     config_data (dict): dictionary of visualization parameters.
     filename_format (str): string format that denotes the saved crowd movie file names.
@@ -121,8 +116,7 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
     label_uuids (list): list of session uuids each series of labels belongs to.
     output_dir (str): path directory where all the movies are written.
 
-    Returns
-    -------
+    Returns:
     """
     progress_bar = config_data.get('progress_bar', False)
 
@@ -192,16 +186,14 @@ def _fname_formatter(syll, format, output_dir, ordering, count):
 
     Helper function to create filename strings for the syllable crowd movies to generate.
 
-    Parameters
-    ----------
+    Args:
     syll (int): syllable number.
     format (str): format string for outputted file. E.g. "syllable_sorted-id-{:02d}_({})_original-id-{:02d}.mp4"
     output_dir (str): path to output directory containing the crowd movie.
     ordering (dict): dict object that holds the original id of the syllable crowd movie (pre-reordering).
     count (str): name of the reordering method. Default is 'usage'.
 
-    Returns
-    -------
+    Returns:
     (str): path to syllable crowd movie.
     """
     return join(output_dir, format.format(syll, count, ordering[syll]))
@@ -211,16 +203,14 @@ def _matrix_writer_helper(syll, matrix_fun, slice_fun, write_fun, namer):
     """
     Helper function to generate crowd movies using multiprocessing.
 
-    Parameters
-    ----------
+    Args:
     syll (int): syllable number.
     matrix_fun (function): helper function to create stacked video matrices given syllable slices.
     slice_fun (function): helper function to generate syllable slices given syllable number.
     write_fun (function): helper function to write the crowd movies to their respective files.
     namer (function): helper function to create filename strings for the syllable crowd movies to generate.
 
-    Returns
-    -------
+    Returns:
     (function): helper function to write the crowd movies to their respective files, if the video matrices were created.
     """
 
@@ -239,8 +229,7 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
     Writes out a false-colored mp4 video.
     [Duplicate from moseq2-extract]
 
-    Parameters
-    ----------
+    Args:
     filename (str): path to write output crowd movie file
     frames (3D numpy array): num_frames * r * c
     threads (int): number of threads to write file
@@ -262,8 +251,7 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
     progress_bar (bool): display progress bar.
     kwargs (dict): extra keyword arguments
 
-    Returns
-    -------
+    Returns:
     pipe (subProcess.Pipe object): if there are more slices/chunks to write to, otherwise the path to the movie.
     """
 

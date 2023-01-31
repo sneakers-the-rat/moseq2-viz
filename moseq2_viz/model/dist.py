@@ -23,8 +23,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
     """
     Computes the behavioral distance (square) matrices with respect to a predefined set of variables.
     
-    Parameters
-    ----------
+    Args:
     index (str): Path to index file
     model_file (str): Path to trained model
     whiten (str): Indicates whether to whiten all PCs at once or each one at a time. Options = ['all', 'each']
@@ -36,8 +35,7 @@ def get_behavioral_distance(index, model_file, whiten='all',
     sort_labels_by_usage (bool): Indicates whether to relabel syllables by count ordering
     count (str): Indicates what ordering to relabel syllables by. Options = ['usage', 'frames']
     
-    Returns
-    -------
+    Returns:
     dist_dict (dict): Dictionary containing all computed behavioral square distance matrices
     """
 
@@ -265,16 +263,14 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
     """
     Compute initial AR trajectories based on a cumulative average of lagged-PC Scores over nlags.
     
-    Parameters
-    ----------
+    Args:
     pca_scores (2D numpy array): Loaded PCA Scores. Shape=(npcs, nsamples)
     model_labels (2D list): list of 1D numpy arrays of relabeled/sorted syllable labels
     max_syllable (int): Maximum number of syllables to include.
     nlags (int): Number of lagged frames.
     npcs (int): Number of PCs to use in computation.
     
-    Returns
-    -------
+    Returns:
     syll_average (list): List containing 2D np arrays of average syllable trajectories over a nlag-strided
      PC scores array. Shape = (max_syllables, nlags*2 +1, npcs)
     """
@@ -327,14 +323,12 @@ def reformat_dtw_distances(full_mat, nsyllables, rescale=True):
     dimensions for a total of nsyllables.
     Formatting the 3D matrix (full_mat) to 2D to show the correlation distances from each state pair.
     
-    Parameters
-    ----------
+    Args:
     full_mat (3D np.ndarray): DTW distance matrices for all model states/syllables.
     nsyllables (int): Number of syllables to include in truncated DTW distance matrix.
     rescale (bool): Rescale truncated dtw-distance matrices to match output distribution.
     
-    Returns
-    -------
+    Returns:
     rmat (2D np array): Reformatted-Truncated DTW Distance Matrix; shape = (nsyllables, nsyllables)
     """
 

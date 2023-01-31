@@ -14,8 +14,7 @@ def get_session_mean_df(df, statistic="usage", max_syllable=40):
     """
     Compute a given mean syllable statistic grouped by groups and UUIDs.
 
-    Parameters
-    ----------
+    Args:
     df (pd.DataFrame): Output of moseq2_viz.model.compute_behavioral_statistics().
      nrows -> correspond to max_syllable * n_uuids,
      ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
@@ -23,8 +22,7 @@ def get_session_mean_df(df, statistic="usage", max_syllable=40):
      for example: 'usage', 'duration', 'velocity_2d_mm', etc.
     max_syllable (int): Maximum number of syllables to include
 
-    Returns
-    -------
+    Returns:
     df_pivot (pd.DataFrame): Mean syllable statistic per session; shape=(n_sessions, max_syllable)
     """
 
@@ -41,13 +39,11 @@ def bootstrap_me(usages, n_iters=10000):
     """
     Bootstraps the inputted stat data using random sampling with replacement.
 
-    Parameters
-    ----------
+    Args:
     usages (np.array): Data to bootstrap; shape = (n_mice, n_syllables)
     n_iters (int): Number of samples to return.
 
-    Returns
-    -------
+    Returns:
     boots (np.array): Bootstrapped input array of shape: (n_iters, n_syllables)
     """
 
@@ -59,13 +55,11 @@ def ztest_vect(d1, d2):
     """
     Performs a z-test on a pair of bootstrapped syllable statistics.
 
-    Parameters
-    ----------
+    Args:
     d1 (np.array): bootstrapped syllable stat array from group 1; shape = (n_boots, n_syllables)
     d2 (np.array): bootstrapped syllable stat array from group 2; shape = (n_boots, n_syllables)
 
-    Returns
-    -------
+    Returns:
     p-values (np.array): array of computed p-values of len == n_syllables.
     """
 
@@ -80,8 +74,7 @@ def ztest_vect(d1, d2):
 def bootstrap_group_means(df, group1, group2, statistic="usage", max_syllable=40):
     """
 
-    Parameters
-    ----------
+    Args:
     df (pd.DataFrame): Output of moseq2_viz.model.compute_behavioral_statistics().
      nrows -> correspond to max_syllable * n_uuids,
      ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
@@ -90,8 +83,7 @@ def bootstrap_group_means(df, group1, group2, statistic="usage", max_syllable=40
     statistic (str): Syllable statistic to compute bootstrap means for.
     max_syllable (int): Maximum syllables to compute mean statistic for.
 
-    Returns
-    -------
+    Returns:
     boots (dict): dictionary of group name (keys) paired with their bootstrapped statistics numpy array.
     """
 
@@ -110,13 +102,11 @@ def get_tie_correction(x, N_m):
     Kruskal-Wallis helper function that assigns tied rank values the average of the ranks
     they would have received if they had not been tied.
 
-    Parameters
-    ----------
+    Args:
     x (pd.Series): syllable usages for a single session.
     N_m (int): Number of total sessions.
 
-    Returns
-    -------
+    Returns:
     corrected_rank (float): average of the inputted tied rank
     """
 
@@ -141,8 +131,7 @@ def run_manual_KW_test(
     Runs a manual KW test: ranks the syllables, computes the square sums for each group, computes the H-statistic,
     and finally ensures that the results agree with the scipy.stats implementation.
 
-    Parameters
-    ----------
+    Args:
     df_usage (pd.DataFrame): DataFrame containing only pre-computed syllable stats. shape = (N_m, n_syllables)
     merged_usages_all (np.array): numpy array format of the df_usage DataFrame.
     num_groups (int): Number of unique groups
@@ -151,8 +140,7 @@ def run_manual_KW_test(
     n_perm (int): Number of permuted samples to generate.
     seed (int): Random seed used to initialize the pseudo-random number generator.
 
-    Returns
-    -------
+    Returns:
     h_all (np.array): Array of H-stats computed for given n_syllables; shape = (n_perms, N_s)
     real_ranks (np.array): Array of syllable ranks, shape = (N_m, n_syllables)
     X_ties (np.array): 1-D list of tied ranks, where if value > 0, then rank is tied. len(X_ties) = n_syllables
@@ -207,14 +195,12 @@ def plot_H_stat_significance(df_k_real, h_all, N_s):
     Plots the assigned H-statistic for each syllable computed via manual KW test.
     Syllables with H-statistic > critical H-value are considered significant.
 
-    Parameters
-    ----------
+    Args:
     df_k_real (pd.DataFrame): DataFrame containing columns= [KW (pvalue), H-stats (statistic), is_sig]
     h_all (np.array): Array of H-stats computed for given n_syllables; shape = (n_perms, N_s)
     N_s (int): Number of syllables to plot
 
-    Returns
-    -------
+    Returns:
     fig (pyplot figure): plotted H-stats plot
     ax (pyplot axis): plotted H-stats axis
     """
@@ -259,8 +245,7 @@ def run_kruskal(
     permuted randomly sampled (with replacement) syllable statistic. If len(unique_groups) > 2, then
     function will return the signficant syllables between all permutations of all the model groups.
 
-    Parameters
-    ----------
+    Args:
     df (pd.DataFrame): Output of moseq2_viz.model.compute_behavioral_statistics().
      nrows -> correspond to max_syllable * n_uuids,
      ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
@@ -274,8 +259,7 @@ def run_kruskal(
      Options can be found here: https://www.statsmodels.org/dev/generated/statsmodels.stats.multitest.multipletests.html
     verbose (bool): indicates whether to print out the significant syllable results
 
-    Returns
-    -------
+    Returns:
     df_k_real (pd.DataFrame): DataFrame of KW test results.
      n_rows=max_syllable, n_cols=['statistic', 'pvalue', 'emp_fdr', 'is_sig']
     dunn_results_df (pd.DataFrame): DataFrame of Dunn's test results for permuted group pairs.
@@ -389,8 +373,7 @@ def compute_pvalues_for_group_pairs(
     Adjusts the p-values from Dunn's z-test statistics and computes the resulting significant syllables with the
     adjusted p-values.
 
-    Parameters
-    ----------
+    Args:
     real_zs_within_group (dict): dict of group pair keys paired with vector of Dunn's z-test statistics
     null_zs  (dict): dict of group pair keys paired with vector of Dunn's z-test statistics of the null hypothesis.
     df_k_real (pd.DataFrame): DataFrame of KW test results.
@@ -401,8 +384,7 @@ def compute_pvalues_for_group_pairs(
     mc_method (str): Multiple Corrections method to use.
     verbose (bool): indicates whether to print out the significant syllable results
 
-    Returns
-    -------
+    Returns:
     df_pval_corrected (pd.DataFrame): DataFrame containing Dunn's test results with corrected p-values.
     significant_syllables (list): List of corrected KW significant syllables (syllables with p-values < thresh)
     """
@@ -433,8 +415,7 @@ def dunns_z_test_permute_within_group_pairs(
     """
     Runs Dunn's z-test statistic on combinations of all group pairs, handling pre-computed tied ranks.
 
-    Parameters
-    ----------
+    Args:
     df_usage (pd.DataFrame): DataFrame containing only pre-computed syllable stats. shape = (N_m, n_syllables)
     vc (pd.Series): value counts of sessions in each group.
     real_ranks (np.array): Array of syllable ranks, shape = (N_m, n_syllables)
@@ -444,8 +425,7 @@ def dunns_z_test_permute_within_group_pairs(
     rnd (np.random.RandomState): Pseudo-random number generator.
     n_perm (int): Number of permuted samples to generate.
 
-    Returns
-    -------
+    Returns:
     null_zs_within_group (dict): dict of group pair keys paired with vector of Dunn's z-test statistics of the null hypothesis.
     real_zs_within_group (dict): dict of group pair keys paired with vector of Dunn's z-test statistics
     """
@@ -486,8 +466,7 @@ def run_pairwise_stats(df, group1, group2, test_type="mw", verbose=False, **kwar
     """
     Wrapper for hypothesis testing functions: MannWhitney, Z-Test and T-Test.
 
-    Parameters
-    ----------
+    Args:
     df (pd.DataFrame): Output of moseq2_viz.model.compute_behavioral_statistics().
     group1 (str): Name of first group
     group2 (str): Name of second group
@@ -513,8 +492,7 @@ def mann_whitney(df, group1, group2, statistic="usage", max_syllable=40, verbose
     Runs a Mann-Whitney hypothesis test on two given groups to find significant syllables.
     Also runs multiple corrections test to find syllables to exclude.
 
-    Parameters
-    ----------
+    Args:
     df (pd.DataFrame): Output of moseq2_viz.model.compute_behavioral_statistics().
      nrows -> correspond to max_syllable * n_uuids,
      ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
@@ -526,8 +504,7 @@ def mann_whitney(df, group1, group2, statistic="usage", max_syllable=40, verbose
     thresh (float): Alpha threshold to consider syllable significant.
     mc_method (str): Multiple Corrections method to use.
 
-    Returns
-    -------
+    Returns:
     df_mw_real (pd.DataFrame): DataFrame containing Mann-Whitney U corrected results.
     shape = (max_syllable, 3), columns = ['statistic', 'pvalue', 'is_sig']
     exclude_sylls (list): list of syllables that were excluded via multiple comparisons test.
@@ -557,8 +534,7 @@ def ztest(df, group1, group2, statistic="usage", max_syllable=40, verbose=False,
     Computes a z hypothesis test on 2 (bootstrapped) selected groups.
     Also runs multiple corrections test to find syllables to exclude.
 
-    Parameters
-    ----------
+    Args:
     df (pd.DataFrame): Output of moseq2_viz.model.compute_behavioral_statistics().
     nrows -> correspond to max_syllable * n_uuids,
     ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
@@ -570,8 +546,7 @@ def ztest(df, group1, group2, statistic="usage", max_syllable=40, verbose=False,
     thresh (float): Alpha threshold to consider syllable significant.
     mc_method (str): Multiple Corrections method to use.
 
-    Returns
-    -------
+    Returns:
     pvals_ztest_boots (np.array): Computed array of p-values
     syllables_to_include (list): List of significant syllables after multiple corrections.
     """
@@ -587,8 +562,7 @@ def ttest(df, group1, group2, statistic="usage", max_syllable=40, verbose=False,
     Computes a t-hypothesis test on 2 selected groups to find significant syllables.
     Also runs multiple corrections test to find syllables to exclude.
 
-    Parameters
-    ----------
+    Args:
     df (pd.DataFrame): Output of moseq2_viz.model.compute_behavioral_statistics().
      nrows -> correspond to max_syllable * n_uuids,
      ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
@@ -600,8 +574,7 @@ def ttest(df, group1, group2, statistic="usage", max_syllable=40, verbose=False,
     thresh (float): Alpha threshold to consider syllable significant.
     mc_method (str): Multiple Corrections method to use.
 
-    Returns
-    -------
+    Returns:
     p (np.array): Computed array of p-values
     syllables_to_include (list): List of significant syllables after multiple corrections.
     """
@@ -620,15 +593,13 @@ def get_sig_syllables(df_pvals, thresh=0.05, mc_method="fdr_bh", verbose=False):
     """
     Runs multiple p-value comparisons test given a set alpha Threshold, and multiple corrections method.
 
-    Parameters
-    ----------
+    Args:
     df_pvals (pd.DataFrame): dataframe listing raw p-values
     thresh (float): Alpha threshold to consider syllable significant.
     mc_method (str): Multiple Corrections method to use.
     verbose (bool): indicates whether to print out the significant syllable results
 
-    Returns
-    -------
+    Returns:
     df_pvals (pd.DataFrame): updated dataframe listing adjusted p-values
     """
     df_pvals["p_adj"] = multipletests(df_pvals.pvalue, alpha=thresh, method=mc_method)[

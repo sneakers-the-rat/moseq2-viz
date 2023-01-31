@@ -33,12 +33,10 @@ def _assert_models_have_same_kappa(model_paths):
     Function that ensures that recursively found models to merge were trained using the same kappa hyperparameter value.
     Raises a ValueError if the models are not the same.
 
-    Parameters
-    ----------
+    Args:
     model_paths (list of str): list of strings pointing to model paths to check.
 
-    Returns
-    -------
+    Returns:
     """
 
     get_kappa = get_in(['model_parameters', 'kappa'])
@@ -54,13 +52,11 @@ def compute_syllable_explained_variance(model, save_dir=os.getcwd(), n_explained
     Computes the maximum number of syllables to include that explain `n_explained` percent
     of all frames in the dataset.
 
-    Parameters
-    ----------
+    Args:
     model (dict): ARHMM results dict
     n_explained (int): explained variance percentage threshold
 
-    Returns
-    -------
+    Returns:
     max_sylls (int): Number of syllables that explain the given percentage of the variance
     """
 
@@ -96,8 +92,7 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
     directory containing models to merge, (and the name of the latest-trained
     model) to match other model states to.
 
-    Parameters
-    ----------
+    Args:
     model_dir (str): path to directory containing all the models to merge.
     ext (str): model extension to search for.
     count (str): method to compute usages 'usage' or 'frames'.
@@ -107,8 +102,7 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
         to find the most similar syllables. If label, finds the syllable labels that
         are most overlapping
 
-    Returns
-    -------
+    Returns:
     model_data (dict): a dictionary containing all the new keys and state-matched labels.
     """
 
@@ -174,13 +168,11 @@ def get_best_fit(cp_path, model_results):
     Returns the model with the closest median syllable duration and
     closest duration distribution to the PCA changepoints.
 
-    Parameters
-    ----------
+    Args:
     cp_path (str): Path to PCA Changepoints h5 file.
     model_results (dict): dict of pairs of model names paired with dict containing their respective changepoints.
 
-    Returns
-    -------
+    Returns:
     info (dict): information about the best-fit models.
     pca_cps (1D array): pc score changepoint durations.
     """
@@ -245,13 +237,11 @@ def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
     """
     Whitens all PC scores at once.
 
-    Parameters
-    ----------
+    Args:
     pca_scores (dict): dictionary of uuid to PC score key-value pairs
     center (bool): flag to subtract the mean of the data.
 
-    Returns
-    -------
+    Returns:
     whitened_scores (dict): whitened pca_scores dict
     """
 
@@ -278,14 +268,12 @@ def get_normalized_syllable_usages(model_data, max_syllable=100, count='usage'):
     Computes syllable usages and normalizes to sum to 1.
     Returns a 1D array of their corresponding usage values.
 
-    Parameters
-    ----------
+    Args:
     model_data (dict): dict object of modeling results
     max_syllable (int): number of syllables to compute the mean usage for.
     count (str): option for whether to count syllable usages; by 'frames', or 'usage'.
 
-    Returns
-    -------
+    Returns:
     syllable_usages (1D np array): array of sorted syllable usages for all syllables in model
     """
 
@@ -299,12 +287,10 @@ def normalize_usages(usage_dict):
     """
     Normalizes syllable usages to frequency values from [0,1] instead of total counts.
 
-    Parameters
-    ----------
+    Args:
     usage_dict (dict): dictionary containing syllable label keys pointing to total counts.
 
-    Returns
-    -------
+    Returns:
     usage_dict (dict): dictionary containing syllable label keys pointing to usage frequencies.
     """
     total = sum(usage_dict.values())
@@ -315,13 +301,11 @@ def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[sli
     """
     Return a list containing slices of `syllable` indices for a mouse.
 
-    Parameters
-    ----------
+    Args:
     syllable (list): list of syllables to get slices from.
     labels (np.ndarrary): list of label predictions for each session.
 
-    Returns
-    -------
+    Returns:
     slices (list): list of syllable label slices; e.g. [slice(3, 6, None), slice(9, 12, None)]
     """
 
@@ -342,15 +326,13 @@ def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], inde
     """
     Reads dictionary of syllable labels, and returning a dict of syllable slices.
 
-    Parameters
-    ----------
+    Args:
     syllable (list): list of syllables to get slices from.
     labels (np.ndarrary): list of label predictions for each session.
     index (dict): index file contents contained in a dict.
     filter_nans (bool): replace NaN values with 0.
 
-    Returns
-    -------
+    Returns:
     vals (dict): key-value pairs of syllable slices per session uuid.
     """
     any_nan = compose(np.any, np.isnan)
@@ -379,8 +361,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
     """
     Get the indices that correspond to a specific syllable for each animal in a modeling run.
 
-    Parameters
-    ----------
+    Args:
     syllable (int): syllable number to get slices of.
     labels (np.ndarrary): list of label predictions for each session.
     label_uuids (list): list of uuid keys corresponding to each session.
@@ -388,8 +369,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
     trim_nans (bool): flag to use the pca scores file for removing time points that contain NaNs.
      Only use if you have not already trimmed NaNs previously and need to.
 
-    Returns
-    -------
+    Returns:
     syllable_slices (list): a list of indices for `syllable` in the `labels` array. Each item in the list
     is a tuple of (slice, uuid, h5_file).
     """
@@ -463,12 +443,10 @@ def add_duration_column(scalar_df):
     """
     Adds syllable duration column to scalar dataframe if it also contains syllable labels.
 
-    Parameters
-    ----------
+    Args:
     scalar_df (pd.DataFrame): Merged Syllable Stat + Scalar DataFrame object.
 
-    Returns
-    -------
+    Returns:
     scalar_df (pd.DataFrame): Same DataFrame with a new column titled "duration".
     """
     if 'labels (original)' not in scalar_df.columns and 'onset' not in scalar_df.columns:
@@ -483,12 +461,10 @@ def syll_onset(labels: np.ndarray) -> np.ndarray:
     """
     Finds indices of syllable onsets.
 
-    Parameters
-    ----------
+    Args:
     labels (np.ndarray): array of syllable labels for a mouse.
 
-    Returns
-    -------
+    Returns:
     indices (np.ndarray): an array of indices denoting the beginning of each syllables.
     """
 
@@ -503,12 +479,10 @@ def syll_duration(labels: np.ndarray) -> np.ndarray:
     """
     Computes the duration of each syllable.
 
-    Parameters
-    ----------
+    Args:
     labels (np.ndarray): array of syllable labels for a mouse.
 
-    Returns
-    -------
+    Returns:
     durations (np.ndarray): array of syllable durations.
     """
 
@@ -521,12 +495,10 @@ def syll_id(labels: np.ndarray) -> np.ndarray:
     """
     Returns the syllable label at each onset of a syllable transition.
 
-    Parameters
-    ----------
+    Args:
     labels (np.ndarray): array of syllable labels for a mouse.
 
-    Returns
-    -------
+    Returns:
     labels[onsets] (np.ndarray): an array of compressed labels.
     """
 
@@ -538,14 +510,12 @@ def get_syllable_usages(data, max_syllable=100, count='usage'):
     """
     Computes syllable usages for relabeled syllable labels.
 
-    Parameters
-    ----------
+    Args:
     data (2d list): list of syllable frame-labels for each session.
     max_syllable (int): maximum number of syllables to compute usages for.
     count (str): method to relabel the syllable usages. Either by 'usage' or by 'frames'
 
-    Returns
-    -------
+    Returns:
     usages (dict): dict object that contains usage frequency information.
     """
 
@@ -570,8 +540,7 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
     """
     Computes syllable statistics merged with the inputted scalar features.
 
-    Parameters
-    ----------
+    Args:
     scalar_df (pd.DataFrame): Scalar measuresments for full dataset, including metadata for all the sessions.
      Outputted via scalars_to_dataframe().
     groupby (list of strings): list of columns to run the pandas groupby() on the scalar_df.
@@ -580,8 +549,7 @@ def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='u
     usage_normalization (bool): indicates whether to normalize syllable usages by the value counts.
     syllable_key (str): column to rename to "syllable" for convenient referencing later on.
 
-    Returns
-    -------
+    Returns:
     features (pd.DataFrame): full feature Dataframe with scalars, metadata, and syllable statistics.
     """
 
@@ -650,15 +618,13 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
     """
     Compute the usage and duration statistics from a set of model labels
 
-    Parameters
-    ----------
+    Args:
     data (list of np.array of ints): labels loaded from a model fit.
     fill_value (int): lagged label values in the labels array to remove.
     max_syllable (int): maximum syllable to consider.
     count (str): how to count syllable usage, either by number of emissions (usage), or number of frames (frames).
 
-    Returns
-    -------
+    Returns:
     usages (OrderedDict): default dictionary of usages
     durations (OrderedDict): default dictionary of durations
     """
@@ -722,13 +688,11 @@ def labels_to_changepoints(labels, fs=30):
     """
     Compute syllable durations and combine into a "changepoint" distribution.
 
-    Parameters
-    ----------
+    Args:
     labels (list of np.ndarray of ints): labels loaded from a model fit.
     fs (float): sampling rate of camera.
 
-    Returns
-    -------
+    Returns:
     cp_dist (np.ndarray of floats): list of block durations per element in labels list.
     """
 
@@ -744,12 +708,10 @@ def parse_batch_modeling(filename):
     """
     Reads model parameter scan training results into a single dictionary.
 
-    Parameters
-    ----------
+    Args:
     filename (str): path to h5 manifest file containing all the model results.
 
-    Returns
-    -------
+    Returns:
     results_dict (dict): dictionary containing each model's training results,
      concatenated into a single list. Maintaining the original structure as though
      it was a single model's results.
@@ -781,8 +743,7 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
     """
     Reads model file and returns dictionary containing modeled results and some metadata.
 
-    Parameters
-    ----------
+    Args:
     model_obj (str or results returned from joblib.load): path to the model fit or a loaded model fit
     restart_idx (int): Select which model restart to load. (Only change for models with multiple restarts used)
     resample_idx (int): parameter used to select labels from a specific sampling iteration. Default is the last iteration (-1)
@@ -792,8 +753,7 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
     count (str): how to count syllable usage, either by number of emissions (usage),
      or number of frames (frames).
 
-    Returns
-    -------
+    Returns:
     output_dict (dict): dictionary with labels and model parameters
     """
 
@@ -851,14 +811,12 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
     """
     Resort model labels by their usages.
 
-    Parameters
-    ----------
+    Args:
     labels (list or dict): label sequences loaded from a model fit
     fill_value (int): value prepended to modeling results to account for nlags
     count (str): how to count syllable usage, either by number of emissions (usage), or number of frames (frames)
 
-    Returns
-    -------
+    Returns:
     labels (list or dict): label sequences sorted by usage
     sorting (list): the new label sorting. The index corresponds to the new label,
      while the value corresponds to the old label.
@@ -887,12 +845,10 @@ def compute_syllable_onset(labels):
 
     Computes the onset index of the each syllable label in a Series.
 
-    Parameters
-    ----------
+    Args:
     labels (list or dict): label sequences loaded from a model fit
 
-    Returns
-    -------
+    Returns:
     onsets (2D np.array): onset indices for each syllable for the given sessions.
     """
     onset = pd.Series(labels).diff().fillna(1) != 0
@@ -904,13 +860,11 @@ def prepare_model_dataframe(model_path, pca_path):
 
     Creates a dataframe from syllable labels to be aligned with scalars.
 
-    Parameters
-    ----------
+    Args:
     model_path (str): path to model to load label arrays from
     pca_path (str): path to pca_scores.h5 file.
 
-    Returns
-    -------
+    Returns:
     _df (pd.DataFrame): DataFrame object of timestamp aligned syllable label information.
     """
 
@@ -950,14 +904,12 @@ def simulate_ar_trajectory(ar_mat, init_points=None, sim_points=100):
     Simulate auto-regressive trajectory matrices from
     a set of initalized points.
 
-    Parameters
-    ----------
+    Args:
     ar_mat (2D np.ndarray): numpy array representing the autoregressive matrix of a model state with shape (npcs, npcs * nlags + 1)
     init_points (2D np.ndarray): pre-initialzed array of shape (nlags, npcs)
     sim_points (int): number of time points to simulate.
 
-    Returns
-    -------
+    Returns:
     sim_mat[nlags:] simulated AR trajectories excluding lagged values.
     """
 
@@ -998,15 +950,13 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
     """
     Sort modeling results from batch/parameter scan.
 
-    Parameters
-    ----------
+    Args:
     data (np.ndarray): model AR-matrices.
     averaging (bool): return an average of all the model AR-matrices.
     filenames (list): list of paths to fit models.
     kwargs (dict): dict of extra keyword arguments.
 
-    Returns
-    -------
+    Returns:
     new_matrix (np.ndarray): either average of all AR-matrices, or top sorted matrix
     param_dict (dict): model parameter dict
     filename_index (list): list of filenames associated with each model.
@@ -1089,14 +1039,12 @@ def whiten_pcs(pca_scores, method='all', center=True):
 
     Whiten PC scores using Cholesky whitening.
 
-    Parameters
-    ----------
+    Args:
     pca_scores (dict): dictionary where values are pca_scores (2d np arrays)
     method (str): 'all' to whiten using the covariance estimated from all keys, or 'each' to whiten each separately
     center (bool): whether or not to center the data
 
-    Returns
-    -------
+    Returns:
     whitened_scores (dict): dictionary of whitened pc scores
     """
 
@@ -1117,13 +1065,11 @@ def normalize_pcs(pca_scores: dict, method: str = 'zscore') -> dict:
     demean: subtract the mean from each score.
     ind-zscore: zscore each session independently
 
-    Parameters
-    ----------
+    Args:
     pca_scores (dict): dict of uuid to PC-scores key-value pairs.
     method (str): the type of normalization to perform (demean, zscore, ind-zscore)
 
-    Returns
-    -------
+    Returns:
     norm_scores (dict): a dictionary of normalized PC scores.
     """
     if method not in ('zscore', 'demean', 'ind-zscore'):
@@ -1151,12 +1097,10 @@ def _gen_to_arr(generator: Iterator[Any]) -> np.ndarray:
     """
     Cast a generator object into a numpy array.
 
-    Parameters
-    ----------
+    Args:
     generator (Iterator[Any]): a generator object.
 
-    Returns
-    -------
+    Returns:
     arr (np.ndarray): numpy array of generated list.
     """
 
@@ -1169,8 +1113,7 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
     """
     Subsample Principal components from syllable slices
 
-    Parameters
-    ----------
+    Args:
     slices (np.ndarray): syllable slices or subarrays
     pca_scores (np.ndarray): PC scores for respective session.
     max_dur (int): maximum syllable length.
@@ -1181,8 +1124,7 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
     remove_offset (bool): indicate whether to remove initial offset from each PC score.
     kwargs (dict): used to capture certain arguments in other parts of the codebase.
 
-    Returns
-    -------
+    Returns:
     syllable_matrix (np.ndarray): 3D matrix of subsampled PC projected syllable slices.
     """
 
@@ -1224,8 +1166,7 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, label_dict
     Helper function that writes syllable crowd movies for each given grouping found in group_keys, and returns
      a dictionary with session/group name keys paired with paths to their respective generated crowd movies.
 
-    Parameters
-    ----------
+    Args:
     config_data (dict): Loaded crowd movie writing configuration parameters.
     sorted_index (dict): Loaded index file and sorted files in list.
     group_keys (dict): Dict of group/session name keys paired with UUIDS to match with labels.
@@ -1234,8 +1175,7 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, label_dict
     ordering (list): ordering for the new mapping of the relabeled syllable usages.
     sessions (bool): indicates whether session crowd movies are being generated.
 
-    Returns
-    -------
+    Returns:
     cm_paths (dict): group/session name keys paired with paths to their respectively generated syllable crowd movies.
     """
 
@@ -1269,16 +1209,14 @@ def sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group, max_sy
     The sorted result will yield an array will indices depicting the largest positive (upregulated)
     difference between exp and ctrl groups on the left, and vice versa on the right.
 
-    Parameters
-    ----------
+    Args:
     complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
     ctrl_group (str): Control group.
     exp_group (str): Experimental group.
     max_sylls (int): maximum number of syllables to include in ordering.
     stat (str): choice of statistic to order mutations by: {usage, duration, speed}.
 
-    Returns
-    -------
+    Returns:
     ordering (list): list of array indices for the new label mapping.
     """
     if max_sylls is not None:
@@ -1301,14 +1239,12 @@ def sort_syllables_by_stat(complete_df, stat='usage', max_sylls=None):
     """
     Computes the sorted ordering of the given DataFrame with respect to the chosen stat.
 
-    Parameters
-    ----------
+    Args:
     complete_df (pd.DataFrame): DataFrame containing the statistical information about syllable data [usages, durs, etc.]
     stat (str): choice of statistic to order syllables by: {usage, duration, speed}.
     max_sylls (int or None): maximum number of syllables to include in ordering
 
-    Returns
-    -------
+    Returns:
     ordering (list): list of sorted syllables by stat.
     relabel_mapping (dict): a dict with key-value pairs {old_ordering: new_ordering}.
     """
@@ -1330,14 +1266,12 @@ def get_Xy_values(stat_means, unique_groups, stat='usage'):
     Computes the syllable or scalar mean statistics for each session, stored in X. Computes and corresponding
      mapped group name value for each of the sessions to be tracked when plotting the values in the embedding steps.
 
-    Parameters
-    ----------
+    Args:
     stat_means (pd DataFrame): Dataframe of syllable or session-scalar mean statistics
     unique_groups (1D list): list of unique groups in the syll_means dataframe.
     stat (str or list): statistic column(s) to read from the syll_means df.
 
-    Returns
-    -------
+    Returns:
     X (2D np.array): mean syllable or scalar statistics for each session. (nsessions x nsyllables)
     y (1D list): list of group names corresponding to each row in X.
     mapping (dict): dictionary conataining mappings from group string to integer for later embedding.

@@ -1,7 +1,5 @@
 """
-
-Utility functions specifically responsible for handling model data during pre and post processing.
-
+Utility functions for handling model data during pre and post processing.
 """
 
 import os

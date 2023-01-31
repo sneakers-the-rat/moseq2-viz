@@ -1,7 +1,5 @@
 """
-
-Utility functions for estimating "behavioral distance" AKA model state similarity analysis.
-
+Utility functions for estimating syllable similarity (behavioral distance).
 """
 import warnings
 import numpy as np

@@ -1,3 +1,6 @@
+"""
+Functions for statistical tests for analyzing model results.
+"""
 import numpy as np
 import pandas as pd
 import seaborn as sns

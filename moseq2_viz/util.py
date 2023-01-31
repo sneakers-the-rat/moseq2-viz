@@ -1,7 +1,5 @@
 """
-
-General utility functions to facilitate loading and organizing data.
-
+General utility functions fors loading and organizing data.
 """
 
 import re

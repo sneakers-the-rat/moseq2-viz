@@ -1,7 +1,5 @@
 """
-
-Visualization model containing all plotting functions and some dependent data pre-processing helper functions.
-
+Data pre-processing and visualization functions for model results.
 """
 
 import os

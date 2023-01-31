@@ -1,7 +1,5 @@
 """
-
-Utility functions responsible for handling all scalar data-related operations.
-
+Utility functions for handling all scalar data-related operations.
 """
 
 import h5py

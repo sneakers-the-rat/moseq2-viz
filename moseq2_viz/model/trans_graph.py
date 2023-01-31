@@ -1,7 +1,5 @@
 """
-
-Syllable transition graph creation and utility functions.
-
+Visualization and utility functions for transition matrices.
 """
 import warnings
 import numpy as np

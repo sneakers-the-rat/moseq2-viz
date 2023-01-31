@@ -1,5 +1,5 @@
 """
-Utility file for computing and visualizing syllable label scalar and stat embeddings.
+Functions to run PCA and LDA on syllable usages and scalars
 """
 
 import numpy as np

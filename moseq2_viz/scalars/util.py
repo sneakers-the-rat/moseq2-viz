@@ -501,7 +501,7 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
      groups, session uuids, and subjectNames.
 
     Args:
-    scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
+    scalar_df (pandas.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
     normalize (bool): Indicates whether normalize the pdfs.
     centroid_vars (list): list of strings for column values to use when computing mouse position.
     key (str): metadata column to return info from.
@@ -539,13 +539,13 @@ def compute_mean_syll_scalar(scalar_df, scalar='velocity_3d_mm', max_sylls=40, s
     values in the dataframe.
 
     Args:
-    scalar_df (pd.DataFrame): DataFrame containing all scalar data + uuid and syllable columns for all stacked sessions
+    scalar_df (pandas.DataFrame): DataFrame containing all scalar data + uuid and syllable columns for all stacked sessions
     scalar (str or list): Selected scalar column(s) to compute mean value for syllables
     max_sylls (int): maximum amount of syllables to include in output.
     syllable_key (str): column in scalar_df that points to the syllable labels to use.
 
     Returns:
-    mean_df (pd.DataFrame): updated input DataFrame with a speed value for each syllable merge in as a new column.
+    mean_df (pandas.DataFrame): updated input DataFrame with a speed value for each syllable merge in as a new column.
     """
     if syllable_key not in scalar_df:
         raise ValueError('scalar_df must be loaded with labels. Supply a model path to scalars_to_dataframe.')
@@ -566,7 +566,7 @@ def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='grou
     groupby='SessionName'
 
     Args:
-    pdf_df (pd.DataFrame): model results dataframe including a position PDF column containing 2D numpy arrays.
+    pdf_df (pandas.DataFrame): model results dataframe including a position PDF column containing 2D numpy arrays.
     normalize (bool): Indicates whether normalize the pdf scales.
     syllables (list): list of syllables to get a grouping of.
     groupby (str): column name to group the df keys by. (either group, or SessionName)
@@ -596,7 +596,7 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
     Computes position heatmaps for each syllable on a session-by-session basis
 
     Args:
-    scalar_df (pd.DataFrame): DataFrame containing scalar data & labels for all sessions
+    scalar_df (pandas.DataFrame): DataFrame containing scalar data & labels for all sessions
     syllable_key (str): dataframe column to access syllable labels
     syllables (list): List of syllables to compute heatmaps for.
     centroid_keys (list): list of column names containing the centroid values used to compute mouse position.
@@ -604,7 +604,7 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
     bins (int): number of bins to cut the position data into
 
     Returns:
-    complete_df (pd.DataFrame): Inputted model results dataframe with a
+    complete_df (pandas.DataFrame): Inputted model results dataframe with a
      new PDF column corresponding to each session-syllable pair.
     """
     if syllable_key not in scalar_df:

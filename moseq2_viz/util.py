@@ -18,7 +18,7 @@ from os.path import join, exists, dirname, splitext
 
 def camel_to_snake(s):
     """
-    Converts CamelCase to snake_case
+    Convert CamelCase to snake_case
 
     Args:
     s (str): string to convert to snake case
@@ -36,8 +36,7 @@ def camel_to_snake(s):
 
 def get_index_hits(config_data, metadata, key, v):
     """
-    Searches for matching keys in given index file metadata dict.
-    Returns list of booleans indicating that a session was found.
+    Search for matching keys in given index file metadata dict and return a list of booleans indicating that a session was found.
 
     Args:
     config_data (dict): dictionary containing boolean search filters [lowercase, negative]
@@ -67,7 +66,7 @@ def get_index_hits(config_data, metadata, key, v):
 
 def clean_dict(dct):
     """
-    Casts numpy array values into lists and `np.generic` data into scalar values.
+    Cast numpy.array into lists and np.generic data into scalar values.
 
     Args:
     dct (dict): dictionary with values to clean.
@@ -139,7 +138,7 @@ def h5_to_dict(h5file, path: str = '/') -> dict:
 
 def get_timestamps_from_h5(h5file: str) -> np.ndarray:
     """
-    Returns dict of timestamps from h5file.
+    Return a dict of timestamps from h5file.
 
     Args:
     h5file (str): path to h5 file.
@@ -179,13 +178,13 @@ def get_metadata_path(h5file):
 
 def load_changepoint_distribution(cpfile):
     """
-    Loads changepoint durations from given changepoints file `cpfile`.
+    Load changepoint durations from given model free changepoints file.
 
     Args:
     cpfile (str): Path to changepoints h5 file.
 
     Returns:
-    (1d numpy array): Array of changepoint durations.
+    (numpy.array): Array of changepoint durations.
     """
 
     cps = h5_to_dict(cpfile, 'cps')
@@ -215,11 +214,10 @@ def load_timestamps(timestamp_file, col=0):
 
 def parse_index(index: Union[str, dict]) -> tuple:
     """
-    Load an index file, and use extraction UUIDs as entries in a sorted index.
+    Load an index file, and use extraction UUIDs to sort index.
 
     Args:
-    index (str or dict): if str, must be a path to the index file. If dict,
-        must be the unsorted index.
+    index (str or dict): if str, must be a path to the index file. If dict, must be the unsorted index.
 
     Returns:
     index (dict): loaded index file contents in a dictionary
@@ -258,7 +256,7 @@ def parse_index(index: Union[str, dict]) -> tuple:
 
 def get_sorted_index(index_file: str) -> dict:
     """
-    Just return the sorted index from an index_file path.
+    Return the sorted index from an index_file path.
 
     Args:
     index_file (str): path to index file.
@@ -273,7 +271,7 @@ def get_sorted_index(index_file: str) -> dict:
 
 def h5_filepath_from_sorted(sorted_index_entry: dict) -> str:
     """
-    Gets the h5 extraction file path from a sorted index entry
+    Get the h5 extraction file path from a sorted index entry
 
     Args:
     sorted_index_entry (dict): get filepath from sorted index.
@@ -332,7 +330,7 @@ def recursive_find_h5s(root_dir=None,
 
 def read_yaml(yaml_path: str):
     """
-    Reads a given yaml file path into a dict object.
+    Read a given yaml file path into a dictionary object.
 
     Args:
     yaml_path (str): path to yaml file to read.
@@ -349,10 +347,10 @@ def read_yaml(yaml_path: str):
 # from https://stackoverflow.com/questions/40084931/taking-subarrays-from-numpy-array-with-given-stride-stepsize/40085052#40085052
 def strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
     """
-    Taking subarrays from numpy array given stride
+    Slice a numpy.array into subarrays with a given stride
 
     Args:
-    a (np.array): array to get subarrays from.
+    a (numpy.array): array to get subarrays from.
     L (int): window length.
     S (int): stride size.
 
@@ -368,9 +366,7 @@ def strided_app(a, L, S):  # Window len = L, Stride len/stepsize = S
 @curry
 def star(f, args):
     """
-    Apply a function to a tuple of args, by expanding the tuple into
-    each of the function's parameters. It is curried, which allows one to
-    specify one argument at a time.
+    Apply a function to a tuple of args, by expanding the tuple into each of the function's parameters.
 
     Args:
     f (function): a function that takes multiple arguments
@@ -385,13 +381,11 @@ def star(f, args):
 
 def assert_model_and_index_uuids_match(model, index):
     """
-    Asserts that both the model and index file contain the same set of UUIDs.
+    Assert that both the model and index file contain the same set of UUIDs.
 
     Args:
-    model (str or dict): if str, must be a path to the model. If dict, it contains the
-        model data after parsing the model results
-    index (str or dict): if str, must be a path to the index file. If dict, it contains
-        the parsed and sorted index.
+    model (str or dict): str path to the model or dictionary of model.
+    index (str or dict): str path to index file (moseq2-index.yaml) or dictionary of index data.
     """
     from moseq2_viz.model.util import parse_model_results
     if isinstance(model, str) and exists(model):

@@ -21,27 +21,23 @@ from moseq2_viz.model.util import sort_syllables_by_stat, sort_syllables_by_stat
 def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='stat', max_sylls=40, groups=None, ctrl_group=None, exp_group=None,
             colors=None, figsize=(10, 5)):
     """
-    Validates input parameters and adjust parameters according to any user errors to run the
-    plotting function with some respective defaulting parameters. Also orders syllable labels
-    based on the average `stat` values per syllable.
+    Validate input parameters, reset incorrect parameters and order the syllables based on stat parameter.
 
     Args:
-    complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
-    stat (str): choice of statistic to plot: either usage, duration, or speed
-    ordering (str, list, None): "stat" for sorting syllables by their average `stat`. "diff" for sorting syllables by
-        the difference in `stat` between `exp_group` and `ctrl_group`. If a list, the user should supply
-        the order of syllable labels to plot. If None, the original syllable IDs are used.
+    complete_df (pandas.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
+    stat (str): choice of statistic to plot eg. usage, duration, or speed
+    ordering (str, list, None): statistics for sorting syllables on or a list for syllable ordering.
     max_sylls (int): maximum number of syllable to include in plot
     groups (list): list of groups to include in plot. If groups=None, all groups will be plotted.
-    ctrl_group (str): name of control group to base mutation sorting on.
-    exp_group (str): name of experimental group to base mutation sorting on.
+    ctrl_group (str): name of control group for computing usage difference beween two groups.
+    exp_group (str): name of experimental group for computing usage difference beween two groups.
     colors (list): list of user-selected colors to represent the data
     figsize (tuple): tuple value of length = 2, representing (height x width) of the plotted figure dimensions
 
     Returns:
-    ordering (1D list): list of syllable indices to display on x-axis
-    groups (1D list): list of unique groups to plot
-    colors (1D list): list of unique colors for each plotted group
+    ordering (list): list of syllable indices to display on x-axis
+    groups (list): list of unique groups to plot
+    colors (list): list of unique colors for each plotted group
     figsize (tuple): plotted figure size (height, width)
     """
 
@@ -87,17 +83,17 @@ def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='s
 def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
                  tail_filter=None, tail_threshold=5):
     """
-    Filters frames using spatial filters such as Median or Gaussian filters.
+    Smooth frames using Median or Gaussian filters.
 
     Args:
-    frames (3D numpy array): frames to filter.
-    medfilter_space (list): list of len()==1, must be odd. Median space filter kernel size.
-    gaussfilter_space (list): list of len()==2. Gaussian space filter kernel size.
+    frames (numpy.array): frames to filter.
+    medfilter_space (list): Median space filter kernel size, list of length 1.
+    gaussfilter_space (list): x sigma and y sigma for Gaussian space filter, list of length 2.
     tail_filter (cv2.getStructuringElement): structuringElement to filter out mouse tails.
     tail_threshold (int): filtering threshold value
 
     Returns:
-    out (3D numpy array): filtered numpy array.
+    out (numpy.array): filtered numpy array.
     """
 
     out = np.copy(frames)
@@ -126,13 +122,13 @@ def clean_frames(frames, medfilter_space=None, gaussfilter_space=None,
 
 def save_fig(fig, output_file, suffix=None, **kwargs):
     """
-    Convenience function for saving created/open matplotlib figures to PNG and PDF formats.
+    Save matplotlib figures to PNG and PDF formats.
 
     Args:
     fig (pyplot.Figure): open figure to save
-    output_file (str): path to save figure to (without extension)
+    output_file (str): file name for the figure without the file extension
     suffix (str): string to append to the end of output_file
-    kwargs (dict): dictionary containing additional figure saving parameters. (check plot-stats in wrappers.py)
+    kwargs (dict): dictionary containing additional figure saving parameters.
 
     Returns:
     """
@@ -163,11 +159,11 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
     max_dur (int or None): maximum syllable duration.
     min_dur (int): minimum syllable duration.
     scale (int): mouse size scaling factor.
-    center (bool): indicate whether mice are centered.
-    rotate (bool): rotate mice to orient them.
-    select_median_duration_instances (bool): if true, select examples with syallable duration closer to median.
+    center (bool): boolean flag that indicates whether mice are centered.
+    rotate (bool): boolean flag that indicates wehther to rotate mice and orient them.
+    select_median_duration_instances (bool): flag that indicates wehther to select examples with syallable duration closer to median.
     min_height (int): minimum max height from floor to use.
-    legacy_jitter_fix (bool): whether to apply jitter fix for K1 camera.
+    legacy_jitter_fix (bool): flag that indicates wehther to apply jitter fix for K1 camera.
     kwargs (dict): extra keyword arguments
 
     Returns:
@@ -355,19 +351,18 @@ def make_crowd_matrix(slices, nexamples=50, pad=30, raw_size=(512, 424), outmovi
 def position_plot(scalar_df, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
                   sort_vars=['SubjectName', 'uuid'], group_var='group', plt_kwargs=dict(linewidth=1)):
     """
-    Creates a position summary graph that shows all the
-    mice's centroid path throughout the respective sessions.
+    Create a position summary graph that shows all the mice's centroid path throughout the respective sessions.
 
     Args:
-    scalar_df (pandas DataFrame): dataframe containing all scalar data
+    scalar_df (pandas.DataFrame): dataframe containing all scalar data
     centroid_vars (list): list of scalar variables to track mouse position
     sort_vars (list): list of variables to sort the dataframe by.
     group_var (str): groups df column to graph position plots for.
     plt_kwargs (dict): extra keyword arguments for plt.plot
 
     Returns:
-    fig (pyplot figure): matplotlib figure object
-    ax (pyplot axis): matplotlib axis object
+    fig (pyplot.figure): matplotlib figure object
+    ax (pyplot.axis): matplotlib axis object
     g (sns.FacetGrid): FacetGrid object the data was plotted with
     """
 
@@ -400,14 +395,14 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
                               'height_ave_mm', 'width_mm', 'length_mm'],
                 headless=False, colors=None, plt_kwargs=dict(height=2, aspect=0.8)):
     """
-    Creates scatter plot of given scalar variables representing extraction results.
+    Create scatter plot of given scalar variables representing extraction results.
 
     Args:
-    scalar_df (pandas DataFrame): dataframe containing scalar data.
+    scalar_df (pandas.DataFrame): dataframe containing scalar data.
     sort_vars (list): list of variables to sort the dataframe by.
     group_var (str): groups scalar plots into separate distributions.
     show_scalars (list): list of scalar variables to plot.
-    headless (bool): exclude head of dataframe from plot.
+    headless (bool): bool flag to run in headless environment
     colors (list): list of color strings to indicate groups
     plt_kwargs (dict): extra arguments for the swarmplot
 
@@ -448,27 +443,21 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
 def plot_syll_stats_with_sem(scalar_df, syll_info=None, sig_sylls=None, stat='usage', ordering='stat', max_sylls=40,
                              groups=None, ctrl_group=None, exp_group=None, colors=None, join=False, figsize=(10, 5)):
     """
-    Plots a line and/or point-plot of a given pre-computed syllable statistic (usage, duration, or speed),
-    with a SEM error bar with respect to the group.
-    This function is decorated with the check types function that will ensure that the inputted data configurations
-    are safe to plot in matplotlib.
+    Plots a line and/or point-plot of a given pre-computed syllable statistic (usage, duration, or speed), with a SEM error bar with respect to the group.
 
     Args:
-    scalar_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
+    scalar_df (pandas.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
     syll_info (dict): dictionary of syllable numbers mapped to dict containing the label, description and crowd movie path.
-     If provided, will add x-tick markers with the labels for each syllable.
-    sig_sylls (1d list): List of syllable numbers that are statistically significant to optionally mark in the graph.
+    sig_sylls (list): List of syllable numbers that are statistically significant to optionally mark in the graph.
     stat (str): choice of statistic to plot: either usage, duration, or speed
-    ordering (str, list, None): "stat" for sorting syllables by their average `stat`. "diff" for sorting syllables by
-        the difference in `stat` between `exp_group` and `ctrl_group`. If a list, the user should supply
-        the order of syllable labels to plot. If None, the original syllable IDs are used.
+    ordering (str, list, None): statistics for sorting syllables on or the list of syllable orders.
     max_sylls (int): maximum number of syllable to include in plot. default: 40
     groups (list): list of groups to include in plot. If groups=None, all groups will be plotted.
-    ctrl_group (str): name of control group to base mutation sorting on.
-    exp_group (str): name of experimental group to base mutation sorting on.
+    ctrl_group (str): Control group to graph.
+    exp_group (str): Experimental group to compare with control group.
     colors (list): list of user-selected colors to represent the data
-    join (bool): flag to connect points of pointplot
-    figsize (tuple): tuple value of length = 2, representing (columns x rows) of the plotted figure dimensions
+    join (bool): flag that indicate whether to connect points of pointplot
+    figsize (tuple): tuple value of length of 2, representing (columns x rows) of the plotted figure dimensions
 
     Returns:
     fig (pyplot figure): plotted scalar scatter plot
@@ -529,7 +518,7 @@ def plot_syll_stats_with_sem(scalar_df, syll_info=None, sig_sylls=None, stat='us
 
 def plot_mean_group_heatmap(pdfs, groups, normalize=True, norm_color=mpl.colors.LogNorm()):
     """
-    Computes the overall group mean of the computed PDFs and plots them.
+    Compute and plot the overall group mean of the computed PDFs.
 
     Args:
     pdfs (list): list of 2d probability density functions (heatmaps) describing mouse position.
@@ -569,7 +558,7 @@ def plot_mean_group_heatmap(pdfs, groups, normalize=True, norm_color=mpl.colors.
 
 def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False, norm_color=mpl.colors.LogNorm()):
     """
-    Plots the PDF position heatmap for each session, titled with the group and subjectName.
+    Plot the PDF position heatmap for each session, titled with the group and subjectName.
 
     Args:
     pdfs (list): list of 2d probability density functions (heatmaps) describing mouse position.
@@ -577,10 +566,10 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False, 
     groups (list): list of groups corresponding to the pdfs indices
     subjectNames (list): list of subjectNames corresponding to the pdfs indices
     normalize (bool): flag to normalize the pdfs between 0-1
-    norm_color (mpl.colors Color Scheme or None): indicates a color scheme to use when plotting heatmaps.
+    norm_color (mpl.colors object): indicates a color scheme to use when plotting heatmaps.
 
     Returns:
-    fig (pyplot figure): plotted scalar scatter plot
+    fig (pyplot.figure): plotted scalar scatter plot
     """
 
     uniq_groups = np.unique(groups)
@@ -620,19 +609,18 @@ def plot_verbose_heatmap(pdfs, sessions, groups, subjectNames, normalize=False, 
 
 def plot_cp_comparison(model_results, pc_cps, plot_all=False, best_model=None, bw_adjust=0.4):
     """
-    Plot the duration distributions for model labels and
-    principal component changepoints.
+    Plot the duration distributions for model labels and model free changepoints.
 
     Args:
     model_cps (dict): Multiple parsed model results aggregated into a single dict.
-    pc_cps (1D np.array): Computed PC changepoints
-    plot_all (bool): Plot all model changepoints for all keys included in model_cps dict.
+    pc_cps (np.array): Computed PC changepoints
+    plot_all (bool): Boolean flag that indicates whether to plot all model changepoints for all keys included in model_cps dict.
     best_model (str): key name to the model with the closest median syllable duration
     bw_adjust (float): fraction to modify bandwith of kernel density estimate. (lower = higher definition)
 
     Returns:
-    fig (pyplot figure): syllable usage ordered by frequency, 90% usage marked
-    ax (pyplot axis): plotted scalar axis
+    fig (pyplot.figure): syllable usage ordered by frequency, 90% usage marked
+    ax (pyplot.axis): plotted scalar axis
     """
 
     fig, ax = plt.subplots(1, 1, figsize=(8, 5))

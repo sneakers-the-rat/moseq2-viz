@@ -22,17 +22,23 @@ def _star_itemmap(func, d):
 
 
 def star_valmap(func, d):
+    """
+    map the function to itratables
+    Args:
+        func (func): function to map onto the values in iterables
+        d (dict): iterables
+
+    Returns:
+        _type_: dictionary of key and function mapped to the values
+    """
     keys = list(d.keys())
     return dict(zip(keys, starmap(func, d.values())))
 
 
 def convert_pxs_to_mm(coords, resolution=(512, 424), field_of_view=(70.6, 60), true_depth=673.1):
     """
-    Converts x, y coordinates in pixel space to mm
-    # http://stackoverflow.com/questions/17832238/kinect-intrinsic-parameters-from-field-of-view/18199938#18199938
-    # http://www.imaginativeuniversal.com/blog/post/2014/03/05/quick-reference-kinect-1-vs-kinect-2.aspx
-    # http://smeenk.com/kinect-field-of-view-comparison/
-
+    Convert x, y coordinates in pixel space to mm
+    
     Args:
     coords (list): list of [x,y] pixel coordinate lists.
     resolution (tuple): video frame size.
@@ -43,6 +49,9 @@ def convert_pxs_to_mm(coords, resolution=(512, 424), field_of_view=(70.6, 60), t
     new_coords (list): list of same [x,y] coordinates in millimeters.
     """
 
+    # http://stackoverflow.com/questions/17832238/kinect-intrinsic-parameters-from-field-of-view/18199938#18199938
+    # http://www.imaginativeuniversal.com/blog/post/2014/03/05/quick-reference-kinect-1-vs-kinect-2.aspx
+    # http://smeenk.com/kinect-field-of-view-comparison/
     cx = resolution[0] // 2
     cy = resolution[1] // 2
 
@@ -61,8 +70,7 @@ def convert_pxs_to_mm(coords, resolution=(512, 424), field_of_view=(70.6, 60), t
 
 def is_legacy(features: dict):
     """
-    Checks a dictionary of features to see if they correspond with an older version
-    of moseq.
+    Check a dictionary of features to see if they correspond with an older version of moseq.
 
     Args:
     features (dict): dict of scalar_df column names.
@@ -77,8 +85,7 @@ def is_legacy(features: dict):
 
 def generate_empty_feature_dict(nframes) -> dict:
     """
-    Generates a dict of numpy array of zeros of
-    length nframes for each feature parameter.
+    Generates a dict of numpy.array of zeros of length nframes for each feature parameter.
 
     Args:
     nframes (int): length of video
@@ -101,12 +108,11 @@ def generate_empty_feature_dict(nframes) -> dict:
 
 def convert_legacy_scalars(old_features, force: bool = False, true_depth: float = 673.1) -> dict:
     """
-    Converts scalars in the legacy format to the new format, with explicit units.
+    Convert scalars in the legacy format to the new format, with explicit units.
 
     Args:
-    old_features (str, h5 group, or dictionary of scalars): filename, h5 group,
-     or dictionary of scalar values.
-    force (bool): force the conversion of centroid_[xy]_px into mm.
+    old_features (str, h5 group, or dictionary of scalars): filename, h5 group, or dictionary of scalar values.
+    force (bool): boolean flag that forces the conversion of centroid_[xy]_px into mm.
     true_depth (float): true depth of the floor relative to the camera (673.1 mm by default)
 
     Returns:
@@ -188,12 +194,12 @@ def convert_legacy_scalars(old_features, force: bool = False, true_depth: float 
 
 def get_scalar_map(index, fill_nans=True, force_conversion=False):
     """
-    Returns a dictionary of scalar values loaded from an index dictionary.
+    Return a dictionary of scalar values loaded from an index dictionary.
 
     Args:
     index (dict): dictionary of index file contents.
-    fill_nans (bool): indicate whether to replace NaN values with 0.
-    force_conversion (bool): force the conversion of centroid_[xy]_px into mm.
+    fill_nans (bool): boolean flag that indicates whether to replace NaN values with 0.
+    force_conversion (bool): boolean flag that forces the conversion of centroid_[xy]_px into mm.
 
     Returns:
     scalar_map (dict): dictionary of all the scalar values acquired after extraction.
@@ -238,13 +244,13 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
                                                'length_mm', 'height_ave_mm', 'angle'],
                                  zscore=False):
     """
-    Get averages of selected scalar keys for each syllable.
+    Get the averages of selected scalar keys for each syllable.
 
     Args:
     scalar_map (dict): dictionary of all the scalar values acquired after extraction.
     model_labels (dict): dictionary of uuid to syllable label array pairs.
-    max_syllable (int): maximum number of syllables to use.
-    nlags (int): number of lags to use when averaging over a series of PCs.
+    max_syllable (int): the index of the maximum syllable to use.
+    nlags (int): the number of lags to use when averaging over a series of PCs.
     include_keys (list): list of scalar values to load averages of.
     zscore (bool): indicate whether to z-score loaded values.
 
@@ -303,7 +309,7 @@ def get_scalar_triggered_average(scalar_map, model_labels, max_syllable=40, nlag
 
 def nanzscore(data):
     """
-    Z-score numpy array that may contain NaN values.
+    Apply Z-score numpy.array that may contain NaN values.
 
     Args:
     data (np.ndarray): array of scalar values.
@@ -317,8 +323,7 @@ def nanzscore(data):
 
 def _pca_matches_labels(pca, labels):
     """
-    Make sure that the number of frames in the pca dataset matches the
-    number of frames in the assigned labels.
+    Ensure that the number of frames in the pca dataset matches the number of frames in the assigned labels.
 
     Args:
     pca (np.array): array of session PC scores.
@@ -338,7 +343,7 @@ def process_scalars(scalar_map: dict, include_keys: list, zscore: bool = False) 
     Args:
     scalar_map (dict): dictionary of all the scalar values acquired after extraction.
     include_keys (list): scalar keys to process.
-    zscore (bool): indicate whether to z-score loaded values.
+    zscore (bool): boolean flag that indicates whether to z-score loaded values.
 
     Returns:
     scalar_map (dict): dict that contains the updated NaN-filled values.
@@ -359,16 +364,15 @@ def process_scalars(scalar_map: dict, include_keys: list, zscore: bool = False) 
 
 def compute_mouse_dist_to_center(roi, centroid_x_px, centroid_y_px):
     """
-    Given the session's ROI shape and the frame-by-frame (x,y) pixel centroid location
-     to compute the mouse's relative distance to the center of the bucket.
+    Compute the distance between the mouse and arena centroid.
 
     Args:
     roi (tuple): Tuple of session's arena dimensions.
-    centroid_x_px (1D np.array): x-coordinate of the mouse centroid throughout the recording
-    centroid_y_px (1D np.array): y-coordinate of the mouse centroid throughout the recording
+    centroid_x_px (np.array): x-coordinate of the mouse centroid throughout the recording
+    centroid_y_px (np.array): y-coordinate of the mouse centroid throughout the recording
 
     Returns:
-    dist_to_center (1D np.array): array of distance to the arena center in pixels.
+    dist_to_center (np.array): array of distance to the arena center in pixels.
     """
 
     # Get (x,y) bucket center coordinate
@@ -389,15 +393,13 @@ def compute_mouse_dist_to_center(roi, centroid_x_px, centroid_y_px):
 def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'SubjectName', 'StartTime'],
                          disable_output=False, force_conversion=True, model_path=None):
     """
-    Generates a dataframe containing scalar values over the course of a recording session.
-    If a model string is included, then return only animals that were included in the model
-    Called to sort scalar metadata information when graphing in plot-scalar-summary.
+    Generate a dataframe containing scalar values for all sessions and the dataframe will include syllable information when model_path in not None.
 
     Args:
-    index (dict): a sorted_index generated by `parse_index` or `get_sorted_index`
+    index (dict): a sorted_index dictionary generated by `parse_index` or `get_sorted_index`
     include_keys (list): a list of other moseq related keys to include in the dataframe
-    disable_output (bool): indicate whether to show tqdm output.
-    force_conversion (bool): force the conversion of centroid_[xy]_px into mm.
+    disable_output (bool): boolean flag that indicates whether to show tqdm output.
+    force_conversion (bool): boolean flag that forces the conversion of centroid_[xy]_px into mm.
     model_path (str): path to model object to pull labels from and include in the dataframe
 
     Returns:
@@ -497,12 +499,11 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_mm', 'centroid_y_mm'],
                          key='SubjectName', bins=20):
     """
-    Computes a position PDF for all sessions and returns the pdfs with corresponding lists of
-     groups, session uuids, and subjectNames.
+    Compute a position PDF for all sessions and return the pdfs with corresponding lists of groups, session uuids, and subjectNames.
 
     Args:
     scalar_df (pandas.DataFrame): DataFrame containing all scalar data + uuid columns for all stacked sessions
-    normalize (bool): Indicates whether normalize the pdfs.
+    normalize (bool): boolean flag that ndicates whether normalize the pdfs.
     centroid_vars (list): list of strings for column values to use when computing mouse position.
     key (str): metadata column to return info from.
 
@@ -535,13 +536,11 @@ def compute_all_pdf_data(scalar_df, normalize=False, centroid_vars=['centroid_x_
 def compute_mean_syll_scalar(scalar_df, scalar='velocity_3d_mm', max_sylls=40, syllable_key='labels (usage sort)'):
     """
     Computes the mean syllable scalar-value based on the time-series scalar dataframe and the selected scalar.
-    Finds the frame indices with corresponding each of the label values (up to max syllables) and looks up the scalar
-    values in the dataframe.
 
     Args:
-    scalar_df (pandas.DataFrame): DataFrame containing all scalar data + uuid and syllable columns for all stacked sessions
+    scalar_df (pandas.DataFrame): DataFrame containing all scalar data + uuid and syllable columns for all stacked sessions (moseq_df)
     scalar (str or list): Selected scalar column(s) to compute mean value for syllables
-    max_sylls (int): maximum amount of syllables to include in output.
+    max_sylls (int): the index of the maximum syllable to include.
     syllable_key (str): column in scalar_df that points to the syllable labels to use.
 
     Returns:
@@ -561,13 +560,11 @@ def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='grou
                       syllable_key='labels (usage sort)'):
     """
 
-    Computes the mean syllable position PDF/Heatmap for the given groupings.
-    Either mean of modeling groups: groupby='group', or a verbose list of all the session's syllable PDFs
-    groupby='SessionName'
+    Compute the mean syllable position PDF/Heatmap for the given groupings.
 
     Args:
     pdf_df (pandas.DataFrame): model results dataframe including a position PDF column containing 2D numpy arrays.
-    normalize (bool): Indicates whether normalize the pdf scales.
+    normalize (bool): boolean flag that indicates whether normalize the pdf scales.
     syllables (list): list of syllables to get a grouping of.
     groupby (str): column name to group the df keys by. (either group, or SessionName)
     syllable_key (str): name of the column that contains the requested syllable label sequences.
@@ -593,14 +590,14 @@ def get_syllable_pdfs(pdf_df, normalize=True, syllables=range(40), groupby='grou
 def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage sort)', syllables=range(40),
                                        centroid_keys=['centroid_x_mm', 'centroid_y_mm'], normalize=False, bins=20):
     """
-    Computes position heatmaps for each syllable on a session-by-session basis
+    Compute position heatmaps for each syllable on a session-by-session basis
 
     Args:
-    scalar_df (pandas.DataFrame): DataFrame containing scalar data & labels for all sessions
+    scalar_df (pandas.DataFrame): dataframe containing scalar data & labels for all sessions
     syllable_key (str): dataframe column to access syllable labels
     syllables (list): List of syllables to compute heatmaps for.
     centroid_keys (list): list of column names containing the centroid values used to compute mouse position.
-    normalize (bool): If True, normalizes the histogram to be a probability density
+    normalize (bool): boolean flag for whether normalizes the histogram to be a probability density
     bins (int): number of bins to cut the position data into
 
     Returns:

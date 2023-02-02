@@ -12,9 +12,7 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 
 def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embedding='PCA', n_components=2, plot_all_subjects=True):
     """
-    Computes a 2D embedding of the mean syllable statistic of choice. User selects an embedding type, a stat
-     to compute the embedding on, and provides a dataframe with the mean syllable information.
-     The function will output a figure of the 2D representation of the embedding.
+    Compute a 2D embedding (PCA or LDA) of the mean syllable statistic of choice. The function will output a figure of the 2D representation of the embedding.
 
     Args:
     mean_df (pd DataFrame): Dataframe of the mean syllable statistics for all sessions
@@ -22,12 +20,11 @@ def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embe
     output_file (str): path to saved outputted figure
     embedding (str): type of embedding to run. Either ['lda', 'pca']
     n_components (int): Number of components to compute.
-    plot_all_subjects (bool): indicates whether to plot individual subject embeddings along with their respective
-     group means.
-
+    plot_all_subjects (bool): indicates whether to plot individual subject embeddings along with their respective group means.
+ 
     Returns:
-    fig (matplotlib figure): figure containing plotted 2d embedding.
-    ax (matplonlib axes): axes instance for plotted figure.
+    fig (matplotlib.figure): figure containing plotted 2d embedding.
+    ax (matplonlib.axes): axes instance for plotted figure.
     """
 
     if embedding.lower() == 'lda':
@@ -56,17 +53,14 @@ def run_2d_embedding(mean_df, stat='usage', output_file='2d_embedding.pdf', embe
 
 def run_2d_scalar_embedding(scalar_df, output_file='2d_scalar_embedding.pdf', embedding='PCA', n_components=2, plot_all_subjects=True):
     """
-    Computes a 2D embedding of the mean measured scalar values for all groups. User selects an embedding type,
-     and provides a dataframe to compute the mean scalar information from.
-     The function will output a figure of the 2D representation of the embedding.
+    Compute a 2D embedding (PCA or LDA) of the mean measured scalar values for all groups. The function will output a figure of the 2D representation of the embedding.
 
     Args:
     scalar_df (pd DataFrame): Dataframe of the frame-by-frame scalar measurements for all sessions
     output_file (str): path to saved outputted figure
     embedding (str): type of embedding to run. Either ['lda', 'pca']
     n_components (int): Number of components to compute.
-    plot_all_subjects (bool): indicates whether to plot individual subject embeddings along with their respective
-     group means.
+    plot_all_subjects (bool): indicates whether to plot individual subject embeddings along with their respective group means.
 
     Returns:
     fig (matplotlib figure): figure containing plotted 2d embedding.
@@ -123,6 +117,7 @@ def plot_embedding(L,
                    symbols="o*v^s",
                    plot_all_subjects=True):
     """
+    Plot 2D embedding plot.
 
     Args:
     L (2D np.array): the embedding representations of the mean syllable statistic to plot.
@@ -134,12 +129,11 @@ def plot_embedding(L,
     x_dim (int): component number to graph on x-axis
     y_dim (int): component number to graph on y-axis
     symbols (str): symbols to use to draw different groups.
-    plot_all_subjects (bool): indicates whether to plot individual subject embeddings along with their respective
-     group means.
+    plot_all_subjects (bool): boolean flag that indicates whether to plot individual subject embeddings along with their respective group means.
 
     Returns:
-    fig (matplotlib figure): figure containing plotted 2d embedding.
-    ax (matplonlib axes): axes instance for plotted figure.
+    fig (matplotlib.figure): figure containing plotted 2d embedding.
+    ax (matplonlib.axes): axes instance for plotted figure.
     """
 
     fig, ax = plt.subplots(1, 1, figsize=(10, 10), facecolor='w')

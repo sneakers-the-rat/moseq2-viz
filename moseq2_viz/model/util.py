@@ -29,14 +29,10 @@ from cytoolz import curry, valmap, compose, complement, itemmap, keyfilter
 
 def _assert_models_have_same_kappa(model_paths):
     """
-
-    Function that ensures that recursively found models to merge were trained using the same kappa hyperparameter value.
-    Raises a ValueError if the models are not the same.
+    ensure that recursively found models to merge were trained using the same kappa hyperparameter value.
 
     Args:
     model_paths (list of str): list of strings pointing to model paths to check.
-
-    Returns:
     """
 
     get_kappa = get_in(['model_parameters', 'kappa'])
@@ -49,15 +45,14 @@ def _assert_models_have_same_kappa(model_paths):
 
 def compute_syllable_explained_variance(model, save_dir=os.getcwd(), n_explained=99):
     """
-    Computes the maximum number of syllables to include that explain `n_explained` percent
-    of all frames in the dataset.
+    Compute the maximum number of syllables to include that explain n_explained percent of all frames in the dataset.
 
     Args:
     model (dict): ARHMM results dict
     n_explained (int): explained variance percentage threshold
 
     Returns:
-    max_sylls (int): Number of syllables that explain the given percentage of the variance
+    max_sylls (int): the index of the maximum number of syllables to include that explain the given percentage of the variance
     """
 
     syllable_usages = list(get_syllable_usages(model['labels'], count='usage').values())
@@ -87,20 +82,15 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
                  cost_function='ar_norm'):
     """
     WARNING: THIS IS EXPERIMENTAL. USE AT YOUR OWN RISK.
-    Merges model states by using the Hungarian Algorithm:
-    a minimum distance state matching algorithm. User inputs a
-    directory containing models to merge, (and the name of the latest-trained
-    model) to match other model states to.
+    Merge model states by using the Hungarian Algorithm:  a minimum distance state matching algorithm. 
+    User inputs a directory containing models to merge, (and the name of the latest-trained model) to match other model states to.
 
     Args:
     model_dir (str): path to directory containing all the models to merge.
     ext (str): model extension to search for.
-    count (str): method to compute usages 'usage' or 'frames'.
-    force_merge (bool): whether or not to force a merge. Keeping this false will
-        protect you from merging models trained with different kappa values.
-    cost_function (str): either ar_norm or label - if ar_norm, uses the ar matrices
-        to find the most similar syllables. If label, finds the syllable labels that
-        are most overlapping
+    count (str): method to compute syllable mean usage, either 'usage' or 'frames'. 
+    force_merge (bool): whether or not to force a merge. Keeping this false will protect you from merging models trained with different kappa values.
+    cost_function (str): either ar_norm or label for the cost function in Hungarian Algorithm. 
 
     Returns:
     model_data (dict): a dictionary containing all the new keys and state-matched labels.
@@ -125,6 +115,7 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
 
         curr_ar = deepcopy(unit_data['model_parameters']['ar_mat'])
         # compute cost function
+        # the ar matrices to find the most similar syllables
         if cost_function == 'ar_mat':
             prev_ar = template['model_parameters']['ar_mat']
             cost = np.zeros((len(prev_ar), len(curr_ar)))
@@ -135,6 +126,7 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
             # row_ind is template state, col_ind is unit_data state
             row_ind, col_ind = linear_sum_assignment(cost)
             mapping = dict(zip(col_ind, row_ind))
+        # finds the syllable labels that are most overlapping
         elif cost_function == 'label':
             uuids = set(unit_data['labels']) & set(template['labels'])
             l1 = template['labels']
@@ -165,8 +157,7 @@ def merge_models(model_dir, ext='p',count='usage', force_merge=False,
 
 def get_best_fit(cp_path, model_results):
     """
-    Returns the model with the closest median syllable duration and
-    closest duration distribution to the PCA changepoints.
+    Return the model with the closest median syllable duration and closest duration distribution to the model free changepoints given the objective.
 
     Args:
     cp_path (str): Path to PCA Changepoints h5 file.
@@ -235,7 +226,7 @@ def get_best_fit(cp_path, model_results):
 
 def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
     """
-    Whitens all PC scores at once.
+    Whiten all PC scores at once.
 
     Args:
     pca_scores (dict): dictionary of uuid to PC score key-value pairs
@@ -265,13 +256,12 @@ def _whiten_all(pca_scores: Dict[str, np.ndarray], center=True):
 
 def get_normalized_syllable_usages(model_data, max_syllable=100, count='usage'):
     """
-    Computes syllable usages and normalizes to sum to 1.
-    Returns a 1D array of their corresponding usage values.
+    Compute syllable usages and normalizes to sum to 1 and return a 1D array of their corresponding usage values.
 
     Args:
     model_data (dict): dict object of modeling results
-    max_syllable (int): number of syllables to compute the mean usage for.
-    count (str): option for whether to count syllable usages; by 'frames', or 'usage'.
+    max_syllable (int): the index of the maximum number of syllables to include
+    count (str): method to compute syllable mean usage, either 'usage' or 'frames'. 
 
     Returns:
     syllable_usages (1D np array): array of sorted syllable usages for all syllables in model
@@ -285,7 +275,7 @@ def get_normalized_syllable_usages(model_data, max_syllable=100, count='usage'):
 
 def normalize_usages(usage_dict):
     """
-    Normalizes syllable usages to frequency values from [0,1] instead of total counts.
+    Normalize syllable usages to frequency values from [0,1] instead of total counts.
 
     Args:
     usage_dict (dict): dictionary containing syllable label keys pointing to total counts.
@@ -324,7 +314,7 @@ def get_mouse_syllable_slices(syllable: int, labels: np.ndarray) -> Iterator[sli
 def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], index: Dict,
                               filter_nans: bool = True) -> Dict[str, list]:
     """
-    Reads dictionary of syllable labels, and returning a dict of syllable slices.
+    Read a dictionary of syllable labels, and returning a dict of syllable slices.
 
     Args:
     syllable (list): list of syllables to get slices from.
@@ -359,14 +349,14 @@ def syllable_slices_from_dict(syllable: int, labels: Dict[str, np.ndarray], inde
 @curry
 def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = True) -> list:
     """
-    Get the indices that correspond to a specific syllable for each animal in a modeling run.
+    Get the indices that correspond to a specific syllable for each session in a modeling run.
 
     Args:
     syllable (int): syllable number to get slices of.
     labels (np.ndarrary): list of label predictions for each session.
     label_uuids (list): list of uuid keys corresponding to each session.
     index (dict): index file contents contained in a dict.
-    trim_nans (bool): flag to use the pca scores file for removing time points that contain NaNs.
+    trim_nans (bool): flag to use the pc scores file for removing time points that contain NaNs.
      Only use if you have not already trimmed NaNs previously and need to.
 
     Returns:
@@ -441,13 +431,13 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
 
 def add_duration_column(scalar_df):
     """
-    Adds syllable duration column to scalar dataframe if it also contains syllable labels.
+    Add syllable duration column to scalar dataframe if the dataframe contains syllable labels.
 
     Args:
-    scalar_df (pd.DataFrame): Merged Syllable Stat + Scalar DataFrame object.
+    scalar_df (pandas.DataFrame): merged dataframe of scalar data and syllable data.
 
     Returns:
-    scalar_df (pd.DataFrame): Same DataFrame with a new column titled "duration".
+    scalar_df (pandas.DataFrame): Same DataFrame with a new column titled "duration".
     """
     if 'labels (original)' not in scalar_df.columns and 'onset' not in scalar_df.columns:
         raise ValueError('scalar_df must contain model labels in order to add duration')
@@ -459,7 +449,7 @@ def add_duration_column(scalar_df):
 
 def syll_onset(labels: np.ndarray) -> np.ndarray:
     """
-    Finds indices of syllable onsets.
+    Find indices of syllable onsets.
 
     Args:
     labels (np.ndarray): array of syllable labels for a mouse.
@@ -477,10 +467,10 @@ def syll_onset(labels: np.ndarray) -> np.ndarray:
 
 def syll_duration(labels: np.ndarray) -> np.ndarray:
     """
-    Computes the duration of each syllable.
+    Compute the duration of each syllable.
 
     Args:
-    labels (np.ndarray): array of syllable labels for a mouse.
+    labels (np.ndarray): array of syllable labels for a session.
 
     Returns:
     durations (np.ndarray): array of syllable durations.
@@ -493,7 +483,7 @@ def syll_duration(labels: np.ndarray) -> np.ndarray:
 
 def syll_id(labels: np.ndarray) -> np.ndarray:
     """
-    Returns the syllable label at each onset of a syllable transition.
+    Return the syllable label at each onset of a syllable transition.
 
     Args:
     labels (np.ndarray): array of syllable labels for a mouse.
@@ -508,12 +498,12 @@ def syll_id(labels: np.ndarray) -> np.ndarray:
 
 def get_syllable_usages(data, max_syllable=100, count='usage'):
     """
-    Computes syllable usages for relabeled syllable labels.
+    Compute syllable usages for relabeled syllable labels.
 
     Args:
-    data (2d list): list of syllable frame-labels for each session.
-    max_syllable (int): maximum number of syllables to compute usages for.
-    count (str): method to relabel the syllable usages. Either by 'usage' or by 'frames'
+    data (list): list of syllable frame-labels for each session.
+    max_syllable (int): the index of the maximum number of syllables to include
+    count (str): method to compute syllable mean usage, either 'usage' or 'frames'. 
 
     Returns:
     usages (dict): dict object that contains usage frequency information.
@@ -538,19 +528,18 @@ def get_syllable_usages(data, max_syllable=100, count='usage'):
 def compute_behavioral_statistics(scalar_df, groupby=['group', 'uuid'], count='usage', fps=30,
                                   usage_normalization=True, syllable_key='labels (usage sort)'):
     """
-    Computes syllable statistics merged with the inputted scalar features.
+    Compute syllable statistics merged with the scalar features.
 
     Args:
-    scalar_df (pd.DataFrame): Scalar measuresments for full dataset, including metadata for all the sessions.
-     Outputted via scalars_to_dataframe().
+    scalar_df (pandas.DataFrame): Scalar measuresments for full dataset, including metadata for all the sessions.
     groupby (list of strings): list of columns to run the pandas groupby() on the scalar_df.
-    count (str): indicates how to determine mean usage calculation. either 'usage' (default), or 'frames'
+    count (str): method to compute syllable mean usage, either 'usage' or 'frames'. 
     fps (int): frames per second that the data was acquired in.
     usage_normalization (bool): indicates whether to normalize syllable usages by the value counts.
     syllable_key (str): column to rename to "syllable" for convenient referencing later on.
 
     Returns:
-    features (pd.DataFrame): full feature Dataframe with scalars, metadata, and syllable statistics.
+    features (pandas.DataFrame): full feature Dataframe with scalars, metadata, and syllable statistics.
     """
 
     if count not in ('usage', 'frames'):
@@ -621,8 +610,8 @@ def get_syllable_statistics(data, fill_value=-5, max_syllable=100, count='usage'
     Args:
     data (list of np.array of ints): labels loaded from a model fit.
     fill_value (int): lagged label values in the labels array to remove.
-    max_syllable (int): maximum syllable to consider.
-    count (str): how to count syllable usage, either by number of emissions (usage), or number of frames (frames).
+    max_syllable (int): the index of the maximum number of syllables to include
+    count (str): method to compute syllable mean usage, either 'usage' or 'frames'. 
 
     Returns:
     usages (OrderedDict): default dictionary of usages
@@ -750,7 +739,7 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
     map_uuid_to_keys (bool): flag to create a label dictionary where each key->value pair
      contains the uuid and the labels for that session.
     sort_labels_by_usage (bool): sort and re-assign labels by their usages.
-    count (str): how to count syllable usage, either by number of emissions (usage),
+    count (str): method to compute syllable mean usage, either 'usage' or 'frames'. 
      or number of frames (frames).
 
     Returns:
@@ -814,7 +803,7 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
     Args:
     labels (list or dict): label sequences loaded from a model fit
     fill_value (int): value prepended to modeling results to account for nlags
-    count (str): how to count syllable usage, either by number of emissions (usage), or number of frames (frames)
+    count (str): method to compute syllable mean usage, either 'usage' or 'frames'. 
 
     Returns:
     labels (list or dict): label sequences sorted by usage
@@ -865,7 +854,7 @@ def prepare_model_dataframe(model_path, pca_path):
     pca_path (str): path to pca_scores.h5 file.
 
     Returns:
-    _df (pd.DataFrame): DataFrame object of timestamp aligned syllable label information.
+    _df (pandas.DataFrame): DataFrame object of timestamp aligned syllable label information.
     """
 
     mdl = parse_model_results(model_path, map_uuid_to_keys=True)
@@ -1036,11 +1025,10 @@ def sort_batch_results(data, averaging=True, filenames=None, **kwargs):
 
 def whiten_pcs(pca_scores, method='all', center=True):
     """
-
     Whiten PC scores using Cholesky whitening.
 
     Args:
-    pca_scores (dict): dictionary where values are pca_scores (2d np arrays)
+    pca_scores (dict): dictionary where values are pca_scores.
     method (str): 'all' to whiten using the covariance estimated from all keys, or 'each' to whiten each separately
     center (bool): whether or not to center the data
 
@@ -1060,10 +1048,7 @@ def whiten_pcs(pca_scores, method='all', center=True):
 
 def normalize_pcs(pca_scores: dict, method: str = 'zscore') -> dict:
     """
-    Normalize PC scores. Options are: demean, zscore, ind-zscore.
-    zscore: standardize pc scores using all data
-    demean: subtract the mean from each score.
-    ind-zscore: zscore each session independently
+    Normalize PC scores.
 
     Args:
     pca_scores (dict): dict of uuid to PC-scores key-value pairs.
@@ -1076,6 +1061,7 @@ def normalize_pcs(pca_scores: dict, method: str = 'zscore') -> dict:
         raise ValueError(f'normalization {method} not supported. Please use: "zscore", "demean", or "ind-zscore"')
 
     norm_scores = deepcopy(pca_scores)
+    # zscore: standardize pc scores using all data
     if method.lower() == 'zscore':
         all_values = np.concatenate(list(norm_scores.values()), axis=0)
         mu = np.nanmean(all_values, axis=0)
@@ -1083,10 +1069,12 @@ def normalize_pcs(pca_scores: dict, method: str = 'zscore') -> dict:
         norm_scores = valmap(lambda v: (v - mu) / sig, norm_scores)
         for k, v in norm_scores.items():
             norm_scores[k] = (v - mu) / sig
+    # demean: subtract the mean from each score.
     elif method.lower() == 'demean':
         all_values = np.concatenate(list(norm_scores.values()), axis=0)
         mu = np.nanmean(all_values, axis=0)
         norm_scores = valmap(lambda v: v - mu, norm_scores)
+    # ind-zscore: zscore each session independently
     elif method == 'ind-zscore':
         norm_scores = valmap(lambda v: (v - np.nanmean(v, axis=0)) / np.nanstd(v, axis=0), norm_scores)
 
@@ -1163,8 +1151,7 @@ def retrieve_pcs_from_slices(slices, pca_scores, max_dur=60, min_dur=3,
 
 def make_separate_crowd_movies(config_data, sorted_index, group_keys, label_dict, output_dir, ordering, sessions=False):
     """
-    Helper function that writes syllable crowd movies for each given grouping found in group_keys, and returns
-     a dictionary with session/group name keys paired with paths to their respective generated crowd movies.
+    write syllable crowd movies for each given grouping found in group_keys, and return a dictionary crowd movie file information.
 
     Args:
     config_data (dict): Loaded crowd movie writing configuration parameters.
@@ -1205,15 +1192,13 @@ def make_separate_crowd_movies(config_data, sorted_index, group_keys, label_dict
 
 def sort_syllables_by_stat_difference(complete_df, ctrl_group, exp_group, max_sylls=None, stat='usage'):
     """
-    Computes the syllable ordering for the difference of the inputted groups (exp - ctrl).
-    The sorted result will yield an array will indices depicting the largest positive (upregulated)
-    difference between exp and ctrl groups on the left, and vice versa on the right.
+    Compute the syllable ordering for the difference of the inputted groups (exp - ctrl) and sort the syllables by the differences.
 
     Args:
-    complete_df (pd.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
+    complete_df (pandas.DataFrame): dataframe containing the summary statistics about scalars and syllable data (mean_df/stats_df)
     ctrl_group (str): Control group.
     exp_group (str): Experimental group.
-    max_sylls (int): maximum number of syllables to include in ordering.
+    max_sylls (int): the index of the maximum number of syllables to include
     stat (str): choice of statistic to order mutations by: {usage, duration, speed}.
 
     Returns:
@@ -1240,9 +1225,9 @@ def sort_syllables_by_stat(complete_df, stat='usage', max_sylls=None):
     Computes the sorted ordering of the given DataFrame with respect to the chosen stat.
 
     Args:
-    complete_df (pd.DataFrame): DataFrame containing the statistical information about syllable data [usages, durs, etc.]
-    stat (str): choice of statistic to order syllables by: {usage, duration, speed}.
-    max_sylls (int or None): maximum number of syllables to include in ordering
+    complete_df (pandas.DataFrame): dataframe containing the summary statistics about scalars and syllable data (mean_df/stats_df)
+    stat (str): choice of statistic to order syllables by.
+    max_sylls (int or None): the index of the maximum number of syllables to include
 
     Returns:
     ordering (list): list of sorted syllables by stat.
@@ -1263,12 +1248,11 @@ def sort_syllables_by_stat(complete_df, stat='usage', max_sylls=None):
 
 def get_Xy_values(stat_means, unique_groups, stat='usage'):
     """
-    Computes the syllable or scalar mean statistics for each session, stored in X. Computes and corresponding
-     mapped group name value for each of the sessions to be tracked when plotting the values in the embedding steps.
+    Compute the syllable or scalar mean statistics for each session, stored in X. 
 
     Args:
     stat_means (pd DataFrame): Dataframe of syllable or session-scalar mean statistics
-    unique_groups (1D list): list of unique groups in the syll_means dataframe.
+    unique_groups (list): list of unique groups in the syll_means dataframe.
     stat (str or list): statistic column(s) to read from the syll_means df.
 
     Returns:

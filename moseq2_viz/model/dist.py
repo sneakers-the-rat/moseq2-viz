@@ -21,19 +21,18 @@ def get_behavioral_distance(index, model_file, whiten='all',
                             dist_options={},
                             sort_labels_by_usage=True, count='usage'):
     """
-    Computes the behavioral distance (square) matrices with respect to a predefined set of variables.
+    Compute the behavioral distance (square) matrices with respect to a predefined set of variables.
     
     Args:
     index (str): Path to index file
     model_file (str): Path to trained model
     whiten (str): Indicates whether to whiten all PCs at once or each one at a time. Options = ['all', 'each']
-    distances (list or str): type of distance(s) to compute.
-        Available options = ['scalars', 'ar[init]', 'ar[dtw]', 'pca[dtw]', 'combined']
-    max_syllable (int): Maximum number of syllables/AR matrices to include in analysis
+    distances (list or str): type of distance(s) to compute. Available options = ['scalars', 'ar[init]', 'ar[dtw]', 'pca[dtw]', 'combined']
+    max_syllable (int): the index of the maximum number of syllables to include
     resample_idx (int): Indicates the parsing method according to the shape of the labels array.
     dist_options (dict): Dictionary holding each distance operations configurable parameters
-    sort_labels_by_usage (bool): Indicates whether to relabel syllables by count ordering
-    count (str): Indicates what ordering to relabel syllables by. Options = ['usage', 'frames']
+    sort_labels_by_usage (bool): boolean flag that indicates whether to relabel syllables by count ordering
+    count (str): method to compute syllable mean usage, either 'usage' or 'frames'. 
     
     Returns:
     dist_dict (dict): Dictionary containing all computed behavioral square distance matrices
@@ -219,17 +218,17 @@ def get_behavioral_distance(index, model_file, whiten='all',
 def get_behavioral_distance_ar(ar_mat, init_point=None, sim_points=10, max_syllable=40,
                                dist='correlation', parallel=False):
     """
-   Computes behavioral distance with respect to the model's AutoRegressive matrices.
-   Affords either AR trajectory correlation distance, or computing dynamically time-warped trajectory distances.
+   Compute behavioral distance with respect to the model's AutoRegressive matrices. 
+   The function Affords either AR trajectory correlation distance, or computing dynamically time-warped trajectory distances.
    
    Parameters
    ----------
-   ar_mat (3D numpy array): Trained model AutoRegressive matrices; shape=(max_syllable, npcs, npcs*nlags+1)
+   ar_mat (numpy.ndarray): Trained model AutoRegressive matrices; shape=(max_syllable, npcs, npcs*nlags+1)
    init_point (list): Initial values as a reference point for distance estimation
-   sim_points (int): Number of AR trajectories to simulate
-   max_syllable (int): Max number of syllables included in the analysis. Should be equal to ar_mat.shape[0]
+   sim_points (int): number of time points to simulate
+   max_syllable (int): the index of the maximum number of syllables to include
    dist (str): Distance operation to compute. Either 'correlation' or 'dtw'.
-   parallel (bool): Use multiprocessing to compute dtw distances.
+   parallel (bool): Boolean flag that indicates whether to use multiprocessing to compute dtw distances.
    
    Returns
    -------
@@ -264,15 +263,14 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
     Compute initial AR trajectories based on a cumulative average of lagged-PC Scores over nlags.
     
     Args:
-    pca_scores (2D numpy array): Loaded PCA Scores. Shape=(npcs, nsamples)
-    model_labels (2D list): list of 1D numpy arrays of relabeled/sorted syllable labels
-    max_syllable (int): Maximum number of syllables to include.
+    pca_scores (numpy.ndarray): Loaded PC Scores. Shape=(npcs, nsamples)
+    model_labels (list): list of 1D numpy arrays of relabeled/sorted syllable labels
+    max_syllable (int): the index of the maximum number of syllables to include
     nlags (int): Number of lagged frames.
     npcs (int): Number of PCs to use in computation.
     
     Returns:
-    syll_average (list): List containing 2D np arrays of average syllable trajectories over a nlag-strided
-     PC scores array. Shape = (max_syllables, nlags*2 +1, npcs)
+    syll_average (list): List containing 2D np arrays of average syllable trajectories over a nlag-strided PC scores array.
     """
     # cumulative average of PCs for nlags
 
@@ -319,12 +317,10 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
 
 def reformat_dtw_distances(full_mat, nsyllables, rescale=True):
     """
-    Reduce full (max states) dynamically time-warped PC Score distance matrices to only include
-    dimensions for a total of nsyllables.
-    Formatting the 3D matrix (full_mat) to 2D to show the correlation distances from each state pair.
+    Reduce full (max states) dynamically time-warped PC Score distance matrices to only include dimensions for a total of nsyllables.
     
     Args:
-    full_mat (3D np.ndarray): DTW distance matrices for all model states/syllables.
+    full_mat (np.ndarray): DTW distance matrices for all model states/syllables.
     nsyllables (int): Number of syllables to include in truncated DTW distance matrix.
     rescale (bool): Rescale truncated dtw-distance matrices to match output distribution.
     

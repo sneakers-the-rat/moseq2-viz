@@ -8,12 +8,12 @@ from moseq2_viz.model.util import get_syllable_statistics, relabel_by_usage
 
 def entropy(labels, truncate_syllable=40, smoothing=1.0, relabel_by='usage'):
     """
-    Computes syllable usage entropy, base 2.
+    Compute syllable usage entropy, base 2.
 
     Args:
-    labels (list of np.ndarray): list of predicted syllable label arrays from a group of sessions
-    truncate_syllable (int): truncate list of relabeled syllables
-    smoothing (float): a constant added to label usages before normalization
+    labels (list of numpy.ndarray): list of predicted syllable label arrays from a group of sessions
+    truncate_syllable (int): maximum number of relabeled syllable to keep for this calculation
+    smoothing (float): a constant as pseudocount added to label usages before normalization
     relabel_by (str): mode to relabel predicted labels. Either 'usage', 'frames', or None.
 
     Returns:
@@ -48,17 +48,14 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0, relabel_by='usage'):
 def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
                  smoothing=1.0, tm_smoothing=1.0, relabel_by='usage'):
     """
-    Computes entropy rate, base 2 using provided syllable labels. If
-    syllable labels have not been re-labeled by usage, this function will do so.
+    Compute entropy rate, base 2 using provided syllable labels. If syllable labels have not been re-labeled by usage, this function will do so.
 
     Args:
-    labels (list or np.ndarray): a list of label arrays, where each entry in the list
-            is an array of labels for one subject.
+    labels (list or np.ndarray): a list of label arrays, where each entry in the list is an array of labels for one session.
     truncate_syllable (int): maximum number of labels to keep for this calculation.
-    normalize (str): the type of transition matrix normalization to perform. Options
-            are: 'bigram', 'rows', or 'columns'.
-    smoothing (float): a constant added to label usages before normalization
-    tm_smoothing (float): a constant added to label transtition counts before normalization.
+    normalize (str): the type of transition matrix normalization to perform.
+    smoothing (float): a constant as pseudocount added to label usages before normalization
+    tm_smoothing (float): a constant as pseudocount added to label transtition counts before normalization.
     relabel_by (str): how to re-order labels. Options are: 'usage', 'frames', or None.
 
     Returns:
@@ -110,21 +107,17 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
 
 def transition_entropy(labels, tm_smoothing=0, truncate_syllable=40, transition_type='incoming', relabel_by='usage'):
     """
-    Computes directional syllable transition entropy. Based on whether the given transition_type is 'incoming' or
-     or 'outgoing', the function will compute the respective transition entropy.
+    Compute directional syllable transition entropy. Based on whether the given transition_type is 'incoming' or or 'outgoing'.
 
     Args:
-    labels (list or np.ndarray): a list of label arrays, where each entry in the list
-            is an array of labels for one subject.
-    tm_smoothing (float): a constant added to label transtition counts before normalization.
-    truncate_syllable (int): maximum number of labels to keep for this calculation.
-    transition_type (str): can be either "incoming" or "outgoing" to compute the entropy of each
-        incoming or outgoing syllable transition.
+    labels (list or np.ndarray): a list of label arrays, where each entry in the list is an array of labels for one session.
+    tm_smoothing (float): a constant as pseudocount added to label transtition counts before normalization.
+    truncate_syllable (int): maximum number of relabeled syllable to keep for this calculation
+    transition_type (str): can be either "incoming" or "outgoing" to compute the entropy of each incoming or outgoing syllable transition.
     relabel_by (str): how to re-order labels. Options are: 'usage', 'frames', or None.
 
     Returns:
-    entropies (list of np.ndarra): a list of transition entropies (either incoming or outgoing) for
-        each mouse and syllable.
+    entropies (list of np.ndarra): a list of transition entropies (either incoming or outgoing) for each session and syllable.
     """
 
 

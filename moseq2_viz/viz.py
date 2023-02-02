@@ -24,10 +24,10 @@ def _validate_and_order_syll_stats_params(complete_df, stat='usage', ordering='s
     Validate input parameters, reset incorrect parameters and order the syllables based on stat parameter.
 
     Args:
-    complete_df (pandas.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
+    complete_df (pandas.DataFrame): dataframe containing the summary statistics about scalars and syllable data (mean_df/stats_df)
     stat (str): choice of statistic to plot eg. usage, duration, or speed
     ordering (str, list, None): statistics for sorting syllables on or a list for syllable ordering.
-    max_sylls (int): maximum number of syllable to include in plot
+    max_sylls (int): the index of the maximum number of syllables to include
     groups (list): list of groups to include in plot. If groups=None, all groups will be plotted.
     ctrl_group (str): name of control group for computing usage difference beween two groups.
     exp_group (str): name of experimental group for computing usage difference beween two groups.
@@ -443,15 +443,15 @@ def scalar_plot(scalar_df, sort_vars=['group', 'uuid'], group_var='group',
 def plot_syll_stats_with_sem(scalar_df, syll_info=None, sig_sylls=None, stat='usage', ordering='stat', max_sylls=40,
                              groups=None, ctrl_group=None, exp_group=None, colors=None, join=False, figsize=(10, 5)):
     """
-    Plots a line and/or point-plot of a given pre-computed syllable statistic (usage, duration, or speed), with a SEM error bar with respect to the group.
+    Plot a line and/or point-plot of a given pre-computed syllable statistic (usage, duration, or speed), with a SEM error bar with respect to the group.
 
     Args:
-    scalar_df (pandas.DataFrame): dataframe containing the statistical information about syllable data [usages, durs, etc.]
+    scalar_df (pandas.DataFrame): dataframe containing the summary statistics about scalars and syllable data (mean_df/stats_df)
     syll_info (dict): dictionary of syllable numbers mapped to dict containing the label, description and crowd movie path.
     sig_sylls (list): List of syllable numbers that are statistically significant to optionally mark in the graph.
     stat (str): choice of statistic to plot: either usage, duration, or speed
     ordering (str, list, None): statistics for sorting syllables on or the list of syllable orders.
-    max_sylls (int): maximum number of syllable to include in plot. default: 40
+    max_sylls (int): the index of the maximum number of syllables to include
     groups (list): list of groups to include in plot. If groups=None, all groups will be plotted.
     ctrl_group (str): Control group to graph.
     exp_group (str): Experimental group to compare with control group.
@@ -460,8 +460,8 @@ def plot_syll_stats_with_sem(scalar_df, syll_info=None, sig_sylls=None, stat='us
     figsize (tuple): tuple value of length of 2, representing (columns x rows) of the plotted figure dimensions
 
     Returns:
-    fig (pyplot figure): plotted scalar scatter plot
-    legend (pyplot legend): figure legend
+    fig (pyplot.figure): plotted scalar scatter plot
+    legend (pyplot.legend): figure legend
     """
 
     xlabel = f'Syllables sorted by {stat}'

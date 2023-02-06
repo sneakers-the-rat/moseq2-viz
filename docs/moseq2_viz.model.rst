@@ -9,10 +9,34 @@ Model - Dist Module
    :undoc-members:
    :show-inheritance:
 
-Model - Label Utilities Module
-------------------------------------
+Model - embed Module
+-----------------------------
 
-.. automodule:: moseq2_viz.model.label_util
+.. automodule:: moseq2_viz.model.embed
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Model - Fingerprint and Classifier Module
+-----------------------------
+
+.. automodule:: moseq2_viz.model.fingerprint_classifier
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Model - Stats Module
+-----------------------------
+
+.. automodule:: moseq2_viz.model.stat
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Model - Transition Graph Module
+-----------------------------
+
+.. automodule:: moseq2_viz.model.trans_graph
    :members:
    :undoc-members:
    :show-inheritance:

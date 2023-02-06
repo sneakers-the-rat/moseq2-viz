@@ -184,8 +184,6 @@ def get_transition_matrix(labels, max_syllable=100, normalize='bigram',
 
     Returns:
     transition_matrix (list or np.ndarray): list of 2d np.arrays that represent the transitions
-            from syllable i (row) to syllable j (column) or a single transition matrix combined
-            from all sessions in `labels`
     """
     if not isinstance(labels[0], (list, np.ndarray, pd.Series)):
         labels = [labels]

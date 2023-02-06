@@ -357,7 +357,6 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
     label_uuids (list): list of uuid keys corresponding to each session.
     index (dict): index file contents contained in a dict.
     trim_nans (bool): flag to use the pc scores file for removing time points that contain NaNs.
-     Only use if you have not already trimmed NaNs previously and need to.
 
     Returns:
     syllable_slices (list): a list of indices for `syllable` in the `labels` array. Each item in the list
@@ -372,6 +371,7 @@ def get_syllable_slices(syllable, labels, label_uuids, index, trim_nans: bool = 
         raise TypeError('"files" key in index not readable')
 
     # grab the original indices from the pca file as well...
+    # Only use if you have not already trimmed NaNs previously and need to.
     if trim_nans:
         try:
             score_idx = h5_to_dict(index['pca_path'], 'scores_idx')
@@ -439,6 +439,7 @@ def add_duration_column(scalar_df):
     Returns:
     scalar_df (pandas.DataFrame): Same DataFrame with a new column titled "duration".
     """
+
     if 'labels (original)' not in scalar_df.columns and 'onset' not in scalar_df.columns:
         raise ValueError('scalar_df must contain model labels in order to add duration')
     durs = syll_duration(scalar_df['labels (original)'].to_numpy())
@@ -701,9 +702,7 @@ def parse_batch_modeling(filename):
     filename (str): path to h5 manifest file containing all the model results.
 
     Returns:
-    results_dict (dict): dictionary containing each model's training results,
-     concatenated into a single list. Maintaining the original structure as though
-     it was a single model's results.
+    results_dict (dict): dictionary containing each model's training results, concatenated into a single list.
     """
 
     with h5py.File(filename, 'r') as f:
@@ -736,11 +735,9 @@ def parse_model_results(model_obj, restart_idx=0, resample_idx=-1,
     model_obj (str or results returned from joblib.load): path to the model fit or a loaded model fit
     restart_idx (int): Select which model restart to load. (Only change for models with multiple restarts used)
     resample_idx (int): parameter used to select labels from a specific sampling iteration. Default is the last iteration (-1)
-    map_uuid_to_keys (bool): flag to create a label dictionary where each key->value pair
-     contains the uuid and the labels for that session.
+    map_uuid_to_keys (bool): flag to create a label dictionary where each key->value pair contains the uuid and the labels for that session.
     sort_labels_by_usage (bool): sort and re-assign labels by their usages.
-    count (str): method to compute syllable mean usage, either 'usage' or 'frames'. 
-     or number of frames (frames).
+    count (str): method to compute syllable mean usage, either 'usage' or 'frames'.
 
     Returns:
     output_dict (dict): dictionary with labels and model parameters
@@ -807,8 +804,7 @@ def relabel_by_usage(labels, fill_value=-5, count='usage'):
 
     Returns:
     labels (list or dict): label sequences sorted by usage
-    sorting (list): the new label sorting. The index corresponds to the new label,
-     while the value corresponds to the old label.
+    sorting (list): the new label sorting. The index corresponds to the new label, while the value corresponds to the old label.
     """
     assert count in ('usage', 'frames'), 'count must be "usage" or "frames"'
 

@@ -540,8 +540,6 @@ def ttest(df, group1, group2, statistic="usage", max_syllable=40, verbose=False,
 
     Args:
     df (pandas.DataFrame): dataframe that contains frame by frame scalar and syllable data (moseq_df/scalar_df)
-     nrows -> correspond to max_syllable * n_uuids,
-     ncols -> 26 (including group, uuid, syllable, usage, duration and syllable key).
     group1 (str): Name of first group
     group2 (str): Name of second group
     statistic (str): Name of statistic to compute t-test on.

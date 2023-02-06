@@ -24,12 +24,13 @@ def _star_itemmap(func, d):
 def star_valmap(func, d):
     """
     map the function to itratables
+    
     Args:
-        func (func): function to map onto the values in iterables
-        d (dict): iterables
+    func (func): function to map onto the values in iterables
+    d (dict): iterables
 
     Returns:
-        _type_: dictionary of key and function mapped to the values
+    (dict): dictionary of key and function mapped to the values
     """
     keys = list(d.keys())
     return dict(zip(keys, starmap(func, d.values())))
@@ -601,8 +602,7 @@ def compute_syllable_position_heatmaps(scalar_df, syllable_key='labels (usage so
     bins (int): number of bins to cut the position data into
 
     Returns:
-    complete_df (pandas.DataFrame): Inputted model results dataframe with a
-     new PDF column corresponding to each session-syllable pair.
+    complete_df (pandas.DataFrame): model results dataframe with a new PDF column corresponding to each session-syllable pair.
     """
     if syllable_key not in scalar_df:
         raise ValueError('You need to supply a model path to `scalars_to_dataframe` in order to merge syllable labels into `scalar_df`')

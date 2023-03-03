@@ -1,6 +1,6 @@
-'''
+"""
 Functions for creating fingerprint plots and linear classifier
-'''
+"""
 from operator import pos
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
@@ -21,32 +21,57 @@ from os import makedirs
 
 
 def robust_min(v):
+    """find relative min
+
+    Args:
+        v (pandas.Series): the pandas.Series to find the robust min.
+
+    Returns:
+        (numpy.float): the robust min in the series.
+    """
     return v.quantile(0.01)
 
 
 def robust_max(v):
+    """find relative max
+
+    Args:
+        v (pandas.Series): the pandas.Series to find the robust max.
+
+    Returns:
+        (numpy.float): the robust max in the series.
+    """
     return v.quantile(0.99)
 
 
 def _apply_to_col(df, fn, **kwargs):
+    """apply function to columns 
+
+    Args:
+        df (pandas.DataFrame): dataframe to apply the function on 
+        fn (function): the function to apply to the columns
+
+    Returns:
+        (pandas.DataFrame): dataframe after applying the functions
+    """
     return df.apply(fn, axis=0, **kwargs)
 
 
 def create_fingerprint_dataframe(scalar_df, mean_df, stat_type='mean', n_bins=None, groupby_list=['group', 'uuid'], range_type='robust',
                                  scalars=['velocity_2d_mm', 'height_ave_mm', 'length_mm', 'dist_to_center_px']):
-    '''
+    """
     create fingerprint dataframe from scalar_df and mean_df
 
     Args:
-        scalar_df ([pandas.DataFrame]): scalar summary dataframe generated from scalars_to_dataframe
-        mean_df ([pandas.DataFrame]): syllable mean dataframe from compute_behavioral_statistics
-        bin_num ([int], optional): number of bins for the features. Defaults to None.
+        scalar_df (pandas.DataFrame): scalar summary dataframe generated from scalars_to_dataframe
+        mean_df (pandas.DataFrame): syllable mean dataframe from compute_behavioral_statistics
+        bin_num (int, optional): number of bins for the features. Defaults to None.
         groupby_list (list, optional): the list of levels the fingerprint dataframe should be grouped by. Defaults to ['group', 'uuid'].
 
     Returns:
         summary ([pandas.DataFrame]): fingerprint dataframe
         range_dict ([dict]): dictionary that hold min max values of the features
-    '''
+    """
 
     # deep copy the dfs
     scalar_df = scalar_df.copy()
@@ -95,12 +120,12 @@ def create_fingerprint_dataframe(scalar_df, mean_df, stat_type='mean', n_bins=No
 def plotting_fingerprint(summary, save_dir, range_dict, preprocessor=None, num_level = 1, level_names = ['Group'], vmin = None, vmax = None,
                          plot_columns=['dist_to_center_px', 'velocity_2d_mm', 'height_ave_mm', 'length_mm', 'MoSeq'],
                          col_names=[('Position','Dist. from center (px)'), ('Speed', 'Speed (mm/s)'), ('Height', 'Height (mm)'), ('Length', 'Length (mm)'), ('MoSeq','Syllable ID')]):
-    '''
+    """
     plot the fingerprint heatmap
 
     Args:
-        summary (pd.DataFrame): fingerprint dataframe
-        range_dict (pd.DataFrame): pd.DataFrame that hold min max values of the features
+        summary (pandas.DataFrame): fingerprint dataframe
+        range_dict (pandas.DataFrame): pd.DataFrame that hold min max values of the features
         preprocessor (sklearn.preprocessing object, optional): Scalar for scaling the data by session. Defaults to None.
         num_level (int, optional): the number of groupby levels. Defaults to 1.
         level_names (list, optional): list of names of the levels. Defaults to ['Group'].
@@ -111,7 +136,7 @@ def plotting_fingerprint(summary, save_dir, range_dict, preprocessor=None, num_l
  
     Raises:
         Exception: num_levels greater than the existing levels
-    '''
+    """
     # ensure number of groups is not over the number of available levels
     if num_level > len(summary.index.names):
         raise Exception('Too many levels to unpack. num_level should be less than', len(summary.index.names))
@@ -209,30 +234,30 @@ def plotting_fingerprint(summary, save_dir, range_dict, preprocessor=None, num_l
 
 def classifier_fingerprint(summary, features=['MoSeq'], preprocessor=None, classes=['group'], param_search=True, C_list=None,
                            model_type='lr', cv='loo', n_splits=5):
-    '''
-    classifier using the fingerprint dataframe
+    """
+    run classifier using the fingerprint dataframe
 
     Args:
-        summary ([pandas.DataFrame]): fingerprint dataframe
+        summary (pandas.DataFrame): fingerprint dataframe
         features (list, optional): Features for the classifier. ['MoSeq'] for MoSeq syllables or a list of MoSeq scalar values. Defaults to ['MoSeq'].
         preprocessor (sklearn.preprocessing object, optional): Scalar for scaling the data by feature. Defaults to None.
         target (list, optional): labels the classifier predicts. Defaults to ['group'].
         param_search (bool, optional): run GridSearchCV to find the regularization param for classifier. Defaults to True.
-        C_list ([type], optional): list of C regularization paramters to search through. Defaults to None. If None, C_list will search through np.logspace(-6,3, 50)
+        C_list (numpy.array, optional): list of C regularization paramters to search through. Defaults to None. If None, C_list will search through np.logspace(-6,3, 50)
         model_type (str, optional): name of the linear classifier. 'lr' for logistic regression or 'svc' for linearSVC. Defaults to 'lr'.
         cv (str, optional): cross validation type. 'loo' for LeaveOneOut 'skf' for StratifiedKFold. Defaults to 'loo'.
         n_splits (int, optional): number of splits for StratifiedKFold. Defaults to 5.
 
     Returns:
-        y_true ([np.array]): array for true label
-        y_pred ([np.array]): array for predicted label
-        real_f1 ([np.array]): array for f1 score
-        true_coef ([np.array]): array for model weights
-        y_shuffle_true ([np.array]): array for shffuled label
-        y_shuffle_pred ([np.array]): array for shuffled predicted label
-        shuffle_f1 ([np.array]): array for shuffled f1 score
-        shuffle_coef ([np.array]): array for shuffled model weights
-    '''
+        y_true (np.array): array for true label
+        y_pred (np.array): array for predicted label
+        real_f1 (np.array): array for f1 score
+        true_coef (np.array): array for model weights
+        y_shuffle_true (np.array): array for shffuled label
+        y_shuffle_pred (np.array): array for shuffled predicted label
+        shuffle_f1 (np.array): array for shuffled f1 score
+        shuffle_coef (np.array): array for shuffled model weights
+    """
     # set up data for classifier
     X = summary[features].to_numpy()
     print(X.shape)
@@ -317,6 +342,18 @@ def classifier_fingerprint(summary, features=['MoSeq'], preprocessor=None, class
 
 
 def _plot_cm(y_true, y_pred, ax, ax_labels, title):
+    """plot confusion matrix
+
+    Args:
+        y_true (np.array): array for true label
+        y_pred (np.array): array for predicted label
+        ax (pyplot.axis): matplotlib axis for plotting the figure
+        ax_labels (numpy.array): labels for the confusion matrices
+        title (str): figure title
+
+    Returns:
+        im(pyplot.figure): figure for the confusion matrix
+    """
     cm = confusion_matrix(y_true, y_pred)
     cm = cm / cm.sum(axis=1, keepdims=True)
     im = ax.imshow(cm, cmap='binary_r', vmin=0, vmax=1)
@@ -329,15 +366,15 @@ def _plot_cm(y_true, y_pred, ax, ax_labels, title):
 
 
 def plot_cm(y_true, y_pred, y_shuffle_true, y_shuffle_pred):
-    '''
+    """
     plot confusion matrix
 
     Args:
-        y_true ([np.array]): array for true label
-        y_pred ([np.array]): array for predicted label
-        y_shuffle_true ([np.array]): array for shffuled label
-        y_shuffle_pred ([np.array]): array for shuffled predicted label
-    '''
+        y_true (np.array): array for true label
+        y_pred (np.array): array for predicted label
+        y_shuffle_true (np.array): array for shffuled label
+        y_shuffle_pred (np.array): array for shuffled predicted label
+    """
     fig = plt.figure(figsize=(23, 10), facecolor='white')
     gs = GridSpec(ncols=3, nrows=1, wspace=0.1, figure = fig, width_ratios=[10,10,0.3])
     fig_ax = fig.add_subplot(gs[0,0])

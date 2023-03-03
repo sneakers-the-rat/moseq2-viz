@@ -1,12 +1,7 @@
-'''
+"""
+GUI functions for visualizing model results.
 
-GUI front-end operations. This module contains all the functionality and configurable parameters
-users can alter to most accurately process their data.
-
-Note: These functions perform jupyter notebook specific pre-processing, loads in corresponding parameters from the
-CLI functions, then call the corresponding wrapper function with the given input parameters.
-
-'''
+"""
 from os.path import join, exists
 from functools import wraps, partial
 from moseq2_viz.util import read_yaml
@@ -18,18 +13,16 @@ from moseq2_viz.helpers.wrappers import add_group_wrapper, plot_syllable_stat_wr
 
 
 def _alias(func, dec_func=None):
-    '''
-    Copies documentation and function signatures across re-used functions (but with different names).
+    """
+    Copy documentation and function signatures across re-used functions (but with different names).
 
-    Parameters
-    ----------
-    func (function): if not used as a wrapper function, this is the function to alias. Else, it is the function to wrap.
-    dec_func (function): if _alias is used as a wrapper function, this is the function to alias.
+    Args:
+    func (function): The function to add alias or to wrap
+    dec_func (function): the function to add alias when used a wrapper function.
 
-    Returns
-    -------
+    Returns:
     inner (function): wrapped function.
-    '''
+    """
     @wraps(func if dec_func is None else dec_func)
     def inner(*args, **kwargs):
         return func(*args, **kwargs)
@@ -40,17 +33,15 @@ def _alias(func, dec_func=None):
     return inner
 
 def get_groups_command(index_file):
-    '''
-    Jupyter Notebook to print index file current metadata groupings.
+    """
+    Return the group names and print the number of groups, sessions and group names.
 
-    Parameters
-    ----------
+    Args:
     index_file (str): path to index file
 
-    Returns
-    -------
+    Returns:
     (int): number of unique groups
-    '''
+    """
 
 
     index_data = read_yaml(index_file)
@@ -74,21 +65,18 @@ def get_groups_command(index_file):
     return len(set(groups))
 
 def add_group(index_file, by='SessionName', value='default', group='default', exact=False, lowercase=False, negative=False):
-    '''
-    Updates index file SubjectName group names with user defined group names.
+    """
+    Update the index file (moseq2-index.yaml) group names with user defined group names.
 
-    Parameters
-    ----------
+    Args:
     index_file (str): path to index file
-    value (str or list): SessionName value(s) to search for and update with the corresponding group(s)
+    by (str): session metadata field to find the match for the value
+    value (str or list): value(s) to search for in the by field
     group (str or list): Respective group name(s) to set corresponding sessions as.
     exact (bool): indicate whether to search for exact match.
     lowercase (bool): indicate whether to convert all searched for names to lowercase.
     negative (bool): whether to update the inverse of the found selection.
-
-    Returns
-    -------
-    '''
+    """
 
     gui_data = {
         'key': by,
@@ -117,27 +105,20 @@ def add_group(index_file, by='SessionName', value='default', group='default', ex
 copy_h5_metadata_to_yaml_command = _alias(copy_h5_metadata_to_yaml_wrapper)
 
 def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30, ext='p', objective='duration (mean match)'):
-    '''
-    Given a directory containing multiple models, and the path to the pca scores they were trained on,
-    this function returns the path to the model that has the closest median syllable duration to that of
-    the PC Scores.
+    """
+    Return the best model in the model foder that is closest to model free changepoint in the given objective.
 
-    Parameters
-    ----------
-    progress_paths (dict): Dict containing paths the to model directory and pca scores file
-    output_file (str): Optional path to save the comparison plot
-    plot_all (bool): Indicates whether to plot all the models' changepoint distributions with the PCs, highlighting
-     the best model curve.
+    Args:
+    progress_paths (dict): Dictionary containing paths the to model directory and pc scores file
+    output_file (str): fiename for the comparison plot
+    plot_all (bool): flag that Indicates whether to plot all the models.
     fps (int): Frames per second.
     ext (str): File extension to search for models with
-    objective (str): can be either duration or jsd. The objective finds the best model
-        based on either median changepoint durations or the jensen-shannon divergence
-        beteween changepoint duration distributions
+    objective (str): The objective to compare the results between the models and the model free changepoint.
 
-    Returns
-    -------
+    Returns:
     best_fit_model (str): Path tp best fit model
-    '''
+    """
 
     # Check output file path
     if output_file is None:
@@ -158,9 +139,6 @@ def get_best_fit_model(progress_paths, output_file=None, plot_all=False, fps=30,
 
 @partial(_alias, dec_func=make_crowd_movies_wrapper)
 def make_crowd_movies_command(*args, **kwargs):
-    '''
-    See cli.make_crowd_movies()
-    '''
     # Get default CLI params
     objs = make_crowd_movies.params
     defaults = {tmp.name: tmp.default for tmp in objs if not tmp.required}
@@ -185,10 +163,6 @@ plot_scalar_summary_command = _alias(plot_scalar_summary_wrapper)
 
 @partial(_alias, dec_func=plot_transition_graph_wrapper)
 def plot_transition_graph_command(*args, **kwargs):
-    '''
-    See cli.plot_transition_graph()
-    '''
-
     # Get default CLI params
     params = {tmp.name: tmp.default for tmp in plot_transition_graph.params if not tmp.required}
 

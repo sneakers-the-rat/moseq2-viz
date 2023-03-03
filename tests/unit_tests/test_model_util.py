@@ -79,7 +79,7 @@ class TestModelUtils(TestCase):
 
         ts_path = 'data/depth_ts.txt'
 
-        ts_contents = '''350709011.4036 0
+        ts_contents = """350709011.4036 0
 350709044.3977 0
 350709077.4811 0
 350709111.4189 0
@@ -90,7 +90,7 @@ class TestModelUtils(TestCase):
 350709277.4546 0
 350709411.3864 0
 350709577.5677 0
-350709611.3888 0'''
+350709611.3888 0"""
 
         with open(ts_path, 'w') as f:
             f.write(ts_contents)

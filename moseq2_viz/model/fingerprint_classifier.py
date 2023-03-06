@@ -82,7 +82,10 @@ def create_fingerprint_dataframe(scalar_df, mean_df, stat_type='mean', n_bins=No
     
     if len(vel_cols) > 0:
         scalar_df[vel_cols] *= 30
-        mean_df[vel_cols_stats] *=30
+        try:
+            mean_df[vel_cols_stats] *=30
+        except KeyError:
+            mean_df[vel_cols] *=30
     
     # pivot mean_df to be groupby x syllable
     syll_summary = mean_df.pivot_table(index=groupby_list, values='usage', columns='syllable')

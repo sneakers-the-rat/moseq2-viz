@@ -1,8 +1,8 @@
 # MoSeq2-Viz: Visualization toolbox for MoSeq2
 
 [![Build Status](https://travis-ci.com/dattalab/moseq2-viz.svg?token=XJGe3NpjKFY5oYjdNcmg&branch=test-suite)](https://travis-ci.com/dattalab/moseq2-viz)
-
 [![codecov](https://codecov.io/gh/dattalab/moseq2-viz/branch/test-suite/graph/badge.svg?token=jUx63Whtx4)](https://codecov.io/gh/dattalab/moseq2-viz)
+[![DOI](https://zenodo.org/badge/132665227.svg)](https://zenodo.org/badge/latestdoi/132665227)
 
 # [Documentation: MoSeq2 Wiki](https://github.com/dattalab/moseq2-app/wiki)
 You can find more information about MoSeq Pipeline, installation, step-by-step instructions, documentation for Command Line Interface(CLI), tutorials etc in [MoSeq2 Wiki](https://github.com/dattalab/moseq2-app/wiki).

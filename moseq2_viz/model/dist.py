@@ -289,9 +289,10 @@ def get_init_points(pca_scores, model_labels, max_syllable=40, nlags=3, npcs=10)
 
     for k, v in pca_scores.items():
 
+        # if k is not used in modeling step, skip
         if k not in model_labels.keys():
             continue
-
+        # get model labels
         labels = model_labels[k]
         seq_array, locs = get_transitions(labels)
 

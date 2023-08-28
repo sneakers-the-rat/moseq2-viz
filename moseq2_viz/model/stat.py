@@ -15,7 +15,7 @@ def get_session_mean_df(df, statistic="usage", max_syllable=40):
     Compute a given mean syllable statistic grouped by groups and UUIDs.
 
     Args:
-    df (pandas.DataFrame): dataframe that contains frame by frame scalar and syllable data (moseq_df/scalar_df)
+    df (pandas.DataFrame): dataframe that contains average syllable statistics per session (mean_df/stats_df)
     statistic (str): statistic to compute mean for, (any of the columns in input df); for example: 'usage', 'duration', 'velocity_2d_mm', etc.
     max_syllable (int): the index of the maximum number of syllables to include
 
@@ -73,7 +73,7 @@ def bootstrap_group_means(df, group1, group2, statistic="usage", max_syllable=40
     compute boostrapped group means
 
     Args:
-    df (pandas.DataFrame): dataframe that contains frame by frame scalar and syllable data (moseq_df/scalar_df)
+    df (pandas.DataFrame): dataframe that contains syllable statistics per session (mean_df/stats_df)
     group1 (str): Name of group 1 to compare.
     group2 (str): Name of group 2 to compare.
     statistic (str): Syllable statistic to compute bootstrap means for.
@@ -237,7 +237,7 @@ def run_kruskal(
     Run Kruskal-Wallis Hypothesis test and Dunn's posthoc multiple comparisons test for syllable statistic.
 
     Args:
-    df (pandas.DataFrame): dataframe that contains frame by frame scalar and syllable data (moseq_df/scalar_df)
+    df (pandas.DataFrame): dataframe that contains syllable statistics per session (mean_df/stats_df)
     statistic (str): statistic to compute mean for, (any of the columns in input df).
     max_syllable (int): the index of the maximum number of syllables to include
     n_perm (int): Number of permuted samples to generate.
@@ -450,7 +450,7 @@ def run_pairwise_stats(df, group1, group2, test_type="mw", verbose=False, **kwar
     Run hypothesis testing functions: MannWhitney, Z-Test and T-Test.
 
     Args:
-    df (pandas.DataFrame): dataframe that contains frame by frame scalar and syllable data (moseq_df/scalar_df)
+    df (pandas.DataFrame): dataframe that contains syllable statistics per session (mean_df/stats_df)
     group1 (str): Name of first group
     group2 (str): Name of second group
     test_type (str): specifying which type of statistical test
@@ -476,7 +476,7 @@ def mann_whitney(df, group1, group2, statistic="usage", max_syllable=40, verbose
     Also runs multiple corrections test to find syllables to exclude.
 
     Args:
-    df (pandas.DataFrame): dataframe that contains frame by frame scalar and syllable data (moseq_df/scalar_df)
+    df (pandas.DataFrame): dataframe that contains syllable statistics per session (mean_df/stats_df)
     group1 (str): Name of first group
     group2 (str): Name of second group
     statistic (str): Name of statistic to compute z-test on.
@@ -514,7 +514,7 @@ def ztest(df, group1, group2, statistic="usage", max_syllable=40, verbose=False,
     Computes a z hypothesis test on 2 (bootstrapped) selected groups with multiple test correction.
 
     Args:
-    df (pandas.DataFrame): dataframe that contains frame by frame scalar and syllable data (moseq_df/scalar_df)
+    df (pandas.DataFrame): dataframe that contains syllable statistics per session (mean_df/stats_df)
     group1 (str): Name of first group
     group2 (str): Name of second group
     statistic (str): Name of statistic to compute z-test on.
@@ -539,7 +539,7 @@ def ttest(df, group1, group2, statistic="usage", max_syllable=40, verbose=False,
     Computes a t-hypothesis test on 2 selected groups to find significant syllables with multiple test correction.
 
     Args:
-    df (pandas.DataFrame): dataframe that contains frame by frame scalar and syllable data (moseq_df/scalar_df)
+    df (pandas.DataFrame): dataframe that contains syllable statistics per session (mean_df/stats_df)
     group1 (str): Name of first group
     group2 (str): Name of second group
     statistic (str): Name of statistic to compute t-test on.

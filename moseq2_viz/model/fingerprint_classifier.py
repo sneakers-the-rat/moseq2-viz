@@ -1,13 +1,18 @@
 """
 Functions for creating fingerprint plots and linear classifier
 """
+
 from operator import pos
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from collections import defaultdict
 from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler
 
-from sklearn.model_selection import StratifiedKFold, LeaveOneOut, RepeatedStratifiedKFold
+from sklearn.model_selection import (
+    StratifiedKFold,
+    LeaveOneOut,
+    RepeatedStratifiedKFold,
+)
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 from sklearn.model_selection import GridSearchCV
@@ -95,14 +100,18 @@ def create_fingerprint_dataframe(
             mean_df[vel_cols] *= 30
 
     # pivot mean_df to be groupby x syllable
-    syll_summary = mean_df.pivot_table(index=groupby_list, values="usage", columns="syllable")
+    syll_summary = mean_df.pivot_table(
+        index=groupby_list, values="usage", columns="syllable"
+    )
     syll_summary.columns = pd.MultiIndex.from_arrays(
         [["MoSeq"] * syll_summary.shape[1], syll_summary.columns]
     )
     min_p = syll_summary.min().min()
     max_p = syll_summary.max().max()
 
-    ranges = scalar_df.reset_index(drop=True)[scalars].agg(["min", "max", robust_min, robust_max])
+    ranges = scalar_df.reset_index(drop=True)[scalars].agg(
+        ["min", "max", robust_min, robust_max]
+    )
     # add syllable ranges to this df
     ranges["MoSeq"] = [min_p, max_p, min_p, max_p]
     range_idx = ["min", "max"] if range_type == "full" else ["robust_min", "robust_max"]
@@ -145,7 +154,13 @@ def plotting_fingerprint(
     level_names=["Group"],
     vmin=None,
     vmax=None,
-    plot_columns=["dist_to_center_px", "velocity_2d_mm", "height_ave_mm", "length_mm", "MoSeq"],
+    plot_columns=[
+        "dist_to_center_px",
+        "velocity_2d_mm",
+        "height_ave_mm",
+        "length_mm",
+        "MoSeq",
+    ],
     col_names=[
         ("Position", "Dist. from center (px)"),
         ("Speed", "Speed (mm/s)"),
@@ -174,7 +189,8 @@ def plotting_fingerprint(
     # ensure number of groups is not over the number of available levels
     if num_level > len(summary.index.names):
         raise Exception(
-            "Too many levels to unpack. num_level should be less than", len(summary.index.names)
+            "Too many levels to unpack. num_level should be less than",
+            len(summary.index.names),
         )
 
     name_map = dict(zip(plot_columns, col_names))
@@ -186,12 +202,17 @@ def plotting_fingerprint(
         level = summary.index.get_level_values(i)
         level_label = LabelEncoder().fit_transform(level)
         find_mid = (
-            np.diff(np.r_[0, np.argwhere(np.diff(level_label)).ravel(), len(level_label)]) / 2
+            np.diff(
+                np.r_[0, np.argwhere(np.diff(level_label)).ravel(), len(level_label)]
+            )
+            / 2
         ).astype("int32")
         # store level value
         levels.append(level)
         level_plot.append(level_label)
-        level_ticks.append(np.r_[0, np.argwhere(np.diff(level_label)).ravel()] + find_mid)
+        level_ticks.append(
+            np.r_[0, np.argwhere(np.diff(level_label)).ravel()] + find_mid
+        )
 
     # col_num = number of grouping/level + column in summary
     col_num = num_level + len(plot_columns)
@@ -251,15 +272,32 @@ def plotting_fingerprint(
 
         # top to bottom is 0-20 for y axis
         if col == "MoSeq":
-            extent = [summary[col].columns[0], summary[col].columns[-1], len(summary) - 1, 0]
+            extent = [
+                summary[col].columns[0],
+                summary[col].columns[-1],
+                len(summary) - 1,
+                0,
+            ]
         else:
-            extent = [range_dict[col].iloc[0], range_dict[col].iloc[1], len(summary) - 1, 0]
+            extent = [
+                range_dict[col].iloc[0],
+                range_dict[col].iloc[1],
+                len(summary) - 1,
+                0,
+            ]
 
         pc = temp_ax.imshow(
-            data, aspect="auto", interpolation="none", vmin=vmin, vmax=vmax, extent=extent
+            data,
+            aspect="auto",
+            interpolation="none",
+            vmin=vmin,
+            vmax=vmax,
+            extent=extent,
         )
         temp_ax.set_xlabel(name[1], fontsize=10)
-        temp_ax.set_xticks(np.linspace(np.ceil(extent[0]), np.floor(extent[1]), 6).astype(int))
+        temp_ax.set_xticks(
+            np.linspace(np.ceil(extent[0]), np.floor(extent[1]), 6).astype(int)
+        )
         # https://stackoverflow.com/questions/14908576/how-to-remove-frame-from-matplotlib-pyplot-figure-vs-matplotlib-figure-frame
         temp_ax.set_yticks([])
         temp_ax.axis = "tight"
@@ -443,7 +481,13 @@ def plot_cm(y_true, y_pred, y_shuffle_true, y_shuffle_pred):
     gs = GridSpec(ncols=3, nrows=1, wspace=0.1, figure=fig, width_ratios=[10, 10, 0.3])
     fig_ax = fig.add_subplot(gs[0, 0])
     labels = np.unique(y_true)
-    _plot_cm(y_true, y_pred, fig_ax, labels, f"Real Accuracy {accuracy_score(y_true, y_pred):0.2f}")
+    _plot_cm(
+        y_true,
+        y_pred,
+        fig_ax,
+        labels,
+        f"Real Accuracy {accuracy_score(y_true, y_pred):0.2f}",
+    )
 
     fig_ax = fig.add_subplot(gs[0, 1])
     im = _plot_cm(

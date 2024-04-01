@@ -1,12 +1,13 @@
 """
 Utility functions for computing syllable usage entropy, and syllable transition entropy rate.
 """
+
 import numpy as np
 from moseq2_viz.model.trans_graph import get_transition_matrix
 from moseq2_viz.model.util import get_syllable_statistics, relabel_by_usage
 
 
-def entropy(labels, truncate_syllable=40, smoothing=1.0, relabel_by='usage'):
+def entropy(labels, truncate_syllable=40, smoothing=1.0, relabel_by="usage"):
     """
     Compute syllable usage entropy, base 2.
 
@@ -35,7 +36,7 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0, relabel_by='usage'):
         else:
             truncate_point = truncate_point[0]
 
-        usages = np.array(list(usages.values()), dtype='float')
+        usages = np.array(list(usages.values()), dtype="float")
         usages = usages[:truncate_point] + smoothing
         usages /= usages.sum()
 
@@ -45,8 +46,14 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0, relabel_by='usage'):
     return ent
 
 
-def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
-                 smoothing=1.0, tm_smoothing=1.0, relabel_by='usage'):
+def entropy_rate(
+    labels,
+    truncate_syllable=40,
+    normalize="row",
+    smoothing=1.0,
+    tm_smoothing=1.0,
+    relabel_by="usage",
+):
     """
     Compute entropy rate, base 2 using provided syllable labels. If syllable labels have not been re-labeled by usage, this function will do so.
 
@@ -79,24 +86,30 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
 
         syllables = syllables[:truncate_point]
 
-        usages = np.array(list(usages.values()), dtype='float')
+        usages = np.array(list(usages.values()), dtype="float")
         usages = usages[:truncate_point] + smoothing
         usages /= usages.sum()
 
-        tm = get_transition_matrix([v],
-                                   max_syllable=100,
-                                   normalize=None,
-                                   smoothing=0,
-                                   disable_output=True,
-                                   combine=True) + tm_smoothing
+        tm = (
+            get_transition_matrix(
+                [v],
+                max_syllable=100,
+                normalize=None,
+                smoothing=0,
+                disable_output=True,
+                combine=True,
+            )
+            + tm_smoothing
+        )
 
         tm = tm[:truncate_point, :truncate_point]
 
-        if normalize == 'bigram':
+        if normalize == "bigram":
             tm /= tm.sum()
-        elif normalize == 'rows':
+        # http://reeves.ee.duke.edu/information_theory/lecture4-Entropy_Rates.pdf
+        elif normalize == "rows":
             tm /= tm.sum(axis=1, keepdims=True)
-        elif normalize == 'columns':
+        elif normalize == "columns":
             tm /= tm.sum(axis=0, keepdims=True)
 
         entropy_rate = -np.sum(usages * tm * np.log2(tm))
@@ -105,7 +118,13 @@ def entropy_rate(labels, truncate_syllable=40, normalize='bigram',
     return ent
 
 
-def transition_entropy(labels, tm_smoothing=0, truncate_syllable=40, transition_type='incoming', relabel_by='usage'):
+def transition_entropy(
+    labels,
+    tm_smoothing=0,
+    truncate_syllable=40,
+    transition_type="incoming",
+    relabel_by="usage",
+):
     """
     Compute directional syllable transition entropy. Based on whether the given transition_type is 'incoming' or or 'outgoing'.
 
@@ -120,9 +139,8 @@ def transition_entropy(labels, tm_smoothing=0, truncate_syllable=40, transition_
     entropies (list of np.ndarra): a list of transition entropies (either incoming or outgoing) for each session and syllable.
     """
 
-
-    if transition_type not in ('incoming', 'outgoing'):
-        raise ValueError('transition_type must be incoming or outgoing')
+    if transition_type not in ("incoming", "outgoing"):
+        raise ValueError("transition_type must be incoming or outgoing")
 
     if relabel_by is not None:
         labels, _ = relabel_by_usage(labels, count=relabel_by)
@@ -139,11 +157,20 @@ def transition_entropy(labels, tm_smoothing=0, truncate_syllable=40, transition_
         else:
             truncate_point = truncate_point[0]
 
-        tm = get_transition_matrix([v], max_syllable=100, normalize=None, smoothing=0,
-                                   combine=True, disable_output=True) + tm_smoothing
+        tm = (
+            get_transition_matrix(
+                [v],
+                max_syllable=100,
+                normalize=None,
+                smoothing=0,
+                combine=True,
+                disable_output=True,
+            )
+            + tm_smoothing
+        )
         tm = tm[:truncate_point, :truncate_point]
 
-        if transition_type == 'outgoing':
+        if transition_type == "outgoing":
             # normalize each row (outgoing syllables)
             tm = tm.T
         # if incoming, don't reshape the transition matrix
@@ -152,4 +179,3 @@ def transition_entropy(labels, tm_smoothing=0, truncate_syllable=40, transition_
         entropies.append(ent)
 
     return entropies
-

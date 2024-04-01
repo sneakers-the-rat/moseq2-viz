@@ -27,11 +27,11 @@ def camel_to_snake(s):
     (str): snake_case string
     """
     # https://gist.github.com/jaytaylor/3660565
-    _underscorer1 = re.compile(r'(.)([A-Z][a-z]+)')
-    _underscorer2 = re.compile(r'([a-z0-9])([A-Z])')
+    _underscorer1 = re.compile(r"(.)([A-Z][a-z]+)")
+    _underscorer2 = re.compile(r"([a-z0-9])([A-Z])")
 
-    subbed = _underscorer1.sub(r'\1_\2', s)
-    return _underscorer2.sub(r'\1_\2', subbed).lower()
+    subbed = _underscorer1.sub(r"\1_\2", s)
+    return _underscorer2.sub(r"\1_\2", subbed).lower()
 
 
 def get_index_hits(config_data, metadata, key, v):
@@ -48,13 +48,13 @@ def get_index_hits(config_data, metadata, key, v):
     hits (list): list of booleans indicating the found sessions to be updated in add_group_wrapper()
     """
 
-    if config_data['lowercase'] and config_data['negative']:
+    if config_data["lowercase"] and config_data["negative"]:
         # Convert keys to lowercase and return inverse selection
         hits = [re.search(v, meta[key].lower()) is None for meta in metadata]
-    elif config_data['lowercase']:
+    elif config_data["lowercase"]:
         # Convert keys to lowercase
         hits = [re.search(v, meta[key].lower()) is not None for meta in metadata]
-    elif config_data['negative']:
+    elif config_data["negative"]:
         # Return inverse selection
         hits = [re.search(v, meta[key]) is None for meta in metadata]
     else:
@@ -72,7 +72,7 @@ def clean_dict(dct):
     dct (dict): dictionary with values to clean.
 
     Returns:
-    (dict): dictionary with standardized value types. 
+    (dict): dictionary with standardized value types.
     """
 
     def clean_entry(e):
@@ -104,17 +104,17 @@ def _load_h5_to_dict(file: h5py.File, path: str) -> dict:
     ans = {}
     if isinstance(file[path], h5py.Dataset):
         # only use the final path key to add to `ans`
-        ans[path.split('/')[-1]] = file[path][()]
+        ans[path.split("/")[-1]] = file[path][()]
     else:
         for key, item in file[path].items():
             if isinstance(item, h5py.Dataset):
                 ans[key] = item[()]
             elif isinstance(item, h5py.Group):
-                ans[key] = _load_h5_to_dict(file, '/'.join([path, key]))
+                ans[key] = _load_h5_to_dict(file, "/".join([path, key]))
     return ans
 
 
-def h5_to_dict(h5file, path: str = '/') -> dict:
+def h5_to_dict(h5file, path: str = "/") -> dict:
     """
     Load h5 dict contents to a dict variable.
 
@@ -127,12 +127,12 @@ def h5_to_dict(h5file, path: str = '/') -> dict:
     """
 
     if isinstance(h5file, str):
-        with h5py.File(h5file, 'r') as f:
+        with h5py.File(h5file, "r") as f:
             out = _load_h5_to_dict(f, path)
     elif isinstance(h5file, (h5py.File, h5py.Group)):
         out = _load_h5_to_dict(h5file, path)
     else:
-        raise Exception('File input not understood. Use an h5 file path or file handle')
+        raise Exception("File input not understood. Use an h5 file path or file handle")
     return out
 
 
@@ -147,13 +147,13 @@ def get_timestamps_from_h5(h5file: str) -> np.ndarray:
     (np.ndarray): timestamps from extraction within the h5file.
     """
 
-    with h5py.File(h5file, 'r') as f:
+    with h5py.File(h5file, "r") as f:
         # v0.1.3 or greater data format
-        is_new = 'timestamps' in f
+        is_new = "timestamps" in f
     if is_new:
-        return h5_to_dict(h5file, 'timestamps')['timestamps']
+        return h5_to_dict(h5file, "timestamps")["timestamps"]
     else:
-        return h5_to_dict(h5file, 'metadata/timestamps')['timestamps']
+        return h5_to_dict(h5file, "metadata/timestamps")["timestamps"]
 
 
 def get_metadata_path(h5file):
@@ -167,13 +167,13 @@ def get_metadata_path(h5file):
     (str): path to acquistion metadata within h5 file.
     """
 
-    with h5py.File(h5file, 'r') as f:
-        if '/metadata/acquisition' in f:
-            return '/metadata/acquisition'
-        elif '/metadata/extraction' in f:
-            return '/metadata/extraction'
+    with h5py.File(h5file, "r") as f:
+        if "/metadata/acquisition" in f:
+            return "/metadata/acquisition"
+        elif "/metadata/extraction" in f:
+            return "/metadata/extraction"
         else:
-            raise KeyError('acquisition metadata not found')
+            raise KeyError("acquisition metadata not found")
 
 
 def load_changepoint_distribution(cpfile):
@@ -187,7 +187,7 @@ def load_changepoint_distribution(cpfile):
     (numpy.array): Array of changepoint durations.
     """
 
-    cps = h5_to_dict(cpfile, 'cps')
+    cps = h5_to_dict(cpfile, "cps")
     cp_dist = map(compose(np.diff, np.squeeze), cps.values())
     return np.concatenate(list(cp_dist))
 
@@ -204,11 +204,13 @@ def load_timestamps(timestamp_file, col=0):
     ts (np.ndarray): loaded array of timestamps
     """
 
-    ts = np.loadtxt(timestamp_file, delimiter=' ')
+    ts = np.loadtxt(timestamp_file, delimiter=" ")
     if ts.ndim > 1:
         return ts[:, col]
     elif col > 0:
-        raise Exception(f'Timestamp file {timestamp_file} does not have more than one column of data')
+        raise Exception(
+            f"Timestamp file {timestamp_file} does not have more than one column of data"
+        )
     return ts
 
 
@@ -230,25 +232,31 @@ def parse_index(index: Union[str, dict]) -> tuple:
         index = read_yaml(index)
         from_dict = False
 
-    files = index['files']
+    files = index["files"]
 
-    sorted_index = groupby('uuid', files)
+    sorted_index = groupby("uuid", files)
     # grab first entry in list, which is a dict
     sorted_index = valmap(first, sorted_index)
     # remove redundant uuid entry
-    sorted_index = valmap(lambda d: dissoc(d, 'uuid'), sorted_index)
+    sorted_index = valmap(lambda d: dissoc(d, "uuid"), sorted_index)
     # tuple-ize the path entry, join with the index file dirname
     if not from_dict:
-        sorted_index = valmap(lambda d: assoc(d, 'path', tuple(join(index_dir, x) for x in d['path'])),
-                            sorted_index)
+        sorted_index = valmap(
+            lambda d: assoc(d, "path", tuple(join(index_dir, x) for x in d["path"])),
+            sorted_index,
+        )
     else:
-        sorted_index = valmap(lambda d: assoc(d, 'path', tuple(d['path'])), sorted_index)
+        sorted_index = valmap(
+            lambda d: assoc(d, "path", tuple(d["path"])), sorted_index
+        )
 
-    if index['pca_path'] is None:
+    if index["pca_path"] is None:
         raise Exception("Please add pac_score path to moseq2-index.yaml")
     uuid_sorted = {
-        'files': sorted_index,
-        'pca_path': join(index_dir, index['pca_path']) if not from_dict else index['pca_path']
+        "files": sorted_index,
+        "pca_path": (
+            join(index_dir, index["pca_path"]) if not from_dict else index["pca_path"]
+        ),
     }
 
     return index, uuid_sorted
@@ -280,12 +288,10 @@ def h5_filepath_from_sorted(sorted_index_entry: dict) -> str:
     (str): a str containing the extraction filepath
     """
 
-    return first(sorted_index_entry['path'])
+    return first(sorted_index_entry["path"])
 
 
-def recursive_find_h5s(root_dir=None,
-                       ext='.h5',
-                       yaml_string='{}.yaml'):
+def recursive_find_h5s(root_dir=None, ext=".h5", yaml_string="{}.yaml"):
     """
     Recursively find h5 files, along with yaml files with the same basename.
 
@@ -305,8 +311,8 @@ def recursive_find_h5s(root_dir=None,
 
     def has_frames(h5f):
         """Checks if the supplied h5 file has a frames key"""
-        with h5py.File(h5f, 'r') as f:
-            return 'frames' in f
+        with h5py.File(h5f, "r") as f:
+            return "frames" in f
 
     def h5_to_yaml(h5f):
         return yaml_string.format(splitext(h5f)[0])
@@ -315,7 +321,7 @@ def recursive_find_h5s(root_dir=None,
     yaml_exists = compose(exists, h5_to_yaml)
 
     # grab all files with ext = .h5
-    files = glob(os.path.join(root_dir, '**', f'*{ext}'), recursive=True)
+    files = glob(os.path.join(root_dir, "**", f"*{ext}"), recursive=True)
     # keep h5s that have a yaml file associated with them
     to_keep = filter(yaml_exists, files)
     # keep h5s that have a frames key
@@ -339,7 +345,7 @@ def read_yaml(yaml_path: str):
     loaded (dict): loaded yaml file contents.
 
     """
-    with open(yaml_path, 'r') as f:
+    with open(yaml_path, "r") as f:
         loaded = yaml.safe_load(f)
     return loaded
 
@@ -388,6 +394,7 @@ def assert_model_and_index_uuids_match(model, index):
     index (str or dict): str path to index file (moseq2-index.yaml) or dictionary of index data.
     """
     from moseq2_viz.model.util import parse_model_results
+
     if isinstance(model, str) and exists(model):
         # Load the model
         model = parse_model_results(model)
@@ -395,8 +402,7 @@ def assert_model_and_index_uuids_match(model, index):
         # Read index file
         index = get_sorted_index(index)
 
-    index_uuids = set(index['files'])
-    model_uuids = set(model['metadata']['uuids'])
+    index_uuids = set(index["files"])
+    model_uuids = set(model["metadata"]["uuids"])
 
-    assert index_uuids == model_uuids, 'Index file UUIDS must match the model UUIDs.'
-    
+    assert index_uuids == model_uuids, "Index file UUIDS must match the model UUIDs."

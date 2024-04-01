@@ -106,6 +106,7 @@ def entropy_rate(
 
         if normalize == "bigram":
             tm /= tm.sum()
+        # http://reeves.ee.duke.edu/information_theory/lecture4-Entropy_Rates.pdf
         elif normalize == "rows":
             tm /= tm.sum(axis=1, keepdims=True)
         elif normalize == "columns":

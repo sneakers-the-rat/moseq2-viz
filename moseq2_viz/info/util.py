@@ -49,7 +49,7 @@ def entropy(labels, truncate_syllable=40, smoothing=1.0, relabel_by="usage"):
 def entropy_rate(
     labels,
     truncate_syllable=40,
-    normalize="bigram",
+    normalize="row",
     smoothing=1.0,
     tm_smoothing=1.0,
     relabel_by="usage",

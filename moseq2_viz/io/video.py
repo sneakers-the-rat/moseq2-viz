@@ -1,6 +1,7 @@
 """
 Helper functions for handling crowd movie file writing and video metadata maintenance.
 """
+
 import cv2
 import warnings
 import subprocess
@@ -17,6 +18,7 @@ from cytoolz.dicttoolz import valfilter, merge_with
 from moseq2_viz.model.util import get_syllable_slices
 from cytoolz.curried import get_in, keyfilter, valmap
 
+
 def check_video_parameters(index: dict) -> dict:
     """
     Verify extraction parameters that should be consistent across sessions. If not, the function raises a RuntimeError.
@@ -30,19 +32,19 @@ def check_video_parameters(index: dict) -> dict:
     from moseq2_viz.util import read_yaml
 
     # define constants
-    check_parameters = ['crop_size', 'fps']
+    check_parameters = ["crop_size", "fps"]
 
-    get_yaml = get_in(['path', 1])
-    ymls = list(map(get_yaml, index['files'].values()))
+    get_yaml = get_in(["path", 1])
+    ymls = list(map(get_yaml, index["files"].values()))
 
     # load yaml config files when needed
     dicts = map(read_yaml, ymls)
     # get the parameters key within each dict
-    params = pluck('parameters', dicts)
+    params = pluck("parameters", dicts)
 
     first_entry, params = peek(params)
-    if 'resolution' in first_entry:
-        check_parameters += ['resolution']
+    if "resolution" in first_entry:
+        check_parameters += ["resolution"]
 
     # filter for only keys in check_parameters
     params = map(keyfilter(lambda k: k in check_parameters), params)
@@ -56,19 +58,24 @@ def check_video_parameters(index: dict) -> dict:
 
     # if there are multiple values for a parameter, raise error
     if incorrect_parameters:
-        raise RuntimeError('The following parameters are not equal ' +
-                           f'across extractions: {list(incorrect_parameters)}')
+        raise RuntimeError(
+            "The following parameters are not equal "
+            + f"across extractions: {list(incorrect_parameters)}"
+        )
 
     # grab the first value in the set
     vid_parameters = valmap(first, vid_parameters)
 
     # update resolution
-    if 'resolution' in vid_parameters:
-        vid_parameters['resolution'] = tuple(x + 100 for x in vid_parameters['resolution'])
+    if "resolution" in vid_parameters:
+        vid_parameters["resolution"] = tuple(
+            x + 100 for x in vid_parameters["resolution"]
+        )
     else:
-        vid_parameters['resolution'] = None
+        vid_parameters["resolution"] = None
 
     return vid_parameters
+
 
 def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
     """
@@ -82,24 +89,29 @@ def write_crowd_movie_info_file(model_path, model_fit, index_file, output_dir):
     """
 
     # Crowd movie info file contents; used to indicate the modeling state the crowd_movies were generated from
-    info_parameters = ['model_class', 'kappa', 'gamma', 'alpha']
+    info_parameters = ["model_class", "kappa", "gamma", "alpha"]
 
     # Loading parameters to dict to save to file in output directory
-    info_file = join(output_dir, 'info.yaml')
-    info_dict = {k: model_fit['model_parameters'][k] for k in info_parameters}
+    info_file = join(output_dir, "info.yaml")
+    info_dict = {k: model_fit["model_parameters"][k] for k in info_parameters}
 
     # Adding model and index file paths
-    info_dict['model_path'] = model_path
-    info_dict['index_path'] = index_file
+    info_dict["model_path"] = model_path
+    info_dict["index_path"] = index_file
 
     # Convert numpy dtypes to their corresponding primitives
-    info_dict = valmap(lambda v: v.item() if isinstance(v, np.generic) else v, info_dict)
+    info_dict = valmap(
+        lambda v: v.item() if isinstance(v, np.generic) else v, info_dict
+    )
 
     # Write metadata info file
-    with open(info_file, 'w') as f:
+    with open(info_file, "w") as f:
         yaml.safe_dump(info_dict, f)
 
-def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids, output_dir):
+
+def write_crowd_movies(
+    sorted_index, config_data, ordering, labels, label_uuids, output_dir
+):
     """
     Create crowd movies for each syllable.
 
@@ -112,67 +124,93 @@ def write_crowd_movies(sorted_index, config_data, ordering, labels, label_uuids,
     label_uuids (list): list of session uuids each series of labels belongs to.
     output_dir (str): path directory where all the movies are written.
     """
-    progress_bar = config_data.get('progress_bar', False)
+    progress_bar = config_data.get("progress_bar", False)
 
     # Filtering parameters
     clean_params = {
-        'gaussfilter_space': config_data['gaussfilter_space'],
-        'medfilter_space': config_data['medfilter_space']
+        "gaussfilter_space": config_data["gaussfilter_space"],
+        "medfilter_space": config_data["medfilter_space"],
     }
 
     # Set crowd movie filename format based on whether syllables were relabeled
-    if config_data.get('sort', True):
-        filename_format = 'syllable_sorted-id-{:02d}_({})_original-id-{:02d}.mp4'
+    if config_data.get("sort", True):
+        filename_format = "syllable_sorted-id-{:02d}_({})_original-id-{:02d}.mp4"
     else:
-        filename_format = 'syllable_{:02d}.mp4'
+        filename_format = "syllable_{:02d}.mp4"
 
     # Ensure all video metadata parameters are consistent
     vid_parameters = check_video_parameters(sorted_index)
-    if vid_parameters['resolution'] is not None:
-        config_data['raw_size'] = vid_parameters['resolution']
+    if vid_parameters["resolution"] is not None:
+        config_data["raw_size"] = vid_parameters["resolution"]
     # writing function
-    config_data['fps'] = vid_parameters['fps']
+    config_data["fps"] = vid_parameters["fps"]
 
     # Get frame slices from all included sessions for each syllable label
-    slice_fun = partial(get_syllable_slices,
-                        labels=labels,
-                        label_uuids=label_uuids,
-                        index=sorted_index)
-    
+    slice_fun = partial(
+        get_syllable_slices, labels=labels, label_uuids=label_uuids, index=sorted_index
+    )
+
     # create crowd movie matrix to put the examples in the same syllable into a movie
-    matrix_fun = partial(make_crowd_matrix,
-                            nexamples=config_data.get('max_examples', 20),
-                            max_dur=config_data.get('max_dur', 60),
-                            min_dur=config_data.get('min_dur', 0),
-                            min_height=config_data.get('min_height', 10),
-                            crop_size=vid_parameters.get('crop_size', (80, 80)),
-                            raw_size=config_data.get('raw_size', (512, 424)),
-                            select_median_duration_instances = config_data.get('select_median_duration_instances', False),
-                            scale=config_data.get('scale', 1),
-                            pad=config_data.get('pad', 30),
-                            frame_path=config_data.get('frame_path', 'frames'),
-                            legacy_jitter_fix=config_data.get('legacy_jitter_fix', False),
-                            seed=config_data.get('seed', 0),
-                            **clean_params)
-    
+    matrix_fun = partial(
+        make_crowd_matrix,
+        nexamples=config_data.get("max_examples", 20),
+        max_dur=config_data.get("max_dur", 60),
+        min_dur=config_data.get("min_dur", 0),
+        min_height=config_data.get("min_height", 10),
+        crop_size=vid_parameters.get("crop_size", (80, 80)),
+        raw_size=config_data.get("raw_size", (512, 424)),
+        select_median_duration_instances=config_data.get(
+            "select_median_duration_instances", False
+        ),
+        scale=config_data.get("scale", 1),
+        pad=config_data.get("pad", 30),
+        frame_path=config_data.get("frame_path", "frames"),
+        legacy_jitter_fix=config_data.get("legacy_jitter_fix", False),
+        seed=config_data.get("seed", 0),
+        **clean_params,
+    )
+
     # write the crowd movies
-    write_fun = partial(write_frames_preview, fps=vid_parameters['fps'], depth_min=config_data['min_height'],
-                        depth_max=config_data['max_height'], cmap=config_data['cmap'], progress_bar=progress_bar)
+    write_fun = partial(
+        write_frames_preview,
+        fps=vid_parameters["fps"],
+        depth_min=config_data["min_height"],
+        depth_max=config_data["max_height"],
+        cmap=config_data["cmap"],
+        progress_bar=progress_bar,
+    )
 
-    namer = partial(_fname_formatter, format=filename_format, output_dir=output_dir,
-                    ordering=ordering, count=config_data['count'])
+    namer = partial(
+        _fname_formatter,
+        format=filename_format,
+        output_dir=output_dir,
+        ordering=ordering,
+        count=config_data["count"],
+    )
 
-    make_matrix = partial(_matrix_writer_helper, matrix_fun=matrix_fun,
-                          slice_fun=slice_fun, write_fun=write_fun, namer=namer)
+    make_matrix = partial(
+        _matrix_writer_helper,
+        matrix_fun=matrix_fun,
+        slice_fun=slice_fun,
+        write_fun=write_fun,
+        namer=namer,
+    )
 
     # parallel process the crowd movies for all syllables
-    with mp.Pool(config_data.get('processes')) as pool:
+    with mp.Pool(config_data.get("processes")) as pool:
         # Compute crowd matrices
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            return list(tqdm(filter(lambda x: x is not None,
-                                    pool.imap(make_matrix, config_data['crowd_syllables'])),
-                             desc='Writing crowd movies', total=len(config_data['crowd_syllables'])))
+            warnings.simplefilter("ignore")
+            return list(
+                tqdm(
+                    filter(
+                        lambda x: x is not None,
+                        pool.imap(make_matrix, config_data["crowd_syllables"]),
+                    ),
+                    desc="Writing crowd movies",
+                    total=len(config_data["crowd_syllables"]),
+                )
+            )
 
 
 def _fname_formatter(syll, format, output_dir, ordering, count):
@@ -184,7 +222,7 @@ def _fname_formatter(syll, format, output_dir, ordering, count):
     format (str): format string for outputted file. E.g. "syllable_sorted-id-{:02d}_({})_original-id-{:02d}.mp4"
     output_dir (str): path to output directory containing the crowd movie.
     ordering (dict): dictionary that holds the original id of the syllable crowd movie (pre-reordering).
-    count (str): method to compute syllable mean usage, either 'usage' or 'frames'. 
+    count (str): method to compute syllable mean usage, either 'usage' or 'frames'.
 
     Returns:
     (str): path to syllable crowd movie.
@@ -212,12 +250,29 @@ def _matrix_writer_helper(syll, matrix_fun, slice_fun, write_fun, namer):
         return write_fun(namer(syll), mtx)
     return None
 
-def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
-                         fps=30, pixel_format='rgb24',
-                         codec='h264', slices=24, slicecrc=1,
-                         frame_size=None, depth_min=0, depth_max=80,
-                         get_cmd=False, cmap='jet', text=None, text_scale=1,
-                         text_thickness=2, pipe=None, close_pipe=True, progress_bar=True, **kwargs):
+
+def write_frames_preview(
+    filename,
+    frames=np.empty((0,)),
+    threads=6,
+    fps=30,
+    pixel_format="rgb24",
+    codec="h264",
+    slices=24,
+    slicecrc=1,
+    frame_size=None,
+    depth_min=0,
+    depth_max=80,
+    get_cmd=False,
+    cmap="jet",
+    text=None,
+    text_scale=1,
+    text_thickness=2,
+    pipe=None,
+    close_pipe=True,
+    progress_bar=True,
+    **kwargs,
+):
     """
     Writes out a false-colored mp4 video.
 
@@ -249,61 +304,84 @@ def write_frames_preview(filename, frames=np.empty((0,)), threads=6,
 
     # pad frames so that dimensions are divisible by 2
     if not np.mod(frames.shape[1], 2) == 0:
-        frames = np.pad(frames, ((0, 0), (0, 1), (0, 0)), 'constant', constant_values=0)
+        frames = np.pad(frames, ((0, 0), (0, 1), (0, 0)), "constant", constant_values=0)
 
     if not np.mod(frames.shape[2], 2) == 0:
-        frames = np.pad(frames, ((0, 0), (0, 0), (0, 1)), 'constant', constant_values=0)
+        frames = np.pad(frames, ((0, 0), (0, 0), (0, 1)), "constant", constant_values=0)
 
     # Get string frame dimensions
     if not frame_size and type(frames) is np.ndarray:
-        frame_size = f'{frames.shape[2]}x{frames.shape[1]}'
+        frame_size = f"{frames.shape[2]}x{frames.shape[1]}"
     elif not frame_size and type(frames) is tuple:
-        frame_size = f'{int(frames[0])}x{int(frames[1])}'
+        frame_size = f"{int(frames[0])}x{int(frames[1])}"
 
     # Set text metadata to write frame numbers
     font = cv2.FONT_HERSHEY_SIMPLEX
     white = (255, 255, 255)
     txt_pos = (5, frames.shape[-1] - 40)
 
-    command = ['ffmpeg',
-               '-y',
-               '-loglevel', 'fatal',
-               '-threads', str(threads),
-               '-framerate', str(fps),
-               '-f', 'rawvideo',
-               '-s', frame_size,
-               '-pix_fmt', pixel_format,
-               '-i', '-',
-               '-an',
-               '-vcodec', codec,
-               '-slices', str(slices),
-               '-slicecrc', str(slicecrc),
-               '-r', str(fps),
-               '-pix_fmt', 'yuv420p',
-               filename]
+    command = [
+        "ffmpeg",
+        "-y",
+        "-loglevel",
+        "fatal",
+        "-threads",
+        str(threads),
+        "-framerate",
+        str(fps),
+        "-f",
+        "rawvideo",
+        "-s",
+        frame_size,
+        "-pix_fmt",
+        pixel_format,
+        "-i",
+        "-",
+        "-an",
+        "-vcodec",
+        codec,
+        "-slices",
+        str(slices),
+        "-slicecrc",
+        str(slicecrc),
+        "-r",
+        str(fps),
+        "-pix_fmt",
+        "yuv420p",
+        filename,
+    ]
 
     if get_cmd:
         return command
 
     # Run ffmpeg command
     if not pipe:
-        pipe = subprocess.Popen(
-            command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        pipe = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
     # Get color map
     use_cmap = plt.get_cmap(cmap)
 
     # Write movie
-    for i in tqdm(range(frames.shape[0]), desc="Writing frames", disable=not progress_bar):
-        disp_img = frames[i, :].copy().astype('float32')
-        disp_img = (disp_img-depth_min)/(depth_max-depth_min)
+    for i in tqdm(
+        range(frames.shape[0]), desc="Writing frames", disable=not progress_bar
+    ):
+        disp_img = frames[i, :].copy().astype("float32")
+        disp_img = (disp_img - depth_min) / (depth_max - depth_min)
         disp_img[disp_img < 0] = 0
         disp_img[disp_img > 1] = 1
-        disp_img = np.delete(use_cmap(disp_img), 3, 2)*255
+        disp_img = np.delete(use_cmap(disp_img), 3, 2) * 255
         if text is not None:
-            disp_img = cv2.putText(disp_img, text, txt_pos, font,
-                                   text_scale, white, text_thickness, cv2.LINE_AA)
-        pipe.stdin.write(disp_img.astype('uint8').tostring())
+            disp_img = cv2.putText(
+                disp_img,
+                text,
+                txt_pos,
+                font,
+                text_scale,
+                white,
+                text_thickness,
+                cv2.LINE_AA,
+            )
+        pipe.stdin.write(disp_img.astype("uint8").tostring())
 
     if close_pipe:
         pipe.communicate()

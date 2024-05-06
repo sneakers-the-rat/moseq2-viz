@@ -589,3 +589,32 @@ def copy_h5_metadata_to_yaml_wrapper(input_dir):
         with open(new_file, "w+") as f:
             yaml.safe_dump(_dict, f)
         shutil.move(new_file, _yml)
+
+
+def make_df_wrapper(model_file, index_file, output_file: "Path", save_extension):
+    output_file = output_file.with_suffix(f".{save_extension}")
+    _, sorted_index = parse_index(index_file)
+
+    moseq_df = scalars_to_dataframe(sorted_index, model_path=model_file)
+
+    if save_extension == "csv":
+        moseq_df.to_csv(output_file)
+    elif save_extension == "parquet":
+        moseq_df.to_parquet(output_file, compression="brotli")
+    
+    # also compute averages across sessions
+    count = "usage"
+    syllable_key = "labels (usage sort)"
+    groupby = ["group", "uuid"]
+    usage_normalization = True
+
+    stats_df = compute_behavioral_statistics(
+        moseq_df, count=count, syllable_key=syllable_key,
+        usage_normalization=usage_normalization,
+        groupby=groupby
+    )
+
+    if save_extension == "csv":
+        stats_df.to_csv(output_file.with_name(output_file.stem + "_stats.csv"))
+    elif save_extension == "parquet":
+        stats_df.to_parquet(output_file.with_name(output_file.stem + "_stats.parquet"), compression="brotli")

@@ -8,10 +8,9 @@ import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 from itertools import starmap
-from multiprocessing import Pool
+from os.path import exists
 from collections import defaultdict
-from cytoolz import valmap, get, merge
-from os.path import join, exists, dirname
+from cytoolz import valmap, get, merge, keyfilter
 from moseq2_viz.model.util import get_transitions, prepare_model_dataframe
 from moseq2_viz.util import (h5_to_dict, strided_app, h5_filepath_from_sorted,
                              get_timestamps_from_h5, parse_index)
@@ -410,8 +409,10 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 
     has_model = False # indicator for whether users inputted a model_path to load syllable labels from
     model_uuids = None
+    model_type = ''
     if model_path is not None and exists(model_path):
         labels_df = prepare_model_dataframe(model_path, index['pca_path']).set_index('uuid')
+        model_type = labels_df['model_type'].unique()[0]
         has_model = True
         # loading the session uuids that the model was trained on
         model_uuids = labels_df.reset_index().uuid.unique()
@@ -452,39 +453,45 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
             'uuid': k,
             'h5_path': pth,
             'timestamps': timestamps,
-            'frame index': np.arange(len(timestamps))}, {
-                         key: v['metadata'][key] for key in include_keys if key in v['metadata'].keys()
-                     })
+            'frame index': np.arange(len(timestamps))},
+            keyfilter(lambda x: x in include_keys, v['metadata'])
+        )
 
         try:
             _tmp_df = pd.DataFrame(dset)
         except ValueError as e:
             print(f'Error in session with uuid: {k}')
-            print('Length of timestamps do not equal number of frames. Skipping this session.')
+            if len(dset['timestamps']) != len(dset['centroid_x_px']):
+                print('Length of timestamps do not equal number of frames. Skipping this session.')
             print(e)
             continue
 
-
         # make sure we have labels for this UUID before merging
         if has_model and k in labels_df.index:
-            if _tmp_df['group'].unique() != labels_df.loc[k, 'group'].unique():
-                warnings.warn('Group labels from index.yaml and model results do not match! Setting group labels '
-                              'to ones used in the model.')
-                _tmp_df = _tmp_df.drop(columns=['group'])
+            to_merge = labels_df.loc[k]
+            # only drop labels if model was a separate_trans model
+            if _tmp_df['group'].unique() !=  to_merge['group'].unique():
+                if 'SeparateTrans' in model_type:
+                    warnings.warn('Group labels from index.yaml and model results do not match! Setting group labels '
+                                  'to ones used in the model.')
+                    _tmp_df = _tmp_df.drop(columns=['group'])
+                else:
+                    print("Group name for UUID", k, "in the index.yaml file does not match the group name in the model file.")
+                    print("Overwriting group label with those from the index.yaml file.")
+                    to_merge = to_merge.drop(columns=['group'])
+            else:
+                to_merge = to_merge.drop(columns=['group'])
 
-            merge_on = ['frame index']
-            if 'group' in _tmp_df.columns:
-                merge_on += ['group']
-
-            _tmp_df = pd.merge(_tmp_df, labels_df.loc[k], on=merge_on, how='outer')
+            _tmp_df = pd.merge(to_merge, _tmp_df, on=['frame index'], how='outer')
             _tmp_df = _tmp_df.sort_values(by='syllable index').reset_index(drop=True)
 
             # filter included keys to only those that exist in the dataset dataframe
-            include_keys = [ik for ik in include_keys if ik in _tmp_df.columns]
+            metadata_keys = list(filter(lambda x: x in _tmp_df.columns, include_keys)) + ['uuid', 'h5_path', 'group']
+            # remove duplicates
+            metadata_keys = list(set(metadata_keys))
 
             # fill any NaNs for metadata columns
-            _tmp_df[include_keys + ['uuid', 'h5_path', 'group']] = _tmp_df[
-                include_keys + ['uuid', 'h5_path', 'group']].ffill().bfill()
+            _tmp_df[metadata_keys] = _tmp_df[metadata_keys].ffill().bfill()
             # interpolate NaN timestamp values
             _tmp_df['timestamps'] = _tmp_df['timestamps'].interpolate()
 
@@ -493,7 +500,6 @@ def scalars_to_dataframe(index: dict, include_keys: list = ['SessionName', 'Subj
 
     # return scalar_dict
     scalar_df = pd.concat(dfs, ignore_index=True)
-
     return scalar_df
 
 

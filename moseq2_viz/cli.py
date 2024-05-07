@@ -4,6 +4,7 @@ CLI for visualizing the results.
 
 import os
 import click
+from pathlib import Path
 from moseq2_viz.helpers.wrappers import (
     add_group_wrapper,
     plot_syllable_stat_wrapper,
@@ -14,6 +15,7 @@ from moseq2_viz.helpers.wrappers import (
     plot_verbose_pdfs_wrapper,
     plot_mean_group_position_pdf_wrapper,
     get_best_fit_model_wrapper,
+    make_df_wrapper,
 )
 
 orig_init = click.core.Option.__init__
@@ -109,6 +111,29 @@ def get_best_fit_model(model_dir, cp_path, output_file, plot_all, ext, fps, obje
 )
 def copy_h5_metadata_to_yaml(input_dir):
     copy_h5_metadata_to_yaml_wrapper(input_dir)
+
+
+@cli.command(
+    name="make-df",
+    help="Make a dataframe containing syllable and scalar information from an index and model fit file",
+)
+@click.argument("model-fit", type=click.Path(exists=True, resolve_path=True))
+@click.argument("index-file", type=click.Path(exists=True, resolve_path=True))
+@click.option(
+    "--output-file",
+    type=click.Path(),
+    default=Path.cwd() / "moseq_df",
+    help="Filename to store dataframe",
+)
+@click.option(
+    "--extension", default="csv", type=click.Choice(["csv", "parquet"]),
+    help="File extension to save dataframe",
+)
+def make_df(model_fit, index_file, output_file, extension):
+    if isinstance(output_file, (str, click.Path)):
+        output_file = Path(output_file)
+    make_df_wrapper(model_fit, index_file, output_file, extension)
+    print(f"Dataframe successfully generated at:\n    {output_file.with_suffix('.' + extension)}")
 
 
 @cli.command(

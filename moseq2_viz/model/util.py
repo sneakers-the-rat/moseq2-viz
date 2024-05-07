@@ -878,7 +878,9 @@ def prepare_model_dataframe(model_path, pca_path):
         'onset': compute_syllable_onset(v),
         'frame index': scores_idx[k],
         'syllable index': np.arange(len(v)),
-        'group': mdl['metadata']['groups'][k]
+        'group': mdl['metadata']['groups'][k],
+        'kappa': mdl['model_parameters']['kappa'],
+        'model_type': mdl['model_parameters']['model_class'],
     }) for k, v in labels.items()), ignore_index=True)
 
     return _df

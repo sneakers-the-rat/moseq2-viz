@@ -122,18 +122,17 @@ def copy_h5_metadata_to_yaml(input_dir):
 @click.option(
     "--output-file",
     type=click.Path(),
-    default=Path.cwd() / "moseq_df",
+    default=Path.cwd() / "moseq_df.csv",
     help="Filename to store dataframe",
 )
-@click.option(
-    "--extension", default="csv", type=click.Choice(["csv", "parquet"]),
-    help="File extension to save dataframe",
-)
-def make_df(model_fit, index_file, output_file, extension):
+def make_df(model_fit, index_file, output_file):
     if isinstance(output_file, (str, click.Path)):
         output_file = Path(output_file)
+    extension = output_file.suffix[1:]
+    if extension not in ["csv", "parquet"]:
+        raise ValueError(f"Extension {extension} is not supported. Please use .csv or .parquet.")
     make_df_wrapper(model_fit, index_file, output_file, extension)
-    print(f"Dataframe successfully generated at:\n    {output_file.with_suffix('.' + extension)}")
+    print(f"Dataframe successfully generated at:\n    {output_file}")
 
 
 @cli.command(
